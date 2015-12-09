@@ -34,7 +34,7 @@
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOKitKeys.h>
 
-#include <vm/vm_kern.h>
+#include <sys/random.h>
 
 // <rdar://8518215>
 enum
@@ -402,7 +402,10 @@ bool IOAudioEngineUserClient::initWithAudioEngine(IOAudioEngine *engine, task_t 
 							reserved->classicMode = 0;
 							reserved->commandGateStatus = kCommandGateStatus_Normal;	// <rdar://8518215>
 							reserved->commandGateUsage = 0;								// <rdar://8518215>
-
+							
+							read_random(&reserved->connectionID, sizeof(reserved->connectionID)); // <rdar://22327973>
+							audioDebugIOLog(3, "  ConnectionID:0x%x\n", reserved->connectionID);
+                            
 							workLoop->addEventSource(commandGate);
 							
 							reserved->methods[kIOAudioEngineCallRegisterClientBuffer].object = this;
@@ -493,7 +496,7 @@ IOReturn IOAudioEngineUserClient::safeRegisterClientBuffer64(UInt32 audioStreamI
 	
 	audioStream = audioEngine->getStreamForID(audioStreamIndex);
 	if (!audioStream) {
-		audioDebugIOLog(3, "  no stream associated with audioStreamIndex 0x%lx \n", (long unsigned int)audioStreamIndex); 
+		audioDebugIOLog(3, "  no stream associated with audioStreamIndex 0x%lx \n", (long unsigned int)audioStreamIndex);
 	}
 	else
 	{
@@ -776,7 +779,10 @@ bool IOAudioEngineUserClient::initWithAudioEngine(IOAudioEngine *engine, task_t 
 							reserved->classicMode = 0;
 							reserved->commandGateStatus = kCommandGateStatus_Normal;	// <rdar://8518215>
 							reserved->commandGateUsage = 0;								// <rdar://8518215>
-
+							
+							read_random(&reserved->connectionID, sizeof(reserved->connectionID)); // <rdar://22327973>
+							audioDebugIOLog(3, "  ConnectionID:0x%x\n", reserved->connectionID);
+                            
 							workLoop->addEventSource(commandGate);
 							
 							reserved->methods[kIOAudioEngineCallRegisterClientBuffer].object = this;
@@ -2450,13 +2456,12 @@ void IOAudioEngineUserClient::performWatchdogOutput(IOAudioClientBufferSet *clie
 
 IOReturn IOAudioEngineUserClient::getConnectionID(UInt32 *connectionID)
 {
-    audioDebugIOLog(3, "+-IOAudioEngineUserClient[%p]::getConnectionID(%p)\n", this, connectionID);
+	audioDebugIOLog(3, "+ IOAudioEngineUserClient[%p]::getConnectionID(%p)\n", this, connectionID);
 
-    vm_offset_t add;
-    vm_kernel_unslide_or_perm_external((vm_offset_t)this, &add);
-    *connectionID = (UInt32) (((UInt64) (add >> 8)) & 0x00000000FFFFFFFFLLU) ;
-
-    return kIOReturnSuccess;
+	*connectionID = reserved->connectionID;
+	audioDebugIOLog(3, "- IOAudioEngineUserClient[%p]::getConnectionID(%p) ConnectionID:0x%x\n", this, connectionID, *connectionID);
+    
+	return kIOReturnSuccess;
 }
 
 IOReturn IOAudioEngineUserClient::clientStart()

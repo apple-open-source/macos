@@ -222,8 +222,8 @@ void ReadIPPacket(struct IPPacket *p,
   uint16 tcp_hl;
 
   /* XXX do checksum check? */
-  if (ip->ip_p != IPPROTOCOL_TCP) {
-    printf("Error: not a TCP packet\n");
+  if (ip->ip_p != IPPROTOCOL_TCP && ip->ip_p != IPPROTOCOL_ICMP) {
+    printf("Unexpected protocol packet: %u\n", ip->ip_p);
     Quit(ERR_CHECKSUM);
   }
 
@@ -426,15 +426,15 @@ struct IPPacket *FindHeaderBoundaries(char *p) {
 
   packet->ip = (struct IpHeader *)p;
 
-  if (packet->ip->ip_p != IPPROTOCOL_TCP) {
-    printf("Error: not a TCP packet\n");
+  if (packet->ip->ip_p != IPPROTOCOL_TCP &&
+    packet->ip->ip_p != IPPROTOCOL_ICMP) {
+    printf("Error: Unexpected protocol packet: %u \n",  packet->ip->ip_p);
     Quit(ERR_CHECKSUM);
   }
 
   ip_hl = (packet->ip->ip_vhl & 0x0f) << 2;
 
   packet->tcp = (struct TcpHeader *)((char *)p + ip_hl);
-
   return packet;
 
 }

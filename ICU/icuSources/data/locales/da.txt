@@ -340,7 +340,7 @@ da{
                 Timezone{"{0} {1}"}
             }
             availableFormats{
-                E{"ccc"}
+                E{"E"}
                 EHm{"E HH.mm"}
                 EHms{"E HH.mm.ss"}
                 Ed{"E d."}

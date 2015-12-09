@@ -742,12 +742,13 @@ fts_build(sp, type)
 	 * If not changing directories set a pointer so that can just append
 	 * each new name into the path.
 	 */
-	maxlen = sp->fts_pathlen - cur->fts_pathlen - 1;
 	len = NAPPEND(cur);
 	if (ISSET(FTS_NOCHDIR)) {
 		cp = sp->fts_path + len;
 		*cp++ = '/';
 	}
+	len++;
+	maxlen = sp->fts_pathlen - len;
 
 	level = cur->fts_level + 1;
 
@@ -759,7 +760,7 @@ fts_build(sp, type)
 
 		if ((p = fts_alloc(sp, dp->d_name, (int)dp->d_namlen)) == NULL)
 			goto mem1;
-		if (dp->d_namlen > maxlen) {
+		if (dp->d_namlen >= maxlen) {	/* include space for NUL */
 			if (fts_palloc(sp, (size_t)dp->d_namlen)) {
 				/*
 				 * No more memory for path or structures.  Save
@@ -771,18 +772,18 @@ mem1:				saved_errno = errno;
 					free(p);
 				fts_lfree(head);
 				(void)closedir(dirp);
-				errno = saved_errno;
 				cur->fts_info = FTS_ERR;
 				SET(FTS_STOP);
+				errno = saved_errno;
 				return (NULL);
 			}
 			adjaddr = sp->fts_path;
 			maxlen = sp->fts_pathlen - sp->fts_cur->fts_pathlen - 1;
 		}
 
-		p->fts_pathlen = len + dp->d_namlen + 1;
-		p->fts_parent = sp->fts_cur;
 		p->fts_level = level;
+		p->fts_parent = sp->fts_cur;
+		p->fts_pathlen = len + dp->d_namlen;
 
 #ifdef FTS_WHITEOUT
 		if (dp->d_type == DT_WHT)
@@ -1123,17 +1124,17 @@ fts_palloc(sp, more)
  * already returned.
  */
 static void
-fts_padjust(sp, addr)
-	FTS *sp;
-	void *addr;
+fts_padjust(FTS *sp, void *addr)
 {
 	FTSENT *p;
 
-#define	ADJUST(p) {							\
-	(p)->fts_accpath =						\
-	    (char *)addr + ((p)->fts_accpath - (p)->fts_path);		\
+#define	ADJUST(p) do {							\
+	if ((p)->fts_accpath != (p)->fts_name) {			\
+		(p)->fts_accpath =					\
+		    (char *)addr + ((p)->fts_accpath - (p)->fts_path);	\
+	}								\
 	(p)->fts_path = addr;						\
-}
+} while (0)
 	/* Adjust the current set of children. */
 	for (p = sp->fts_child; p; p = p->fts_link)
 		ADJUST(p);
@@ -1154,5 +1155,5 @@ fts_maxarglen(argv)
 	for (max = 0; *argv; ++argv)
 		if ((len = strlen(*argv)) > max)
 			max = len;
-	return (max);
+	return (max + 1);
 }

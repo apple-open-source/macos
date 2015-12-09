@@ -62,27 +62,7 @@ SOSTransportMessageIDSRef SOSTransportMessageIDSCreate(SOSAccountRef account, CF
         
         // Initialize ourselves
         
-        CFStringRef deviceID = SOSPeerInfoCopyDeviceID(SOSFullPeerInfoGetPeerInfo(account->my_identity));
-        if(deviceID == NULL || CFStringGetLength(deviceID) == 0){
-            
-            __block bool success = true;
-            __block CFErrorRef localError = NULL;
-            SOSCloudKeychainGetIDSDeviceID(^(CFDictionaryRef returnedValues, CFErrorRef sync_error){
-                success = (sync_error == NULL);
-                if (!success) {
-                    CFRetainAssign(localError, sync_error);
-                }
-            });
-            
-            if(!success && localError != NULL && error != NULL){
-                secerror("Could not ask IDSKeychainSyncingProxy for Device ID: %@", localError);
-                *error = localError;
-            }
-            else{
-                secdebug("IDS Transport", "Attempting to retrieve the IDS Device ID");
-            }
-        }
-        CFReleaseNull(deviceID);
+        SOSTransportMessageIDSGetIDSDeviceID(account);
         SOSRegisterTransportMessage((SOSTransportMessageRef)ids);
     }
     
@@ -281,4 +261,21 @@ static bool flushChanges(SOSTransportMessageRef transport, CFErrorRef *error)
 static bool cleanupAfterPeer(SOSTransportMessageRef transport, CFDictionaryRef circle_to_peer_ids, CFErrorRef *error)
 {
     return true;
+}
+
+void SOSTransportMessageIDSGetIDSDeviceID(SOSAccountRef account){
+    
+    CFStringRef deviceID = SOSPeerInfoCopyDeviceID(SOSFullPeerInfoGetPeerInfo(account->my_identity));
+    if( deviceID == NULL || CFStringGetLength(deviceID) == 0){
+        SOSCloudKeychainGetIDSDeviceID(^(CFDictionaryRef returnedValues, CFErrorRef sync_error){
+            bool success = (sync_error == NULL);
+            if (!success) {
+                secerror("Could not ask IDSKeychainSyncingProxy for Device ID: %@", sync_error);
+            }
+            else{
+                secdebug("IDS Transport", "Successfully attempting to retrieve the IDS Device ID");
+            }
+        });
+    }
+    CFReleaseNull(deviceID);
 }

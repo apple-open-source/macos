@@ -224,6 +224,7 @@
 		438169E31B4EDEE200C54D58 /* SOSCCAuthPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = 438169E21B4EDEE200C54D58 /* SOSCCAuthPlugin.m */; };
 		438169E41B4EE13B00C54D58 /* Accounts.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CF4C19C171E0EA600877419 /* Accounts.framework */; };
 		438169E51B4EE14D00C54D58 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C32C0AF0A4975F6002891BD /* Security.framework */; };
+		43DB54551BB1F8920083C3F1 /* ProtectedCloudStorage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 43DB542E1BB1F85B0083C3F1 /* ProtectedCloudStorage.framework */; };
 		4432AF8B1A014664000958DC /* libcoreauthd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4432AF6A1A01458F000958DC /* libcoreauthd_client.a */; };
 		4432AF8D1A01472C000958DC /* libaks_acl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4432AF8C1A01472C000958DC /* libaks_acl.a */; };
 		4432B0B71A014987000958DC /* libaks_acl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4432AF8C1A01472C000958DC /* libaks_acl.a */; };
@@ -1510,6 +1511,7 @@
 		EB5D73101B0CB09E009CAA47 /* SOSTypes.h in Old SOS header location */ = {isa = PBXBuildFile; fileRef = 52F8DE4D1AF2EB8F00A2C271 /* SOSTypes.h */; };
 		EB5D73111B0CB0BE009CAA47 /* SOSPeerInfo.h in Old SOS header location */ = {isa = PBXBuildFile; fileRef = E7450BAD16D42B17009C07B8 /* SOSPeerInfo.h */; };
 		EBD8495B1B24BEA000C5FD1E /* print_cert.c in Sources */ = {isa = PBXBuildFile; fileRef = EBD8495A1B24BEA000C5FD1E /* print_cert.c */; };
+		EBE54D761BE32F6F000C4856 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B368BD179891FC004C37CE /* AggregateDictionary.framework */; };
 		F93C493B1AB8FF530047E01A /* ckcdiagnose.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = F93C493A1AB8FF530047E01A /* ckcdiagnose.sh */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -3924,6 +3926,7 @@
 		4381690F1B4EDCBD00C54D58 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		438169E11B4EDEE200C54D58 /* SOSCCAuthPlugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSCCAuthPlugin.h; sourceTree = "<group>"; };
 		438169E21B4EDEE200C54D58 /* SOSCCAuthPlugin.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SOSCCAuthPlugin.m; sourceTree = "<group>"; };
+		43DB542E1BB1F85B0083C3F1 /* ProtectedCloudStorage.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ProtectedCloudStorage.framework; path = System/Library/PrivateFrameworks/ProtectedCloudStorage.framework; sourceTree = SDKROOT; };
 		4432AF6A1A01458F000958DC /* libcoreauthd_client.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; name = libcoreauthd_client.a; path = usr/local/lib/libcoreauthd_client.a; sourceTree = SDKROOT; };
 		4432AF8C1A01472C000958DC /* libaks_acl.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; name = libaks_acl.a; path = usr/local/lib/libaks_acl.a; sourceTree = SDKROOT; };
 		443381D918A3D81400215606 /* SecAccessControl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecAccessControl.h; sourceTree = "<group>"; };
@@ -4650,6 +4653,7 @@
 		E7FCBE451314471B000DE34E /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		E7FEFB80169E26E200E18152 /* sub_commands.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sub_commands.h; sourceTree = "<group>"; };
 		EBD8495A1B24BEA000C5FD1E /* print_cert.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = print_cert.c; path = OSX/sec/SecurityTool/print_cert.c; sourceTree = SOURCE_ROOT; };
+		EBE54D771BE33227000C4856 /* libmis.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmis.dylib; path = usr/lib/libmis.dylib; sourceTree = SDKROOT; };
 		F93C493A1AB8FF530047E01A /* ckcdiagnose.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = ckcdiagnose.sh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -4719,6 +4723,7 @@
 				4C8A38C917B93DF10001B4C0 /* CloudServices.framework in Frameworks */,
 				4C7913251799A5CC00A9633E /* MobileCoreServices.framework in Frameworks */,
 				4381603B1B4DCEFF00C54D58 /* AggregateDictionary.framework in Frameworks */,
+				43DB54551BB1F8920083C3F1 /* ProtectedCloudStorage.framework in Frameworks */,
 				4C3DD6BD179760280093F9D8 /* libMobileGestalt.dylib in Frameworks */,
 				533B5D4F177CD63100995334 /* SpringBoardServices.framework in Frameworks */,
 				7200D76F177B9999009BB396 /* ManagedConfiguration.framework in Frameworks */,
@@ -4902,6 +4907,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EBE54D761BE32F6F000C4856 /* AggregateDictionary.framework in Frameworks */,
 				438168941B4ED42300C54D58 /* CoreFoundation.framework in Frameworks */,
 				E7D690A21652E0870079537A /* libMobileGestalt.dylib in Frameworks */,
 				18F7F67214D77ED000F88A12 /* libsecurityd.a in Frameworks */,
@@ -6368,6 +6374,7 @@
 		E7FCBE401314471B000DE34E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				EBE54D771BE33227000C4856 /* libmis.dylib */,
 				4CF4C19C171E0EA600877419 /* Accounts.framework */,
 				72B368BD179891FC004C37CE /* AggregateDictionary.framework */,
 				4C84DA541720698900AEE225 /* AppleAccount.framework */,
@@ -6385,6 +6392,7 @@
 				4C7913241799A5CB00A9633E /* MobileCoreServices.framework */,
 				E7FC30AB1332DE9000802946 /* MobileKeyBag.framework */,
 				5E1D7E0319A5EBB700D322DA /* Preferences.framework */,
+				43DB542E1BB1F85B0083C3F1 /* ProtectedCloudStorage.framework */,
 				52D82BD316A5EADA0078DFE5 /* Security.framework */,
 				4C079EBC1794A96200D73970 /* ServiceManagement.framework */,
 				52222CC0167BDAE100EDD09C /* SpringBoardServices.framework */,
@@ -9612,6 +9620,7 @@
 					MobileKeyBag,
 					"-laks",
 					"-lACM",
+					"-lmis",
 				);
 				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = "$(OTHER_LDFLAGS)";
 				PRODUCT_NAME = securityd;
@@ -9636,6 +9645,7 @@
 					MobileKeyBag,
 					"-laks",
 					"-lACM",
+					"-lmis",
 				);
 				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = "$(OTHER_LDFLAGS)";
 				PRODUCT_NAME = securityd;

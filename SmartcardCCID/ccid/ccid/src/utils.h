@@ -18,7 +18,7 @@
 */
 
 /*
- * $Id: utils.h 4973 2010-06-01 09:43:29Z rousseau $
+ * $Id$
  */
 
 #ifndef TRUE

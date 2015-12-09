@@ -283,7 +283,7 @@ nss_cms_before_data(SecCmsDecoderRef p7dcx)
 	goto loser;
 
     /* start the child decoder */
-    childp7dcx->dcx = SEC_ASN1DecoderStart(poolp, childp7dcx->content.pointer, template, NULL);
+    childp7dcx->dcx = SEC_ASN1DecoderStart(poolp, childp7dcx->content.pointer, template, NULL, 0);
     if (childp7dcx->dcx == NULL)
 	goto loser;
 
@@ -610,7 +610,7 @@ SecCmsDecoderCreate(SecCmsContentCallback cb, void *cb_arg,
 	goto loser;
     }
 
-    p7dcx->dcx = SEC_ASN1DecoderStart(cmsg->poolp, cmsg, SecCmsMessageTemplate, NULL);
+    p7dcx->dcx = SEC_ASN1DecoderStart(cmsg->poolp, cmsg, SecCmsMessageTemplate, NULL, 0);
     if (p7dcx->dcx == NULL) {
 	PORT_Free (p7dcx);
 	SecCmsMessageDestroy(cmsg);

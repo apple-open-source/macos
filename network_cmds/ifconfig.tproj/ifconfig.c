@@ -982,6 +982,33 @@ setexpensive(const char *vname, int value, int s, const struct afswtch *afp)
 }
 
 
+void
+setecnmode(const char *val, int dummy __unused, int s,
+    const struct afswtch *afp)
+{
+	char *cp;
+
+	if (strcmp(val, "default") == 0)
+		ifr.ifr_ifru.ifru_ecn_mode = IFRTYPE_ECN_DEFAULT;
+	else if (strcmp(val, "enable") == 0)
+		ifr.ifr_ifru.ifru_ecn_mode = IFRTYPE_ECN_ENABLE;
+	else if (strcmp(val, "disable") == 0)
+		ifr.ifr_ifru.ifru_ecn_mode = IFRTYPE_ECN_DISABLE;
+	else {
+		ifr.ifr_ifru.ifru_ecn_mode = strtold(val, &cp);
+		if (val == cp || errno != 0) {
+			warn("Invalid ECN mode value '%s'", val);
+			return;
+		}
+	}
+	
+	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	
+	if (ioctl(s, SIOCSECNMODE, (caddr_t)&ifr) < 0)
+		Perror("ioctl(SIOCSECNMODE)");
+}
+
+
 #define	IFFBITS \
 "\020\1UP\2BROADCAST\3DEBUG\4LOOPBACK\5POINTOPOINT\6SMART\7RUNNING" \
 "\10NOARP\11PROMISC\12ALLMULTI\13OACTIVE\14SIMPLEX\15LINK0\16LINK1\17LINK2" \
@@ -991,7 +1018,7 @@ setexpensive(const char *vname, int value, int s, const struct afswtch *afp)
 "\020\1AUTOCONFIGURING\6IPV6_DISABLED\7ACCEPT_RTADV\10TXSTART\11RXPOLL" \
 "\12VLAN\13BOND\14ARPLL\15NOWINDOWSCALE\16NOAUTOIPV6LL\17EXPENSIVE\20ROUTER4" \
 "\21ROUTER6\22LOCALNET_PRIVATE\23ND6ALT\24RESTRICTED_RECV\25AWDL\26NOACKPRI" \
-"\27AWDL_RESTRICTED\30CL2K\35SENDLIST\36DIRECTLINK\40UPDOWNCHANGE"
+"\27AWDL_RESTRICTED\30CL2K\31ECN_ENABLE\32ECN_DISABLE\35SENDLIST\36DIRECTLINK\40UPDOWNCHANGE"
 
 #define	IFCAPBITS \
 "\020\1RXCSUM\2TXCSUM\3VLAN_MTU\4VLAN_HWTAGGING\5JUMBO_MTU" \
@@ -1688,6 +1715,7 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD("-cl2k",	0,		setcl2k),
 	DEF_CMD("expensive",	1,		setexpensive),
 	DEF_CMD("-expensive",	0,		setexpensive),
+	DEF_CMD_ARG("ecn",			setecnmode),
 };
 
 static __constructor void

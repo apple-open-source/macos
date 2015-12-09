@@ -52,8 +52,8 @@ typedef enum {
 /* The HMAC algorithms we support */
 typedef enum {
     HA_Null = 0,		// i.e., uninitialized
-    HA_SHA1,
     HA_MD5,
+    HA_SHA1,
     HA_SHA256,
     HA_SHA384,
 } HMAC_Algs;

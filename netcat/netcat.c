@@ -125,6 +125,8 @@ int	uuid_flag;				/* delegated uuid */
 uuid_t	uuid;					/* value of delegated uuid */
 int	extbkidle_flag;				/* extended background idle mode */
 int	nowakefromsleep_flag;			/* extended background idle mode */
+int	ecn_mode_flag;				/* ECN mode option */
+int	ecn_mode;				/* ECN mode via TCP_ECN_MODE */
 #endif /* __APPLE__ */
 
 int srcroute = 0;				/* Source routing IPv4/IPv6 options */
@@ -212,6 +214,7 @@ const struct option long_options[] =
 	{ "apple-resvd-21",	no_argument,		NULL,	'z' },
 	{ "apple-ext-bk-idle",	no_argument,		&extbkidle_flag,1 },
 	{ "apple-nowakefromsleep",	no_argument,	&nowakefromsleep_flag,1 },
+	{ "apple-ecn",		required_argument,	&ecn_mode_flag,1 },
 	{ NULL,			0,			NULL,	0 }
 };
 
@@ -422,6 +425,20 @@ main(int argc, char *argv[])
 			if (uuid_flag) {
 				if (uuid_parse(optarg, uuid))
 					errx(1, "invalid uuid value");
+			}
+			if (ecn_mode_flag) {
+				if (strcmp(optarg, "default") == 0)
+					ecn_mode = ECN_MODE_DEFAULT;
+				else if (strcmp(optarg, "enable") == 0)
+					ecn_mode = ECN_MODE_ENABLE;
+				else if (strcmp(optarg, "disable") == 0)
+					ecn_mode = ECN_MODE_DISABLE;
+				else {
+					ecn_mode = (int)strtol(optarg, &endp, 0);
+					if (ecn_mode == (int)LONG_MAX || *endp != '\0')
+						errx(1, "invalid ECN mode value");
+				}
+
 			}
 #endif /* __APPLE__ */
 			break;
@@ -1329,6 +1346,11 @@ set_common_sockopts(int s)
 			       &nowakefromsleep_flag, sizeof(int)) == -1)
 			err(1, "SO_NOWAKEFROMSLEEP");
 	}
+	if (ecn_mode_flag) {
+		if (setsockopt(s, IPPROTO_TCP, TCP_ECN_MODE,
+			       &ecn_mode, sizeof(int)) == -1)
+			err(1, "TCP_ECN_MODE");
+	}
 #endif /* __APPLE__ */
 }
 
@@ -1407,7 +1429,7 @@ help(void)
 	"	\t--apple-delegate-pid pid\tSet socket as delegate using pid\n",
 	"	\t--apple-delegate-uuid uuid\tSet socket as delegate using uuid\n"
 	"	\t--apple-ext-bk-idle\tExtended background idle time\n"
-	"	\t--apple-nowakefromsleep\tExclude from list of open ports to drivers\n"
+	"	\t--apple-ecn\tSet the ECN mode\n"
 #endif /* !__APPLE__ */
 	);
 	exit(1);

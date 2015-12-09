@@ -22,6 +22,8 @@
 		18F4809D174976DA009724DB /* KeyStoreEvents.c in Sources */ = {isa = PBXBuildFile; fileRef = 18F4809C174976D2009724DB /* KeyStoreEvents.c */; };
 		18F4809E1749774F009724DB /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 189D4648166C11A6001D8533 /* IOKit.framework */; };
 		18F480A217498ADD009724DB /* AppleKeyStoreEvents.h in Headers */ = {isa = PBXBuildFile; fileRef = 18F4809F17498963009724DB /* AppleKeyStoreEvents.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		220C5DBA1BD189EC000946A0 /* libsecuritydservice_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1843240E1714797D00196B52 /* libsecuritydservice_client.a */; };
+		220C5DC91BD19874000946A0 /* securityd_service_client.h in Headers */ = {isa = PBXBuildFile; fileRef = 18CD2B731714D4B300633846 /* securityd_service_client.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		80C312B6169BA50700DA5DC6 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 189D4643166BFDCE001D8533 /* Security.framework */; };
 /* End PBXBuildFile section */
 
@@ -97,6 +99,7 @@
 		18F4809217497521009724DB /* KeyStore-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "KeyStore-Info.plist"; sourceTree = "<group>"; };
 		18F4809C174976D2009724DB /* KeyStoreEvents.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = KeyStoreEvents.c; sourceTree = "<group>"; };
 		18F4809F17498963009724DB /* AppleKeyStoreEvents.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppleKeyStoreEvents.h; sourceTree = "<group>"; };
+		220C5DCA1BD1A1B8000946A0 /* securitydservicectrl.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = securitydservicectrl.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -125,6 +128,7 @@
 			files = (
 				80C312B6169BA50700DA5DC6 /* Security.framework in Frameworks */,
 				189D4668166C19CF001D8533 /* CoreFoundation.framework in Frameworks */,
+				220C5DBA1BD189EC000946A0 /* libsecuritydservice_client.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -192,6 +196,7 @@
 			isa = PBXGroup;
 			children = (
 				189D465D166C15C1001D8533 /* main.c */,
+				220C5DCA1BD1A1B8000946A0 /* securitydservicectrl.entitlements */,
 			);
 			path = securitydservicectrl;
 			sourceTree = "<group>";
@@ -230,6 +235,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				220C5DC91BD19874000946A0 /* securityd_service_client.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -421,6 +427,7 @@
 					"$(inherited)",
 				);
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				INSTALL_PATH = /usr/local/lib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -439,6 +446,7 @@
 				EXECUTABLE_PREFIX = lib;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				INSTALL_PATH = /usr/local/lib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -473,6 +481,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx.internal;
 			};
 			name = Debug;
 		};
@@ -501,6 +510,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};
@@ -525,6 +535,7 @@
 		189D4662166C15C1001D8533 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = securitydservicectrl/securitydservicectrl.entitlements;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -532,6 +543,7 @@
 		189D4663166C15C1001D8533 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = securitydservicectrl/securitydservicectrl.entitlements;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

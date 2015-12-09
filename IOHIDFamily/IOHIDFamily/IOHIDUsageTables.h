@@ -1090,7 +1090,8 @@ enum
     kHIDUsage_Csmr_ACSplit  = 0x29A,    /* Selector */
     kHIDUsage_Csmr_ACDistributeH    = 0x29B,    /* Selector */
     kHIDUsage_Csmr_ACDistributeV    = 0x29C,    /* Selector */
-    /* 0x29D - 0xFFFF Reserved */
+    kHIDUsage_Csmr_ACKeyboardLayoutSelect   = 0x29D,    /* One-Shot Control */
+    /* 0x29E - 0xFFFF Reserved */
     kHIDUsage_Csmr_Reserved = 0xFFFF
 };
 

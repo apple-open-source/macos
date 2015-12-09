@@ -500,8 +500,8 @@ cs{
         }
         gregorian{
             AmPmMarkers{
-                "dopoledne",
-                "odpoledne",
+                "dop.",
+                "odp.",
             }
             AmPmMarkersAbbr{
                 "dop.",

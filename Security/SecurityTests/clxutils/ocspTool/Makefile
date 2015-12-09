@@ -29,7 +29,7 @@ OTHER_TO_CLEAN=
 #
 # non-standard frameworks (e.g., -framework foo)
 #
-PROJ_FRAMEWORKS= -framework CoreFoundation -framework CoreServices
+PROJ_FRAMEWORKS= -framework CoreFoundation -framework CoreServices -framework IOKit
 #
 # project-specific includes, with leading -I
 #

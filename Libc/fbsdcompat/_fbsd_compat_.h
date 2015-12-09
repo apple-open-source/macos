@@ -122,6 +122,7 @@
 #define		_recvfrom			recvfrom
 #define		_recvmsg			recvmsg
 #define		_select				select
+#define		_pselect			pselect
 #define		_sendmsg			sendmsg
 #define		_sendto				sendto
 #define		_setsockopt			setsockopt
@@ -159,7 +160,6 @@
 #define		__makecontext			makecontext
 #define		__makecontext			makecontext
 #define		__pause				pause
-#define		__pselect			pselect
 #define		__raise				raise
 #define		__signalcontext			signalcontext
 #define		__sleep				sleep

@@ -141,6 +141,21 @@ int main(int argc, char *argv[]) {
 		}
 		mach_port_deallocate(mach_task_self(), pset_priv);
         
+        /* swap my current instances port to be last to collect all threads and exception port info */
+        int myTaskPosition = -1;
+        for (int i = 0; i < taskCount; i++) {
+            if (tasks[i] == mach_task_self()){
+                myTaskPosition = i;
+                break;
+            }
+        }
+        if (myTaskPosition >= 0) {
+            mach_port_t swap_holder = MACH_PORT_NULL;
+            swap_holder = tasks[taskCount - 1];
+            tasks[taskCount - 1] = tasks[myTaskPosition];
+            tasks[myTaskPosition] = swap_holder;
+        }
+
 	}
 	else
 	{

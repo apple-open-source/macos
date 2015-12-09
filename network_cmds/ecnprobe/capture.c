@@ -136,8 +136,8 @@ void CaptureInit(u_int32_t sourceIP, u_int16_t sourcePort,
 
   /* Setup initial filter */
   sprintf(filtercmds,
-	  "host %s and host %s and port %d\n",
-	  source, target, targetPort);
+    "(host %s && host %s && port %d) || icmp\n",
+    source, target, targetPort);
 
   if (captureDebug) {
     printf("datalinkOffset = %d\n", datalinkOffset);

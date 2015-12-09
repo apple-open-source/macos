@@ -319,14 +319,6 @@ SSLHandshake(SSLContext *ctx)
     if (ctx->state == SSL_HdskStateErrorClose)
         return errSSLClosedAbort;
 
-    if(ctx->validCipherSuites == NULL) {
-    	/* build list of legal cipherSpecs */
-        err = sslBuildCipherSuiteArray(ctx);
-    	if(err) {
-    		return err;
-    	}
-    }
-
     err = errSecSuccess;
 
     if(ctx->isDTLS && ctx->timeout_deadline) {

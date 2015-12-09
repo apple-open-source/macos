@@ -756,6 +756,7 @@ SecCmsSignedDataVerifySignerInfo(SecCmsSignedDataRef sigd, int i,
     /* Find digest and contentType for signerinfo */
     algiddata = SecCmsSignerInfoGetDigestAlg(signerinfo);
     if (algiddata == NULL) {
+        syslog(LOG_ERR,"SecCmsSignedDataVerifySignerInfo: could not get digest algorithm %d", PORT_GetError());
         return errSecInternalError; // shouldn't have happened, this is likely due to corrupted data
     }
     
@@ -767,6 +768,7 @@ SecCmsSignedDataVerifySignerInfo(SecCmsSignedDataRef sigd, int i,
 		 * FIXME: need some error return for this (as well as many 
 		 * other places in this library).
 		 */
+                syslog(LOG_ERR,"SecCmsSignedDataVerifySignerInfo: could not get digest using algorithm id");
 		return errSecDataNotAvailable;
 	}
     contentType = SecCmsContentInfoGetContentTypeOID(cinfo);
@@ -790,6 +792,10 @@ SecCmsSignedDataVerifySignerInfo(SecCmsSignedDataRef sigd, int i,
     status2 = SecCmsSignerInfoVerifyCertificate(signerinfo, keychainOrArray,
 	policies, trustRef);
     dprintf("SecCmsSignedDataVerifySignerInfo: status %d status2 %d\n", (int) status, (int)status2);
+    if(status || status2) {
+        syslog(LOG_ERR,"SecCmsSignedDataVerifySignerInfo: status %d status2 %d.", (int) status, (int)status2);
+        syslog(LOG_ERR,"SecCmsSignedDataVerifySignerInfo: verify status %d", signerinfo->verificationStatus);
+    }
     /* The error from SecCmsSignerInfoVerify() supercedes error from SecCmsSignerInfoVerifyCertificate(). */
     if (status)
 	return status;

@@ -18,7 +18,7 @@
 */
 
 /*
- * $Id: debug.h 5916 2011-08-27 15:50:04Z rousseau $
+ * $Id$
  */
 
 /*
@@ -65,7 +65,7 @@ extern int LogLevel;
 #define DEBUG_CRITICAL5(fmt, data1, data2, data3, data4) if (LogLevel & DEBUG_LEVEL_CRITICAL) Log5(PCSC_LOG_CRITICAL, fmt, data1, data2, data3, data4)
 
 /* DEBUG_INFO */
-#define DEBUG_INFO(fmt) if (LogLevel & DEBUG_LEVEL_INFO) Log1(PCSC_LOG_INFO, fmt)
+#define DEBUG_INFO1(fmt) if (LogLevel & DEBUG_LEVEL_INFO) Log1(PCSC_LOG_INFO, fmt)
 
 #define DEBUG_INFO2(fmt, data) if (LogLevel & DEBUG_LEVEL_INFO) Log2(PCSC_LOG_INFO, fmt, data)
 
@@ -73,7 +73,9 @@ extern int LogLevel;
 
 #define DEBUG_INFO4(fmt, data1, data2, data3) if (LogLevel & DEBUG_LEVEL_INFO) Log4(PCSC_LOG_INFO, fmt, data1, data2, data3)
 
-#define DEBUG_INFO_XXD(msg, buffer, size) if (LogLevel & DEBUG_LEVEL_INFO) log_xxd(PCSC_LOG_INFO, msg, buffer, size)
+#define DEBUG_INFO5(fmt, data1, data2, data3, data4) if (LogLevel & DEBUG_LEVEL_INFO) Log5(PCSC_LOG_INFO, fmt, data1, data2, data3, data4)
+
+#define DEBUG_INFO_XXD(msg, buffer, size) if (LogLevel & DEBUG_LEVEL_INFO) LogXxd(PCSC_LOG_INFO, msg, buffer, size)
 
 /* DEBUG_PERIODIC */
 #define DEBUG_PERIODIC(fmt) if (LogLevel & DEBUG_LEVEL_PERIODIC) Log1(PCSC_LOG_DEBUG, fmt)
@@ -92,7 +94,7 @@ extern int LogLevel;
 #define DEBUG_COMM4(fmt, data1, data2, data3) if (LogLevel & DEBUG_LEVEL_COMM) Log4(PCSC_LOG_DEBUG, fmt, data1, data2, data3)
 
 /* DEBUG_XXD */
-#define DEBUG_XXD(msg, buffer, size) if (LogLevel & DEBUG_LEVEL_COMM) log_xxd(PCSC_LOG_DEBUG, msg, buffer, size)
+#define DEBUG_XXD(msg, buffer, size) if (LogLevel & DEBUG_LEVEL_COMM) LogXxd(PCSC_LOG_DEBUG, msg, buffer, size)
 
 #endif
 

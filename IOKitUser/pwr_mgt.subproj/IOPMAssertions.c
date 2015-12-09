@@ -391,12 +391,16 @@ IOReturn IOPMPerformBlockWithAssertion(
                                        dispatch_block_t the_block)
 {
     IOPMAssertionID _id = kIOPMNullAssertionID;
+    IOReturn rc;
     
     if (!assertion_properties || !the_block) {
         return kIOReturnBadArgument;
     }
     
-    IOPMAssertionCreateWithProperties(assertion_properties, _id);
+    rc = IOPMAssertionCreateWithProperties(assertion_properties, &_id);
+    if (rc != kIOReturnSuccess) {
+        return rc;
+    }
     
     the_block();
     

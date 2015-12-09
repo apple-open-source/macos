@@ -247,6 +247,8 @@ static const char* SYSTEM_KC_PATH = "/Library/Keychains/System.keychain";
 
 	// Set cache policy to always load from origin and not the local cache
 	[_request setCachePolicy:NSURLRequestReloadIgnoringLocalCacheData];
+	// Should not store persistent cookies
+	[_request setHTTPShouldHandleCookies:NO];
 
 	return _request;
 }

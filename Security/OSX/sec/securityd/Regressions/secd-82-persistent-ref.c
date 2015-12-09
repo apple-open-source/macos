@@ -13,7 +13,7 @@
 
 int secd_82_persistent_ref(int argc, char *const *argv)
 {
-    plan_tests(5);
+    plan_tests(4);
 
     /* custom keychain dir */
     secd_test_setup_temp_keychain("secd_82_persistent_ref", NULL);

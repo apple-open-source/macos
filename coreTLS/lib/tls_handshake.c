@@ -10,6 +10,7 @@
 #include <stdlib.h>
 
 #include "tls_handshake_priv.h"
+#include "tls_metrics.h"
 #include "sslDebug.h"
 #include "sslDigests.h"
 #include "sslCipherSpecs.h"
@@ -86,6 +87,47 @@ void tls_private_key_destroy(tls_private_key_t key)
 }
 
 
+static int
+tls_handshake_set_ciphersuites_internal(tls_handshake_t filter, tls_handshake_config_t config, const uint16_t *ciphersuites, unsigned n)
+{
+    unsigned i;
+    unsigned count = 0;
+    uint16_t *_cs;
+
+    for(i=0;i<n;i++) {
+        uint16_t cs = ciphersuites[i];
+        if(tls_handshake_ciphersuite_is_supported(filter->isServer, filter->isDTLS, cs) &&
+           tls_handshake_ciphersuite_is_allowed(config, cs))
+        {
+            count++;
+        }
+    }
+
+    sslFree(filter->enabledCipherSuites);
+    filter->numEnabledCipherSuites=0;
+
+    _cs = sslMalloc(count*sizeof(uint16_t));
+    if(!_cs) {
+        return errSSLAllocate;
+    }
+
+    filter->numEnabledCipherSuites = count;
+    filter->enabledCipherSuites = _cs;
+
+    for(i=0;i<n;i++) {
+        uint16_t cs = ciphersuites[i];
+        if(tls_handshake_ciphersuite_is_supported(filter->isServer, filter->isDTLS, cs) &&
+           tls_handshake_ciphersuite_is_allowed(config, cs))
+        {
+            *_cs++ = cs;
+        }
+    }
+
+    sslAnalyzeCipherSpecs(filter);
+    return 0;
+}
+
+
 tls_handshake_t
 tls_handshake_create(bool dtls, bool server)
 {
@@ -103,15 +145,6 @@ tls_handshake_create(bool dtls, bool server)
     ctx->retransmit_attempt = 0;
     ctx->clientCertState = kSSLClientCertNone;
 
-
-    if(dtls) {
-        ctx->minProtocolVersion = DEFAULT_MINIMUM_DATAGRAM_VERSION;
-        ctx->maxProtocolVersion = DEFAULT_MAXIMUM_DATAGRAM_VERSION;
-    } else {
-        ctx->minProtocolVersion = server ? DEFAULT_SERVER_MINIMUM_STREAM_VERSION : DEFAULT_CLIENT_MINIMUM_STREAM_VERSION;
-        ctx->maxProtocolVersion = DEFAULT_MAXIMUM_STREAM_VERSION;
-    }   
-
     ctx->isDTLS = dtls;
     ctx->mtu = DEFAULT_DTLS_MTU;
 
@@ -124,14 +157,9 @@ tls_handshake_create(bool dtls, bool server)
     InitCipherSpecParams(ctx);
 
     /* 
-     * Default set of ciphersuites
+     * Default configuration
      */
-    tls_handshake_set_ciphersuites(ctx, KnownCipherSuites, CipherSuiteCount);
-
-    /*
-     * Default minimum DHE group size
-     */
-    tls_handshake_set_min_dh_group_size(ctx, DEFAULT_MIN_DH_GROUP_SIZE);
+    tls_handshake_set_config(ctx, tls_handshake_config_legacy);
 
 	/*
 	 * Initial/default set of ECDH curves
@@ -152,6 +180,7 @@ tls_handshake_create(bool dtls, bool server)
 void
 tls_handshake_destroy(tls_handshake_t filter)
 {
+    tls_metric_destroyed(filter);
 
     /* Free the last handshake message flight */
     SSLResetFlight(filter);
@@ -187,6 +216,7 @@ tls_handshake_destroy(tls_handshake_t filter)
     tls_free_buffer_list(filter->ocsp_responder_id_list);
     tls_free_buffer_list(filter->sct_list);
 
+    sslFree(filter->userAgent);
     sslFree(filter->enabledCipherSuites);
     sslFree(filter->requestedCipherSuites);
     sslFree(filter->ecdhCurves);
@@ -272,36 +302,7 @@ errOut:
 int
 tls_handshake_set_ciphersuites(tls_handshake_t filter, const uint16_t *ciphersuites, unsigned n)
 {
-    unsigned i;
-    unsigned count = 0;
-    uint16_t *_cs;
-
-    for(i=0;i<n;i++) {
-        uint16_t cs = ciphersuites[i];
-        if(tls_handshake_ciphersuite_is_supported(filter->isServer, filter->isDTLS, cs)) {
-            count++;
-        }
-    }
-
-    sslFree(filter->enabledCipherSuites);
-    filter->numEnabledCipherSuites=0;
-
-    _cs = sslMalloc(count*sizeof(uint16_t));
-    if(!_cs) {
-        return errSSLAllocate;
-    }
-
-    filter->numEnabledCipherSuites = count;
-    filter->enabledCipherSuites = _cs;
-
-    for(i=0;i<n;i++) {
-        uint16_t cs = ciphersuites[i];
-        if(tls_handshake_ciphersuite_is_supported(filter->isServer, filter->isDTLS, cs))
-            *_cs++ = cs;
-    }
-
-    sslAnalyzeCipherSpecs(filter);
-    return 0;
+    return tls_handshake_set_ciphersuites_internal(filter, tls_handshake_config_none, ciphersuites, n);
 }
 
 int
@@ -383,6 +384,60 @@ tls_handshake_set_mtu(tls_handshake_t filter, size_t mtu)
 
     filter->mtu = mtu;
     return 0;
+}
+
+static
+tls_protocol_version tls_handshake_min_allowed_version(tls_handshake_t filter, tls_handshake_config_t config)
+{
+    if(filter->isDTLS)
+        return tls_protocol_version_DTLS_1_0;
+
+    switch(config) {
+        case tls_handshake_config_ATSv1:
+        case tls_handshake_config_ATSv1_noPFS:
+            return tls_protocol_version_TLS_1_2;
+        case tls_handshake_config_standard:
+        case tls_handshake_config_RC4_fallback:
+        case tls_handshake_config_TLSv1_fallback:
+        case tls_handshake_config_TLSv1_RC4_fallback:
+            return tls_protocol_version_TLS_1_0;
+        case tls_handshake_config_default:
+        case tls_handshake_config_legacy:
+        case tls_handshake_config_legacy_DHE:
+            return filter->isServer?tls_protocol_version_TLS_1_0:tls_protocol_version_SSL_3;
+        case tls_handshake_config_none:
+            return tls_protocol_version_SSL_3;
+    }
+
+    /* Note: we do this here instead of a 'default:' case, so that the compiler will warn us when
+     adding new config in the enum */
+    return filter->isServer?tls_protocol_version_TLS_1_0:tls_protocol_version_SSL_3;
+}
+
+static
+tls_protocol_version tls_handshake_max_allowed_version(tls_handshake_t filter, tls_handshake_config_t config)
+{
+    if(filter->isDTLS)
+        return tls_protocol_version_DTLS_1_0;
+
+    switch(config) {
+        case tls_handshake_config_TLSv1_fallback:
+        case tls_handshake_config_TLSv1_RC4_fallback:
+            return tls_protocol_version_TLS_1_0;
+        case tls_handshake_config_none:
+        case tls_handshake_config_default:
+        case tls_handshake_config_ATSv1:
+        case tls_handshake_config_ATSv1_noPFS:
+        case tls_handshake_config_standard:
+        case tls_handshake_config_RC4_fallback:
+        case tls_handshake_config_legacy:
+        case tls_handshake_config_legacy_DHE:
+            return tls_protocol_version_TLS_1_2;
+    }
+
+    /* Note: we do this here instead of a 'default:' case, so that the compiler will warn us when
+     adding new config in the enum */
+    return tls_protocol_version_TLS_1_2;
 }
 
 int
@@ -695,6 +750,55 @@ tls_handshake_set_sct_list(tls_handshake_t filter, tls_buffer_list_t *sct_list)
     return tls_copy_buffer_list(sct_list, &filter->sct_list);
 }
 
+
+/* Set TLS user agent string, for diagnostic purposes */
+int
+tls_handshake_set_user_agent(tls_handshake_t filter, const char *user_agent)
+{
+    sslFree(filter->userAgent);
+    filter->userAgent = NULL;
+
+    if(user_agent) {
+        filter->userAgent = sslMalloc(strlen(user_agent)+1);
+        strcpy(filter->userAgent, user_agent);
+    }
+
+    return 0;
+}
+
+/* Set tls config */
+int
+tls_handshake_set_config(tls_handshake_t filter, tls_handshake_config_t config)
+{
+    filter->config = config;
+
+    /* versions: */
+    filter->minProtocolVersion = tls_handshake_min_allowed_version(filter, config);
+    filter->maxProtocolVersion = tls_handshake_max_allowed_version(filter, config);
+
+    /* DH group size: */
+    tls_handshake_set_min_dh_group_size(filter, DEFAULT_MIN_DH_GROUP_SIZE);
+
+    /* Is this a version fallback ? */
+    if(!filter->isServer &&
+       ((config == tls_handshake_config_TLSv1_fallback) || (config == tls_handshake_config_TLSv1_RC4_fallback))
+       ) {
+        filter->fallback = true;
+    } else {
+        filter->fallback = false;
+    }
+
+
+    /* ciphersuites: */
+    return tls_handshake_set_ciphersuites_internal(filter, config, KnownCipherSuites, CipherSuiteCount);
+}
+
+int
+tls_handshake_get_config(tls_handshake_t filter, tls_handshake_config_t *config)
+{
+    *config = filter->config;
+    return 0;
+}
 
 /* (re)handshake */
 int

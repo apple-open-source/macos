@@ -60,6 +60,8 @@
 #include "tsaSupport.h"
 #include "tsaSupportPriv.h"
 
+#include <syslog.h>
+
 #define HIDIGIT(v) (((v) / 10) + '0')    
 #define LODIGIT(v) (((v) % 10) + '0')     
 
@@ -683,13 +685,15 @@ SecCmsSignerInfoVerifyWithPolicy(SecCmsSignerInfoRef signerinfo,CFTypeRef timeSt
 	    goto loser;
 	}
 
-	vs = (VFY_VerifyData (encoded_attrs.Data, (int)encoded_attrs.Length,
+        SECStatus err = SECSuccess;
+	vs = ((err = VFY_VerifyData (encoded_attrs.Data, (int)encoded_attrs.Length,
 			publickey, &(signerinfo->encDigest),
 			digestAlgTag, digestEncAlgTag,
-			signerinfo->cmsg->pwfn_arg) != SECSuccess) ? SecCmsVSBadSignature : SecCmsVSGoodSignature;
+			signerinfo->cmsg->pwfn_arg)) != SECSuccess) ? SecCmsVSBadSignature : SecCmsVSGoodSignature;
 
         dprintf("VFY_VerifyData (authenticated attributes): %s\n",
             (vs == SecCmsVSGoodSignature)?"SecCmsVSGoodSignature":"SecCmsVSBadSignature");
+        if (vs != SecCmsVSGoodSignature) syslog(LOG_ERR, "VFY_VerifyData (authenticated attributes) failed: %d", err);
 
 	PORT_FreeArena(poolp, PR_FALSE);	/* awkward memory management :-( */
 
@@ -701,12 +705,14 @@ SecCmsSignerInfoVerifyWithPolicy(SecCmsSignerInfoRef signerinfo,CFTypeRef timeSt
 	if (sig->Length == 0)
 	    goto loser;
 
-	vs = (VFY_VerifyDigest(digest, publickey, sig,
+        SECStatus err = SECSuccess;
+	vs = ((err = VFY_VerifyDigest(digest, publickey, sig,
 			digestAlgTag, digestEncAlgTag,
-			signerinfo->cmsg->pwfn_arg) != SECSuccess) ? SecCmsVSBadSignature : SecCmsVSGoodSignature;
+			signerinfo->cmsg->pwfn_arg)) != SECSuccess) ? SecCmsVSBadSignature : SecCmsVSGoodSignature;
 
         dprintf("VFY_VerifyData (plain message digest): %s\n",
             (vs == SecCmsVSGoodSignature)?"SecCmsVSGoodSignature":"SecCmsVSBadSignature");
+        if (vs != SecCmsVSGoodSignature) syslog(LOG_ERR, "VFY_VerifyDigest (plain message digest) failed: %d", err);
     }
     
     if (!SecCmsArrayIsEmpty((void **)signerinfo->unAuthAttr))
@@ -714,8 +720,10 @@ SecCmsSignerInfoVerifyWithPolicy(SecCmsSignerInfoRef signerinfo,CFTypeRef timeSt
         dprintf("found an unAuthAttr\n");
         OSStatus rux = SecCmsSignerInfoVerifyUnAuthAttrsWithPolicy(signerinfo,timeStampPolicy);
         dprintf("SecCmsSignerInfoVerifyUnAuthAttrs Status: %ld\n", (long)rux);
-        if (rux)
+        if (rux) {
+            syslog(LOG_ERR, "SecCmsSignerInfoVerifyUnAuthAttrsWithPolicy failed: %d", (int)rux);
             goto loser;
+        }
     }
 
     if (vs == SecCmsVSBadSignature) {
@@ -735,6 +743,7 @@ SecCmsSignerInfoVerifyWithPolicy(SecCmsSignerInfoRef signerinfo,CFTypeRef timeSt
 	 * certificate signature check that failed during the cert
 	 * verification done above.  Our error handling is really a mess.
 	 */
+        syslog(LOG_ERR, "SecCmsSignerInforVerify bad signature PORT_GetError: %d", PORT_GetError());
 	if (PORT_GetError() == SEC_ERROR_BAD_SIGNATURE)
 	    PORT_SetError(SEC_ERROR_PKCS7_BAD_SIGNATURE);
     }

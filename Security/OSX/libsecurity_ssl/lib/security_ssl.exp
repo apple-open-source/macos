@@ -91,4 +91,6 @@ _SSLGetNegotiatedClientAuthType
 _SSLSetMinimumDHGroupSize
 _SSLGetMinimumDHGroupSize
 _SSLSetSessionStrengthPolicy
+_SSLSetSessionConfig
+_SSLGetSessionConfig
 

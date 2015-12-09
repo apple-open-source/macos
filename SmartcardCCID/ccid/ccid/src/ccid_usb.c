@@ -18,14 +18,13 @@
 */
 
 /*
- * $Id: ccid_usb.c 6793 2013-11-25 13:09:41Z rousseau $
+ * $Id$
  */
 
 #define __CCID_USB__
 
 #include <stdio.h>
 #include <string.h>
-#include <errno.h>
 # ifdef S_SPLINT_S
 # include <sys/types.h>
 # endif
@@ -35,7 +34,7 @@
 #include <sys/time.h>
 #include <ifdhandler.h>
 
-#include "config.h"
+#include <config.h>
 #include "misc.h"
 #include "ccid.h"
 #include "debug.h"
@@ -188,7 +187,7 @@ static void close_libusb_if_needed(void)
 
 	if (to_exit)
 	{
-		DEBUG_INFO("libusb_exit");
+		DEBUG_INFO1("libusb_exit");
 		libusb_exit(ctx);
 		ctx = NULL;
 	}
@@ -219,6 +218,9 @@ status_t OpenUSBByName(unsigned int reader_index, /*@null@*/ char *device)
 	char infofile[FILENAME_MAX];
 #ifndef __APPLE__
 	unsigned int device_vendor, device_product;
+#else
+	/* 100 ms delay */
+	struct timespec sleep_time = { 0, 100 * 1000 * 1000 };
 #endif
 	int interface_number = -1;
 	int i;
@@ -311,6 +313,10 @@ status_t OpenUSBByName(unsigned int reader_index, /*@null@*/ char *device)
 		}
 	}
 
+#ifdef __APPLE__
+	/* give some time to libusb to detect the new USB devices on Mac OS X */
+	nanosleep(&sleep_time, NULL);
+#endif
 	cnt = libusb_get_device_list(ctx, &devs);
 	if (cnt < 0)
 	{
@@ -635,14 +641,19 @@ again:
 				usbDevice[reader_index].ccid.bMaxSlotIndex = device_descriptor[4];
 				usbDevice[reader_index].ccid.bCurrentSlotIndex = 0;
 				usbDevice[reader_index].ccid.readTimeout = DEFAULT_COM_READ_TIMEOUT;
-				usbDevice[reader_index].ccid.arrayOfSupportedDataRates = get_data_rates(reader_index, config_desc, num);
+				if (device_descriptor[27])
+					usbDevice[reader_index].ccid.arrayOfSupportedDataRates = get_data_rates(reader_index, config_desc, num);
+				else
+				{
+					usbDevice[reader_index].ccid.arrayOfSupportedDataRates = NULL;
+					DEBUG_INFO1("bNumDataRatesSupported is 0");
+				}
 				usbDevice[reader_index].ccid.bInterfaceProtocol = usb_interface->altsetting->bInterfaceProtocol;
 				usbDevice[reader_index].ccid.bNumEndpoints = usb_interface->altsetting->bNumEndpoints;
 				usbDevice[reader_index].ccid.dwSlotStatus = IFD_ICC_PRESENT;
 				usbDevice[reader_index].ccid.bVoltageSupport = device_descriptor[5];
 				usbDevice[reader_index].ccid.sIFD_serial_number = NULL;
 				usbDevice[reader_index].ccid.gemalto_firmware_features = NULL;
-				usbDevice[reader_index].ccid.zlp = FALSE;
 				if (desc.iSerialNumber)
 				{
 					unsigned char serial[128];
@@ -688,6 +699,7 @@ end:
 		close_libusb_if_needed();
 		if (claim_failed)
 			return STATUS_COMM_ERROR;
+		DEBUG_INFO1("Device not found?");
 		return STATUS_NO_SUCH_DEVICE;
 	}
 
@@ -722,16 +734,6 @@ status_t WriteUSB(unsigned int reader_index, unsigned int length,
 	(void)snprintf(debug_header, sizeof(debug_header), "-> %06X ",
 		(int)reader_index);
 
-	if (usbDevice[reader_index].ccid.zlp)
-	{ /* Zero Length Packet */
-		int dummy_length;
-
-		/* try to read a ZLP so transfer length = 0
-		 * timeout of 1 ms */
-		(void)libusb_bulk_transfer(usbDevice[reader_index].dev_handle,
-			usbDevice[reader_index].bulk_in, NULL, 0, &dummy_length, 1);
-	}
-
 	DEBUG_XXD(debug_header, buffer, length);
 
 	rv = libusb_bulk_transfer(usbDevice[reader_index].dev_handle,
@@ -742,9 +744,9 @@ status_t WriteUSB(unsigned int reader_index, unsigned int length,
 	{
 		DEBUG_CRITICAL5("write failed (%d/%d): %d %s",
 			usbDevice[reader_index].bus_number,
-			usbDevice[reader_index].device_address, rv, strerror(errno));
+			usbDevice[reader_index].device_address, rv, libusb_error_name(rv));
 
-		if ((ENODEV == errno) || (LIBUSB_ERROR_NO_DEVICE == rv))
+		if (LIBUSB_ERROR_NO_DEVICE == rv)
 			return STATUS_NO_SUCH_DEVICE;
 
 		return STATUS_UNSUCCESSFUL;
@@ -781,9 +783,9 @@ read_again:
 		*length = 0;
 		DEBUG_CRITICAL5("read failed (%d/%d): %d %s",
 			usbDevice[reader_index].bus_number,
-			usbDevice[reader_index].device_address, rv, strerror(errno));
+			usbDevice[reader_index].device_address, rv, libusb_error_name(rv));
 
-		if ((ENODEV == errno) || (LIBUSB_ERROR_NO_DEVICE == rv))
+		if (LIBUSB_ERROR_NO_DEVICE == rv)
 			return STATUS_NO_SUCH_DEVICE;
 
 		return STATUS_UNSUCCESSFUL;
@@ -803,7 +805,7 @@ read_again:
 			DEBUG_CRITICAL("Too many duplicate frame detected");
 			return STATUS_UNSUCCESSFUL;
 		}
-		DEBUG_INFO("Duplicate frame detected");
+		DEBUG_INFO1("Duplicate frame detected");
 		goto read_again;
 	}
 
@@ -1006,7 +1008,8 @@ static int get_end_points(struct libusb_config_descriptor *desc,
 		/* CCID Class? */
 		if (desc->interface[i].altsetting->bInterfaceClass == 0xb
 #ifdef ALLOW_PROPRIETARY_CLASS
-			|| desc->interface[i].altsetting->bInterfaceClass == 0xff
+			|| (desc->interface[i].altsetting->bInterfaceClass == 0xff
+			&& 54 == desc->interface[i].altsetting->extra_length)
 #endif
 			)
 		{
@@ -1152,7 +1155,7 @@ int ControlUSB(int reader_index, int requesttype, int request, int value,
 	{
 		DEBUG_CRITICAL5("control failed (%d/%d): %d %s",
 			usbDevice[reader_index].bus_number,
-			usbDevice[reader_index].device_address, ret, strerror(errno));
+			usbDevice[reader_index].device_address, ret, libusb_error_name(ret));
 
 		return ret;
 	}
@@ -1207,6 +1210,7 @@ int InterruptRead(int reader_index, int timeout /* in ms */)
 	ret = libusb_submit_transfer(transfer);
 	if (ret < 0) {
 		libusb_free_transfer(transfer);
+		DEBUG_CRITICAL2("libusb_submit_transfer failed: %d", ret);
 		return ret;
 	}
 
@@ -1224,6 +1228,7 @@ int InterruptRead(int reader_index, int timeout /* in ms */)
 				if (libusb_handle_events(ctx) < 0)
 					break;
 			libusb_free_transfer(transfer);
+			DEBUG_CRITICAL2("libusb_handle_events failed: %d", ret);
 			return ret;
 		}
 	}
@@ -1249,7 +1254,7 @@ int InterruptRead(int reader_index, int timeout /* in ms */)
 			/* if libusb_interrupt_transfer() times out we get EILSEQ or EAGAIN */
 			DEBUG_COMM4("InterruptRead (%d/%d): %s",
 				usbDevice[reader_index].bus_number,
-				usbDevice[reader_index].device_address, strerror(errno));
+				usbDevice[reader_index].device_address, libusb_error_name(ret));
 			return_value = IFD_COMMUNICATION_ERROR;
 	}
 
@@ -1329,6 +1334,7 @@ static void *Multi_PollingProc(void *p_ext)
 		rv = libusb_submit_transfer(transfer);
 		if (rv)
 		{
+			libusb_free_transfer(transfer);
 			DEBUG_COMM2("libusb_submit_transfer err %d", rv);
 			break;
 		}
@@ -1525,7 +1531,6 @@ static int Multi_InterruptRead(int reader_index, int timeout /* in ms */)
 	interrupt_mask = 0x02 << (2 * (usbDevice[reader_index].ccid.bCurrentSlotIndex % 4));
 
 	/* Wait until the condition is signaled or a timeout occurs */
-	pthread_mutex_lock(&msExt->mutex);
 	gettimeofday(&local_time, NULL);
 	cond_wait_until.tv_sec = local_time.tv_sec;
 	cond_wait_until.tv_nsec = local_time.tv_usec * 1000;
@@ -1534,6 +1539,8 @@ static int Multi_InterruptRead(int reader_index, int timeout /* in ms */)
 	cond_wait_until.tv_nsec += 1000000 * (timeout % 1000);
 
 again:
+	pthread_mutex_lock(&msExt->mutex);
+
 	rv = pthread_cond_timedwait(&msExt->condition, &msExt->mutex,
 		&cond_wait_until);
 

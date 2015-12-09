@@ -258,8 +258,6 @@ void EvaluationTask::waitForCompletion(SecAssessmentFlags flags, CFMutableDictio
             CFDictionaryAddValue(result, key, value);
         });
     }));
-
-    if (mExceptionToRethrow) std::rethrow_exception(mExceptionToRethrow);
 }
 
 
@@ -341,9 +339,15 @@ EvaluationTask *EvaluationManager::evaluationTask(PolicyEngine *engine, CFURLRef
 }
 
 
-void EvaluationManager::waitForCompletion(EvaluationTask *task, SecAssessmentFlags flags, CFMutableDictionaryRef result)
+void EvaluationManager::finalizeTask(EvaluationTask *task, SecAssessmentFlags flags, CFMutableDictionaryRef result)
 {
     task->waitForCompletion(flags, result);
+
+    std::exception_ptr pendingException = task->mExceptionToRethrow;
+
+    removeTask(task);
+
+    if (pendingException) std::rethrow_exception(pendingException);
 }
 
 

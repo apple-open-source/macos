@@ -478,7 +478,7 @@ CCCryptorStatus CCCryptorCreateWithMode(
 	*cryptorRef = cryptor;
 #ifdef DEBUG
     cryptor->active = ACTIVE;
-    CCRandomCopyBytes(kCCRandomDefault, &cryptor->cryptorID, sizeof(cryptor->cryptorID));
+    retval=CCRandomGenerateBytes(&cryptor->cryptorID, sizeof(cryptor->cryptorID));
 #endif
 
 out:

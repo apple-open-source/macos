@@ -93,6 +93,7 @@ int readFile(
 	}
 	rtn = (int)lseek(fd, 0, SEEK_SET);
 	if(rtn < 0) {
+		free(buf);
 		goto errOut;
 	}
 	rtn = (int)read(fd, buf, (size_t)size);
@@ -100,6 +101,7 @@ int readFile(
 		if(rtn >= 0) {
 			printf("readFile: short read\n");
 		}
+		free(buf);
 		rtn = EIO;
 	}
 	else {

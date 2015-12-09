@@ -45,14 +45,14 @@ _service_send_msg(service_context_t *context, xpc_object_t message, xpc_object_t
     int rc = KB_GeneralError;
     xpc_object_t reply = NULL;
     xpc_connection_t conn = NULL;
-    
-    require(context, done);
+
     require(message, done);
     conn = _service_get_connection();
     require(conn, done);
-    
-    xpc_dictionary_set_data(message, SERVICE_XPC_CONTEXT, context, sizeof(service_context_t));
-    
+
+    if (context) {
+        xpc_dictionary_set_data(message, SERVICE_XPC_CONTEXT, context, sizeof(service_context_t));
+    }
     reply = xpc_connection_send_message_with_reply_sync(conn, message);
     require(reply, done);
     require(xpc_get_type(reply) != XPC_TYPE_ERROR, done);
@@ -104,6 +104,12 @@ int
 service_client_kb_load(service_context_t *context)
 {
     return _service_client_send_secret(context, SERVICE_KB_LOAD, NULL, 0, NULL, 0);
+}
+
+int
+service_client_kb_unload(service_context_t *context)
+{
+    return _service_client_send_secret(context, SERVICE_KB_UNLOAD, NULL, 0, NULL, 0);
 }
 
 int

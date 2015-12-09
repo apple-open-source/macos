@@ -1232,7 +1232,15 @@ processKext(
                 goto finish;
             }
         }
-        
+        if (checkSignaturesOfDependents(aKext, true, false) != 0) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel | kOSKextLogLoadFlag |
+                      kOSKextLogDependenciesFlag | kOSKextLogIPCFlag,
+                      "Signature failure in dependencies for kext load request.");
+            result = kOSKextReturnNotLoadable;
+            goto finish;
+        }
+       
         result = loadKext(aKext, kextPathCString, toolArgs, fatal);
     }
     if (result != EX_OK) {

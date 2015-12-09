@@ -18,7 +18,7 @@
 */
 
 /*
- * $Id: scardcontrol.c 6566 2013-03-12 14:00:37Z rousseau $
+ * $Id$
  */
 
 #include <stdio.h>
@@ -37,8 +37,8 @@
 
 #include "PCSCv2part10.h"
 
-#undef VERIFY_PIN
-#define MODIFY_PIN
+#define VERIFY_PIN
+#undef MODIFY_PIN
 #undef GET_GEMPC_FIRMWARE
 
 #ifndef TRUE
@@ -167,6 +167,39 @@ static void parse_properties(unsigned char *bRecvBuffer, int length)
 	}
 } /* parse_properties */
 
+
+static const char *pinpad_return_codes(unsigned char bRecvBuffer[])
+{
+	const char * ret = "UNKNOWN";
+
+	if ((0x90 == bRecvBuffer[0]) && (0x00 == bRecvBuffer[1]))
+		ret = "Success";
+
+	if (0x64 == bRecvBuffer[0])
+	{
+		switch (bRecvBuffer[1])
+		{
+			case 0x00:
+				ret = "Timeout";
+				break;
+
+			case 0x01:
+				ret = "Cancelled by user";
+				break;
+
+			case 0x02:
+				ret = "PIN mismatch";
+				break;
+
+			case 0x03:
+				ret = "Too short or too long PIN";
+				break;
+		}
+	}
+
+	return ret;
+}
+
 int main(int argc, char *argv[])
 {
 	LONG rv;
@@ -202,6 +235,15 @@ int main(int argc, char *argv[])
 #ifdef MODIFY_PIN
 	PIN_MODIFY_STRUCTURE *pin_modify;
 #endif
+	int PIN_min_size = 4;
+	int PIN_max_size = 8;
+
+	/* table for bEntryValidationCondition
+	 * 0x01: Max size reached
+	 * 0x02: Validation key pressed
+	 * 0x04: Timeout occured
+	 */
+	int bEntryValidationCondition = 7;
 
 	printf("SCardControl sample code\n");
 	printf("V 1.4 © 2004-2010, Ludovic Rousseau <ludovic.rousseau@free.fr>\n\n");
@@ -394,6 +436,29 @@ int main(int argc, char *argv[])
 		else
 			PRINT_GREEN_HEX4(" wIdProduct", value);
 
+		ret = PCSCv2Part10_find_TLV_property_by_tag_from_hcard(hCard, PCSCv2_PART10_PROPERTY_bMinPINSize, &value);
+		if (0 == ret)
+		{
+			PIN_min_size = value;
+			PRINT_GREEN_DEC(" PIN min size defined", PIN_min_size);
+		}
+
+
+		ret = PCSCv2Part10_find_TLV_property_by_tag_from_hcard(hCard, PCSCv2_PART10_PROPERTY_bMaxPINSize, &value);
+		if (0 == ret)
+		{
+			PIN_max_size = value;
+			PRINT_GREEN_DEC(" PIN max size defined", PIN_max_size);
+		}
+
+		ret = PCSCv2Part10_find_TLV_property_by_tag_from_hcard(hCard, PCSCv2_PART10_PROPERTY_bEntryValidationCondition, &value);
+		if (0 == ret)
+		{
+			bEntryValidationCondition = value;
+			PRINT_GREEN_DEC(" Entry Validation Condition defined", 
+				bEntryValidationCondition);
+		}
+
 		printf("\n");
 	}
 
@@ -425,8 +490,9 @@ int main(int argc, char *argv[])
 		printf(NORMAL "\n");
 
 		pin_properties = (PIN_PROPERTIES_STRUCTURE *)bRecvBuffer;
+		bEntryValidationCondition = pin_properties ->	bEntryValidationCondition;
 		PRINT_GREEN_HEX4(" wLcdLayout", pin_properties -> wLcdLayout);
-		PRINT_GREEN_DEC(" bEntryValidationCondition", pin_properties ->	bEntryValidationCondition);
+		PRINT_GREEN_DEC(" bEntryValidationCondition", bEntryValidationCondition);
 		PRINT_GREEN_DEC(" bTimeOut2", pin_properties -> bTimeOut2);
 
 		printf("\n");
@@ -482,7 +548,7 @@ int main(int argc, char *argv[])
 		goto end;
 	}
 
-	/* connect to a reader (even without a card) */
+	/* re-connect to a reader (with a card) */
 	dwActiveProtocol = -1;
 	rv = SCardReconnect(hCard, SCARD_SHARE_SHARED,
 		SCARD_PROTOCOL_T0|SCARD_PROTOCOL_T1, SCARD_LEAVE_CARD,
@@ -530,19 +596,14 @@ int main(int argc, char *argv[])
 	printf(" Secure verify PIN\n");
 	pin_verify = (PIN_VERIFY_STRUCTURE *)bSendBuffer;
 
-	/* table for bEntryValidationCondition
-	 * 0x01: Max size reached
-	 * 0x02: Validation key pressed
-	 * 0x04: Timeout occured
-	 */
 	/* PC/SC v2.02.05 Part 10 PIN verification data structure */
 	pin_verify -> bTimerOut = 0x00;
 	pin_verify -> bTimerOut2 = 0x00;
 	pin_verify -> bmFormatString = 0x82;
 	pin_verify -> bmPINBlockString = 0x04;
 	pin_verify -> bmPINLengthFormat = 0x00;
-	pin_verify -> wPINMaxExtraDigit = 0x0408; /* Min Max */
-	pin_verify -> bEntryValidationCondition = 0x02;	/* validation key pressed */
+	pin_verify -> wPINMaxExtraDigit = (PIN_min_size << 8) + PIN_max_size;
+	pin_verify -> bEntryValidationCondition = bEntryValidationCondition;
 	pin_verify -> bNumberMessage = 0x01;
 	pin_verify -> wLangId = 0x0904;
 	pin_verify -> bMsgIndex = 0x00;
@@ -568,7 +629,7 @@ int main(int argc, char *argv[])
 	pin_verify -> abData[offset++] = 0x00;	/* '\0' */
 	pin_verify -> ulDataLength = offset;	/* APDU size */
 
-	length = sizeof(PIN_VERIFY_STRUCTURE) + offset -1;	/* -1 because PIN_VERIFY_STRUCTURE contains the first byte of abData[] */
+	length = sizeof(PIN_VERIFY_STRUCTURE) + offset;
 
 	printf(" command:");
 	for (i=0; i<length; i++)
@@ -596,9 +657,10 @@ int main(int argc, char *argv[])
 		{
 			/* read the fake digits */
 			char in[40];	/* 4 digits + \n + \0 */
-			(void)fgets(in, sizeof(in), stdin);
+			char *s = fgets(in, sizeof(in), stdin);
 
-			printf("keyboard sent: %s", in);
+			if (s)
+				printf("keyboard sent: %s", in);
 		}
 		else
 			/* if it is not a keyboard */
@@ -608,7 +670,7 @@ int main(int argc, char *argv[])
 	printf(" card response:");
 	for (i=0; i<length; i++)
 		printf(" %02X", bRecvBuffer[i]);
-	printf("\n");
+	printf(": %s\n", pinpad_return_codes(bRecvBuffer));
 	PCSC_ERROR_CONT(rv, "SCardControl")
 
 	/* verify PIN dump */
@@ -681,10 +743,10 @@ int main(int argc, char *argv[])
 	pin_modify -> bmPINLengthFormat = 0x00;
 	pin_modify -> bInsertionOffsetOld = 0x00;	/* offset from APDU start */
 	pin_modify -> bInsertionOffsetNew = 0x04;	/* offset from APDU start */
-	pin_modify -> wPINMaxExtraDigit = 0x0408;	/* Min Max */
+	pin_modify -> wPINMaxExtraDigit = (PIN_min_size << 8) + PIN_max_size;
 	pin_modify -> bConfirmPIN = 0x03;	/* b0 set = confirmation requested */
 									/* b1 set = current PIN entry requested */
-	pin_modify -> bEntryValidationCondition = 0x02;	/* validation key pressed */
+	pin_modify -> bEntryValidationCondition = bEntryValidationCondition;
 	pin_modify -> bNumberMessage = 0x03; /* see table above */
 	pin_modify -> wLangId = 0x0904;
 	pin_modify -> bMsgIndex1 = 0x00;
@@ -712,7 +774,7 @@ int main(int argc, char *argv[])
 	pin_modify -> abData[offset++] = 0x30;	/* '0' */
 	pin_modify -> ulDataLength = offset;	/* APDU size */
 
-	length = sizeof(PIN_MODIFY_STRUCTURE) + offset -1;	/* -1 because PIN_MODIFY_STRUCTURE contains the first byte of abData[] */
+	length = sizeof(PIN_MODIFY_STRUCTURE) + offset;
 
 	printf(" command:");
 	for (i=0; i<length; i++)

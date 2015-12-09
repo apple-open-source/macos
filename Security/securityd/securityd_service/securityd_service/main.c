@@ -33,6 +33,8 @@
 #define LOG(...)
 #endif
 
+static bool check_signature(xpc_connection_t connection);
+
 static pid_t get_caller_pid(audit_token_t * token)
 {
     pid_t pid = 0;
@@ -462,6 +464,37 @@ service_kb_load(service_context_t * context)
 }
 
 static int
+service_kb_unload(service_context_t *context)
+{
+    __block int rc = KB_GeneralError;
+
+    dispatch_sync(_kb_service_get_dispatch_queue(), ^{
+        keybag_handle_t session_handle = bad_keybag_handle;
+
+        rc = aks_get_system(context->s_uid, &session_handle);
+        if (rc == kIOReturnNotFound) {
+            // No session bag, nothing to do
+            rc = KB_Success;
+            return;
+        } else if (rc != kIOReturnSuccess) {
+            syslog(LOG_ERR, "error locating session keybag for uid (%i) in session (%i)", context->s_uid, context->s_id);
+            rc = KB_BagError;
+            return;
+        }
+
+        rc = aks_unload_bag(session_handle);
+        if (rc != kAKSReturnSuccess) {
+            syslog(LOG_ERR, "error unloading keybag for uid (%i) in session (%i)", context->s_uid, context->s_id);
+            rc = KB_BagError;
+        } else {
+            syslog(LOG_ERR, "successfully unloaded keybag (%ld) for uid (%i) in session (%i)", (long)session_handle, context->s_uid, context->s_id);
+        }
+    });
+
+    return rc;
+}
+
+static int
 service_kb_save(service_context_t * context)
 {
     __block int rc = KB_GeneralError;
@@ -847,6 +880,8 @@ static char * sel_to_char(uint64_t sel)
             return "kb_is_locked";
         case SERVICE_KB_RESET:
             return "kb_reset";
+        case SERVICE_KB_UNLOAD:
+            return "kb_unload";
         default:
             return "unknown";
     }
@@ -889,20 +924,50 @@ void service_peer_event_handler(xpc_connection_t connection, xpc_object_t event)
         const uint8_t * secret = NULL, * new_secret = NULL;
         size_t secret_len = 0, new_secret_len = 0, data_len = 0;
         service_context_t * context = NULL;
+        bool free_context = false;
         const void * data;
         
         xpc_object_t reply = xpc_dictionary_create_reply(event);
-        
-        data = xpc_dictionary_get_data(event, SERVICE_XPC_CONTEXT, &data_len);
-        require(data, done);
-        require(data_len == sizeof(service_context_t), done);
-        context = (service_context_t*)data;
 
         request = xpc_dictionary_get_uint64(event, SERVICE_XPC_REQUEST);
 
+        // For SERVICE_KB_UNLOAD only, allow non-securityd, non-root but
+        // entitled callers.
+        if (request == SERVICE_KB_UNLOAD) {
+            if (!peer_has_entitlement(connection, "com.apple.private.securityd.keybag-unload")) {
+                xpc_connection_cancel(connection);
+                return;
+            }
+        } else {
+            if (xpc_connection_get_euid(connection) != 0) {
+                xpc_connection_cancel(connection);
+                return;
+            }
+
+            if (!check_signature(connection)) {
+                xpc_connection_cancel(connection);
+                return;
+            }
+        }
+
+        data = xpc_dictionary_get_data(event, SERVICE_XPC_CONTEXT, &data_len);
+        require_action(data || request == SERVICE_KB_UNLOAD, done, rc = KB_GeneralError);
+        if (data) {
+            require(data_len == sizeof(service_context_t), done);
+            context = (service_context_t*)data;
+        } else {
+            audit_token_t audit_token = { 0 };
+            xpc_connection_get_audit_token(connection, &audit_token);
+            context = calloc(1, sizeof(service_context_t));
+            context->s_id = xpc_connection_get_asid(connection);
+            context->s_uid = xpc_connection_get_euid(connection);
+            context->procToken = audit_token;
+            free_context = true;
+        }
+
         require_action(context->s_id != AU_DEFAUDITSID, done, rc = KB_InvalidSession);
         require_action(context->s_uid != AU_DEFAUDITID, done, rc = KB_InvalidSession); // we only want to work in actual user sessions.
-        
+
         switch (request) {
             case SERVICE_KB_CREATE:
                 //                if (kb_service_has_entitlement(peer, "com.apple.keystore.device")) {
@@ -912,6 +977,9 @@ void service_peer_event_handler(xpc_connection_t connection, xpc_object_t event)
                 break;
             case SERVICE_KB_LOAD:
                 rc = service_kb_load(context);
+                break;
+            case SERVICE_KB_UNLOAD:
+                rc = service_kb_unload(context);
                 break;
             case SERVICE_KB_SAVE:
                 rc = service_kb_save(context);
@@ -965,6 +1033,9 @@ void service_peer_event_handler(xpc_connection_t connection, xpc_object_t event)
         xpc_dictionary_set_int64(reply, SERVICE_XPC_RC, rc);
         xpc_connection_send_message(connection, reply);
         xpc_release(reply);
+        if (free_context) {
+            free(context);
+        }
     }
 }
 
@@ -1059,17 +1130,6 @@ int main(int argc, const char * argv[])
     xpc_connection_set_event_handler(listener, ^(xpc_object_t peer) {
         // It is safe to cast 'peer' to xpc_connection_t assuming
         // we have a correct configuration in our launchd.plist.
-        
-        if (xpc_connection_get_euid(peer) != 0) {
-            xpc_connection_cancel(peer);
-            return;
-        }
-        
-        if (!check_signature(peer)) {
-            xpc_connection_cancel(peer);
-            return;
-        }
-        
         xpc_connection_set_event_handler(peer, ^(xpc_object_t event) {
             vproc_transaction_t transaction = vproc_transaction_begin(NULL);
             service_peer_event_handler(peer, event);

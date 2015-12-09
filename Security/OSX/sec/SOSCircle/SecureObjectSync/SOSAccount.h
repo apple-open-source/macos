@@ -179,7 +179,7 @@ void SOSAccountAddSyncablePeerBlock(SOSAccountRef a,
 //
 bool SOSAccountUpdateGestalt(SOSAccountRef account, CFDictionaryRef new_gestalt);
 
-bool SOSAccountUpdateFullPeerInfo(SOSAccountRef account, CFSetRef minimumViews);
+bool SOSAccountUpdateFullPeerInfo(SOSAccountRef account, CFSetRef minimumViews, CFSetRef excludedViews);
 
 SOSViewResultCode SOSAccountUpdateView(SOSAccountRef account, CFStringRef viewname, SOSViewActionCode actionCode, CFErrorRef *error);
 

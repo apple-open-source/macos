@@ -18,7 +18,7 @@
 */
 
 /*
- * $Id: ccid_ifdhandler.h 4973 2010-06-01 09:43:29Z rousseau $
+ * $Id$
  */
 
 #ifndef _ccid_ifd_handler_h_
@@ -42,6 +42,7 @@
 #define DRIVER_OPTION_GEMPC_TWIN_KEY_APDU 2
 #define DRIVER_OPTION_USE_BOGUS_FIRMWARE 4
 #define DRIVER_OPTION_RESET_ON_CLOSE 8
+#define DRIVER_OPTION_DISABLE_PIN_RETRIES (1 << 6)
 
 extern int DriverOptions;
 

@@ -402,7 +402,7 @@ SecKeyRef SecKeyCopyMatchingPrivateKey(SecKeyRef publicKey, CFErrorRef *error) {
     CFTypeRef queryResult = NULL;
     CFDictionaryRef query = NULL;
     
-    require_action_quiet(publicKey != NULL, errOut, SecError(errSecParam, error, NULL, CFSTR("Null Public Key")));
+    require_action_quiet(publicKey != NULL, errOut, SecError(errSecParam, error, CFSTR("Null Public Key")));
 
     query = CreatePrivateKeyMatchingQuery(publicKey, false);
 

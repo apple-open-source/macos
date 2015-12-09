@@ -50,6 +50,7 @@
 #include <utilities/SecIOFormat.h>
 #include <utilities/SecXPCError.h>
 #include <utilities/debugging.h>
+#include <utilities/SecInternalReleasePriv.h>
 
 #include <AssertMacros.h>
 #include <CoreFoundation/CFXPCBridge.h>
@@ -414,6 +415,14 @@ bool xpc_dictionary_set_and_consume_PeerInfoArray(xpc_object_t xdict, const char
     return success;
 }
 
+static bool
+EntitlementMissing(enum SecXPCOperation op, SecTaskRef clientTask, CFStringRef entitlement, CFErrorRef *error)
+{
+    SecError(errSecMissingEntitlement, error, CFSTR("%@: %@ lacks entitlement %@"), SOSCCGetOperationDescription(op), clientTask, entitlement);
+    return false;
+}
+
+
 
 static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, xpc_object_t event) {
     xpc_type_t type = xpc_get_type(event);
@@ -459,7 +468,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
 
         // operations before kSecXPCOpTryUserCredentials don't need this entitlement.
         hasEntitlement = (operation < kSecXPCOpTryUserCredentials) ||
-        (clientTask && SecTaskGetBooleanValueForEntitlement(clientTask, kSecEntitlementKeychainCloudCircle));
+            (clientTask && SecTaskGetBooleanValueForEntitlement(clientTask, kSecEntitlementKeychainCloudCircle));
 
         // Per <rdar://problem/13315020> Disable the entitlement check for "keychain-cloud-circle"
         //  we disable entitlement enforcement. However, we still log so we know who needs the entitlement
@@ -555,7 +564,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                         }
                     }
                 } else {
-                    SecError(errSecMissingEntitlement, &error, CFSTR("%@: %@ lacks entitlement %@"), SOSCCGetOperationDescription((enum SecXPCOperation)operation), clientTask, kSecEntitlementModifyAnchorCertificates);
+                    EntitlementMissing(((enum SecXPCOperation)operation), clientTask, kSecEntitlementModifyAnchorCertificates, &error);
                 }
                 break;
             }
@@ -572,7 +581,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                         }
                     }
                 } else {
-                    SecError(errSecMissingEntitlement, &error, CFSTR("%@: %@ lacks entitlement %@"), SOSCCGetOperationDescription((enum SecXPCOperation)operation), clientTask, kSecEntitlementModifyAnchorCertificates);
+                    EntitlementMissing(((enum SecXPCOperation)operation), clientTask, kSecEntitlementModifyAnchorCertificates, &error);
                 }
                 break;
             }
@@ -621,7 +630,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                             }
                             CFRelease(replyError);
                         } else {
-                            secdebug("ipc", "%@ %@ reponding %@", clientTask, SOSCCGetOperationDescription((enum SecXPCOperation)operation), asyncReply);
+                            secdebug("ipc", "%@ %@ responding %@", clientTask, SOSCCGetOperationDescription((enum SecXPCOperation)operation), asyncReply);
                         }
 
                         xpc_connection_send_message(connection, asyncReply);
@@ -641,35 +650,43 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
             }
             case sec_keychain_backup_id:
             {
-                CFDataRef keybag = NULL, passcode = NULL;
-                if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyKeybag, &keybag, &error)) {
-                    if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyUserPassword, &passcode, &error)) {
-                        CFDataRef backup = _SecServerKeychainBackup(keybag, passcode, &error);
-                        if (backup) {
-                            SecXPCDictionarySetData(replyMessage, kSecXPCKeyResult, backup, &error);
-                            CFRelease(backup);
+                if (SecTaskGetBooleanValueForEntitlement(clientTask, kSecEntitlementRestoreKeychain)) {
+                    CFDataRef keybag = NULL, passcode = NULL;
+                    if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyKeybag, &keybag, &error)) {
+                        if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyUserPassword, &passcode, &error)) {
+                            CFDataRef backup = _SecServerKeychainBackup(keybag, passcode, &error);
+                            if (backup) {
+                                SecXPCDictionarySetData(replyMessage, kSecXPCKeyResult, backup, &error);
+                                CFRelease(backup);
+                            }
+                            CFReleaseSafe(passcode);
                         }
-                        CFReleaseSafe(passcode);
+                        CFReleaseSafe(keybag);
                     }
-                    CFReleaseSafe(keybag);
+                } else {
+                    EntitlementMissing(((enum SecXPCOperation)operation), clientTask, kSecEntitlementRestoreKeychain, &error);
                 }
                 break;
             }
             case sec_keychain_restore_id:
             {
-                CFDataRef backup = SecXPCDictionaryCopyData(event, kSecXPCKeyBackup, &error);
-                if (backup) {
-                    CFDataRef keybag = SecXPCDictionaryCopyData(event, kSecXPCKeyKeybag, &error);
-                    if (keybag) {
-                        CFDataRef passcode = NULL;
-                        if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyUserPassword, &passcode, &error)) {
-                            bool result = _SecServerKeychainRestore(backup, keybag, passcode, &error);
-                            xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, result);
-                            CFReleaseSafe(passcode);
+                if (SecTaskGetBooleanValueForEntitlement(clientTask, kSecEntitlementRestoreKeychain)) {
+                    CFDataRef backup = SecXPCDictionaryCopyData(event, kSecXPCKeyBackup, &error);
+                    if (backup) {
+                        CFDataRef keybag = SecXPCDictionaryCopyData(event, kSecXPCKeyKeybag, &error);
+                        if (keybag) {
+                            CFDataRef passcode = NULL;
+                            if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyUserPassword, &passcode, &error)) {
+                                bool result = _SecServerKeychainRestore(backup, keybag, passcode, &error);
+                                xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, result);
+                                CFReleaseSafe(passcode);
+                            }
+                            CFRelease(keybag);
                         }
-                        CFRelease(keybag);
+                        CFRelease(backup);
                     }
-                    CFRelease(backup);
+                } else {
+                    EntitlementMissing(((enum SecXPCOperation)operation), clientTask, kSecEntitlementRestoreKeychain, &error);
                 }
                 break;
             }
@@ -686,106 +703,132 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
             }
             case sec_keychain_backup_syncable_id:
             {
-                CFDictionaryRef oldbackup = NULL;
-                if (SecXPCDictionaryCopyDictionaryOptional(event, kSecXPCKeyBackup, &oldbackup, &error)) {
-                    CFDataRef keybag = SecXPCDictionaryCopyData(event, kSecXPCKeyKeybag, &error);
-                    if (keybag) {
-                        CFDataRef passcode = NULL;
-                        if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyUserPassword, &passcode, &error)) {
-                            CFDictionaryRef newbackup = _SecServerBackupSyncable(oldbackup, keybag, passcode, &error);
-                            if (newbackup) {
-                                SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, newbackup, &error);
-                                CFRelease(newbackup);
+                if (SecTaskGetBooleanValueForEntitlement(clientTask, kSecEntitlementRestoreKeychain)) {
+
+                    CFDictionaryRef oldbackup = NULL;
+                    if (SecXPCDictionaryCopyDictionaryOptional(event, kSecXPCKeyBackup, &oldbackup, &error)) {
+                        CFDataRef keybag = SecXPCDictionaryCopyData(event, kSecXPCKeyKeybag, &error);
+                        if (keybag) {
+                            CFDataRef passcode = NULL;
+                            if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyUserPassword, &passcode, &error)) {
+                                CFDictionaryRef newbackup = _SecServerBackupSyncable(oldbackup, keybag, passcode, &error);
+                                if (newbackup) {
+                                    SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, newbackup, &error);
+                                    CFRelease(newbackup);
+                                }
+                                CFReleaseSafe(passcode);
                             }
-                            CFReleaseSafe(passcode);
+                            CFRelease(keybag);
                         }
-                        CFRelease(keybag);
+                        CFReleaseSafe(oldbackup);
                     }
-                    CFReleaseSafe(oldbackup);
+                } else {
+                    EntitlementMissing(((enum SecXPCOperation)operation), clientTask, kSecEntitlementRestoreKeychain, &error);
                 }
                 break;
             }
             case sec_keychain_restore_syncable_id:
             {
-                CFDictionaryRef backup = SecXPCDictionaryCopyDictionary(event, kSecXPCKeyBackup, &error);
-                if (backup) {
-                    CFDataRef keybag = SecXPCDictionaryCopyData(event, kSecXPCKeyKeybag, &error);
-                    if (keybag) {
-                        CFDataRef passcode = NULL;
-                        if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyUserPassword, &passcode, &error)) {
-                            bool result = _SecServerRestoreSyncable(backup, keybag, passcode, &error);
-                            xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, result);
-                            CFReleaseSafe(passcode);
+                if (SecTaskGetBooleanValueForEntitlement(clientTask, kSecEntitlementRestoreKeychain)) {
+
+                    CFDictionaryRef backup = SecXPCDictionaryCopyDictionary(event, kSecXPCKeyBackup, &error);
+                    if (backup) {
+                        CFDataRef keybag = SecXPCDictionaryCopyData(event, kSecXPCKeyKeybag, &error);
+                        if (keybag) {
+                            CFDataRef passcode = NULL;
+                            if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyUserPassword, &passcode, &error)) {
+                                bool result = _SecServerRestoreSyncable(backup, keybag, passcode, &error);
+                                xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, result);
+                                CFReleaseSafe(passcode);
+                            }
+                            CFRelease(keybag);
                         }
-                        CFRelease(keybag);
+                        CFRelease(backup);
                     }
-                    CFRelease(backup);
+                } else {
+                    EntitlementMissing(((enum SecXPCOperation)operation), clientTask, kSecEntitlementRestoreKeychain, &error);
                 }
                 break;
             }
             case sec_item_backup_copy_names_id:
             {
-                CFArrayRef names = SecServerItemBackupCopyNames(&error);
-                SecXPCDictionarySetPListOptional(replyMessage, kSecXPCKeyResult, names, &error);
-                CFReleaseSafe(names);
+                if (SecTaskGetBooleanValueForEntitlement(clientTask, kSecEntitlementRestoreKeychain)) {
+                    CFArrayRef names = SecServerItemBackupCopyNames(&error);
+                    SecXPCDictionarySetPListOptional(replyMessage, kSecXPCKeyResult, names, &error);
+                    CFReleaseSafe(names);
+                } else {
+                    EntitlementMissing(((enum SecXPCOperation)operation), clientTask, kSecEntitlementRestoreKeychain, &error);
+                }
                 break;
             }
             case sec_item_backup_handoff_fd_id:
             {
-                CFStringRef backupName = SecXPCDictionaryCopyString(event, kSecXPCKeyBackup, &error);
-                int fd = -1;
-                if (backupName) {
-                    fd = SecServerItemBackupHandoffFD(backupName, &error);
-                    CFRelease(backupName);
+                if (SecTaskGetBooleanValueForEntitlement(clientTask, kSecEntitlementRestoreKeychain)) {
+                    CFStringRef backupName = SecXPCDictionaryCopyString(event, kSecXPCKeyBackup, &error);
+                    int fd = -1;
+                    if (backupName) {
+                        fd = SecServerItemBackupHandoffFD(backupName, &error);
+                        CFRelease(backupName);
+                    }
+                    SecXPCDictionarySetFileDescriptor(replyMessage, kSecXPCKeyResult, fd, &error);
+                    if (fd != -1)
+                        close(fd);
+                } else {
+                    EntitlementMissing(((enum SecXPCOperation)operation), clientTask, kSecEntitlementRestoreKeychain, &error);
                 }
-                SecXPCDictionarySetFileDescriptor(replyMessage, kSecXPCKeyResult, fd, &error);
-                if (fd != -1)
-                    close(fd);
                 break;
             }
             case sec_item_backup_set_confirmed_manifest_id:
             {
-                CFDataRef keybagDigest = NULL;
-                if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyKeybag, &keybagDigest, &error)) {
-                    CFDataRef manifest = NULL;
-                    if (SecXPCDictionaryCopyDataOptional(event, kSecXPCData, &manifest, &error)) {
-                        CFStringRef backupName = SecXPCDictionaryCopyString(event, kSecXPCKeyBackup, &error);
-                        if (backupName) {
-                            bool result = SecServerItemBackupSetConfirmedManifest(backupName, keybagDigest, manifest, &error);
-                            CFRelease(backupName);
-                            xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, result);
+                if (SecTaskGetBooleanValueForEntitlement(clientTask, kSecEntitlementRestoreKeychain)) {
+                    CFDataRef keybagDigest = NULL;
+                    if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyKeybag, &keybagDigest, &error)) {
+                        CFDataRef manifest = NULL;
+                        if (SecXPCDictionaryCopyDataOptional(event, kSecXPCData, &manifest, &error)) {
+                            CFStringRef backupName = SecXPCDictionaryCopyString(event, kSecXPCKeyBackup, &error);
+                            if (backupName) {
+                                bool result = SecServerItemBackupSetConfirmedManifest(backupName, keybagDigest, manifest, &error);
+                                CFRelease(backupName);
+                                xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, result);
+                            }
+                            CFReleaseSafe(manifest);
                         }
-                        CFReleaseSafe(manifest);
+                        CFReleaseNull(keybagDigest);
                     }
-                    CFRelease(keybagDigest);
+                } else {
+                    EntitlementMissing(((enum SecXPCOperation)operation), clientTask, kSecEntitlementRestoreKeychain, &error);
                 }
                 break;
             }
             case sec_item_backup_restore_id:
             {
-                bool result = false;
-                CFStringRef backupName = SecXPCDictionaryCopyString(event, kSecXPCKeyBackup, &error);
-                if (backupName) {
-                    CFStringRef peerID = NULL;
-                    if (SecXPCDictionaryCopyStringOptional(event, kSecXPCKeyDigest, &peerID, &error)) {
-                        CFDataRef keybag = SecXPCDictionaryCopyData(event, kSecXPCKeyKeybag, &error);
-                        if (keybag) {
-                            CFDataRef secret = SecXPCDictionaryCopyData(event, kSecXPCKeyUserPassword, &error);
-                            if (secret) {
-                                CFDataRef backup = SecXPCDictionaryCopyData(event, kSecXPCData, &error);
-                                if (backup) {
-                                    result = SecServerItemBackupRestore(backupName, peerID, keybag, secret, backup, &error);
-                                    CFRelease(backup);
+                if (SecTaskGetBooleanValueForEntitlement(clientTask, kSecEntitlementRestoreKeychain)) {
+                    bool result = false;
+                    CFStringRef backupName = SecXPCDictionaryCopyString(event, kSecXPCKeyBackup, &error);
+                    if (backupName) {
+                        CFStringRef peerID = NULL;
+                        if (SecXPCDictionaryCopyStringOptional(event, kSecXPCKeyDigest, &peerID, &error)) {
+                            CFDataRef keybag = SecXPCDictionaryCopyData(event, kSecXPCKeyKeybag, &error);
+                            if (keybag) {
+                                CFDataRef secret = SecXPCDictionaryCopyData(event, kSecXPCKeyUserPassword, &error);
+                                if (secret) {
+                                    CFDataRef backup = SecXPCDictionaryCopyData(event, kSecXPCData, &error);
+                                    if (backup) {
+                                        result = SecServerItemBackupRestore(backupName, peerID, keybag, secret, backup, &error);
+                                        CFRelease(backup);
+                                    }
+                                    CFRelease(secret);
                                 }
-                                CFRelease(secret);
+                                CFRelease(keybag);
                             }
-                            CFRelease(keybag);
+                            CFReleaseSafe(peerID);
                         }
-                        CFReleaseSafe(peerID);
+                        CFRelease(backupName);
                     }
-                    CFRelease(backupName);
+                    xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, result);
+                } else {
+                    EntitlementMissing(((enum SecXPCOperation)operation), clientTask, kSecEntitlementRestoreKeychain, &error);
                 }
-                xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, result);
                 break;
             }
             case sec_ota_pki_asset_version_id:
@@ -1084,26 +1127,34 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 break;
             case kSecXPCOpSetNewPublicBackupKey:
                 {
-                    CFDataRef publicBackupKey = SecXPCDictionaryCopyData(event, kSecXPCKeyNewPublicBackupKey, &error);
-                    SOSPeerInfoRef peerInfo = SOSCCSetNewPublicBackupKey_Server(publicBackupKey, &error);
-                    CFDataRef peerInfoData = peerInfo ? SOSPeerInfoCopyEncodedData(peerInfo, kCFAllocatorDefault, &error) : NULL;
-                    CFReleaseNull(peerInfo);
-                    if (peerInfoData) {
-                        xpc_object_t xpc_object = _CFXPCCreateXPCObjectFromCFObject(peerInfoData);
-                        xpc_dictionary_set_value(replyMessage, kSecXPCKeyResult, xpc_object);
-                        xpc_release(xpc_object);
-                    }
-                    CFReleaseNull(peerInfoData);
-                    CFReleaseSafe(publicBackupKey);
+                    if (SecTaskGetBooleanValueForEntitlement(clientTask, kSecEntitlementRestoreKeychain)) {
+                        CFDataRef publicBackupKey = SecXPCDictionaryCopyData(event, kSecXPCKeyNewPublicBackupKey, &error);
+                        SOSPeerInfoRef peerInfo = SOSCCSetNewPublicBackupKey_Server(publicBackupKey, &error);
+                        CFDataRef peerInfoData = peerInfo ? SOSPeerInfoCopyEncodedData(peerInfo, kCFAllocatorDefault, &error) : NULL;
+                        CFReleaseNull(peerInfo);
+                        if (peerInfoData) {
+                            xpc_object_t xpc_object = _CFXPCCreateXPCObjectFromCFObject(peerInfoData);
+                            xpc_dictionary_set_value(replyMessage, kSecXPCKeyResult, xpc_object);
+                            xpc_release(xpc_object);
+                        }
+                        CFReleaseNull(peerInfoData);
+                        CFReleaseSafe(publicBackupKey);
 
+                    } else {
+                        EntitlementMissing(((enum SecXPCOperation)operation), clientTask, kSecEntitlementRestoreKeychain, &error);
+                    }
                 }
                 break;
             case kSecXPCOpSetBagForAllSlices:
                 {
-                    CFDataRef backupSlice = SecXPCDictionaryCopyData(event, kSecXPCKeyKeybag, &error);
-                    bool includeV0 = xpc_dictionary_get_bool(event, kSecXPCKeyIncludeV0);
-                    xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, backupSlice && SOSCCRegisterSingleRecoverySecret_Server(backupSlice, includeV0, &error));
-                    CFReleaseSafe(backupSlice);
+                    if (SecTaskGetBooleanValueForEntitlement(clientTask, kSecEntitlementRestoreKeychain)) {
+                        CFDataRef backupSlice = SecXPCDictionaryCopyData(event, kSecXPCKeyKeybag, &error);
+                        bool includeV0 = xpc_dictionary_get_bool(event, kSecXPCKeyIncludeV0);
+                        xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, backupSlice && SOSCCRegisterSingleRecoverySecret_Server(backupSlice, includeV0, &error));
+                        CFReleaseSafe(backupSlice);
+                    } else {
+                        EntitlementMissing(((enum SecXPCOperation)operation), clientTask, kSecEntitlementRestoreKeychain, &error);
+                    }
                 }
                 break;
             case kSecXPCOpCopyApplicantPeerInfo:

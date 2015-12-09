@@ -97,7 +97,8 @@ const SecAsn1Template NSS_P7_PtrToEncryptedDataTemplate[] = {
 static const SecAsn1Template * NSS_P7_ContentInfoChooser(
 	void *arg, 			// --> NSS_P7_DecodedContentInfo
 	Boolean enc,
-	const char *buf,	// on decode, tag byte
+	const char *buf,	// on decode, tag byte and length
+	size_t len,
 	void *dest)			// --> NSS_P7_DecodedContentInfo.content
 {
 	NSS_P7_DecodedContentInfo *dci = 

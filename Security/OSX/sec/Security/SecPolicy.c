@@ -216,6 +216,8 @@ SEC_CONST_DECL (kSecPolicyAppleATVAppSigning, "1.2.840.113625.100.1.37");
 SEC_CONST_DECL (kSecPolicyAppleTestATVAppSigning, "1.2.840.113625.100.1.38");
 SEC_CONST_DECL (kSecPolicyApplePayIssuerEncryption, "1.2.840.113625.100.1.39");
 SEC_CONST_DECL (kSecPolicyAppleOSXProvisioningProfileSigning, "1.2.840.113625.100.1.40");
+SEC_CONST_DECL (kSecPolicyAppleATVVPNProfileSigning, "1.2.840.113625.100.1.41");
+// TODO need confirmation that OID for kSecPolicyAppleATVVPNProfileSigning is reserved
 
 SEC_CONST_DECL (kSecPolicyOid, "SecPolicyOid");
 SEC_CONST_DECL (kSecPolicyName, "SecPolicyName");
@@ -273,6 +275,7 @@ static CFStringRef kSecPolicyOIDAppleATVAppSigning = CFSTR("AppleATVAppSigning")
 static CFStringRef kSecPolicyOIDAppleTestATVAppSigning = CFSTR("AppleTestATVAppSigning");
 static CFStringRef kSecPolicyOIDApplePayIssuerEncryption = CFSTR("ApplePayIssuerEncryption");
 static CFStringRef kSecPolicyOIDAppleOSXProvisioningProfileSigning = CFSTR("AppleOSXProvisioningProfileSigning");
+static CFStringRef kSecPolicyOIDAppleATVVPNProfileSigning = CFSTR("AppleATVVPNProfileSigning");
 
 /* Policies will now change to multiple categories of checks.
 
@@ -638,6 +641,9 @@ SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
     else if (CFEqual(policyIdentifier, kSecPolicyApplePayIssuerEncryption)) {
         policy = SecPolicyCreateApplePayIssuerEncryption();
     }
+    else if (CFEqual(policyIdentifier, kSecPolicyAppleATVVPNProfileSigning)) {
+        policy = SecPolicyCreateAppleATVVPNProfileSigning();
+    }
 	else {
 		secerror("ERROR: policy \"%@\" is unsupported", policyIdentifier);
 	}
@@ -741,6 +747,9 @@ CFDictionaryRef SecPolicyCopyProperties(SecPolicyRef policyRef) {
 	else if (CFEqual(oid, kSecPolicyOIDAppleOSXProvisioningProfileSigning)) {
 		outOid = kSecPolicyAppleOSXProvisioningProfileSigning;
 	}
+    else if (CFEqual(oid, kSecPolicyOIDAppleATVVPNProfileSigning)) {
+        outOid = kSecPolicyAppleATVVPNProfileSigning;
+    }
 
 	// Set kSecPolicyOid
 	CFDictionarySetValue(properties, (const void *)kSecPolicyOid,
@@ -2915,5 +2924,53 @@ SecPolicyRef SecPolicyCreateApplePayIssuerEncryption(void)
 
 errOut:
     CFReleaseSafe(options);
+    return result;
+}
+
+/*!
+ @function SecPolicyCreateAppleATVVPNProfileSigning
+ @abstract Check for leaf marker OID 1.2.840.113635.100.6.43,
+ intermediate marker OID 1.2.840.113635.100.6.2.10,
+ chains to Apple Root CA, path length 3
+ */
+SecPolicyRef SecPolicyCreateAppleATVVPNProfileSigning(void)
+{
+    SecPolicyRef result = NULL;
+    CFMutableDictionaryRef options = NULL;
+    CFMutableDictionaryRef appleAnchorOptions = NULL;
+    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks), errOut);
+    
+    SecPolicyAddBasicCertOptions(options);
+    
+    // Require pinning to the Apple CAs (including test CA for internal releases)
+    appleAnchorOptions = CFDictionaryCreateMutableForCFTypes(NULL);
+    require(appleAnchorOptions, errOut);
+    
+    if (SecIsInternalRelease()) {
+        CFDictionarySetValue(appleAnchorOptions,
+                             kSecPolicyAppleAnchorIncludeTestRoots, kCFBooleanTrue);
+    }
+    
+    add_element(options, kSecPolicyCheckAnchorApple, appleAnchorOptions);
+    
+    // Cert chain length 3
+    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+    
+    // Check leaf for Apple ATV VPN Profile Signing OID (1.2.840.113635.100.6.43)
+    add_leaf_marker(options, &oidAppleCertExtATVVPNProfileSigning);
+    
+    // Check intermediate for Apple System Integration 2 CA intermediate marker (1.2.840.113635.100.6.2.10)
+    add_oid(options, kSecPolicyCheckIntermediateMarkerOid, &oidAppleIntmMarkerAppleSystemIntg2);
+    
+    // Ensure that revocation is checked (OCSP only)
+    CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kCFBooleanFalse);
+    
+    require(result = SecPolicyCreate(kSecPolicyAppleATVVPNProfileSigning, options), errOut);
+    
+errOut:
+    CFReleaseSafe(options);
+    CFReleaseSafe(appleAnchorOptions);
     return result;
 }

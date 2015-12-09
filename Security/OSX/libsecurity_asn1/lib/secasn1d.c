@@ -520,7 +520,8 @@ sec_asn1d_notify_after (SEC_ASN1DecoderContext *cx, void *dest, int depth)
 static sec_asn1d_state *
 sec_asn1d_init_state_based_on_template (sec_asn1d_state *state,
 	#ifdef	__APPLE__
-	const char *buf		/* for SEC_ASN1GetSubtemplate() */
+	const char *buf,	/* for SEC_ASN1GetSubtemplate() */
+	size_t len
 	#endif
 	)
 {
@@ -579,7 +580,7 @@ sec_asn1d_init_state_based_on_template (sec_asn1d_state *state,
 						state->dest, PR_FALSE);
 			if (state != NULL)
 				state = sec_asn1d_init_state_based_on_template (state,
-					buf /* __APPLE__ */);
+					buf /* __APPLE__ */, len /* __APPLE__ */);
 			return state;
 		}
     }
@@ -708,7 +709,7 @@ sec_asn1d_init_state_based_on_template (sec_asn1d_state *state,
 		}
 		#endif	/* __APPLE__ */
 		subt = SEC_ASN1GetSubtemplate (state->theTemplate, subDest,
-			PR_FALSE, buf /* __APPLE__ */);
+			PR_FALSE, buf /* __APPLE__ */, len /* __APPLE__ */);
 		state = sec_asn1d_push_state (state->top, subt, dest, PR_FALSE);
 		if (state == NULL)
 			return NULL;
@@ -722,7 +723,7 @@ sec_asn1d_init_state_based_on_template (sec_asn1d_state *state,
 			#endif
 			) {
 			state = sec_asn1d_init_state_based_on_template (state,
-				buf /* __APPLE__ */);
+				buf /* __APPLE__ */, len /* __APPLE__ */);
 			if (state != NULL) {
 				/*
 				 * If this field is optional, we need to record that on
@@ -1083,7 +1084,8 @@ sec_asn1d_check_and_subtract_length (unsigned long *remaining,
 static void
 sec_asn1d_prepare_for_contents (sec_asn1d_state *state,
 	#ifdef	__APPLE__
-	const char *buf		/* needed for SEC_ASN1GetSubtemplate */
+	const char *buf,	/* needed for SEC_ASN1GetSubtemplate */
+	size_t len
 	#endif
 	)
 {
@@ -1206,11 +1208,12 @@ sec_asn1d_prepare_for_contents (sec_asn1d_state *state,
 				      SEC_ASN1GetSubtemplate(state->theTemplate,
 							     state->dest,
 							     PR_FALSE,
-								 buf /* __APPLE__ */),
+								 buf /* __APPLE__ */,
+								 len /* __APPLE__ */),
 				      state->dest, PR_TRUE);
 		if (state != NULL)
 			state = sec_asn1d_init_state_based_on_template (state,
-				buf /* __APPLE__ */);
+				buf /* __APPLE__ */, len /* __APPLE__ */);
         (void) state;
 		return;
     }
@@ -1237,7 +1240,7 @@ sec_asn1d_prepare_for_contents (sec_asn1d_state *state,
 
 	    state->place = duringGroup;
 	    subt = SEC_ASN1GetSubtemplate (state->theTemplate, state->dest,
-					   PR_FALSE, buf /* __APPLE__ */);
+					   PR_FALSE, buf /* __APPLE__ */, len /* __APPLE__ */);
 	    state = sec_asn1d_push_state (state->top, subt, NULL, PR_TRUE);
 	    if (state != NULL) {
 			if (!state->top->filter_only)
@@ -1247,7 +1250,7 @@ sec_asn1d_prepare_for_contents (sec_asn1d_state *state,
 			*/
 			sec_asn1d_notify_before (state->top, state->dest, state->depth);
 			state = sec_asn1d_init_state_based_on_template (state,
-				buf /* __APPLE__ */);
+				buf /* __APPLE__ */, len /* __APPLE__ */);
 	    }
 	} else {
 	    /*
@@ -1274,7 +1277,7 @@ sec_asn1d_prepare_for_contents (sec_asn1d_state *state,
 	     */
 	    sec_asn1d_notify_before (state->top, state->dest, state->depth);
 	    state = sec_asn1d_init_state_based_on_template (state,
-			buf /* __APPLE__ */);
+			buf /* __APPLE__ */, len /* __APPLE__ */);
 	}
     (void) state;
 	break;
@@ -1508,7 +1511,7 @@ regular_string_type:
 	    if (state != NULL) {
 		state->substring = PR_TRUE;	/* XXX propogate? */
 		state = sec_asn1d_init_state_based_on_template (state,
-			buf /* __APPLE__ */);
+			buf /* __APPLE__ */, len /* __APPLE__ */);
 	    }
 	} else if (state->indefinite) {
 	    /*
@@ -1666,7 +1669,8 @@ sec_asn1d_reuse_encoding (sec_asn1d_state *state)
      * And initialize it so it is ready to parse.
      */
     (void) sec_asn1d_init_state_based_on_template(child,
-		(char *) item->Data /* __APPLE__ */);
+		(char *) item->Data /* __APPLE__ */,
+		item->Length /* __APPLE__ */);
 
     /*
      * Now parse that out of our data.
@@ -1985,7 +1989,8 @@ sec_asn1d_next_substring (sec_asn1d_state *state)
  */
 static void
 sec_asn1d_next_in_group (sec_asn1d_state *state,
-	const char *buf		/* __APPLE__ */)
+	const char *buf,	/* __APPLE__ */
+	size_t len /* __APPLE__ */)
 {
     sec_asn1d_state *child;
     unsigned long child_consumed;
@@ -2088,7 +2093,7 @@ sec_asn1d_next_in_group (sec_asn1d_state *state,
     sec_asn1d_scrub_state (child);
 
     /* Initialize child state from the template */
-    sec_asn1d_init_state_based_on_template(child, buf /* __APPLE__ */);
+    sec_asn1d_init_state_based_on_template(child, buf /* __APPLE__ */, len /* __APPLE__ */);
 
     state->top->current = child;
 }
@@ -2101,7 +2106,8 @@ sec_asn1d_next_in_group (sec_asn1d_state *state,
  */
 static void
 sec_asn1d_next_in_sequence (sec_asn1d_state *state,
-	const char *buf /* __APPLE__ */)
+	const char *buf /* __APPLE__ */,
+	size_t len  /*__APPLE__*/)
 {
     sec_asn1d_state *child;
     unsigned long child_consumed;
@@ -2227,7 +2233,8 @@ sec_asn1d_next_in_sequence (sec_asn1d_state *state,
 	}
 	state->top->current = child;
 	child = sec_asn1d_init_state_based_on_template (child, 
-		buf /* __APPLE__ */);
+		buf /* __APPLE__ */,
+		len /* __APPLE__ */);
 	if (child_missing && child) {
 	    child->place = afterIdentifier;
 	    child->found_tag_modifiers = child_found_tag_modifiers;
@@ -2568,7 +2575,9 @@ sec_asn1d_pop_state (sec_asn1d_state *state)
 }
 
 static sec_asn1d_state *
-sec_asn1d_before_choice (sec_asn1d_state *state, const char *buf /* __APPLE__ */)
+sec_asn1d_before_choice (sec_asn1d_state *state,
+                         const char *buf /* __APPLE__ */,
+                         size_t len /* __APPLE__ */)
 {
 	sec_asn1d_state *child;
 
@@ -2595,7 +2604,7 @@ sec_asn1d_before_choice (sec_asn1d_state *state, const char *buf /* __APPLE__ */
 	
 	sec_asn1d_scrub_state(child);
 	child = sec_asn1d_init_state_based_on_template(child, 
-		buf /* __APPLE__ */);
+		buf /* __APPLE__ */, len /* __APPLE__ */);
 	if( (sec_asn1d_state *)NULL == child ) {
 		return (sec_asn1d_state *)NULL;
 	}
@@ -2608,7 +2617,9 @@ sec_asn1d_before_choice (sec_asn1d_state *state, const char *buf /* __APPLE__ */
 }
 
 static sec_asn1d_state *
-sec_asn1d_during_choice (sec_asn1d_state *state, const char *buf /* __APPLE__ */)
+sec_asn1d_during_choice (sec_asn1d_state *state,
+                         const char *buf, /* __APPLE__ */
+                         size_t len /* __APPLE__ */)
 {
   sec_asn1d_state *child = state->child;
   
@@ -2682,7 +2693,7 @@ sec_asn1d_during_choice (sec_asn1d_state *state, const char *buf /* __APPLE__ */
     child_found_tag_modifiers = child->found_tag_modifiers;
     child_found_tag_number = child->found_tag_number;
 
-    child = sec_asn1d_init_state_based_on_template(child, buf /* __APPLE__*/);
+    child = sec_asn1d_init_state_based_on_template(child, buf /* __APPLE__*/, len /* __APPLE__ */);
     if( (sec_asn1d_state *)NULL == child ) {
       return (sec_asn1d_state *)NULL;
     }
@@ -2860,7 +2871,7 @@ SEC_ASN1DecoderUpdate (SEC_ASN1DecoderContext *cx,
 			what = SEC_ASN1_Length;
 			break;
 		case afterLength:
-			sec_asn1d_prepare_for_contents (state, buf);
+			sec_asn1d_prepare_for_contents (state, buf, len);
 			break;
 		case beforeBitString:
 			consumed = sec_asn1d_parse_bit_string (state, buf, len);
@@ -2872,7 +2883,7 @@ SEC_ASN1DecoderUpdate (SEC_ASN1DecoderContext *cx,
 			sec_asn1d_next_substring (state);
 			break;
 		case duringGroup:
-			sec_asn1d_next_in_group (state, buf);
+			sec_asn1d_next_in_group (state, buf, len);
 			break;
 		case duringLeaf:
 			consumed = sec_asn1d_parse_leaf (state, buf, len);
@@ -2892,7 +2903,7 @@ SEC_ASN1DecoderUpdate (SEC_ASN1DecoderContext *cx,
 			}
 			break;
 		case duringSequence:
-			sec_asn1d_next_in_sequence (state, buf);
+			sec_asn1d_next_in_sequence (state, buf, len);
 			break;
 		case afterConstructedString:
 			sec_asn1d_concat_substrings (state);
@@ -2923,10 +2934,10 @@ SEC_ASN1DecoderUpdate (SEC_ASN1DecoderContext *cx,
 			sec_asn1d_pop_state (state);
 			break;
 			case beforeChoice:
-				state = sec_asn1d_before_choice(state, buf);
+				state = sec_asn1d_before_choice(state, buf, len);
 				break;
 			case duringChoice:
-				state = sec_asn1d_during_choice(state, buf);
+				state = sec_asn1d_during_choice(state, buf, len);
 				break;
 			case afterChoice:
 				sec_asn1d_after_choice(state);
@@ -3124,7 +3135,8 @@ SEC_ASN1DecoderStart (PRArenaPool *their_pool, void *dest,
 			  #ifdef	__APPLE__
 			  ,
 			  /* only needed if first element will be SEC_ASN1_DYNAMIC */
-			  const char *buf
+			  const char *buf,
+			  size_t len /* __APPLE__ */
 			  #endif	
 			  )
 {
@@ -3153,7 +3165,7 @@ SEC_ASN1DecoderStart (PRArenaPool *their_pool, void *dest,
 
     if (sec_asn1d_push_state(cx, theTemplate, dest, PR_FALSE) == NULL
 	   || sec_asn1d_init_state_based_on_template (cx->current, 
-			buf /* __APPLE__ */) == NULL) {
+			buf /* __APPLE__ */, len /* __APPLE__ */) == NULL) {
 		/*
 	 	 * Trouble initializing (probably due to failed allocations)
 		 * requires that we just give up.
@@ -3227,7 +3239,7 @@ SEC_ASN1Decode (PRArenaPool *poolp, void *dest,
     SECStatus urv, frv;
 
     dcx = SEC_ASN1DecoderStart (poolp, dest, theTemplate,
-		buf /* __APPLE__ */);
+		buf /* __APPLE__ */, len /* __APPLE__ */);
     if (dcx == NULL)
 	return SECFailure;
 

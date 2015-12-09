@@ -59,6 +59,10 @@ _tls_handshake_set_ocsp_responder_id_list
 _tls_handshake_set_sct_enable
 _tls_handshake_set_sct_list
 _tls_handshake_set_session_ticket_enabled
+_tls_handshake_set_user_agent
+_tls_handshake_set_config
+_tls_handshake_get_config
+
 
 _tls_handshake_get_negotiated_protocol_version
 _tls_handshake_get_negotiated_cipherspec
@@ -133,7 +137,6 @@ _sslCipherSuiteGetKeyExchangeMethod
 _sslCipherSuiteGetMinSupportedTLSVersion
 _KnownCipherSuites
 _CipherSuiteCount
-
 #misc
 _tls_add_debug_logger
 ___ssl_debug

@@ -1359,6 +1359,8 @@ bool IOHIDEventDriver::parseKeyboardElement(IOHIDElement * element)
             if (( usage < kHIDUsage_KeyboardA ) || ( usage > kHIDUsage_KeyboardRightGUI ))
                 break;
         case kHIDPage_Consumer:
+            if (usage == kHIDUsage_Csmr_ACKeyboardLayoutSelect)
+                setProperty(kIOHIDSupportsGlobeKeyKey, kOSBooleanTrue);
         case kHIDPage_Telephony:
             store = true;
             break;
@@ -1748,6 +1750,8 @@ void IOHIDEventDriver::handleGameControllerReport(AbsoluteTime timeStamp, UInt32
     
     for (index=0, count=_gameController.elements->getCount(); index<count; index++) {
         IOHIDElement *  element;
+        IOFixed         elementFixedVal;
+        IOFixed *       gcFixedVal = NULL;
         AbsoluteTime    elementTimeStamp;
         UInt32          usagePage, usage;
         bool            elementIsCurrent;
@@ -1762,8 +1766,6 @@ void IOHIDEventDriver::handleGameControllerReport(AbsoluteTime timeStamp, UInt32
         if ( !elementIsCurrent )
             continue;
         
-        handled |= elementIsCurrent;
-        
         usagePage   = element->getUsagePage();
         usage       = element->getUsage();
         
@@ -1771,63 +1773,70 @@ void IOHIDEventDriver::handleGameControllerReport(AbsoluteTime timeStamp, UInt32
             case kHIDPage_GenericDesktop:
                 switch ( usage ) {
                     case kHIDUsage_GD_X:
-                        _gameController.joystick.x = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        gcFixedVal = &_gameController.joystick.x;
                         break;
                     case kHIDUsage_GD_Y:
-                        _gameController.joystick.y = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        gcFixedVal = &_gameController.joystick.y;
                         break;
                     case kHIDUsage_GD_Z:
-                        _gameController.joystick.z = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        gcFixedVal = &_gameController.joystick.z;
                         break;
                     case kHIDUsage_GD_Rz:
-                        _gameController.joystick.rz = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        gcFixedVal = &_gameController.joystick.rz;
                         break;
                     case kHIDUsage_GD_DPadUp:
-                        _gameController.dpad.up = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        gcFixedVal = &_gameController.dpad.up;
                         break;
                     case kHIDUsage_GD_DPadDown:
-                        _gameController.dpad.down = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        gcFixedVal = &_gameController.dpad.down;
                         break;
                     case kHIDUsage_GD_DPadLeft:
-                        _gameController.dpad.left = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        gcFixedVal = &_gameController.dpad.left;
                         break;
                     case kHIDUsage_GD_DPadRight:
-                        _gameController.dpad.right = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        gcFixedVal = &_gameController.dpad.right;
                         break;
                 }
                 break;
             case kHIDPage_Button:
                 switch ( usage ) {
                     case 1:
-                        _gameController.face.a = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        gcFixedVal = &_gameController.face.a;
                         break;
                     case 2:
-                        _gameController.face.b = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        gcFixedVal = &_gameController.face.b;
                         break;
                     case 3:
-                        _gameController.face.x = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        gcFixedVal = &_gameController.face.x;
                         break;
                     case 4:
-                        _gameController.face.y = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        gcFixedVal = &_gameController.face.y;
                         break;
                     case 5:
-                        _gameController.shoulder.l1 = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        gcFixedVal = &_gameController.shoulder.l1;
                         break;
                     case 6:
-                        _gameController.shoulder.r1 = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        gcFixedVal = &_gameController.shoulder.r1;
                         break;
                     case 7:
-                        _gameController.shoulder.l2 = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        gcFixedVal = &_gameController.shoulder.l2;
                         break;
                     case 8:
-                        _gameController.shoulder.r2 = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        gcFixedVal = &_gameController.shoulder.r2;
                         break;
                         
                 }
                 break;
         }
+
+        if ( gcFixedVal && ( *gcFixedVal != ( elementFixedVal = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated) ) ) )
+        {
+            *gcFixedVal = elementFixedVal;
+            handled = true;
+        }
     }
     
+    // Don't dispatch an event if no controller elements have changed since the last dispatch.
     require_quiet(handled, exit);
     
     require_quiet(reportID == _gameController.sendingReportID, exit);

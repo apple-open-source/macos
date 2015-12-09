@@ -8,3 +8,4 @@ SANDBOX_PATH[sdk=iphone*] =
 SANDBOX_NAME = com.apple.notifyd
 SANDBOX_PROFILE = com.apple.notifyd.sb
 
+OTHER_LDFLAGS = -lCrashReporterClient

@@ -1,0 +1,122 @@
+# Code 'borrowed' from xnu/tools/tests Makefile structure.
+#
+# This provides a somewhat flexible framework (albeit, not perfect)
+# for building tests for multiple platforms using the correct toolset
+#
+# Please contact: nwertman@apple.com with any questions
+
+
+ifneq ($(SRCROOT),)
+SRCDIR=$(SRCROOT)
+else
+SRCDIR?=$(shell /bin/pwd)
+endif
+
+ifneq ($(OBJROOT),)
+OBJDIR?=$(OBJROOT)
+else
+OBJDIR?=$(SRCDIR)/build/obj
+endif
+
+ifneq ($(DSTROOT),)
+BUILDDIR?=$(DSTROOT)/AppleInternal/CoreOS/tests/$(PROJECT)
+else
+BUILDDIR?=$(SRCDIR)/build/dst
+endif
+
+#
+# Common definitions for test directories
+#
+
+XCRUN := /usr/bin/xcrun
+SDKROOT ?= macosx.internal
+
+# SDKROOT may be passed as a shorthand like "iphoneos.internal". We
+# must resolve these to a full path and override SDKROOT.
+
+SDKROOT_RESOLVED := $(shell $(XCRUN) -sdk $(SDKROOT) -show-sdk-path)
+ifeq ($(strip $(SDKROOT)_$(SDKROOT_RESOLVED)),/_)
+SDKROOT_RESOLVED := /
+endif
+override SDKROOT = $(SDKROOT_RESOLVED)
+
+SDKVERSION := $(shell $(XCRUN) -sdk $(SDKROOT) -show-sdk-version)
+
+PLATFORMPATH := $(shell $(XCRUN) -sdk $(SDKROOT) -show-sdk-platform-path)
+PLATFORM := $(shell echo $(PLATFORMPATH) | sed 's,^.*/\([^/]*\)\.platform$$,\1,')
+
+ifeq ($(PLATFORM),watchOS)
+PLATFORM := WatchOS
+endif
+
+SUPPORTED_EMBEDDED_PLATFORMS := iPhoneOS iPhoneOSNano tvOS AppleTVOS WatchOS
+Embedded = $(if $(filter $(SUPPORTED_EMBEDDED_PLATFORMS),$(PLATFORM)),YES,NO)
+
+#
+# Deployment target flag
+#
+ifeq ($(PLATFORM),MacOSX)
+DEPLOYMENT_TARGET_FLAGS = -mmacosx-version-min=$(SDKVERSION)
+else ifeq ($(PLATFORM),WatchOS)
+DEPLOYMENT_TARGET_FLAGS = -mwatchos-version-min=$(SDKVERSION)
+else ifeq ($(PLATFORM),tvOS)
+DEPLOYMENT_TARGET_FLAGS = -mtvos-version-min=$(SDKVERSION)
+else ifeq ($(PLATFORM),AppleTVOS)
+DEPLOYMENT_TARGET_FLAGS = -mtvos-version-min=$(SDKVERSION)
+else ifneq ($(filter $(SUPPORTED_EMBEDDED_PLATFORMS),$(PLATFORM)),)
+DEPLOYMENT_TARGET_FLAGS = -miphoneos-version-min=$(SDKVERSION)
+else ifneq ($(filter $(SUPPORTED_SIMULATOR_PLATFORMS),$(PLATFORM)),)
+DEPLOYMENT_TARGET_FLAGS =
+else
+DEPLOYMENT_TARGET_FLAGS =
+endif
+
+DEPLOYMENT_TARGET_DEFINES = -DPLATFORM_$(PLATFORM)
+
+
+
+# setup the TARGETSDK and SDKROOT variables
+TARGETSDK:=$(SDKROOT)
+SDKROOTPATH:=$(SDKROOT)
+
+# make sure we have a build directory
+$(shell [ -d "$(BUILDDIR)" ] || mkdir -p $(BUILDDIR))
+
+#arch configs if not provided
+ifdef RC_ARCHS
+ARCH_CONFIGS:=$(RC_ARCHS)
+endif
+
+ifeq ($(ARCH_CONFIGS),)
+ARCH_CONFIGS:=
+ifeq ($(Embedded),YES)
+ARCH_CONFIGS:=$(shell $(XCRUN) -sdk $(TARGETSDK) otool -f -v $(SDKROOT)/usr/lib/system/libsystem_kernel.dylib | grep architecture | cut -d' '  -f 2 | tr '\n' ' ')
+else
+ARCH_CONFIGS:=x86_64 i386
+endif
+endif
+
+ARCH_CONFIGS_32:=$(filter-out %64,$(ARCH_CONFIGS))
+ARCH_CONFIGS_64:=$(filter %64,$(ARCH_CONFIGS))
+
+ARCH_FLAGS:=$(foreach argarch,$(ARCH_CONFIGS),-arch $(argarch) )
+
+
+#setup the compiler flags.
+CC:=$(shell $(XCRUN) -sdk "$(TARGETSDK)" -find clang)
+MIG:=$(shell $(XCRUN) -sdk "$(TARGETSDK)" -find mig)
+CODESIGN:=$(shell $(XCRUN) -sdk "$(TARGETSDK)" -find codesign)
+CODESIGN_ALLOCATE:=$(shell $(XCRUN) -sdk "$(TARGETSDK)" -find codesign_allocate)
+PLUTIL:=$(shell $(XCRUN) -sdk "$(TARGETSDK)" -find plutil)
+
+CFLAGS=-I$(BUILDDIR) -I. -isysroot $(SDKROOTPATH) $(ARCH_FLAGS)
+
+ifeq ($(Embedded),YES)
+TARGET_NAME=ios
+CONFIG_EMBED_DEFINE:= -DCONFIG_EMBEDDED=1
+else
+TARGET_NAME=osx
+CONFIG_EMBED_DEFINE:=
+endif
+
+MORECFLAGS=$(CONFIG_EMBED_DEFINE)

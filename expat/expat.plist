@@ -1,22 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<array>
 <dict>
 	<key>OpenSourceProject</key>
 	<string>expat</string>
 	<key>OpenSourceVersion</key>
-	<string>2.0.1</string>
+	<string>2.1.0</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://expat.sourceforge.net/</string>
 	<key>OpenSourceURL</key>
-	<string>http://dl.sourceforge.net/sourceforge/expat/expat-2.0.1.tar.gz</string>
+	<string>http://iweb.dl.sourceforge.net/project/expat/expat/2.1.0/expat-2.1.0.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>663548c37b996082db1f2f2c32af060d7aa15c2d</string>
+	<string>b08197d146930a5543a7b99e871cba3da614f6f0</string>
 	<key>OpenSourceImportDate</key>
-	<string>2008-07-01</string>
+	<string>2015-09-02</string>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>expat.txt</string>
 </dict>
-</array>
 </plist>

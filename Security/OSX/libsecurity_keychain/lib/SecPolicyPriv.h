@@ -58,6 +58,7 @@ extern "C" {
 	@constant kSecPolicyAppleATVAppSigning
 	@constant kSecPolicyAppleTestATVAppSigning
 	@constant kSecPolicyAppleOSXProvisioningProfileSigning
+	@constant kSecPolicyAppleATVVPNProfileSigning
 
 */
 extern const CFStringRef kSecPolicyAppleMobileStore
@@ -97,6 +98,8 @@ extern const CFStringRef kSecPolicyAppleATVAppSigning
 extern const CFStringRef kSecPolicyAppleTestATVAppSigning
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 extern const CFStringRef kSecPolicyAppleOSXProvisioningProfileSigning
+    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+extern const CFStringRef kSecPolicyAppleATVVPNProfileSigning
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 
 /*!
@@ -232,6 +235,16 @@ SecPolicyRef SecPolicyCreateApplePayIssuerEncryption(void)
 	 chains to Apple Root CA
 */
 SecPolicyRef SecPolicyCreateOSXProvisioningProfileSigning(void)
+    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+    
+    
+/*!
+ @function SecPolicyCreateAppleATVVPNProfileSigning
+ @abstract Check for leaf marker OID 1.2.840.113635.100.6.43,
+ intermediate marker OID 1.2.840.113635.100.6.2.10,
+ chains to Apple Root CA, path length 3
+ */
+SecPolicyRef SecPolicyCreateAppleATVVPNProfileSigning(void)
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 
 #if defined(__cplusplus)

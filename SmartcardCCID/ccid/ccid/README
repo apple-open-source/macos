@@ -118,7 +118,144 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 History:
 ========
 
-1.4.14 - 25 NOvember 2013, Ludovic Rousseau
+1.4.20 - 5 August 2015, Ludovic Rousseau
+    - Add support of
+      . ACS ACR1251 Dual Reader
+      . Access IS NFC Smart Module
+      . BIFIT iToken
+      . BLUTRONICS BLUDRIVE II CCID (idProduct: 0x1079)
+      . Generic MultiCard Device
+      . NXP Pegoda 2 N
+      . SafeNet eToken 5100
+      . SafeNet eToken 7300
+      . Yubico Yubikey 4 CCID
+      . Yubico Yubikey 4 OTP+CCID
+      . Yubico Yubikey 4 OTP+U2F+CCID
+      . Yubico Yubikey 4 U2F+CCID
+    - Depends on libusb version 1.0.9 instead of 1.0.8
+    - The O2 Micro Oz776 reader only supports 9600 bps
+    - Change installation directory for Mac OS X El Capitan 10.11
+
+
+1.4.19 - 13 May 2014, Ludovic Rousseau
+    - Add support of
+      . AK910 CKey (idProduct 0x0001)
+      . AK910 CKey (idProduct 0x0011)
+      . AK910 IDONE
+      . Broadcom Corp 5880 (idProduct: 0x5804)
+      . CASTLES EZCCID Smart Card Reader
+      . Cherry KC 1000 SC
+      . Cherry KC 1000 SC Z
+      . Cherry KC 1000 SC/DI
+      . Cherry KC 1000 SC/DI Z
+      . Cherry TC 1300
+      . Chicony USB Smart Card Keyboard
+      . Elatec TWN4 SmartCard NFC
+      . Feitian 502-CL
+      . Feitian eJAVA Token
+      . FujitsuTechnologySolutions GmbH Keyboard KB100 SCR
+      . FujitsuTechnologySolutions GmbH Keyboard KB100 SCR eSIG
+      . Hewlett-Packard HP lt4112 Gobi 4G Module
+      . Identive SCT3522CC token
+      . OMNIKEY AG 6121 USB mobile
+      . PIVKey T800
+      . REINER SCT tanJack Bluetooth
+      . Watchdata USB Key
+    - Add syslog(3) debug for Mac OS X Yosemite.
+      Use: sudo syslog -c "com.apple.ifdreader PID" -d to change the logging level.
+      See also "Change syslog logging level on Yosemite"
+      http://ludovicrousseau.blogspot.com/2015/03/change-syslog-logging-level-on-yosemite.html
+    - Remove ZLP patch for Gemalto IDBridge CT30 and K30. The patch was
+      causing problems with the K50.  A new reader firmware (version F)
+      solved the problem so the patch is no more needed.
+    - Fix a memory leak in an error path
+    - some minor bugs removed
+
+
+1.4.18 - 13 September 2014, Ludovic Rousseau
+    - Add support of
+      . Cherry Cherry TC 1100
+      . Cherry Smart Card Reader USB
+      . Cherry Smartcard Keyboard G87-1xx44
+      . FujitsuTechnologySolutions GmbH Keyboard KB SCR2
+      . Lenovo Lenovo USB Smartcard Keyboard
+      . Yubico Yubikey NEO OTP+U2F+CCID
+      . Yubico Yubikey NEO U2F+CCID
+      . eID_R6 001 X8
+    - fix support of Omnikey CardMan 3121
+    - reduce memory consumed when configured with --enable-embedded 
+    - prepare the port to UEFI
+
+
+1.4.17 - 11 June 2014, Ludovic Rousseau
+    - Add support of
+      . Feitian R502
+      . Free Software Initiative of Japan Gnuk Token
+      . German Privacy Foundation Crypto Stick v2.0
+      . HID Global veriCLASS Reader
+      . HID OMNIKEY 5025-CL
+      . Identive Technologies Multi-ISO HF Reader - USB
+      . OMNIKEY 5421
+      . OMNIKEY AG 3121 USB
+      . udea MILKO V1.
+    - Fix support of O2 Micro Oz776. The reader is limited to 9600 bps
+    - some minor bugs removed
+
+
+1.4.16 - 23 March 2014, Ludovic Rousseau
+    - Add support of
+      . Crypto Stick Crypto Stick v1.4
+      . Hewlett Packard USB Smartcard CCID Keyboard
+      . IID AT90S064 CCID READER
+      . INSIDE Secure VaultIC 405 Smart Object
+      . INSIDE Secure VaultIC 441 Smart Object
+      . Microchip SEC1110
+      . Microchip SEC1210
+      . Watchdata W5181
+    - Add support of DRIVER_OPTION_DISABLE_PIN_RETRIES
+      The Gemalto pinpad reader sends a VERIFY command with no PIN value
+      in order to retreive the remaining retries from the card.  Some
+      cards (like the OpenPGP card) do not support this.
+      It is now possible to disable this behavior from the Gemalto
+      Pinpad and Covadis Véga Alpha.
+    - add support of WTX received before SW during Secure Pin Entry Verify
+      The Swiss health care card sends a WTX request before returning
+      the SW code. If the reader is in TPDU and the card is in T=1 the
+      driver must manage the request itself.
+
+
+1.4.15 - 14 February 2014, Ludovic Rousseau
+    - Add support of
+      . DUALi DRAGON NFC READER
+      . Feitian bR301
+      . Gemalto CR30 reader in serial communication
+      . Gemalto Ezio Shield Pro SC
+      . IIT E.Key Almaz-1C
+    - PIN_MODIFY_STRUCTURE & PIN_VERIFY_STRUCTURE: Fix calculation of
+      the command length after pcsc-lite 1.8.9 (October 2013) changed
+      the PCSC/reader.h header
+    - Add specific PIN min (0) & max (25) sizes for SmartTerminal
+      ST-2xxx
+    - Do not get the data rates if bNumDataRatesSupported = 0
+    - Support Gemalto features for pinpad readers MinimumPINSize,
+      MaximumPINSize and bEntryValidationCondition are fetched from the
+      reader firmware
+    - disable (broken) pinpad for Fujitsu SmartCase KB SCR eSIG
+    - examples/scardcontrol.c:
+      . Parse codes returned by a pinpad (as SW1/SW2)
+        Known codes for now are:
+        0x9000: Success
+        0x6400: Timeout
+        0x6401: Cancelled by user
+        0x6402: PIN mismatch
+        0x6403: Too short or too long PIN
+      . Retrieve min and max PIN sizes from the driver
+      . Retrieve bEntryValidationCondition from the driver
+    - be more strict for bInterfaceClass = 255 by also checking extra_length
+    - some minor bugs removed
+
+
+1.4.14 - 25 November 2013, Ludovic Rousseau
     - Add support of
       . Gemalto GemCore SIM Pro firmware 2.0 (using USB)
     - report FEATURE_IFD_PIN_PROPERTIES only for pinpad readers
@@ -929,6 +1066,6 @@ History:
     - First public release
 
 
-$Id: README 6795 2013-11-25 18:09:17Z rousseau $
+$Id$
 
  vim:ts=20

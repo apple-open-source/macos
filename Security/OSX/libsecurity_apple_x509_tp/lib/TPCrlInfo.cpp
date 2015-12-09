@@ -232,6 +232,123 @@ CSSM_RETURN TPCrlInfo::parseExtensions(
 						return CSSMERR_APPLETP_IDP_FAIL;
 					}
 				}
+
+                /* Verify DistributionPointName matches cRLDistributionPoints
+                 * in cert.
+                 */
+                if(idp->distPointName) {
+                    CSSM_DATA_PTR certDistPoints;
+                    CSSM_RETURN crtn = forCert->fetchField(&CSSMOID_CrlDistributionPoints, &certDistPoints);
+                    switch(crtn) {
+                        case CSSM_OK:
+                            break;
+                        case CSSMERR_CL_NO_FIELD_VALUES:
+                            return CSSM_OK;
+                        default:
+                            return crtn;
+                    }
+                    if (certDistPoints->Length != sizeof(CSSM_X509_EXTENSION)) {
+                        forCert->freeField(&CSSMOID_CrlDistributionPoints, certDistPoints);
+                        return CSSMERR_TP_UNKNOWN_FORMAT;
+                    }
+                    CSSM_X509_EXTENSION *cssmExt = (CSSM_X509_EXTENSION *)certDistPoints->Data;
+                    if (cssmExt == NULL) {
+                        forCert->freeField(&CSSMOID_CrlDistributionPoints, certDistPoints);
+                        return CSSMERR_TP_UNKNOWN_FORMAT;
+                    }
+                    CE_CRLDistPointsSyntax *dps = (CE_CRLDistPointsSyntax *)cssmExt->value.parsedValue;
+                    if (dps == NULL) {
+                        forCert->freeField(&CSSMOID_CrlDistributionPoints, certDistPoints);
+                        return CSSMERR_TP_UNKNOWN_FORMAT;
+                    }
+                    if (!dps->numDistPoints) {
+                        /* no distribution points in the cert extension */
+                        forCert->freeField(&CSSMOID_CrlDistributionPoints, certDistPoints);
+                        return CSSM_OK;
+                    }
+
+                    /* Loop over the cRLDistributionPoints in the cert. */
+                    CSSM_BOOL sameType = CSSM_FALSE;
+                    CSSM_BOOL found = CSSM_FALSE;
+                    for (unsigned dex=0; dex<dps->numDistPoints; dex++) {
+                        CE_CRLDistributionPoint *dp = &dps->distPoints[dex];
+                        if (dp->distPointName == NULL) {
+                            continue;
+                        }
+                        if (idp->distPointName->nameType != dp->distPointName->nameType) {
+                            /* Not the same name type; move on. */
+                            continue;
+                        }
+                        sameType = CSSM_TRUE;
+                        switch (dp->distPointName->nameType) {
+                            case CE_CDNT_NameRelativeToCrlIssuer: {
+                                if (true) {
+                                    /* RDN code below is not tested, so we won't use it.
+                                     * Defaulting to prior behavior of accepting without testing.
+                                     */
+                                    found = CSSM_TRUE;
+                                    tpErrorLog("parseExtensions: "
+                                               "CE_CDNT_NameRelativeToCrlIssuer not implemented\n");
+                                    break;
+                                }
+                                /* relativeName is a RDN sequence */
+                                CSSM_X509_RDN_PTR idpName = idp->distPointName->dpn.rdn;
+                                CSSM_X509_RDN_PTR certName = dp->distPointName->dpn.rdn;
+                                if (idpName == NULL || certName == NULL || idpName->numberOfPairs != certName->numberOfPairs) {
+                                    /* They don't have the same number of attribute/value pairs; move on. */
+                                    continue;
+                                }
+                                unsigned nDex;
+                                for (nDex=0; nDex<idpName->numberOfPairs; nDex++) {
+                                    CSSM_X509_TYPE_VALUE_PAIR_PTR iPair = idpName->AttributeTypeAndValue;
+                                    CSSM_X509_TYPE_VALUE_PAIR_PTR cPair = certName->AttributeTypeAndValue;
+                                    if (!tpCompareCssmData(&iPair->type, &cPair->type) ||
+                                        !tpCompareCssmData(&iPair->value, &cPair->value)) {
+                                        break;
+                                    }
+                                }
+                                if (nDex==idpName->numberOfPairs) {
+                                    /* All the pairs matched. */
+                                    found = CSSM_TRUE;
+                                }
+                            }
+                            case CE_CDNT_FullName: {
+                                /* fullName is a GeneralNames sequence */
+                                CE_GeneralNames *idpNames = idp->distPointName->dpn.fullName;
+                                CE_GeneralNames *certNames = dp->distPointName->dpn.fullName;
+                                if (idpNames == NULL || certNames == NULL || idpNames->numNames != certNames->numNames) {
+                                    /* They don't have the same number of names; move on. */
+                                    continue;
+                                }
+                                unsigned nDex;
+                                for (nDex=0; nDex<idpNames->numNames; nDex++) {
+                                    CE_GeneralName *idpName = &idpNames->generalName[nDex];
+                                    CE_GeneralName *certName = &certNames->generalName[nDex];
+                                    if ((idpName->nameType != certName->nameType) ||
+                                        (!tpCompareCssmData(&idpName->name, &certName->name))) {
+                                            break;
+                                    }
+                                }
+                                if (nDex==idpNames->numNames) {
+                                    /* All the names matched. */
+                                    found = CSSM_TRUE;
+                                }
+                                break;
+                            }
+                            default: {
+                                forCert->freeField(&CSSMOID_CrlDistributionPoints, certDistPoints);
+                                return CSSMERR_TP_UNKNOWN_FORMAT;
+                            }
+                        }
+                        if (found) {
+                            break; /* out of loop over crlDistribtionPoints in cert. */
+                        }
+                    }
+                    forCert->freeField(&CSSMOID_CrlDistributionPoints, certDistPoints);
+                    if(sameType && !found) {
+                        return CSSMERR_APPLETP_IDP_FAIL;
+                    }
+                } /* distPointName check */
 			}	/* IDP */
 		} 		/* have target cert */
 	}

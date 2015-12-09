@@ -1,0 +1,134 @@
+# Common definitions for libdarwintest using tests.
+#
+# This file should be included before compilation rules are defined.
+
+ifndef PROJECT
+ifdef PC_ProjectName
+PROJECT := $(RC_ProjectName)
+else
+$(error PROJECT must be set)
+endif
+endif
+
+#
+# Setup source and destination directories
+#
+
+ifdef PROJECT_DIR
+SRCROOT := $(PROJECT_DIR)/$(TEST_DIR)
+else
+SRCROOT ?= $(shell /bin/pwd)
+endif
+
+# fallback values for {OBJ,SYM,DST}ROOT are relative to here
+BUILDROOT ?= $(SRCROOT)/build
+
+ifdef OBJECT_FILE_DIR
+OBJROOT = $(OBJECT_FILE_DIR)
+else
+OBJROOT ?= $(BUILDROOT)/obj
+endif
+
+ifdef BUILT_PRODUCTS_DIR
+SYMROOT = $(BUILT_PRODUCTS_DIR)
+else
+SYMROOT ?= $(BUILDROOT)/sym
+endif
+
+DSTROOT ?= $(BUILDROOT)/dst
+INSTALLPATH ?= /AppleInternal/CoreOS/tests/$(PROJECT)
+INSTALLDIR ?= $(DSTROOT)/$(INSTALLPATH)
+
+$(shell [ -d "$(OBJROOT)" ] || mkdir -p $(OBJROOT))
+$(shell [ -d "$(SYMROOT)" ] || mkdir -p $(SYMROOT))
+$(shell [ -d "$(DSTROOT)" ] || mkdir -p $(DSTROOT))
+
+#
+# Locate common utilities
+#
+
+XCRUN := /usr/bin/xcrun
+CC := $(shell $(XCRUN) -sdk "$(TARGETSDK)" -find clang)
+
+#
+# Setup SDKROOT and friends
+#
+
+SDKROOT ?= macosx.internal
+
+# SDKROOT may be passed as a shorthand like "iphoneos.internal". We
+# must resolve these to a full path and override SDKROOT.
+SDKROOT_RESOLVED := $(shell $(XCRUN) -sdk $(SDKROOT) -show-sdk-path)
+ifeq ($(strip $(SDKROOT)_$(SDKROOT_RESOLVED)),/_)
+SDKROOT_RESOLVED := /
+endif
+override SDKROOT = $(SDKROOT_RESOLVED)
+
+SDKVERSION := $(shell $(XCRUN) -sdk $(SDKROOT) -show-sdk-version)
+TARGETSDK:=$(SDKROOT)
+SDKROOTPATH:=$(SDKROOT)
+PLATFORMPATH := $(shell $(XCRUN) -sdk $(SDKROOT) -show-sdk-platform-path)
+PLATFORM := $(shell echo $(PLATFORMPATH) | sed 's,^.*/\([^/]*\)\.platform$$,\1,')
+
+ifeq ($(PLATFORM),watchOS)
+PLATFORM := WatchOS
+endif
+
+SUPPORTED_EMBEDDED_PLATFORMS := iPhoneOS iPhoneOSNano tvOS AppleTVOS WatchOS
+SUPPORTED_SIMULATOR_PLATFORMS := iPhoneSimulator iPhoneNanoSimulator tvSimulator AppleTVSimulator WatchSimulator
+Embedded = $(if $(filter $(SUPPORTED_EMBEDDED_PLATFORMS),$(PLATFORM)),YES,NO)
+Simulator = $(if $(filter $(SUPPORTED_SIMULATOR_PLATFORMS),$(PLATFORM)),YES,NO)
+
+#
+# Determine flags and variables based on SDK/platform
+#
+
+ifeq ($(PLATFORM),MacOSX)
+DEPLOYMENT_TARGET_FLAGS = -mmacosx-version-min=$(SDKVERSION)
+else ifeq ($(PLATFORM),WatchOS)
+DEPLOYMENT_TARGET_FLAGS = -mwatchos-version-min=$(SDKVERSION)
+else ifeq ($(PLATFORM),tvOS)
+DEPLOYMENT_TARGET_FLAGS = -mtvos-version-min=$(SDKVERSION)
+else ifeq ($(PLATFORM),AppleTVOS)
+DEPLOYMENT_TARGET_FLAGS = -mtvos-version-min=$(SDKVERSION)
+else ifneq ($(filter $(SUPPORTED_EMBEDDED_PLATFORMS),$(PLATFORM)),)
+DEPLOYMENT_TARGET_FLAGS = -miphoneos-version-min=$(SDKVERSION)
+else ifneq ($(filter $(SUPPORTED_SIMULATOR_PLATFORMS),$(PLATFORM)),)
+DEPLOYMENT_TARGET_FLAGS =
+else
+DEPLOYMENT_TARGET_FLAGS =
+endif
+
+ifdef RC_ARCHS
+ARCH_CONFIGS:=$(RC_ARCHS)
+endif
+
+ifeq ($(ARCH_CONFIGS),)
+ARCH_CONFIGS:=
+ifeq ($(Embedded),YES)
+ARCH_CONFIGS:=$(shell $(XCRUN) -sdk $(TARGETSDK) otool -f -v $(SDKROOT)/usr/lib/system/libsystem_kernel.dylib | grep architecture | cut -d' '  -f 2 | tr '\n' ' ')
+else
+ARCH_CONFIGS:=x86_64 i386
+endif
+endif
+
+ARCH_FLAGS:=$(foreach argarch,$(ARCH_CONFIGS),-arch $(argarch) )
+
+ifeq ($(Embedded),YES)
+TARGET_NAME=ios
+CONFIG_EMBED_DEFINE:= -DCONFIG_EMBEDDED=1
+else
+TARGET_NAME=osx
+CONFIG_EMBED_DEFINE:=
+endif
+
+ifeq ($(CONFIGURATION),Debug)
+CONFIG_FLAGS := -O0 -DDEBUG
+else
+CONFIG_FLAGS := -Os
+endif
+
+CFLAGS := -g $(CONFIG_FLAGS) -I$(SRCROOT) -isysroot $(SDKROOTPATH) $(ARCH_FLAGS) $(DEPLOYMENT_TARGET_FLAGS) $(CONFIG_EMBED_DEFINE) $(RC_NONARCH_CFLAGS)
+
+DT_CFLAGS :=
+DT_LDFLAGS := -ldarwintest

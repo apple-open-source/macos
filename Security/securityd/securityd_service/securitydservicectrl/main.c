@@ -7,6 +7,7 @@
 //
 
 #include "securityd_service.h"
+#include "securityd_service_client.h"
 
 #include <stdio.h>
 #include <xpc/xpc.h>
@@ -44,7 +45,7 @@ int main(int argc, const char * argv[])
     xpc_connection_resume(connection);
     
     if (argc != 2) {
-        printf("Usage: securityservicectrl < get | set | stash | login | loginstash >\n");
+        printf("Usage: securityservicectrl < get | set | stash | login | loginstash | unload >\n");
         return 1;
     }
     
@@ -71,7 +72,10 @@ int main(int argc, const char * argv[])
         status = SecKeychainStash();
         printf("Returned: %i\n", status);
         return status ? 1 : 0;
-        
+
+    } else if (strcmp(argv[1], "unload") == 0) {
+        return service_client_kb_unload(NULL);
+
     } else {
         printf("%s not known\n", argv[1]);
         return 1;

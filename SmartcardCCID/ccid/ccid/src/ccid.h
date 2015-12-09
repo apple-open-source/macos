@@ -18,7 +18,7 @@
 */
 
 /*
- * $Id: ccid.h 6650 2013-06-10 08:43:24Z rousseau $
+ * $Id$
  */
 
 typedef struct
@@ -141,11 +141,6 @@ typedef struct
 	 * Gemalto extra features, if any
 	 */
 	struct GEMALTO_FIRMWARE_FEATURES *gemalto_firmware_features;
-
-	/*
-	 * Zero Length Packet fixup (boolean)
-	 */
-	char zlp;
 } _ccid_descriptor;
 
 /* Features from dwFeatures */
@@ -185,6 +180,7 @@ typedef struct
 #define GEMPCTWIN	0x08E63437
 #define GEMPCPINPAD 0x08E63478
 #define GEMCORESIMPRO 0x08E63480
+#define GEMCORESIMPRO2 0x08E60000 /* Does NOT match a real VID/PID as new firmware release exposes same VID/PID */
 #define GEMCOREPOSPRO 0x08E63479
 #define GEMALTOPROXDU 0x08E65503
 #define GEMALTOPROXSU 0x08E65504
@@ -213,6 +209,7 @@ typedef struct
 #define HPSMARTCARDKEYBOARD 0x03F01024
 #define HP_CCIDSMARTCARDKEYBOARD 0x03F00036
 #define KOBIL_IDTOKEN 0x0D46301D
+#define FUJITSUSMARTKEYB 0x0BF81017
 
 #define VENDOR_GEMALTO 0x08E6
 #define GET_VENDOR(readerID) ((readerID >> 16) & 0xFFFF)
@@ -247,7 +244,8 @@ typedef struct
 
 int ccid_open_hack_pre(unsigned int reader_index);
 int ccid_open_hack_post(unsigned int reader_index);
-void ccid_error(int error, const char *file, int line, const char *function);
+void ccid_error(int log_level, int error, const char *file, int line,
+	const char *function);
 _ccid_descriptor *get_ccid_descriptor(unsigned int reader_index);
 
 /* convert a 4 byte integer in USB format into an int */
@@ -267,59 +265,72 @@ _ccid_descriptor *get_ccid_descriptor(unsigned int reader_index);
 /* data rates supported by the secondary slots on the GemCore Pos Pro & SIM Pro */
 #define GEMPLUS_CUSTOM_DATA_RATES 10753, 21505, 43011, 125000
 
+/* data rates for GemCore SIM Pro 2 */
+#define SIMPRO2_ISO_DATA_RATES 8709, 10322, 12403, 12500, \
+		12903, 17204, 18750, 20645, 24806, \
+		25000, 25806, 28125, 30967, 34408, \
+		37500, 41290, 46875, 49612, 50000, \
+		51612, 56250, 62500, 64516, 68817, \
+		74418, 75000, 82580, 86021, 93750, \
+		99224, 100000, 103225, 112500, 124031, \
+		125000, 137634, 150000, 154838, 165161, \
+		172043, 187500, 198449, 200000, 206451, \
+		258064, 275268, 300000, 396899, 400000, \
+		412903, 550537, 600000, 825806
+
 /* Structure returned by Gemalto readers for the CCID Escape command 0x6A */
 struct GEMALTO_FIRMWARE_FEATURES
 {
-	UCHAR	bLogicalLCDLineNumber;	/* Logical number of LCD lines */
-	UCHAR	bLogicalLCDRowNumber;	/* Logical number of characters per LCD line */
-	UCHAR	bLcdInfo;				/* b0 indicates if scrolling is available */
-	UCHAR	bEntryValidationCondition;	/* See PIN_PROPERTIES */
+	unsigned char	bLogicalLCDLineNumber;	/* Logical number of LCD lines */
+	unsigned char	bLogicalLCDRowNumber;	/* Logical number of characters per LCD line */
+	unsigned char	bLcdInfo;				/* b0 indicates if scrolling is available */
+	unsigned char	bEntryValidationCondition;	/* See PIN_PROPERTIES */
 
 	/* Here come the PC/SC bit features to report */
-	UCHAR	VerifyPinStart:1;
-	UCHAR	VerifyPinFinish:1;
-	UCHAR	ModifyPinStart:1;
-	UCHAR	ModifyPinFinish:1;
-	UCHAR	GetKeyPressed:1;
-	UCHAR	VerifyPinDirect:1;
-	UCHAR	ModifyPinDirect:1;
-	UCHAR	Abort:1;
+	unsigned char	VerifyPinStart:1;
+	unsigned char	VerifyPinFinish:1;
+	unsigned char	ModifyPinStart:1;
+	unsigned char	ModifyPinFinish:1;
+	unsigned char	GetKeyPressed:1;
+	unsigned char	VerifyPinDirect:1;
+	unsigned char	ModifyPinDirect:1;
+	unsigned char	Abort:1;
 
-	UCHAR	GetKey:1;
-	UCHAR	WriteDisplay:1;
-	UCHAR	SetSpeMessage:1;
-	UCHAR	RFUb1:5;
+	unsigned char	GetKey:1;
+	unsigned char	WriteDisplay:1;
+	unsigned char	SetSpeMessage:1;
+	unsigned char	RFUb1:5;
 
-	UCHAR	RFUb2[2];
+	unsigned char	RFUb2[2];
 
 	/* Additional flags */
-	UCHAR	bTimeOut2:1;
-	UCHAR	bListSupportedLanguages:1;	/* Reader is able to indicate
+	unsigned char	bTimeOut2:1;
+	unsigned char	bListSupportedLanguages:1;	/* Reader is able to indicate
 	   the list of supported languages through CCID-ESC 0x6B */
-	UCHAR	bNumberMessageFix:1;	/* Reader handles correctly shifts
+	unsigned char	bNumberMessageFix:1;	/* Reader handles correctly shifts
 		made by bNumberMessage in PIN modification data structure */
-	UCHAR	bPPDUSupportOverXferBlock:1;	/* Reader supports PPDU over
+	unsigned char	bPPDUSupportOverXferBlock:1;	/* Reader supports PPDU over
 		PC_to_RDR_XferBlock command */
-	UCHAR	bPPDUSupportOverEscape:1;	/* Reader supports PPDU over
+	unsigned char	bPPDUSupportOverEscape:1;	/* Reader supports PPDU over
 		PC_to_RDR_Escape command with abData[0]=0xFF */
-	UCHAR	RFUb3:3;
+	unsigned char	RFUb3:3;
 
-	UCHAR	RFUb4[3];
+	unsigned char	RFUb4[3];
 
-	UCHAR	VersionNumber;	/* ?? */
-	UCHAR	MinimumPINSize;	/* for Verify and Modify */
-	UCHAR	MaximumPINSize;
+	unsigned char	VersionNumber;	/* ?? */
+	unsigned char	MinimumPINSize;	/* for Verify and Modify */
+	unsigned char	MaximumPINSize;
 
 	/* Miscellaneous reader features */
-	UCHAR	Firewall:1;
-	UCHAR	RFUb5:7;
+	unsigned char	Firewall:1;
+	unsigned char	RFUb5:7;
 
 	/* The following fields, FirewalledCommand_SW1 and
 	 * FirewalledCommand_SW2 are only valid if Firewall=1
 	 * These fields give the SW1 SW2 value used by the reader to
 	 * indicate a command has been firewalled */
-	UCHAR	FirewalledCommand_SW1;
-	UCHAR	FirewalledCommand_SW2;
-	UCHAR	RFUb6[3];
+	unsigned char	FirewalledCommand_SW1;
+	unsigned char	FirewalledCommand_SW2;
+	unsigned char	RFUb6[3];
 };
 

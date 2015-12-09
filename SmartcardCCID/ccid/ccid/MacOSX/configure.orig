@@ -17,7 +17,7 @@
 #    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 #    02110-1301 USA.
 
-# $Id: configure 6792 2013-11-25 13:03:21Z rousseau $
+# $Id$
 
 # to use
 # ./MacOSX/configure
@@ -72,6 +72,25 @@ echo
 
 CONFIGURE_ARGS="--disable-dependency-tracking"
 
+# Are we on a CryptoTokenKit system? (like Mac OS X 10.10 Yosemite)
+if [ -d /System/Library/CryptoTokenKit ]
+then
+	# so we use syslog(3) to log errors
+	CONFIGURE_ARGS="$CONFIGURE_ARGS --enable-syslog"
+fi
+
+# get the Mac OS X major version. Example: El Capitan 10.11 -> 10011
+MAC_VERSION=$(sw_vers -productVersion | awk -F '.' '{print $1 * 1000 + $2}')
+
+if [ 10011 -gt $MAC_VERSION ]
+then
+	# Mac OS X < 10.11
+	DROPDIR="/usr/libexec/SmartCardServices/drivers"
+else
+	# Mac OS X >= 10.11 (El Capitan)
+	DROPDIR="/usr/local/libexec/SmartCardServices/drivers"
+fi
+
 # do not build a static driver
 # (building fails when linking statically with libusb)
 CONFIGURE_ARGS="$CONFIGURE_ARGS --disable-static"
@@ -104,7 +123,7 @@ set -x
 	LIBUSB_CFLAGS="$LIBUSB_CFLAGS" \
 	LIBUSB_LIBS="$LIBUSB_LIBS" \
 	LDFLAGS="$LDFLAGS" \
-	--enable-usbdropdir=/usr/libexec/SmartCardServices/drivers \
+	--enable-usbdropdir="$DROPDIR" \
 	$CONFIGURE_ARGS \
 	"$@"
 

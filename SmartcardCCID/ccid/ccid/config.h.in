@@ -42,6 +42,9 @@
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
 
+/* Define to 1 if you have the <stdio.h> header file. */
+#undef HAVE_STDIO_H
+
 /* Define to 1 if you have the <stdlib.h> header file. */
 #undef HAVE_STDLIB_H
 
@@ -121,6 +124,9 @@
 
 /* composite device are seen as multi-slots */
 #undef USE_COMPOSITE_AS_MULTISLOT
+
+/* Use syslog(3) for debug */
+#undef USE_SYSLOG
 
 /* Version number of package */
 #undef VERSION

@@ -61,7 +61,7 @@ SEC_ASN1_MKSUB(kSecAsn1SetOfAnyTemplate)
 
 /* forward declaration */
 static const SecAsn1Template *
-nss_cms_choose_content_template(void *src_or_dest, Boolean encoding, const char *buf, void *dest);
+nss_cms_choose_content_template(void *src_or_dest, Boolean encoding, const char *buf, size_t len, void *dest);
 
 static const SecAsn1TemplateChooserPtr nss_cms_chooser
 	= nss_cms_choose_content_template;
@@ -564,7 +564,7 @@ nss_cms_get_kea_template(SecCmsKEATemplateSelector whichTemplate)
  *
  */
 static const SecAsn1Template *
-nss_cms_choose_content_template(void *src_or_dest, Boolean encoding, const char *buf, void *dest)
+nss_cms_choose_content_template(void *src_or_dest, Boolean encoding, const char *buf, size_t len, void *dest)
 {
     const SecAsn1Template *theTemplate;
     SecCmsContentInfoRef cinfo;

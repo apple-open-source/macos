@@ -462,46 +462,6 @@ static OSStatus _tsEnsuredInitialized(void)
     }
     return status;
 }
-
-#define APPNAMEWORKAROUND_KEY CFSTR("WorkaroundAppNames")
-#define APPNAMEWORKAROUND_DOMAIN CFSTR("com.apple.security")
-
-static bool tsCheckAppNameWorkaround(const char *name)
-{
-	bool result = false;
-	CFIndex idx, count;
-	CFStringRef str =
-	    CFStringCreateWithCString (NULL, name, kCFStringEncodingUTF8);
-	CFArrayRef value = (CFArrayRef)
-	    CFPreferencesCopyValue (APPNAMEWORKAROUND_KEY,
-	                            APPNAMEWORKAROUND_DOMAIN,
-	                            kCFPreferencesCurrentUser,
-	                            kCFPreferencesAnyHost);
-	if (!str || !value ||
-		!(CFArrayGetTypeID() == CFGetTypeID(value))) {
-		goto cleanup;
-	}
-	count = CFArrayGetCount(value);
-	for (idx = 0; idx < count; idx++) {
-		CFStringRef appstr = (CFStringRef) CFArrayGetValueAtIndex(value, idx);
-		if (!(appstr) || !(CFStringGetTypeID() == CFGetTypeID(appstr))) {
-			continue;
-		}
-		if (!CFStringCompare(str, appstr, 0)) {
-			result = true;
-			break;
-		}
-	}
-
-cleanup:
-	if (str) {
-		CFRelease(str);
-	}
-	if (value) {
-		CFRelease(value);
-	}
-	return result;
-}
 #endif
 
 static void tsAddConditionalCerts(CFMutableArrayRef certArray)
@@ -515,14 +475,8 @@ static void tsAddConditionalCerts(CFMutableArrayRef certArray)
 
 	if (!certArray) { return; }
 
-	pid_t pid = getpid();
-	char pathbuf[PROC_PIDPATHINFO_MAXSIZE];
-	int ret = proc_name(pid, pathbuf, sizeof(pathbuf));
-	if (ret <= 0) { return; }
-
 	OSStatus status = _tsEnsuredInitialized();
-	if ((status == 0 && sCSCheckFix_f(CFSTR("21946795"))) ||
-		tsCheckAppNameWorkaround(pathbuf)) {
+	if (status == 0 && sCSCheckFix_f(CFSTR("21946795"))) {
 		// conditionally include these 1024-bit roots
 		const certmap_entry_t certmap[] = {
 			{ _EquifaxSecureCA, sizeof(_EquifaxSecureCA) },

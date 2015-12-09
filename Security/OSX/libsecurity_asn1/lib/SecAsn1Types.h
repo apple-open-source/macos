@@ -223,7 +223,9 @@ typedef struct SecAsn1Template_struct {
  *
  * "buf"  For decode only; points to the start of the decoded data for 
  *        the current template. Callee can use the tag at this location 
- *        to infer the returned template. Not used on encode. 
+ *        to infer the returned template. Not used on encode.
+ *
+ * "len"  For decode only; the length of buf.
  *
  * "Dest" points to the template-specific item being decoded to 
  *        or encoded from. (This is as opposed to arg, which 
@@ -235,6 +237,7 @@ typedef const SecAsn1Template * SecAsn1TemplateChooser(
 	void *arg, 
 	Boolean enc,
 	const char *buf,
+	size_t len,
 	void *dest);
 
 typedef SecAsn1TemplateChooser * SecAsn1TemplateChooserPtr;

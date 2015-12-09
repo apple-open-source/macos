@@ -4408,6 +4408,9 @@ BC_init_cache(size_t mounts_size, user_addr_t mounts, size_t entries_size, user_
 				 &current_time);
 		BC_cache->c_stats.ss_preload_time = (u_int) current_time.tv_sec * 1000 + (u_int) current_time.tv_usec / 1000;
 	}
+	if (BC_cache->c_stats.ss_start_time == 0) {
+		BC_cache->c_stats.ss_start_time = mach_absolute_time();
+	}
 	
 out:
 	return(error);

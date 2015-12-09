@@ -219,6 +219,8 @@ _internal_new_name(notify_state_t *ns, const char *name)
 	n->slot = (uint32_t)-1;
 	n->val = 1;
 
+	LIST_INIT(&n->subscriptions);
+
 	_nc_table_insert_no_copy(ns->name_table, n->name, n);
 	_nc_table_insert_64(ns->name_id_table, n->name_id, n);
 
@@ -595,9 +597,8 @@ _internal_post_name(notify_state_t *ns, name_info_t *n, uid_t uid, gid_t gid)
 
 	n->val++;
 
-	for (l = n->subscriptions; l != NULL; l = _nc_list_next(l))
+	LIST_FOREACH(c, &n->subscriptions, client_subscription_entry)
 	{
-		c = _nc_list_data(l);
 		if (c != NULL) _internal_send(ns, c);
 	}
 
@@ -665,7 +666,6 @@ _internal_release_name_info(notify_state_t *ns, name_info_t *n)
 		_internal_remove_controlled_name(ns, n);
 		_nc_table_delete(ns->name_table, n->name);
 		_nc_table_delete_64(ns->name_id_table, n->name_id);
-		_nc_list_free_list(n->subscriptions);
 		free(n);
 		ns->stat_name_free++;
 	}
@@ -691,7 +691,7 @@ _internal_cancel(notify_state_t *ns, uint64_t cid)
 	n = c->name_info;
 	if (n == NULL) return;
 
-	n->subscriptions =_nc_list_delete(n->subscriptions, c);
+	LIST_REMOVE(c, client_subscription_entry);
 	_internal_client_release(ns, c);
 	_internal_release_name_info(ns, n);
 }
@@ -1174,7 +1174,6 @@ _internal_register_common(notify_state_t *ns, const char *name, pid_t pid, int t
 		if (is_new_name == 1)
 		{
 			_nc_table_delete(ns->name_table, n->name);
-			_nc_list_free_list(n->subscriptions);
 			free(n);
 			ns->stat_name_free++;
 		}
@@ -1185,7 +1184,7 @@ _internal_register_common(notify_state_t *ns, const char *name, pid_t pid, int t
 	n->refcount++;
 
 	c->name_info = n;
-	n->subscriptions = _nc_list_prepend(n->subscriptions, _nc_list_new(c));
+	LIST_INSERT_HEAD(&n->subscriptions, c, client_subscription_entry);
 
 	*outc = c;
 

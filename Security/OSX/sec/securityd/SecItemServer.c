@@ -1190,12 +1190,12 @@ _SecAddSharedWebCredential(CFDictionaryRef attributes,
     CFTypeRef *result,
     CFErrorRef *error) {
 
-    CFStringRef fqdn = CFDictionaryGetValue(attributes, kSecAttrServer);
-    CFStringRef account = CFDictionaryGetValue(attributes, kSecAttrAccount);
+    CFStringRef fqdn = CFRetainSafe(CFDictionaryGetValue(attributes, kSecAttrServer));
+    CFStringRef account = CFRetainSafe(CFDictionaryGetValue(attributes, kSecAttrAccount));
 #if TARGET_OS_IPHONE && !TARGET_OS_WATCH
-    CFStringRef password = CFDictionaryGetValue(attributes, kSecSharedPassword);
+    CFStringRef password = CFRetainSafe(CFDictionaryGetValue(attributes, kSecSharedPassword));
 #else
-    CFStringRef password = CFDictionaryGetValue(attributes, CFSTR("spwd"));
+    CFStringRef password = CFRetainSafe(CFDictionaryGetValue(attributes, CFSTR("spwd")));
 #endif
     CFStringRef accessGroup = CFSTR("*");
     CFArrayRef accessGroups = NULL;
@@ -1212,7 +1212,6 @@ _SecAddSharedWebCredential(CFDictionaryRef attributes,
 
     // parse fqdn with CFURL here, since it could be specified as domain:port
     if (fqdn) {
-        CFRetainSafe(fqdn);
         CFStringRef urlStr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@%@"), kSecSharedCredentialUrlScheme, fqdn);
         if (urlStr) {
             CFURLRef url = CFURLCreateWithString(kCFAllocatorDefault, urlStr, nil);
@@ -1291,7 +1290,7 @@ _SecAddSharedWebCredential(CFDictionaryRef attributes,
     // check for presence of Safari's negative entry ('passwords not saved')
     CFDictionarySetValue(query, kSecAttrAccount, kSecSafariPasswordsNotSaved);
     ok = _SecItemCopyMatching(query, accessGroups, result, error);
-    CFReleaseNull(*result);
+    if(result) CFReleaseNull(*result);
     CFReleaseNull(*error);
     if (ok) {
         SecError(errSecDuplicateItem, error, CFSTR("Item already exists for this server"));
@@ -1310,7 +1309,7 @@ _SecAddSharedWebCredential(CFDictionaryRef attributes,
     // look up existing password
     if (_SecItemCopyMatching(query, accessGroups, result, error)) {
         // found it, so this becomes either an "update password" or "delete password" operation
-        CFReleaseNull(*result);
+        if(result) CFReleaseNull(*result);
         CFReleaseNull(*error);
         update = (password != NULL);
         if (update) {
@@ -1342,7 +1341,7 @@ _SecAddSharedWebCredential(CFDictionaryRef attributes,
         }
         goto cleanup;
     }
-    CFReleaseNull(*result);
+    if(result) CFReleaseNull(*result);
     CFReleaseNull(*error);
 
     // password does not exist, so prepare to add it
@@ -1401,6 +1400,8 @@ cleanup:
     CFReleaseSafe(query);
     CFReleaseSafe(accessGroups);
     CFReleaseSafe(fqdn);
+    CFReleaseSafe(account);
+    CFReleaseSafe(password);
     return ok;
 }
 

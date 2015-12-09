@@ -59,6 +59,7 @@
 		18B965DC147319E5005A4D2E /* libsecurityd_server.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965DB147319E5005A4D2E /* libsecurityd_server.a */; };
 		18B965DD147319F6005A4D2E /* PCSC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C276AAD60663E7A400B57276 /* PCSC.framework */; };
 		18CE013F17147A46008C042F /* libsecuritydservice_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18CE013E17147A46008C042F /* libsecuritydservice_client.a */; };
+		44AF7EE01BB445BA005E9265 /* libDiagnosticMessagesClient.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 44AF7EDF1BB445BA005E9265 /* libDiagnosticMessagesClient.dylib */; settings = {ASSET_TAGS = (); }; };
 		4E0BB2B40F79590300BBFEFA /* ccaudit_extensions.h in Headers */ = {isa = PBXBuildFile; fileRef = 4E0BB2B20F79590300BBFEFA /* ccaudit_extensions.h */; };
 		4E0BB2B50F79590300BBFEFA /* ccaudit_extensions.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4E0BB2B30F79590300BBFEFA /* ccaudit_extensions.cpp */; };
 		53002F001818A7C300900564 /* libsecurity_codesigning.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FFD0147516CF00FD79DF /* libsecurity_codesigning.a */; };
@@ -254,6 +255,7 @@
 		407ACD060AE5B57700A9DA90 /* credential.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = credential.h; sourceTree = "<group>"; };
 		407ACD070AE5B57700A9DA90 /* credential.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = credential.cpp; sourceTree = "<group>"; };
 		43D720FA1A23F1490091236D /* agentclient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = agentclient.h; sourceTree = "<group>"; };
+		44AF7EDF1BB445BA005E9265 /* libDiagnosticMessagesClient.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libDiagnosticMessagesClient.dylib; path = /usr/lib/libDiagnosticMessagesClient.dylib; sourceTree = "<absolute>"; };
 		4C9264980534866F004B0E72 /* acl_keychain.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = acl_keychain.cpp; sourceTree = "<group>"; };
 		4C9264990534866F004B0E72 /* acl_keychain.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = acl_keychain.h; sourceTree = "<group>"; };
 		4C92649A0534866F004B0E72 /* acls.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = acls.cpp; sourceTree = "<group>"; };
@@ -360,6 +362,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				44AF7EE01BB445BA005E9265 /* libDiagnosticMessagesClient.dylib in Frameworks */,
 				53002F001818A7C300900564 /* libsecurity_codesigning.a in Frameworks */,
 				18CE013F17147A46008C042F /* libsecuritydservice_client.a in Frameworks */,
 				1865FFEB1475208B00FD79DF /* libsqlite3.dylib in Frameworks */,
@@ -457,6 +460,7 @@
 				18B967B514731B78005A4D2E /* libobjc.dylib */,
 				18B967B314731B69005A4D2E /* libauto.dylib */,
 				18B967B114731B55005A4D2E /* libsqlite3.dylib */,
+				44AF7EDF1BB445BA005E9265 /* libDiagnosticMessagesClient.dylib */,
 				18B965DB147319E5005A4D2E /* libsecurityd_server.a */,
 				18B965D9147319C8005A4D2E /* libsecurity_cdsa_client.a */,
 				18B965D41473197B005A4D2E /* libsecurity_cdsa_utilities.a */,

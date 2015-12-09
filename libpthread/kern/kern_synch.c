@@ -468,8 +468,8 @@ _ksyn_handle_missed_wakeups(ksyn_wait_queue_t kwq,
 {
 	int res = 0;
 	if (kwq->kw_pre_intrcount != 0 &&
-	    kwq->kw_pre_intrtype == type &&
-	    is_seqlower_eq(lockseq, kwq->kw_pre_intrseq)) {
+		kwq->kw_pre_intrtype == type &&
+		(kwq->kw_pre_intrseq == 0 || is_seqlower_eq(lockseq, kwq->kw_pre_intrseq))) {
 		kwq->kw_pre_intrcount--;
 		*retval = kwq->kw_pre_intrretbits;
 		if (kwq->kw_pre_intrcount == 0) {
@@ -1413,7 +1413,8 @@ _psynch_rw_unlock(__unused proc_t p,
 	int diff;
 	uint32_t count = 0;
 	uint32_t curgen = lgenval & PTHRW_COUNT_MASK;
-	
+	int clearedkflags = 0;
+
 	error = ksyn_wqfind(rwlock, lgenval, ugenval, rw_wc, flags, (KSYN_WQTYPE_INDROP | KSYN_WQTYPE_RWLOCK), &kwq);
 	if (error != 0) {
 		return(error);
@@ -1439,6 +1440,7 @@ _psynch_rw_unlock(__unused proc_t p,
 	/* no prepost and all threads are in place, reset the bit */
 	if ((isinit != 0) && ((kwq->kw_kflags & KSYN_KWF_INITCLEARED) != 0)){
 		kwq->kw_kflags &= ~KSYN_KWF_INITCLEARED;
+		clearedkflags = 1;
 	}
 	
 	/* can handle unlock now */
@@ -1455,7 +1457,14 @@ out:
 		/* update bits?? */
 		*retval = updatebits;
 	}
-	
+
+	// <rdar://problem/22244050> If any of the wakeups failed because they already
+	// returned to userspace because of a signal then we need to ensure that the
+	// reset state is not cleared when that thread returns. Otherwise,
+	// _pthread_rwlock_lock will clear the interrupted state before it is read.
+	if (clearedkflags != 0 && kwq->kw_pre_intrcount > 0) {
+		kwq->kw_kflags |= KSYN_KWF_INITCLEARED;
+	}
 	
 	ksyn_wqunlock(kwq);
 	ksyn_wqrelease(kwq, 0, (KSYN_WQTYPE_INDROP | KSYN_WQTYPE_RWLOCK));

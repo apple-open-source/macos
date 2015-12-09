@@ -1159,6 +1159,9 @@ IOReturn IOHIDLibUserClient::updateElementValues (const uint64_t * lCookies, uin
     if (fNub && !isInactive()) {
         uint32_t   cookies_[kMaxLocalCookieArrayLength];
         uint32_t   *cookies;
+        
+        if (cookieCount > UINT32_MAX / sizeof(*cookies))
+            return kIOReturnBadArgument;
       
         cookies = (cookieCount <= kMaxLocalCookieArrayLength) ? cookies_ : (uint32_t*)IOMalloc(cookieCount * sizeof(*cookies));
  
@@ -1191,7 +1194,10 @@ IOReturn IOHIDLibUserClient::postElementValues (const uint64_t * lCookies, uint3
     if (fNub && !isInactive()) {
         uint32_t   cookies_[kMaxLocalCookieArrayLength];
         uint32_t   *cookies;
-
+        
+        if (cookieCount > UINT32_MAX / sizeof(*cookies))
+            return kIOReturnBadArgument;
+        
         cookies = (cookieCount <= kMaxLocalCookieArrayLength) ? cookies_ : (uint32_t*)IOMalloc(cookieCount * sizeof(*cookies));
 
         if (cookies == NULL) {

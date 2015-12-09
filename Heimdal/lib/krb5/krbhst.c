@@ -84,6 +84,8 @@ struct krb5_krbhst_data {
     void *userctx;
 };
 
+
+
 static int
 string_to_proto(const char *string)
 {
@@ -122,6 +124,7 @@ query_release(void *ctx)
 		    query->array[n]->srv_sd = NULL;
 
 		    if (!query->array[n]->flags.getAddrDone) {
+			query->array[n]->flags.getAddrDone = true;
 			heim_release(query->array[n]);
 		    }
 		}
@@ -263,6 +266,110 @@ dns_query_done(struct _krb5_srv_query_ctx *query)
     heim_release(query);
 }
 
+static int
+host_get_dns_service_id(krb5_context context,
+			const char *hostname,
+			const char *port,
+			struct krb5_krbhst_data *handle,
+			DNSServiceFlags *flags)
+{
+    int dns_service_id = 0;
+#if !TARGET_IPHONE_SIMULATOR
+    nw_path_evaluator_t evaluator = NULL;
+    nw_parameters_t parameters = NULL;
+    nw_interface_t iface = NULL;
+    nw_endpoint_t nwhost = NULL;
+    nw_path_t path = NULL;
+    char *lname = NULL;
+
+    lname = strdup(hostname);
+    strlwr(lname);
+
+    hostname = lname;
+
+    nwhost = nw_endpoint_create_host(lname, port);
+    if (nwhost == NULL) {
+	_krb5_debugx(context, 5, "host_create(%s): nw_endpoint_t host is NULL", hostname);
+	goto out;
+    }
+
+    parameters = nw_parameters_create();
+    if (parameters == NULL) {
+	_krb5_debugx(context, 5, "host_create(%s): nw_parameters_t is NULL", hostname);
+	goto out;
+    }
+
+    if (handle->flags & KD_DELEG_UUID) {
+	_krb5_debugx(context, 5, "host_create(%s): have delegate uuid", hostname);
+	nw_parameters_set_e_proc_uuid(parameters, handle->delegate_uuid);
+    } else {
+	nw_parameters_set_pid(parameters, getpid());
+    }
+
+    evaluator = nw_path_create_evaluator_for_endpoint(nwhost, parameters);
+    if (evaluator == NULL) {
+	_krb5_debugx(context, 5, "host_create(%s): nw_path_evaluator_t is NULL", hostname);
+	goto out;
+    }
+
+    path = nw_path_evaluator_copy_path(evaluator);
+    if (path == NULL) {
+	_krb5_debugx(context, 5, "host_create(%s): path is NULL", hostname);
+	goto out;
+    }
+
+    if (nw_path_is_flow_divert(path)) {
+	uuid_t uuid;
+
+	if (!nw_path_get_vpn_config_id(path, &uuid)) {
+	    _krb5_debugx(context, 5, "host_create(%s): path have no config id", hostname);
+	    goto out;
+	}
+
+	_krb5_debugx(context, 5, "host_create(%s): vpn config uuid: "
+		     "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+		     hostname,
+		     uuid[0],uuid[1],uuid[2],uuid[3],uuid[4],uuid[5],uuid[6],uuid[7],
+		     uuid[8],uuid[9],uuid[10],uuid[11],uuid[12],uuid[13],uuid[14],uuid[15]);
+
+	dns_service_id = ne_session_service_get_dns_service_id(uuid, NESessionTypeAppVPN, hostname);
+
+	_krb5_debugx(context, 5, "host_create(%s): AppVPN: %d", hostname, (int)dns_service_id);
+
+	if (dns_service_id)
+	    *flags |= kDNSServiceFlagsServiceIndex;
+
+    } else {
+
+	iface = nw_path_copy_scoped_interface(path);
+	if (iface == NULL) {
+	    _krb5_debugx(context, 5, "host_create(%s): no interface", hostname);
+	    goto out;
+	}
+
+	dns_service_id = nw_interface_get_index(iface);
+
+	_krb5_debugx(context, 5, "host_create(%s): use dns_service_id %d", hostname, dns_service_id);
+    }
+ out:
+    if (path)
+	network_release(path);
+    if (nwhost)
+	network_release(nwhost);
+    if (evaluator)
+	network_release(evaluator);
+    if (iface)
+	network_release(iface);
+    if (parameters)
+	network_release(parameters);
+    if (lname)
+	free(lname);
+
+#endif /* !TARGET_IPHONE_SIMULATOR */
+
+    return dns_service_id;
+}
+
 /*
  *
  */
@@ -271,6 +378,8 @@ static void
 srv_release(void *ctx)
 {
     struct srv_reply *reply = ctx;
+    if (!reply->flags.getAddrDone)
+	_krb5_debugx(NULL, 10, "srv_release w/o getAddrDone set");
     if (reply->sema)
 	heim_release(reply->sema);
     if (reply->srv_sd) {
@@ -308,7 +417,7 @@ add_hostinfo(struct srv_reply *reply,
 	hi->path = strdup(query->path);
 
     hi->source = source;
-    hi->ai = NULL;
+    hi->ai = ai;
 
     hi->next = reply->hostinfo;
     reply->hostinfo = hi;
@@ -425,14 +534,15 @@ SRVQueryCallback(DNSServiceRef sdRef,
 		 uint16_t rdlen,
 		 const void *rdata,
 		 uint32_t ttl,
-		 void *context)
+		 void *info)
 {
     const uint8_t *end_rd = ((const uint8_t *)rdata) + rdlen, *rd = rdata;
-    struct _krb5_srv_query_ctx *query = context;
+    struct _krb5_srv_query_ctx *query = info;
     struct srv_reply *srv_reply = NULL;
     uint16_t priority, weight, port;
     struct srv_reply **tmp;
     char *hostname = NULL;
+    int dns_service_id = 0;
     int status;
     DNSServiceErrorType error;
 
@@ -494,13 +604,16 @@ SRVQueryCallback(DNSServiceRef sdRef,
      */
     if (query->handle->flags & KD_DELEG_UUID) {
 	struct krb5_krbhst_data *handle = query->handle;
+	DNSServiceFlags dnsFlags =
+	    kDNSServiceFlagsTimeout | kDNSServiceFlagsReturnIntermediates;
+	char sport[10];
 
 	_krb5_debugx(query->context, 10, "Got delegated query on: %s", srv_reply->hostname);
 
 	/*
 	 * If we are dealing with KD_DELEG_UUID, we need a second handle to
 	 * for the addrinfo calls, since mDNSResponder uses that to track the
-	 * morecomming flag, and if we have these new addrinfo calls outstanding
+	 * morecoming flag, and if we have these new addrinfo calls outstanding
 	 * while the main query is still out there (it will be), it will never
 	 * get the morecoming flag cleared.
 	 */
@@ -509,20 +622,26 @@ SRVQueryCallback(DNSServiceRef sdRef,
 
 	    error = DNSServiceCreateDelegateConnection(&handle->addrinfo_sd, 0, handle->delegate_uuid);
 	    if (error != kDNSServiceErr_NoError) {
-		_krb5_debugx(context, 2,
+		_krb5_debugx(query->context, 2,
 			     "Failed setting up search context for addrinfo resolving for %s failed: %d",
 			     srv_reply->hostname, error);
 		goto end;
 	    }
 
+	    _krb5_debugx(query->context, 10, "setting queue");
+
 	    error = DNSServiceSetDispatchQueue(handle->addrinfo_sd, (dispatch_queue_t)handle->addrinfo_queue);
 	    if (error) {
 		DNSServiceRefDeallocate(handle->addrinfo_sd);
-		_krb5_debugx(context, 2,
+		handle->addrinfo_sd = NULL;
+		_krb5_debugx(query->context, 2,
 			     "Failed setting run queue for SRV query: %d", error);
 		goto end;
 	    }
 	}
+
+	snprintf(sport, sizeof(sport), "%d", srv_reply->port);
+	dns_service_id = host_get_dns_service_id(query->context, srv_reply->hostname, sport, handle, &dnsFlags);
 
 	srv_reply->sema = heim_sema_create(0);
 	if (srv_reply->sema == NULL) {
@@ -533,8 +652,8 @@ SRVQueryCallback(DNSServiceRef sdRef,
 	heim_retain(srv_reply); /* retain for callback */
 
 	error = DNSServiceGetAddrInfo(&srv_reply->srv_sd,
-				      kDNSServiceFlagsTimeout | kDNSServiceFlagsReturnIntermediates | kDNSServiceFlagsShareConnection,
-				      0,
+				      dnsFlags | kDNSServiceFlagsShareConnection,
+				      dns_service_id,
 				      kDNSServiceProtocol_IPv4 | kDNSServiceProtocol_IPv6,
 				      srv_reply->hostname,
 				      dns_getaddrinfo_callback,
@@ -552,7 +671,21 @@ SRVQueryCallback(DNSServiceRef sdRef,
     tmp = realloc(query->array, (query->len + 1) * sizeof(query->array[0]));
     if (tmp == NULL) {
 	_krb5_debugx(query->context, 10, "SRV callback: realloc failed");
-	heim_release(srv_reply);
+
+	if (srv_reply->srv_sd) {
+	    /* we need to release the retain for the callback if it never happned */
+	    dispatch_sync((dispatch_queue_t)query->handle->addrinfo_queue, ^{
+	        DNSServiceRefDeallocate(srv_reply->srv_sd);
+		srv_reply->srv_sd = NULL;
+
+		if (!srv_reply->flags.getAddrDone) {
+		    srv_reply->flags.getAddrDone = 1;
+		    heim_release(srv_reply);
+		}
+	    });
+	} else {
+	    heim_release(srv_reply);
+	}
 	goto end;
     }
     query->array = tmp;
@@ -569,10 +702,11 @@ SRVQueryCallback(DNSServiceRef sdRef,
 	free(hostname);
     }
     if ((flags & kDNSServiceFlagsMoreComing) == 0) {
-	_krb5_debugx(query->context, 10, "SRV callback no more comming");
+	_krb5_debugx(query->context, 10, "SRV callback no more coming");
 	dns_query_done(query);
     }
 }
+
 
 /*
  *
@@ -585,6 +719,9 @@ srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
     DNSServiceRef client = NULL;
     DNSServiceErrorType error;
     krb5_error_code ret;
+    int dns_service_id;
+    DNSServiceFlags dnsFlags =
+	kDNSServiceFlagsTimeout | kDNSServiceFlagsReturnIntermediates;
 
     if (handle->flags & KD_DELEG_UUID) {
 	error = DNSServiceCreateDelegateConnection(&handle->main_sd, 0, handle->delegate_uuid);
@@ -598,6 +735,8 @@ srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
 	return KRB5_KDC_UNREACH;
     }
 
+    dns_service_id = host_get_dns_service_id(context, query->handle->realm, "88", handle, &dnsFlags);
+
     error = DNSServiceSetDispatchQueue(handle->main_sd, (dispatch_queue_t)handle->srv_queue);
     if (error) {
 	DNSServiceRefDeallocate(handle->main_sd);
@@ -609,9 +748,10 @@ srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
     client = handle->main_sd;
 
     heim_retain(query);
+
     error = DNSServiceQueryRecord(&client,
-				  kDNSServiceFlagsTimeout | kDNSServiceFlagsReturnIntermediates | kDNSServiceFlagsShareConnection,
-				  0,
+				  dnsFlags | kDNSServiceFlagsShareConnection,
+				  dns_service_id,
 				  query->domain,
 				  kDNSServiceType_SRV,
 				  kDNSServiceClass_IN,
@@ -640,13 +780,11 @@ srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
 	     */
 
 	    if (!query->state.srvQueryDone) {
-		heim_release(query);
 		query->state.srvQueryDone = 1;
+		heim_release(query);
 	    }
 	});
     } else {
-	heim_release(query);
-
 	_krb5_debugx(context, 2,
 		     "searching DNS for domain %s failed: %d",
 		     query->domain, error);
@@ -1735,8 +1873,10 @@ krbhst_callback(void *ctx)
     krb5_krbhst_info *host = ctx;
     krb5_krbhst_handle handle = host->__private;
 
-    if (handle->callback)
+    if (handle->callback) {
 	handle->callback(handle->userctx, host);
+	heim_release(handle);
+    }
 }
 
 static void
@@ -1862,6 +2002,11 @@ krb5_krbhst_set_delgated_uuid(krb5_context context,
 {
     handle->flags |= KD_DELEG_UUID;
     memcpy(handle->delegate_uuid, uuid, sizeof(krb5_uuid));
+
+    _krb5_debugx(context, 5, "krb5_krbhst_set_delegated_uuid: %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+		 uuid[0],uuid[1],uuid[2],uuid[3],uuid[4],uuid[5],uuid[6],uuid[7],
+		 uuid[8],uuid[9],uuid[10],uuid[11],uuid[12],uuid[13],uuid[14],uuid[15]);
+
     return 0;
 }
 

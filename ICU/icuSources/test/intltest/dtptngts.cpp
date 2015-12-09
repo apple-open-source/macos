@@ -125,13 +125,13 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString("13. Jan."),                            // 05: MMMd
         UnicodeString("13. Januar"),                          // 06: MMMMd
         UnicodeString("Q1 1999"),                             // 07: yQQQ
-        UnicodeString("11:58 nachm."),                        // 08: hhmm
+        UnicodeString("11:58 PM"),                            // 08: hhmm
         UnicodeString("23:58"),                               // 09: HHmm
         UnicodeString("23:58"),                               // 10: jjmm
         UnicodeString("58:59"),                               // 11: mmss
         UnicodeString("Januar 1999"),                         // 12: yyyyMMMM
         UnicodeString("Mi., 13. Jan."),                       // 13: MMMEd -> EEE, d. MMM
-        UnicodeString("Mi., 13."),                            // 14: Ed   -> EEE d.
+        UnicodeString("Mi. 13."),                             // 14: Ed   -> E d.
         UnicodeString("23:58:59,123"),                        // 15: jmmssSSS -> "HH:mm:ss,SSS"
         UnicodeString("23:58"),                               // 16: JJmm
 

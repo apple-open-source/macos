@@ -194,8 +194,11 @@ void SharedMemoryListener::notifyMe(Notification* notification)
 {
 	const void* data = notification->data.data();
 	UInt32 length = notification->data.length();
-	WriteMessage (notification->domain, notification->event, data, length);
-	
+    /* enforce a maximum size of 16k for notifications */
+    if (length > 16384) return;
+
+    WriteMessage (notification->domain, notification->event, data, length);
+
 	if (!mActive)
 	{
 		Server::active().setTimer (this, Time::Interval(kServerWait));

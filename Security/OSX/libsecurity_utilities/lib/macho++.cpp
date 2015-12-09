@@ -531,6 +531,10 @@ Universal::Universal(FileDesc fd, size_t offset /* = 0 */, size_t length /* = 0 
 				while (off < gapSize) {
 					size_t want = min(gapSize - off, (size_t)PAGE_SIZE);
 					size_t got = fd.read(gapBytes, want, prevHeaderEnd + off);
+					if (got == 0) {
+						mSuspicious = true;
+						break;
+					}
 					off += got;
 					for (size_t x = 0; x < got; x++) {
 						if (gapBytes[x] != 0) {

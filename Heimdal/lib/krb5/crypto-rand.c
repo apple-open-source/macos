@@ -37,7 +37,9 @@
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_generate_random_block(void *buf, size_t len)
 {
-    CCRandomCopyBytes(kCCRandomDefault, buf, len);
+    if (CCRandomCopyBytes(kCCRandomDefault, buf, len) != 0)
+	krb5_abortx(NULL, "Failed reading %lu random bytes",
+		    (unsigned long)len);
 }
 #else
 

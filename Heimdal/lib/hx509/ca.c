@@ -1082,7 +1082,7 @@ ca_sign(hx509_context context,
     if (tbs->flags.serial) {
 	ret = der_copy_heim_integer(&tbs->serial, &tbsc->serialNumber);
 	if (ret) {
-	    hx509_set_error_string(context, 0, ret, "Out of memory");
+	    hx509_set_error_string(context, 0, ret, "Failed to copy integer");
 	    goto out;
 	}
     } else {
@@ -1094,8 +1094,12 @@ ca_sign(hx509_context context,
 	    goto out;
 	}
 	/* XXX diffrent */
-	CCRandomCopyBytes(kCCRandomDefault, tbsc->serialNumber.data, tbsc->serialNumber.length);
-	((unsigned char *)tbsc->serialNumber.data)[0] &= 0x7f;
+	if (CCRandomCopyBytes(kCCRandomDefault, tbsc->serialNumber.data, tbsc->serialNumber.length) != 0) {
+	    ret = HX509_CRYPTO_OUT_OF_RANDOM;
+	    hx509_set_error_string(context, 0, ret, "Out of random");
+	    goto out;
+	}
+	    
     }
     /* signature            AlgorithmIdentifier, */
     ret = copy_AlgorithmIdentifier(sigalg, &tbsc->signature);

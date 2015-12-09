@@ -1311,7 +1311,7 @@ static void applyDetailProperty(const void *_key, const void *_value,
         tf->hostnameMismatch = true;
     } else if (CFEqual(key, kSecPolicyCheckValidIntermediates)
         || CFEqual(key, kSecPolicyCheckValidLeaf)
-        || CFEqual(key, kSecPolicyCheckValidLeaf)) {
+        || CFEqual(key, kSecPolicyCheckValidRoot)) {
         tf->invalidCert = true;
     } else
     /* Anything else is a policy failure. */

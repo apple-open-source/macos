@@ -149,6 +149,8 @@
 #define ARG_BATT            "batt"
 #define ARG_PS              "ps"
 #define ARG_PSLOG           "pslog"
+#define ARG_ACCPS           "accps"
+#define ARG_ACCPSLOG        "accpslog"
 #define ARG_TRCOLUMNS       "trcolumns"
 #define ARG_BATTRAW         "rawbatt"
 #define ARG_PSRAW           "rawlog"
@@ -307,7 +309,8 @@ enum ArgumentType {
     kApplyToBattery = 1,
     kApplyToCharger = 2,
     kApplyToUPS     = 4,
-    kShowColumns    = 8
+    kApplyToAccessories = 8,
+    kShowColumns        = 16
 };
 
 enum AssertionBitField {
@@ -556,6 +559,10 @@ static CommandAndAction the_getters[] =
     	{kActionGetOnceNoArgs,  ARG_PS,             ^(char **arg){ show_power_sources(kApplyToBattery | kApplyToUPS); }},
     	{kActionGetLog,         ARG_PSLOG,          ^(char **arg){ install_listen_IORegisterForSystemPower();
                                                         install_listen_for_power_sources(kApplyToBattery | kApplyToUPS);
+                                                        CFRunLoopRun(); }},
+        {kActionGetOnceNoArgs,  ARG_ACCPS,          ^(char **arg){ show_power_sources(kApplyToBattery | kApplyToUPS | kApplyToAccessories); }},
+        {kActionGetLog,         ARG_ACCPSLOG,       ^(char **arg){ install_listen_IORegisterForSystemPower();
+                                                        install_listen_for_power_sources(kApplyToBattery | kApplyToUPS | kApplyToAccessories);
                                                         CFRunLoopRun(); }},
     	{kActionGetLog,         ARG_TRCOLUMNS,      ^(char **arg){ install_listen_IORegisterForSystemPower();
                                                         install_listen_for_power_sources(kShowColumns);
@@ -2190,7 +2197,7 @@ sleepWakeCallback(
 
 static void show_power_sources(int which)
 {
-    CFTypeRef           ps_info = IOPSCopyPowerSourcesInfo();
+    CFTypeRef           ps_info = NULL;
     CFArrayRef          list = NULL;
     CFStringRef         ps_name = NULL;
     static CFStringRef  last_ps = NULL;
@@ -2225,7 +2232,14 @@ static void show_power_sources(int which)
     int                 _warningLevel = 0;
     CFArrayRef          permFailuresArray = NULL;
     CFStringRef         pfString = NULL;
+    int                 rawExternalConnected = -1;
     
+    if (which & kApplyToAccessories) {
+        ps_info = IOPSCopyPowerSourcesByType(kIOPSSourceAll);
+    }
+    else {
+        ps_info = IOPSCopyPowerSourcesInfo();
+    }
     if(!ps_info) {
         printf("No power source info available\n");
         return;
@@ -2346,6 +2360,13 @@ static void show_power_sources(int which)
         failure = CFDictionaryGetValue(one_ps, CFSTR("Failure"));
         charged = CFDictionaryGetValue(one_ps, CFSTR(kIOPSIsChargedKey));
         finishingCharge = CFDictionaryGetValue(one_ps, CFSTR(kIOPSIsFinishingChargeKey));
+#if TARGET_OS_EMBEDDED
+        CFBooleanRef        value = NULL;
+        rawExternalConnected = -1;
+        if (CFDictionaryGetValueIfPresent(one_ps, CFSTR(kIOPSRawExternalConnectivityKey), &value) == true) {
+            rawExternalConnected = (value == kCFBooleanTrue) ? 1 : 0;
+        }
+#endif
         
         permFailuresArray = CFDictionaryGetValue(one_ps, CFSTR(kIOPSBatteryFailureModesKey));
         
@@ -2377,68 +2398,71 @@ static void show_power_sources(int which)
         
         printf(" -");
         if(name) printf("%s\t", _name);
+        if(charge && _FCCap) printf("%d%%; ", _charge*100/_FCCap);
+        if(charging) {
+            if (_finishingCharge) {
+                printf("finishing charge");
+            } else if (_charged) {
+                printf("charged");
+            } else if(_charging) {
+                printf("charging");
+            } else {
+                if(kCFCompareEqualTo == CFStringCompare(state, CFSTR(kIOPSACPowerValue), 0)) {
+                    printf("AC attached; not charging");
+                    show_time_estimate = 0;
+                } else {
+                    printf("discharging");
+                }
+            }
+        }
+        if(show_time_estimate && remaining) {
+            if(-1 != _minutes) {
+                printf("; %d:%d%d remaining", _hours, _minutes/10, _minutes%10);
+            } else {
+                printf("; (no estimate)");
+            }
+        }
+        if (rawExternalConnected >= 0) {
+            printf(" rawExternalConnected: %d", rawExternalConnected);
+        }
+
+        if (health && confidence
+            && !CFEqual(CFSTR("Good"), health)) {
+            printf(" (%s/%s)", _health, _confidence);
+        }
+        if(failure) {
+            printf("\n\tfailure: \"%s\"", _failure);
+        }
+        if (permFailuresArray) {
+            CFIndex failure_count = CFArrayGetCount(permFailuresArray);
+            int m = 0;
+
+            printf("\n\tDetailed failures:");
+
+            for(m=0; m<failure_count; m++) {
+                pfString = CFArrayGetValueAtIndex(permFailuresArray, m);
+                if (pfString)
+                {
+                    CFStringGetCString(pfString, strbuf, kMaxLongStringLength, kCFStringEncodingMacRoman);
+                    printf(" \"%s\"", strbuf);
+                }
+                if (m != failure_count - 1)
+                    printf(",");
+            }
+        }
         if(present && (kCFBooleanTrue == present))
         {
-            if(charge && _FCCap) printf("%d%%; ", _charge*100/_FCCap);
-            if(charging) {
-                if (_finishingCharge) {
-                    printf("finishing charge");
-                } else if (_charged) {
-                    printf("charged");
-                } else if(_charging) {
-                    printf("charging");
-                } else {
-                    if(kCFCompareEqualTo == CFStringCompare(state, CFSTR(kIOPSACPowerValue), 0)) {
-                        printf("AC attached; not charging");
-                        show_time_estimate = 0;
-                    } else {
-                        printf("discharging");
-                    }
-                }
-            }
-            if(show_time_estimate && remaining) {
-                if(-1 != _minutes) {
-                    printf("; %d:%d%d remaining", _hours, _minutes/10, _minutes%10);
-                } else {
-                    printf("; (no estimate)");
-                }
-            }
-            if (health && confidence
-                && !CFEqual(CFSTR("Good"), health)) {
-                printf(" (%s/%s)", _health, _confidence);
-            }
-            if(failure) {
-                printf("\n\tfailure: \"%s\"", _failure);
-            }
-            if (permFailuresArray) {
-                CFIndex failure_count = CFArrayGetCount(permFailuresArray);
-                int m = 0;
-    
-                printf("\n\tDetailed failures:");
-                
-                for(m=0; m<failure_count; m++) {
-                    pfString = CFArrayGetValueAtIndex(permFailuresArray, m);
-                    if (pfString) 
-                    {
-                        CFStringGetCString(pfString, strbuf, kMaxLongStringLength, kCFStringEncodingMacRoman);
-                        printf(" \"%s\"", strbuf);
-                    }
-                    if (m != failure_count - 1)
-                        printf(",");
-                }
-            }
-            printf("\n"); fflush(stdout);
-
-            // Show batery warnings on a new line:
-            if (kIOPSLowBatteryWarningEarly == _warningLevel) {
-                printf("\tBattery Warning: Early\n");
-            } else if (kIOPSLowBatteryWarningFinal == _warningLevel) {
-                printf("\tBattery Warning: Final\n");
-            }       
-        } else {
-            printf(" (removed)\n");        
+            printf(" present: true");
         }
-        
+        printf("\n"); fflush(stdout);
+
+        // Show batery warnings on a new line:
+        if (kIOPSLowBatteryWarningEarly == _warningLevel) {
+            printf("\tBattery Warning: Early\n");
+        } else if (kIOPSLowBatteryWarningFinal == _warningLevel) {
+            printf("\tBattery Warning: Final\n");
+        }
+
         
     }
     
@@ -3471,6 +3495,17 @@ static int install_listen_for_power_sources(uintptr_t which)
         log_ps_change_handler((void *)which);
     }
     
+    if (which & kApplyToAccessories) {
+        rls = IOPSAccNotificationCreateRunLoopSource(log_ps_change_handler, (void *)which);
+        if(!rls) {
+            printf("Error - IOPSAccNotificationCreateRunLoopSource failure.\n");
+            return kParseInternalError;
+        } else {
+            CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+            CFRelease(rls);
+        }
+    }
+
     if (!(which & kShowColumns)) {
         int tokenA, tokenB, tokenC, tokenD;
         
@@ -3511,6 +3546,28 @@ static int install_listen_for_power_sources(uintptr_t which)
                                      print_pretty_date(CFAbsoluteTimeGetCurrent(), false);
                                      printf("%s\n", kIOPSNotifyPercentChange);
                                  });
+        if (which & kApplyToAccessories) {
+            int tokenE, tokenF, tokenG;
+            notify_register_dispatch(kIOPSAccNotifyPowerSource,
+                                     &tokenE, dispatch_get_main_queue(),
+                                     ^(int t) {
+                                     print_pretty_date(CFAbsoluteTimeGetCurrent(), false);
+                                     printf("%s\n", kIOPSAccNotifyPowerSource);
+                                     });
+
+            notify_register_dispatch(kIOPSAccNotifyAttach,
+                                     &tokenF, dispatch_get_main_queue(),
+                                     ^(int t) {
+                                     print_pretty_date(CFAbsoluteTimeGetCurrent(), false);
+                                     printf("%s\n", kIOPSAccNotifyAttach);
+                                     });
+            notify_register_dispatch(kIOPSAccNotifyTimeRemaining,
+                                     &tokenG, dispatch_get_main_queue(),
+                                     ^(int t) {
+                                     print_pretty_date(CFAbsoluteTimeGetCurrent(), false);
+                                     printf("%s\n", kIOPSAccNotifyTimeRemaining);
+                                     });
+        }
     }
     
     return 0;
@@ -6015,7 +6072,6 @@ static int32_t _getNextSleepTime(asl_object_t pmresponse, const char *curr_domai
    const char *domain = NULL;
    const char *timeStr = NULL;
    int32_t sleepTime = -1;
-   size_t sleepCnt = 0;
    asl_object_t next;
 
    do {
@@ -6042,17 +6098,13 @@ static int32_t _getNextSleepTime(asl_object_t pmresponse, const char *curr_domai
           break;
       }
 
+      if (!strncmp(kPMASLDomainPMStart, domain, sizeof(kPMASLDomainPMStart))) {
+          /* System reboot or powerd re-start. Bail out */
+          break;
+      }
       if ( (!strncmp(kPMASLDomainPMSleep, domain, sizeof(kPMASLDomainPMSleep) )) ||
                (!strncmp(kPMASLDomainPMWake, domain, sizeof(kPMASLDomainPMWake) )) )
       {
-         const char *value1 = asl_get(next, kPMASLValueKey);
-         if (value1) {
-            sleepCnt = strtol(value1, NULL, 0);
-            
-            if (sleepCnt == 1)
-               break;  /* System rebooted at this point */
-         }
-
          timeStr = asl_get(next, ASL_KEY_TIME);
          if (timeStr)
             sleepTime = (int32_t)strtol(timeStr, NULL ,0);
@@ -6063,35 +6115,6 @@ static int32_t _getNextSleepTime(asl_object_t pmresponse, const char *curr_domai
    return sleepTime;
 }
 
-#define kPMASLStorePath                 "/var/log/powermanagement"
-
-static asl_object_t open_pm_asl_store(void)
-{
-    asl_object_t        response = NULL;
-    size_t              endMessageID;
-    
-    asl_object_t query = asl_new(ASL_TYPE_LIST);
-    if (query != NULL)
-    {
-		asl_object_t cq = asl_new(ASL_TYPE_QUERY);
-		if (cq != NULL)
-		{
-			asl_set_query(cq, ASL_KEY_FACILITY, kPMFacility, ASL_QUERY_OP_EQUAL);
-			asl_append(query, cq);
-			asl_release(cq);
-			
-			asl_object_t pmstore = asl_open_path(kPMASLStorePath, 0);
-			if (pmstore != NULL) {
-				response = asl_match(pmstore, query, &endMessageID, 0, 0, 0, ASL_MATCH_DIRECTION_FORWARD);
-			}
-			asl_release(pmstore);
-		}
-		
-		asl_release(query);
-    }
-
-    return response;
-}
 
 static void pmlog_print_claimedwakes(CFAbsoluteTime  abs_time, asl_object_t m, int logType)
 {
@@ -6420,10 +6443,19 @@ static void show_log_text(asl_object_t response)
         bool        assert = false;
         bool        sleepWake = false;
         CFAbsoluteTime  abs_time ;
+        const char        *domain = NULL;
+        const char        *msg = NULL;
 
-        if ((val = asl_get(m, kPMASLDomainKey))) {
-            if (!strncmp(val, kPMASLDomainPMStart, sizeof(kPMASLDomainPMStart)-1)) {
+        domain = asl_get(m, kPMASLDomainKey);
+        msg = asl_get(m, ASL_KEY_MSG);
+        if (domain) {
+            if (!strncmp(domain, kPMASLDomainPMStart, sizeof(kPMASLDomainPMStart)-1)) {
                 new_boot_cycle = true;
+            }
+            else if (!strncmp(kPMASLDomainHibernateStatistics, domain, sizeof(kPMASLDomainHibernateStatistics))) {
+                if (msg == NULL) {
+                    continue;
+                }
             }
         }
         
@@ -6464,52 +6496,58 @@ static void show_log_text(asl_object_t response)
         }
 
         // Domain
-        if ((val = asl_get(m, kPMASLDomainKey))) {   
+        if (domain) {
             const char *value1 = asl_get(m, kPMASLValueKey);
 
-            if (strnstr(val, "Response.", strlen(val))) {
-               printf("%-20s\t",  ((char *)val + (uintptr_t)strlen("Response.")));
+            if (strnstr(domain, "Response.", strlen(domain))) {
+               printf("%-20s\t",  ((char *)domain + (uintptr_t)strlen("Response.")));
             } 
-            else if (!strncmp(val, kPMASLDomainKernelClientStats, sizeof(kPMASLDomainKernelClientStats))) {
+            else if (!strncmp(domain, kPMASLDomainKernelClientStats, sizeof(kPMASLDomainKernelClientStats))) {
                 printf("%-20s\t", "Kernel Client Acks");
                 kerStats = true;
             } 
-            else if (!strncmp(val, kPMASLDomainPMClientStats, sizeof(kPMASLDomainPMClientStats))) {
+            else if (!strncmp(domain, kPMASLDomainPMClientStats, sizeof(kPMASLDomainPMClientStats))) {
                 printf("%-20s\t", "PM Client Acks");
                 pmStats = true;
             }
-            else if (!strncmp(val, kPMASLDomainClientWakeRequests, sizeof(kPMASLDomainClientWakeRequests))) {
+            else if (!strncmp(domain, kPMASLDomainClientWakeRequests, sizeof(kPMASLDomainClientWakeRequests))) {
                 printf("%-20s\t", "Wake Requests");
                 wakeReq = true;
             } 
-            else if (!strncmp(val, kPMASLDomainPMAssertions, sizeof(kPMASLDomainPMAssertions))) {
+            else if (!strncmp(domain, kPMASLDomainPMAssertions, sizeof(kPMASLDomainPMAssertions))) {
                 printf("%-20s\t", "Assertions");
                 assert = true;
             } 
             else {
-                printf("%-20s\t",  (char *)val);
+                printf("%-20s\t",  (char *)domain);
             }
 
     
-            if (!strncmp(kPMASLDomainPMSleep, val, sizeof(kPMASLDomainPMSleep) )) {
+            if (!strncmp(kPMASLDomainPMSleep, domain, sizeof(kPMASLDomainPMSleep) )) {
                 if ( (print_duration_time = _getNextWakeTime(response)) != -1) {
                     print_duration_time -= time_read;
                 }
                 sleepWake = true;
                if (value1) {
+                   // sleep_cnt used to be saved here. But, later moved to kPMASLDomainHibernateStatistics domain
                    sleep_cnt = strtol(value1, NULL, 0);
                 }
             }
-            else if (!strncmp(kPMASLDomainPMWake, val, sizeof(kPMASLDomainPMWake)) ||
-                     !strncmp(kPMASLDomainPMDarkWake, val, sizeof(kPMASLDomainPMDarkWake))) {
+            else if (!strncmp(kPMASLDomainPMWake, domain, sizeof(kPMASLDomainPMWake)) ||
+                     !strncmp(kPMASLDomainPMDarkWake, domain, sizeof(kPMASLDomainPMDarkWake))) {
                 isAwakening = true;
-                if ( (print_duration_time = _getNextSleepTime(response, val)) != -1) {
+                if ( (print_duration_time = _getNextSleepTime(response, domain)) != -1) {
                     print_duration_time -= time_read;
                 }
                 sleepWake = true;
                 if (value1 &&
-                    !strncmp(kPMASLDomainPMDarkWake, val, sizeof(kPMASLDomainPMDarkWake) )) {
+                    !strncmp(kPMASLDomainPMDarkWake, domain, sizeof(kPMASLDomainPMDarkWake) )) {
                     dark_wake_cnt = strtol(value1, NULL, 0);
+                }
+            }
+            else if (!strncmp(kPMASLDomainHibernateStatistics, domain, sizeof(kPMASLDomainHibernateStatistics))) {
+                if ((value1 = asl_get(m, kPMASLSleepCntSinceBoot)) != NULL) {
+                    sleep_cnt = strtol(value1, NULL, 0);
                 }
             }
         }
@@ -6530,8 +6568,8 @@ static void show_log_text(asl_object_t response)
         else if (sleepWake) {
             printSleepWakeMsg(m, LOG_TEXT);
         }
-        else if ((val = asl_get(m, ASL_KEY_MSG))) {
-            printf("%-75s\t", val);
+        else if (msg) {
+            printf("%-75s\t", msg);
         } else {
             printf("%-75s\t",  " ");
         }
@@ -6672,14 +6710,15 @@ static void show_log_json(asl_object_t response)
             else {
                 printf(",\"Domain\":\"%s\"", (char *)val);
             }
-    
+
             if (!strncmp(kPMASLDomainPMSleep, val, sizeof(kPMASLDomainPMSleep))) {
                 if ( (print_duration_time = _getNextWakeTime(response)) != -1) {
                     print_duration_time -= time_read;
                 }
                 sleepWake = true;
-               if (value1) {
-                   sleep_cnt = strtol(value1, NULL, 0);
+                if (value1) {
+                    // sleep_cnt used to be saved here. But, later moved to kPMASLDomainHibernateStatistics domain
+                    sleep_cnt = strtol(value1, NULL, 0);
                 }
             }
             else if (!strncmp(kPMASLDomainPMWake, val, sizeof(kPMASLDomainPMWake)) ||
@@ -6692,6 +6731,11 @@ static void show_log_json(asl_object_t response)
                 if (value1 &&
                     !strncmp(kPMASLDomainPMDarkWake, val, sizeof(kPMASLDomainPMDarkWake) )) {
                     dark_wake_cnt = strtol(value1, NULL, 0);
+                }
+            }
+            else if (!strncmp(kPMASLDomainHibernateStatistics, val, sizeof(kPMASLDomainHibernateStatistics))) {
+                if ((value1 = asl_get(m, kPMASLSleepCntSinceBoot)) != NULL) {
+                    sleep_cnt = strtol(value1, NULL, 0);
                 }
             }
         }

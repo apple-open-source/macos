@@ -69,7 +69,7 @@ extern SEC_ASN1DecoderContext *SEC_ASN1DecoderStart(PRArenaPool *pool,
 						     * Only needed if first element will 
 							 * be SEC_ASN1_DYNAMIC 
 							 */
-							const char *buf);
+							const char *buf, size_t len);
 
 /* XXX char or unsigned char? */
 extern SECStatus SEC_ASN1DecoderUpdate(SEC_ASN1DecoderContext *cx,
@@ -190,7 +190,7 @@ SEC_ASN1GetSubtemplate (
 	const SecAsn1Template *inTemplate, 
 	void *thing,
 	PRBool encoding,
-	const char *buf);	/* __APPLE__ addenda: for decode only */
+	const char *buf, size_t len);	/* __APPLE__ addenda: for decode only */
 
 extern SecAsn1Item *sec_asn1e_allocate_item (
 	PRArenaPool *poolp, 

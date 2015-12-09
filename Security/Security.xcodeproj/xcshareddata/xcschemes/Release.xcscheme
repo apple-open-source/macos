@@ -419,6 +419,14 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "si_87_sectrust_name_constraints"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "si_88_sectrust_vpnprofile"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "sd_10_policytree"
             isEnabled = "NO">
          </CommandLineArgument>

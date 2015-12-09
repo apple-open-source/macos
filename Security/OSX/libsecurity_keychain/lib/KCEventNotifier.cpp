@@ -69,11 +69,14 @@ void KCEventNotifier::PostKeychainEvent(SecKeychainEvent whichEvent,
 	// flatten the dictionary
 	CssmData data;
 	nvd.Export (data);
-	
-	SecurityServer::ClientSession cs (Allocator::standard(), Allocator::standard());
-	cs.postNotification (SecurityServer::kNotificationDomainDatabase, whichEvent, data);
 
-    secdebug("kcnotify", "KCEventNotifier::PostKeychainEvent posted event %u", (unsigned int) whichEvent);
+    /* enforce a maximum size of 16k for notifications */
+    if (data.length() <= 16384) {
+        SecurityServer::ClientSession cs (Allocator::standard(), Allocator::standard());
+        cs.postNotification (SecurityServer::kNotificationDomainDatabase, whichEvent, data);
+
+        secdebug("kcnotify", "KCEventNotifier::PostKeychainEvent posted event %u", (unsigned int) whichEvent);
+    }
 
 	free (data.data ());
 }

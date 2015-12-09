@@ -49,6 +49,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				D4A2FC7E1BC89D5200BF6E56 /* PBXTargetDependency */,
 				5EF7C2541B00EEC000E5E99C /* PBXTargetDependency */,
 				3705CADE1A8971DF00402F75 /* PBXTargetDependency */,
 				37AB39401A44A95500B56E04 /* PBXTargetDependency */,
@@ -573,6 +574,7 @@
 		CDF91EC91AAE022600E88CF7 /* com.apple.private.alloy.keychainsync.plist in Resources */ = {isa = PBXBuildFile; fileRef = CDF91EC81AAE022600E88CF7 /* com.apple.private.alloy.keychainsync.plist */; };
 		CDF91EF51AAE028F00E88CF7 /* com.apple.private.alloy.keychainsync.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = CDF91EC81AAE022600E88CF7 /* com.apple.private.alloy.keychainsync.plist */; };
 		D41685841B3A288F001FB54E /* oids.h in Headers */ = {isa = PBXBuildFile; fileRef = D41685831B3A288F001FB54E /* oids.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		D4DDD3D01BE3EC0300E8AE2D /* libDiagnosticMessagesClient.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D4DDD3A71BE3EB4200E8AE2D /* libDiagnosticMessagesClient.dylib */; };
 		E76079D61951FDAF00F69731 /* liblogging.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E76079D51951FDA800F69731 /* liblogging.a */; };
 		E778BFBC17176DDE00302C14 /* security.exp-in in Sources */ = {isa = PBXBuildFile; fileRef = 182BB562146F4C73000BF1F3 /* security.exp-in */; };
 		EB22F3F918A26BCA0016A8EC /* SecBreadcrumb.c in Sources */ = {isa = PBXBuildFile; fileRef = EB22F3F718A26BA50016A8EC /* SecBreadcrumb.c */; };
@@ -1655,13 +1657,6 @@
 			remoteGlobalIDString = 5214700516977CB800DF0DB3;
 			remoteInfo = CloudKeychainProxy;
 		};
-		529FF21F1523BD7F0029D842 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1879B6A0146DE79F007E536C /* libsecurity_keychain.xcodeproj */;
-			proxyType = 1;
-			remoteGlobalIDString = 52200F8714F2B87F00F7F6E7;
-			remoteInfo = XPCTimeStampingService;
-		};
 		52B5A8F5151928B400664F11 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 1879B6A0146DE79F007E536C /* libsecurity_keychain.xcodeproj */;
@@ -1899,6 +1894,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = CD63ACDF1A8061FA001B5671;
 			remoteInfo = IDSKeychainSyncingProxy;
+		};
+		D4A2FC7D1BC89D5200BF6E56 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1879B6A0146DE79F007E536C /* libsecurity_keychain.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 52200F8714F2B87F00F7F6E7;
+			remoteInfo = XPCTimeStampingService;
 		};
 		E7421C7D1ADC8E0D005FC1C0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -2634,6 +2636,7 @@
 		D41685831B3A288F001FB54E /* oids.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = oids.h; path = libsecurity_keychain/libDER/libDER/oids.h; sourceTree = SOURCE_ROOT; };
 		D46E9CED1B1E5DEF00ED650E /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		D46E9CEE1B1E5DEF00ED650E /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
+		D4DDD3A71BE3EB4200E8AE2D /* libDiagnosticMessagesClient.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libDiagnosticMessagesClient.dylib; path = ../../../../../../usr/lib/libDiagnosticMessagesClient.dylib; sourceTree = "<group>"; };
 		EB22F3F518A26BA50016A8EC /* bc-10-knife-on-bread.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "bc-10-knife-on-bread.c"; path = "Breadcrumb/bc-10-knife-on-bread.c"; sourceTree = "<group>"; };
 		EB22F3F618A26BA50016A8EC /* breadcrumb_regressions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = breadcrumb_regressions.h; path = Breadcrumb/breadcrumb_regressions.h; sourceTree = "<group>"; };
 		EB22F3F718A26BA50016A8EC /* SecBreadcrumb.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = SecBreadcrumb.c; path = Breadcrumb/SecBreadcrumb.c; sourceTree = "<group>"; };
@@ -2911,6 +2914,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D4DDD3D01BE3EC0300E8AE2D /* libDiagnosticMessagesClient.dylib in Frameworks */,
 				BE48AE051ADF1DF4000836C1 /* libACM.a in Frameworks */,
 				BE48AE061ADF1DF4000836C1 /* libcoreauthd_client.a in Frameworks */,
 				BE48AE071ADF1DF4000836C1 /* libaks.a in Frameworks */,
@@ -3104,6 +3108,7 @@
 		1807384D146D0D4E00F05C24 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				D4DDD3A71BE3EB4200E8AE2D /* libDiagnosticMessagesClient.dylib */,
 				4C97761D17BEB23E0002BFE4 /* AOSAccounts.framework */,
 				4C328D2F1778EC4F0015EED1 /* AOSUI.framework */,
 				4C5DD46B17A5F67300696A79 /* AppleSystemInfo.framework */,
@@ -4390,7 +4395,6 @@
 				5208C0FE16A0D3980062DDC5 /* PBXTargetDependency */,
 				E76079FA1951FDF600F69731 /* PBXTargetDependency */,
 				182BB22C146F07DD000BF1F3 /* PBXTargetDependency */,
-				529FF2201523BD7F0029D842 /* PBXTargetDependency */,
 			);
 			name = Security;
 			productName = Security;
@@ -5602,7 +5606,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "DST=${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/XPCServices\n\nXPC_SERVICE=XPCKeychainSandboxCheck.xpc\nditto -v ${BUILT_PRODUCTS_DIR}/${XPC_SERVICE} ${DST}/${XPC_SERVICE}\nif [ $0 -ne 0 ]; then\n\texit $0;\nfi\n\nXPC_SERVICE=XPCTimeStampingService.xpc\nif [ $0 -ne 0 ]; then\n\texit $0;\nfi\n\nif [ ! -h ${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}/XPCServices ]; then\n    ln -s Versions/Current/XPCServices ${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}/XPCServices\nfi\n\nexit 0";
+			shellScript = "DST=${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/XPCServices\n\nXPC_SERVICE=XPCKeychainSandboxCheck.xpc\nditto -v ${BUILT_PRODUCTS_DIR}/${XPC_SERVICE} ${DST}/${XPC_SERVICE}\nif [ $0 -ne 0 ]; then\n\texit $0;\nfi\n\nif [ ! -h ${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}/XPCServices ]; then\n    ln -s Versions/Current/XPCServices ${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}/XPCServices\nfi\n\nexit 0";
 			showEnvVarsInLog = 0;
 		};
 		18500F961470828E006F9AB4 /* Run Script Generate Strings */ = {
@@ -6218,11 +6222,6 @@
 			target = 5214700516977CB800DF0DB3 /* CloudKeychainProxy */;
 			targetProxy = 521470281697842500DF0DB3 /* PBXContainerItemProxy */;
 		};
-		529FF2201523BD7F0029D842 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = XPCTimeStampingService;
-			targetProxy = 529FF21F1523BD7F0029D842 /* PBXContainerItemProxy */;
-		};
 		5ED88B6E1B0DEF3100F3B047 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			name = libDER;
@@ -6367,6 +6366,11 @@
 			isa = PBXTargetDependency;
 			target = CD63ACDF1A8061FA001B5671 /* IDSKeychainSyncingProxy */;
 			targetProxy = CDEB2BD11A8151CD00B0E23A /* PBXContainerItemProxy */;
+		};
+		D4A2FC7E1BC89D5200BF6E56 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = XPCTimeStampingService;
+			targetProxy = D4A2FC7D1BC89D5200BF6E56 /* PBXContainerItemProxy */;
 		};
 		E76079FA1951FDF600F69731 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;

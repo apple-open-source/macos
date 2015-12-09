@@ -51,7 +51,9 @@ void	link_add			(const char *if_name);
 
 void	link_remove			(const char *if_name);
 
-void	link_update_status		(const char *if_name, boolean_t attach);
+void	link_update_status		(const char *if_name, boolean_t attach, boolean_t only_if_different);
+
+void	link_update_status_if_missing	(const char * if_name);
 
 CFMutableArrayRef
 interfaceListCopy(void);

@@ -559,6 +559,15 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
                     goto finish;
                 }
             }
+            sigResult = checkSignaturesOfDependents(theKext, true, earlyBoot);
+            if (sigResult != 0) {
+                OSKextLog(/* kext */ NULL,
+                          kOSKextLogErrorLevel | kOSKextLogLoadFlag |
+                          kOSKextLogDependenciesFlag | kOSKextLogIPCFlag,
+                          "Signature failure in dependencies for kext load request.");
+                result = sigResult;
+                goto finish;
+            }
         }
 #endif // not TARGET_OS_EMBEDDED
         
@@ -653,8 +662,16 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
                         loadResult = sigResult;
                     }
                 }
+                sigResult = checkSignaturesOfDependents(theKext, true, earlyBoot);
+                if (sigResult != 0) {
+                    OSKextLog(/* kext */ NULL,
+                              kOSKextLogErrorLevel | kOSKextLogLoadFlag |
+                              kOSKextLogDependenciesFlag | kOSKextLogIPCFlag,
+                              "Signature failure in dependencies for kext load request.");
+                    loadResult = sigResult;
+                    goto finish;
+                }
             }
-            
             
             if (sigResult == 0) {
                 loadResult = OSKextLoadWithOptions(theKext,

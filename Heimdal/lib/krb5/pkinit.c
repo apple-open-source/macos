@@ -448,7 +448,8 @@ build_auth_pack(krb5_context context,
 		krb5_clear_error_message(context);
 		return ret;
 	    }
-	    CCRandomCopyBytes(kCCRandomDefault, a->clientDHNonce->data, a->clientDHNonce->length);
+	    krb5_generate_random_block(a->clientDHNonce->data,
+				       a->clientDHNonce->length);
 	    ret = krb5_copy_data(context, a->clientDHNonce,
 				 &ctx->clientDHNonce);
 	    if (ret)

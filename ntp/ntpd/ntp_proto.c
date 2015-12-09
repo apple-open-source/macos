@@ -2034,12 +2034,12 @@ clock_filter(
 			os_trace("wake time set %+.6f s", sample_offset);
 			clear_all();
 		} else {
-			msyslog(LOG_DEBUG, "sample offset %+.6f s", sample_offset);
+			msyslog(LOG_DEBUG, "sample offset %+.6f s @ %s", sample_offset, ntoa(&peer->srcadr));
 		}
 		mode_wakeup = FALSE;
 		wake_timer = 0;
 	} else {
-		msyslog(LOG_DEBUG, "sample offset %+.6f s", sample_offset);
+		msyslog(LOG_DEBUG, "sample offset %+.6f s @ %s", sample_offset, ntoa(&peer->srcadr));
 	}
 
 	/*

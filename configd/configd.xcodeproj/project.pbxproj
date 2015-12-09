@@ -6091,6 +6091,7 @@
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
 				GCC_DYNAMIC_NO_PIC = NO;
+				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = (
 					"$(SYMROOT)",
@@ -6105,6 +6106,7 @@
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
 				GCC_DYNAMIC_NO_PIC = NO;
+				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = (
 					"$(SYMROOT)",
@@ -6312,6 +6314,7 @@
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = YES;
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
+				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = (
 					"$(SYMROOT)",
@@ -6328,6 +6331,7 @@
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = YES;
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
+				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = (
 					"$(SYMROOT)",
@@ -6813,6 +6817,7 @@
 					"$(SYMROOT)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
+				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = (
 					"$(SYMROOT)",
@@ -6834,6 +6839,7 @@
 					"$(SYMROOT)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
+				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = (
 					"$(SYMROOT)",

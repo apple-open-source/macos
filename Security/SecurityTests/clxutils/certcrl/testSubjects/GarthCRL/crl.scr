@@ -15,5 +15,6 @@ cert = CNTMTT68S21G224G.cer
 crl = fetched.crl
 root = InfoCamereRoot.cer
 root = InfoCamereFirmaQualificata.cer
+verifyTime = 20060101125959
 end
 

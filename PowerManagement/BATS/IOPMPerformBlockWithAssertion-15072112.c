@@ -33,9 +33,7 @@
 
 /*
 
-cc -o IOPMPerformBlockWithAssertion-15072112 \
-        IOPMPerformBlockWithAssertion-15072112.c \
-        -framework IOKit -framework CoreFoundation
+cc -o /tmp/IOPMPerformBlockWithAssertion-15072112  IOPMPerformBlockWithAssertion-15072112.c  -framework IOKit -framework CoreFoundation
 
 Inspired by:
 <rdar://problem/15072112> Sub-TLF: Investigating IOPMAssertion block API
@@ -44,162 +42,111 @@ Inspired by:
 
 
 
-enum {
-    kExpectOn,
-    kExpectOff,
-    kExpectNA
-};
-static CFStringRef kAType = kIOPMAssertNetworkClientActive;
+#define kAssertName "IOPMPerformBlockWithAssertion test"
+
+int checkAssertionState()
+{
+    CFDictionaryRef dict = NULL;
+    CFArrayRef  array = NULL;
+    CFIndex i;
+    IOReturn rc;
+    int ret = 0;
+    int val = 0;
+
+    rc = IOPMCopyAssertionsStatus(&dict);
+    if (rc != kIOReturnSuccess) {
+        printf("FAIL: IOPMCopyAssertionsStatus returned 0x%x\n", rc);
+        return -1;
+    }
+
+    CFNumberRef cfVal = CFDictionaryGetValue(dict, kIOPMAssertionTypePreventUserIdleSystemSleep);
+    if (cfVal) {
+        CFNumberGetValue(cfVal, kCFNumberIntType, &val);
+    }
+    if (val == 0) {
+        printf("FAIL: Assertion Status reports that PreventUserIdle is not enabled\n");
+        ret = -1;
+        goto exit;
+    }
+
+    rc = IOPMCopyAssertionsByType(kIOPMAssertionTypePreventUserIdleSystemSleep, &array);
+    if (rc != kIOReturnSuccess) {
+        printf("FAIL: IOPMCopyAssertionsByType returned 0x%x\n", rc);
+        ret = -1;
+        goto exit;
+    }
+    for (i=0; i < CFArrayGetCount(array); i++) {
+        CFDictionaryRef assertion = CFArrayGetValueAtIndex(array, i);
+        if (!assertion) {
+            ret = -1;
+            printf("FAIL: IOPMCopyAssertionsByType returned empty element at index %ld\n", i);
+            goto exit;
+        }
+
+        CFStringRef name = CFDictionaryGetValue(assertion, kIOPMAssertionNameKey);
+        if (!name) {
+            ret = -1;
+            printf("FAIL: IOPMCopyAssertionsByType returned assertion without name at index %ld\n", i);
+            goto exit;
+        }
+        if (CFStringCompare(name, CFSTR(kAssertName), 0) == kCFCompareEqualTo) {
+            break;
+        }
+    }
+    if (i >= CFArrayGetCount(array)) {
+        printf("FAIL: Expected block assertion is not found in the output of IOPMCopyAssertionsByType\n");
+        ret = -1;
+        goto exit;
+    }
 
 
-static bool globalAssertionLevelFor(CFStringRef type, int expected, const char *print);
-static void asyncPerformBlockWith(CFStringRef type, int assertionTimeoutSec, int blockDurationSec);
-
-static void block10s_execTest(void);
-//static void blockTimeoutExceedsBlockLifespanTest(void);
-
-#define kNoTimeout  0
-
+exit:
+    if (dict) {
+        CFRelease(dict);
+    }
+    if (array) {
+        CFRelease(array);
+    }
+    return ret;
+}
 int main(int argc, char *argv[])
 {
-    globalAssertionLevelFor(kAType, kExpectNA, "Baseline");
 
-    block10s_execTest();
+    __block int ret = 0;
+    IOReturn rc;
+
+    CFMutableDictionaryRef properties = CFDictionaryCreateMutable(0, 3,
+                                                           &kCFTypeDictionaryKeyCallBacks,
+                                                           &kCFTypeDictionaryValueCallBacks);
+
+    if (properties) {
+        CFDictionarySetValue(properties, kIOPMAssertionNameKey, CFSTR(kAssertName));
+
+        CFDictionarySetValue(properties, kIOPMAssertionTypeKey, kIOPMAssertPreventUserIdleSystemSleep);
+    }
+    else {
+        printf("FAIL: CFDictionaryCreateMutable failed\n");
+        return -1;
+    }
+
+    rc = IOPMPerformBlockWithAssertion(properties, ^{
+                                       ret = checkAssertionState( );
+                                       });
+
+    if (rc != kIOReturnSuccess) {
+        printf("FAIL: IOPMPerformBlockWithAssertion returned 0x%x\n", rc);
+        return -1;
+    }
+    else {
+        if (ret == 0) {
+            printf("PASS: Block assertion is taken properly\n");
+        }
+        else {
+            printf("FAIL: Couldn't find block assertion\n");
+        }
+    }
 
     return 0;
 }
 
-
-static void block10s_execTest(void)
-{
-    asyncPerformBlockWith(kAType, kNoTimeout, 10);
-    sleep(1);
-    globalAssertionLevelFor(kAType, kExpectOn, "#1 block is holding assertion");
-    sleep(3);
-    globalAssertionLevelFor(kAType, kExpectNA, "#1 block should have exited by now");
-    sleep(10);
-    globalAssertionLevelFor(kAType, kExpectNA, "#1 block should have exited by now EXTRA EXTRA EXIT");
-}
-
-
-//static void blockTimeoutExceedsBlockLifespanTest(void)
-//{
-//    asyncPerformBlockWith(kAType, 7, 3);
-//    sleep(1);
-//    globalAssertionLevelFor(kAType, kExpectOn, "#2 block is holding assertion");
-//    sleep(3);
-//    globalAssertionLevelFor(kAType, kExpectOff, "#2 block exited; timeout still going");
-//    sleep(5);
-//    globalAssertionLevelFor(kAType, kExpectOff, "#2 block exited; timeout exited");
-//}
-
-static void asyncPerformBlockWith(CFStringRef type,
-                                  int assertionTimeoutSec,
-                                  int blockDurationSec)
-{
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
-    ^() {
-        IOReturn ret;
-        CFMutableDictionaryRef          properties = NULL;
-
-        properties = CFDictionaryCreateMutable(0, 3,
-                                               &kCFTypeDictionaryKeyCallBacks,
-                                               &kCFTypeDictionaryValueCallBacks);
-
-        if (properties) {
-            CFDictionarySetValue(properties,
-                kIOPMAssertionNameKey,
-                CFSTR("IOPMPerformBlockWithAssertion-15072112"));
-
-            CFDictionarySetValue(properties,
-                kIOPMAssertionTypeKey,
-                type);
-
-            if (assertionTimeoutSec)
-            {
-                CFTimeInterval timeint = (CFTimeInterval)assertionTimeoutSec;
-                CFNumberRef timer;
-                timer = CFNumberCreate(0, kCFNumberDoubleType, &timeint);
-                CFDictionarySetValue(properties,
-                                     kIOPMAssertionTimeoutKey,
-                                     timer);
-                CFRelease(timer);
-            }
-
-            int levelOn = kIOPMAssertionLevelOn;
-
-            CFNumberRef numOn = CFNumberCreate(0, kCFNumberIntType, &levelOn);
-
-            CFDictionarySetValue(properties,
-                    kIOPMAssertionLevelKey,
-                    numOn);
-            CFRelease(numOn);
-        }
-
-        IOPMAssertionID aid;
-        IOReturn r2 = IOPMAssertionCreateWithProperties(properties, &aid);
-        printf("r2=0x%08x\n",r2);
-
-        ret = IOPMPerformBlockWithAssertion(properties,
-            ^(){
-                globalAssertionLevelFor(type, kExpectOn, "Within performed block");
-                sleep(blockDurationSec);
-            });
-        
-        if (kIOReturnSuccess != ret) {
-            printf ("[FAIL] IOPMPerformBlockWithAssertion returns 0x%08x\n", ret);
-            exit(1);
-        }
-        CFRelease(properties);
-    });
-}
-
-
-static bool globalAssertionLevelFor(CFStringRef type, int expected, const char *print)
-{
-    CFDictionaryRef         out = NULL;
-    CFNumberRef             level = NULL;
-    bool                    actual = false;
-    int                     level_int = 0;
-
-    IOPMCopyAssertionsStatus(&out);
-
-    if (!out) {
-        printf("[FAIL] NULL return from IOPMCopyAssertionsStatus");
-        return false;
-    }
-
-    level = CFDictionaryGetValue(out, type);
-
-    CFNumberGetValue(level, kCFNumberIntType, &level_int);
-
-    actual = (1==level_int);
-
-    if (print) {
-        const char *expectedStr;
-        const char *actualStr;
-        if (kExpectOn == expected) {
-            expectedStr = "On";
-        } else if (kExpectOff == expected) {
-            expectedStr = "Off";
-        } else {
-            expectedStr = "N/A";
-        }
-        actualStr = actual? "On":"Off";
-
-        if ((kExpectNA == expected)
-            || (actual && (kExpectOn == expected))
-            || (!actual && (kExpectOff == expected)))
-        {
-            printf("[PASS] \"%s\" level is %s, expected to be %s\n",print, actualStr, expectedStr);
-        } else {
-            printf("[FAIL] \"%s\" level is %s, should be %s\n",print, actualStr, expectedStr);
-        }
-        fflush(stdout);
-    }
-
-    CFRelease(out);
-
-    return (kIOPMAssertionLevelOn > 0);
-}
 

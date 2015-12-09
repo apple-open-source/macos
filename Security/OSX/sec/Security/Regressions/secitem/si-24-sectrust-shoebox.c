@@ -968,11 +968,7 @@ static void tests(void)
 
 int si_24_sectrust_passbook(int argc, char *const *argv)
 {
-#if TARGET_OS_SIMULATOR
 	plan_tests(30);
-#else
-	plan_tests(31);
-#endif
 
 	tests();
 

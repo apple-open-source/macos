@@ -1518,9 +1518,10 @@ void KeychainDbCommon::activity()
 void KeychainDbCommon::sleepProcessing()
 {
 	secdebug("KCdb", "common %s(%p) sleep-lock processing", dbName(), this);
-	StLock<Mutex> _(*this);
-	if (mParams.lockOnSleep)
+    if (mParams.lockOnSleep) {
+        StLock<Mutex> _(*this);
 		lockDb();
+    }
 }
 
 void KeychainDbCommon::lockProcessing()

@@ -11,4 +11,4 @@ http://www.geocities.com/cprados/
 
 I added the function ATR_GetDefaultProtocol() in towitoko/atr.c
 
-$Id: README 1001 2004-06-30 13:49:38Z rousseau $
+$Id$

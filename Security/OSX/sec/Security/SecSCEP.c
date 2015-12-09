@@ -179,18 +179,19 @@ out:
     return hash_pubkey_data;
 }
 
-static void generate_sender_nonce(CFMutableDictionaryRef dict)
+static int generate_sender_nonce(CFMutableDictionaryRef dict)
 {
     /* random sender nonce, to be verified against recipient nonce in reply */
     CFDataRef senderNonce_oid_data = scep_oid(senderNonce);
     uint8_t senderNonce_value[18] = { 4, 16, };
-    SecRandomCopyBytes(kSecRandomDefault, sizeof(senderNonce_value) - 2, senderNonce_value + 2);
+    int status = SecRandomCopyBytes(kSecRandomDefault, sizeof(senderNonce_value) - 2, senderNonce_value + 2);
     CFDataRef senderNonce_value_data = CFDataCreate(kCFAllocatorDefault,
 		senderNonce_value, sizeof(senderNonce_value));
 	if (senderNonce_oid_data && senderNonce_value_data)
 		CFDictionarySetValue(dict, senderNonce_oid_data, senderNonce_value_data);
     CFReleaseNull(senderNonce_oid_data);
     CFReleaseNull(senderNonce_value_data);
+    return status;
 }
 
 SecIdentityRef SecSCEPCreateTemporaryIdentity(SecKeyRef publicKey, SecKeyRef privateKey)
@@ -303,7 +304,7 @@ SecSCEPGenerateCertificateRequest(CFArrayRef subject, CFDictionaryRef parameters
     CFReleaseNull(msgtype_value_data);
 
     /* random sender nonce, to be verified against recipient nonce in reply */
-	generate_sender_nonce(simple_attr);
+	require(generate_sender_nonce(simple_attr) == errSecSuccess, out);
 
 	/* XXX/cs remove auto-generation once managedconfig is no longer using this */
     if (signer) {

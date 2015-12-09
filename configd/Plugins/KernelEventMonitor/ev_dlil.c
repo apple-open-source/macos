@@ -54,19 +54,14 @@ create_interface_key(const char * if_name)
 
 
 static CFMutableDictionaryRef
-copy_entity(CFStringRef key)
+copy_mutable_dictionary(CFDictionaryRef dict)
 {
-	CFDictionaryRef		dict;
-	CFMutableDictionaryRef	newDict		= NULL;
+	CFMutableDictionaryRef	newDict;
 
-	dict = cache_SCDynamicStoreCopyValue(store, key);
-	if (dict != NULL) {
-		if (isA_CFDictionary(dict) != NULL) {
-			newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
-		}
-		CFRelease(dict);
+	if (isA_CFDictionary(dict) != NULL) {
+		newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
 	}
-	if (newDict == NULL) {
+	else {
 		newDict = CFDictionaryCreateMutable(NULL,
 						    0,
 						    &kCFTypeDictionaryKeyCallBacks,
@@ -75,17 +70,38 @@ copy_entity(CFStringRef key)
 	return (newDict);
 }
 
+static CFMutableDictionaryRef
+copy_entity(CFStringRef key)
+{
+	CFDictionaryRef		dict;
+	CFMutableDictionaryRef	newDict		= NULL;
+
+	dict = cache_SCDynamicStoreCopyValue(store, key);
+	newDict = copy_mutable_dictionary(dict);
+	if (dict != NULL) {
+		CFRelease(dict);
+	}
+	return (newDict);
+}
+
 
 static void
 interface_update_status(const char *if_name,
 			CFBooleanRef active, boolean_t attach,
-			CFBooleanRef expensive)
+			CFBooleanRef expensive, boolean_t only_if_different)
 {
 	CFStringRef		key		= NULL;
-	CFMutableDictionaryRef	newDict		= NULL;
+	CFMutableDictionaryRef	newDict;
+	CFDictionaryRef		oldDict;
 
 	key = create_interface_key(if_name);
-	newDict = copy_entity(key);
+	oldDict = cache_SCDynamicStoreCopyValue(store, key);
+	if (oldDict != NULL && isA_CFDictionary(oldDict) == NULL) {
+		CFRelease(oldDict);
+		oldDict = NULL;
+	}
+	newDict = copy_mutable_dictionary(oldDict);
+
 	/* if new status available, update cache */
 	if (active != NULL) {
 		CFDictionarySetValue(newDict, kSCPropNetLinkActive, active);
@@ -104,17 +120,26 @@ interface_update_status(const char *if_name,
 		CFDictionaryRemoveValue(newDict, kSCPropNetLinkExpensive);
 	}
 
-	/* update status */
+	/* update the SCDynamicStore */
 	if (CFDictionaryGetCount(newDict) > 0) {
-		SC_log(LOG_DEBUG, "Update interface link status: %s: %@", if_name, newDict);
-		cache_SCDynamicStoreSetValue(store, key, newDict);
+		/* set the value */
+		if (!only_if_different
+		    || oldDict == NULL
+		    || !CFEqual(oldDict, newDict)) {
+			SC_log(LOG_DEBUG, "Update interface link status: %s: %@", if_name, newDict);
+			cache_SCDynamicStoreSetValue(store, key, newDict);
+		}
 	} else {
+		/* remove the value */
 		SC_log(LOG_DEBUG, "Update interface link status: %s: <removed>", if_name);
 		cache_SCDynamicStoreRemoveValue(store, key);
 	}
 
 	CFRelease(key);
 	CFRelease(newDict);
+	if (oldDict != NULL) {
+		CFRelease(oldDict);
+	}
 	return;
 }
 
@@ -311,7 +336,7 @@ interface_remove(const char *if_name)
 
 __private_extern__
 void
-link_update_status(const char *if_name, boolean_t attach)
+link_update_status(const char *if_name, boolean_t attach, boolean_t only_if_different)
 {
 	CFBooleanRef		active		= NULL;
 	CFBooleanRef		expensive;
@@ -354,11 +379,37 @@ link_update_status(const char *if_name, boolean_t attach)
 	expensive = interface_update_expensive(if_name);
 
 	/* update status */
-	interface_update_status(if_name, active, attach, expensive);
+	interface_update_status(if_name, active, attach, expensive, only_if_different);
 	close(sock);
 	return;
 }
 
+
+__private_extern__
+void
+link_update_status_if_missing(const char * if_name)
+{
+	CFStringRef	key;
+	CFDictionaryRef	dict;
+
+	key = create_interface_key(if_name);
+	dict = cache_SCDynamicStoreCopyValue(store, key);
+	if (dict != NULL) {
+		/* it's already present, don't update */
+		CFRelease(dict);
+		goto done;
+	}
+	link_update_status(if_name, FALSE, FALSE);
+	dict = cache_SCDynamicStoreCopyValue(store, key);
+	if (dict != NULL) {
+		/* our action made it appear */
+		messages_add_msg_with_arg("added missing link status", if_name);
+		CFRelease(dict);
+	}
+ done:
+	CFRelease(key);
+	return;
+}
 
 __private_extern__
 CFMutableArrayRef
@@ -443,10 +494,14 @@ interfaceListAddInterface(CFMutableArrayRef ifList, const char * if_name)
 		/* interface was added, prime the link-specific values */
 		added = TRUE;
 		CFArrayAppendValue(ifList, interface);
-		link_update_status(if_name, TRUE);
+		link_update_status(if_name, TRUE, FALSE);
 #ifdef KEV_DL_LINK_QUALITY_METRIC_CHANGED
 		link_update_quality_metric(if_name);
 #endif /* KEV_DL_LINK_QUALITY_METRIC_CHANGED */
+	}
+	else {
+		/* only update the link status if it is different */
+		link_update_status(if_name, FALSE, TRUE);
 	}
 	CFRelease(interface);
 	return (added);

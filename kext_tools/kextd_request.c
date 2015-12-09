@@ -546,6 +546,14 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
         }
     }
     
+    if (checkSignaturesOfDependents(osKext, true, false) != 0) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel | kOSKextLogLoadFlag |
+                  kOSKextLogDependenciesFlag | kOSKextLogIPCFlag,
+                  "Signature failure in dependencies for kext load request.");
+        OSKextRemoveKextPersonalitiesFromKernel(osKext);
+        goto finish;
+    }
 
     CFBooleanRef pgoref = (CFBooleanRef)
         OSKextGetValueForInfoDictionaryKey(osKext, CFSTR("PGO"));
@@ -598,6 +606,7 @@ finish:
 
     return;
 }
+
 
 /*******************************************************************************
 * Kernel resource file request.
@@ -1308,6 +1317,15 @@ kextdProcessUserLoadRequest(
             result = kOSKextReturnNotLoadable;
             goto finish;
         }
+    }
+
+    if (checkSignaturesOfDependents(theKext, true, false) != 0) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel | kOSKextLogLoadFlag |
+                  kOSKextLogDependenciesFlag | kOSKextLogIPCFlag,
+                  "Signature failure in dependencies for kext load request.");
+        result = kOSKextReturnNotLoadable;
+        goto finish;
     }
     
     CFBooleanRef pgoref = (CFBooleanRef)

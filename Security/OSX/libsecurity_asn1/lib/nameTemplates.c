@@ -41,10 +41,11 @@ typedef struct {
  * Generalized Template chooser.
  */
 const SecAsn1Template * SecAsn1TaggedTemplateChooser(
-	/* Four args passed to specific SecAsn1TemplateChooser */
+	/* Five args passed to specific SecAsn1TemplateChooser */
 	void *arg, 				// currently not used
 	Boolean enc,			
 	const char *buf,
+	size_t len,
 	void *dest,
 	/* array of tag/template pairs */
 	const NSS_TagChoice *chooser)
@@ -60,12 +61,16 @@ const SecAsn1Template * SecAsn1TaggedTemplateChooser(
 		/* encoding: tag from an NSS_TaggedItem at *dest */
 		tag = item->tag;
 	}
-	else {
+	else if (len > 0) {
 		/* decoding: tag from raw bytes being decoded */
 		tag = buf[0] & SEC_ASN1_TAGNUM_MASK;
 		/* and tell caller what's coming */
 		item->tag = tag;
 	}
+	/*
+	 * If buffer length is 0, leave tag = 0. No choice will have this
+	 * the invalid tag.
+	 */
 	
 	/* infer template from tag */
 	const NSS_TagChoice *thisChoice;
@@ -109,9 +114,10 @@ static const SecAsn1Template * NSS_ATVChooser(
 	void *arg, 
 	Boolean enc,
 	const char *buf,
+	size_t len,
 	void *dest)
 {
-	return SecAsn1TaggedTemplateChooser(arg, enc, buf, dest, atvChoices);
+	return SecAsn1TaggedTemplateChooser(arg, enc, buf, len, dest, atvChoices);
 }
 
 static const SecAsn1TemplateChooserPtr NSS_ATVChooserPtr = NSS_ATVChooser;
@@ -246,9 +252,10 @@ static const SecAsn1Template * NSS_genNameChooser(
 	void *arg, 
 	Boolean enc,
 	const char *buf,
+	size_t len,
 	void *dest) 
 {
-	return SecAsn1TaggedTemplateChooser(arg, enc, buf, dest, genNameChoices);
+	return SecAsn1TaggedTemplateChooser(arg, enc, buf, len, dest, genNameChoices);
 }
 
 static const SecAsn1TemplateChooserPtr NSS_genNameChooserPtr =

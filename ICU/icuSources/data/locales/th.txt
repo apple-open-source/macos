@@ -1118,8 +1118,8 @@ th{
         }
         gregorian{
             AmPmMarkers{
-                "ก่อนเที่ยง",
-                "หลังเที่ยง",
+                "AM",
+                "PM",
             }
             AmPmMarkersNarrow{
                 "a",

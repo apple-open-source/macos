@@ -32,6 +32,7 @@
  */
 
 #include <unistd.h>
+#include <sys/fileport.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -44,12 +45,9 @@
 
 __private_extern__
 int
-__SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
-				     int32_t		identifier,
-				     int		*fd)
+__SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store)
 {
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
-	int				sock;
 	CFStringRef			sessionKey;
 	CFDictionaryRef			info;
 
@@ -57,13 +55,6 @@ __SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 		/* sorry, you can only have one notification registered at once */
 		return kSCStatusNotifierActive;
 	}
-
-	if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-		SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
-		return kSCStatusFailed;
-	}
-
-	*fd = sock;
 
 	/* push out a notification if any changes are pending */
 	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), storePrivate->server);
@@ -88,102 +79,60 @@ __SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 
 __private_extern__
 kern_return_t
-_notifyviafd(mach_port_t		server,
-	     xmlData_t			pathRef,
-	     mach_msg_type_number_t	pathLen,
-	     int			identifier,
-	     int			*sc_status
+_notifyviafd(mach_port_t	server,
+	     fileport_t		fileport,
+	     int		identifier,
+	     int		*sc_status
 )
 {
-	int				bufSiz;
+	int				fd		= -1;
+	int				flags;
 	serverSessionRef		mySession       = getSession(server);
-	int				nbioYes;
-	int				sock;
 	SCDynamicStorePrivateRef	storePrivate;
-	struct sockaddr_un		un;
 
-	/*
-	 * if socket currently open, close it!
-	 */
-	/* validate the UNIX domain socket path */
-	if (pathLen > (sizeof(un.sun_path) - 1)) {
-		SC_log(LOG_INFO, "domain socket path length too long!");
-		(void) vm_deallocate(mach_task_self(), (vm_address_t)pathRef, pathLen);
-		*sc_status = kSCStatusFailed;
+	/* get notification file descriptor */
+	fd = fileport_makefd(fileport);
+	mach_port_deallocate(mach_task_self(), fileport);
+	if (fd < 0) {
+		*sc_status = errno;
 		return KERN_SUCCESS;
 	}
 
-	/* un-serialize the UNIX domain socket path */
-	un.sun_family = AF_UNIX;
-	bcopy(pathRef, un.sun_path, pathLen);
-	un.sun_path[pathLen] = '\0';
-	(void) vm_deallocate(mach_task_self(), (vm_address_t)pathRef, pathLen);
+	flags = fcntl(fd, F_GETFL, 0);
+	if (flags == -1) {
+		*sc_status = errno;
+		goto fail;
+	}
+
+	flags |= O_NONBLOCK;
+	if (fcntl(fd, F_SETFL, flags) == -1) {
+		*sc_status = errno;
+		goto fail;
+	}
 
 	if (mySession == NULL) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
-		return KERN_SUCCESS;
+		goto fail;
 	}
 	storePrivate = (SCDynamicStorePrivateRef)mySession->store;
 
-	/* check permissions */
-	if (!hasRootAccess(mySession)) {
-		struct stat	statbuf;
-
-		bzero(&statbuf, sizeof(statbuf));
-		if (stat(un.sun_path, &statbuf) == -1) {
-			*sc_status = errno;
-			SC_log(LOG_INFO, "stat() failed: %s", strerror(errno));
-			return KERN_SUCCESS;
-		}
-		if (mySession->callerEUID != statbuf.st_uid) {
-			*sc_status = kSCStatusAccessError;
-			SC_log(LOG_INFO, "permissions error [eUID]");
-			return KERN_SUCCESS;
-		}
-	}
-
-	if (!hasPathAccess(mySession, un.sun_path)) {
-		*sc_status = kSCStatusAccessError;
-		SC_log(LOG_INFO, "permissions error [path]");
-		return KERN_SUCCESS;
-	}
-
-	/* do common sanity checks, get socket */
-	*sc_status = __SCDynamicStoreNotifyFileDescriptor(mySession->store, identifier, &sock);
+	/* do common sanity checks */
+	*sc_status = __SCDynamicStoreNotifyFileDescriptor(mySession->store);
 
 	/* check status of __SCDynamicStoreNotifyFileDescriptor() */
 	if (*sc_status != kSCStatusOK) {
-		return KERN_SUCCESS;
-	}
-
-	/* establish the connection, get ready for a read() */
-	if (connect(sock, (struct sockaddr *)&un, sizeof(un)) == -1) {
-		*sc_status = errno;
-		SC_log(LOG_INFO, "connect() failed: %s", strerror(errno));
-		(void) close(sock);
-		return KERN_SUCCESS;
-	}
-
-	bufSiz = sizeof(storePrivate->notifyFileIdentifier);
-	if (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &bufSiz, sizeof(bufSiz)) == -1) {
-		*sc_status = errno;
-		SC_log(LOG_INFO, "setsockopt() failed: %s", strerror(errno));
-		(void) close(sock);
-		return KERN_SUCCESS;
-	}
-
-	nbioYes = 1;
-	if (ioctl(sock, FIONBIO, &nbioYes) == -1) {
-		*sc_status = errno;
-		SC_log(LOG_INFO, "ioctl(,FIONBIO,) failed: %s", strerror(errno));
-		(void) close(sock);
-		return KERN_SUCCESS;
+		goto fail;
 	}
 
 	/* set notifier active */
 	storePrivate->notifyStatus         = Using_NotifierInformViaFD;
-	storePrivate->notifyFile           = sock;
+	storePrivate->notifyFile           = fd;
 	storePrivate->notifyFileIdentifier = identifier;
 
+	return KERN_SUCCESS;
+
+    fail :
+
+	if (fd >= 0) close(fd);
 	return KERN_SUCCESS;
 }

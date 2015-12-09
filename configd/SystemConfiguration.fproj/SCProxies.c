@@ -2,14 +2,14 @@
  * Copyright (c) 2000-2004, 2006-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -35,6 +35,9 @@
 #include <SystemConfiguration/VPNAppLayerPrivate.h>
 
 #include <netdb.h>
+#if	!TARGET_OS_SIMULATOR
+#include <ne_session.h>
+#endif	// !TARGET_OS_SIMULATOR
 
 
 
@@ -403,12 +406,12 @@ SCDynamicStoreCopyProxiesWithOptions(SCDynamicStoreRef store, CFDictionaryRef op
 {
 	Boolean			bypass	= FALSE;
 	CFStringRef		key;
-	CFDictionaryRef		proxies;
+	CFDictionaryRef		proxies	= NULL;
 
 	if (options != NULL) {
 		CFBooleanRef	bypassGlobalOption;
 
-		if (isA_CFDictionary(options) == NULL) {
+		if (!isA_CFDictionary(options)) {
 			_SCErrorSet(kSCStatusInvalidArgument);
 			return NULL;
 		}
@@ -425,6 +428,21 @@ SCDynamicStoreCopyProxiesWithOptions(SCDynamicStoreRef store, CFDictionaryRef op
 	key = SCDynamicStoreKeyCreateProxies(NULL);
 	proxies = SCDynamicStoreCopyValue(store, key);
 	CFRelease(key);
+
+	if (isA_CFDictionary(proxies) &&
+	    CFDictionaryContainsKey(proxies, kSCPropNetProxiesBypassAllowed)) {
+		CFMutableDictionaryRef	newProxies;
+
+		newProxies = CFDictionaryCreateMutableCopy(NULL, 0, proxies);
+		CFRelease(proxies);
+
+		/*
+		 * Remove kSCPropNetProxiesBypassAllowed property from network
+		 * service based configurations.
+		 */
+		CFDictionaryRemoveValue(newProxies, kSCPropNetProxiesBypassAllowed);
+		proxies = newProxies;
+	}
 
 
 	if (proxies != NULL) {
@@ -497,6 +515,21 @@ _SCNetworkProxiesCopyMatchingInternal(CFDictionaryRef	globalConfiguration,
 
 		scoped = CFDictionaryGetValue(globalConfiguration, kSCPropNetProxiesScoped);
 		if (scoped == NULL) {
+#if	!TARGET_OS_SIMULATOR
+			if (CFDictionaryContainsKey(globalConfiguration, kSCPropNetProxiesBypassAllowed) &&
+			    ne_session_always_on_vpn_configs_present()) {
+				/*
+				 * The kSCPropNetProxiesBypassAllowed key will be present
+				 * for managed proxy configurations where bypassing is *not*
+				 * allowed.
+				 *
+				 * Also (for now), forcing the use of the managed proxy
+				 * configurations will only be done with AOVPN present.
+				 */
+				goto useDefault;
+			}
+#endif	// !TARGET_OS_SIMULATOR
+
 			// if no scoped proxy configurations
 			_SCErrorSet(kSCStatusOK);
 			return NULL;
@@ -619,6 +652,10 @@ _SCNetworkProxiesCopyMatchingInternal(CFDictionaryRef	globalConfiguration,
 	}
 
 	// no matches, return "global" proxy configuration
+
+#if	!TARGET_OS_SIMULATOR
+    useDefault :
+#endif	// !TARGET_OS_SIMULATOR
 
 	newProxy = CFDictionaryCreateMutableCopy(NULL, 0, globalConfiguration);
 	CFDictionaryRemoveValue(newProxy, kSCPropNetProxiesScoped);

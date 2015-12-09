@@ -315,9 +315,9 @@ SSLContextRef SSLCreateContextWithRecordFuncs(CFAllocatorRef alloc, SSLProtocolS
 
     /* Default for server is DHE enabled, default for client is disabled */
     if(ctx->protocolSide == kSSLServerSide) {
-        ctx->dheEnabled = true;
+        SSLSetDHEEnabled(ctx, true);
     } else {
-        ctx->dheEnabled = false;
+        SSLSetDHEEnabled(ctx, false);
     }
 
     if(kMinDhGroupSizeDefaultValue) {
@@ -404,10 +404,6 @@ void SSLContextDestroy(CFTypeRef arg)
     SSLFreeBuffer(&ctx->peerID);
     SSLFreeBuffer(&ctx->resumableSession);
     SSLFreeBuffer(&ctx->receivedDataBuffer);
-
-	sslFree(ctx->validCipherSuites);
-	ctx->validCipherSuites = NULL;
-	ctx->numValidCipherSuites = 0;
 
     CFReleaseSafe(ctx->acceptableCAs);
     CFReleaseSafe(ctx->trustedLeafCerts);
@@ -2046,6 +2042,17 @@ OSStatus SSLGetDiffieHellmanParams(
 OSStatus SSLSetDHEEnabled(SSLContextRef ctx, bool enabled)
 {
     ctx->dheEnabled = enabled;
+    /* Hack a little so that only the ciphersuites change */
+    tls_protocol_version min, max;
+    unsigned nbits;
+    tls_handshake_get_min_protocol_version(ctx->hdsk, &min);
+    tls_handshake_get_max_protocol_version(ctx->hdsk, &max);
+    tls_handshake_get_min_dh_group_size(ctx->hdsk, &nbits);
+    tls_handshake_set_config(ctx->hdsk, enabled?tls_handshake_config_legacy_DHE:tls_handshake_config_legacy);
+    tls_handshake_set_min_protocol_version(ctx->hdsk, min);
+    tls_handshake_set_max_protocol_version(ctx->hdsk, max);
+    tls_handshake_set_min_dh_group_size(ctx->hdsk, nbits);
+
     return noErr;
 }
 
@@ -2642,3 +2649,96 @@ SSLSetSessionStrengthPolicy(SSLContextRef context,
 {
     return errSecSuccess;
 }
+
+const CFStringRef kSSLSessionConfig_default = CFSTR("default");
+const CFStringRef kSSLSessionConfig_ATSv1 = CFSTR("ATSv1");
+const CFStringRef kSSLSessionConfig_ATSv1_noPFS = CFSTR("ATSv1_noPFS");
+const CFStringRef kSSLSessionConfig_legacy = CFSTR("legacy");
+const CFStringRef kSSLSessionConfig_standard = CFSTR("standard");
+const CFStringRef kSSLSessionConfig_RC4_fallback = CFSTR("RC4_fallback");
+const CFStringRef kSSLSessionConfig_TLSv1_fallback = CFSTR("TLSv1_fallback");
+const CFStringRef kSSLSessionConfig_TLSv1_RC4_fallback = CFSTR("TLSv1_RC4_fallback");
+const CFStringRef kSSLSessionConfig_legacy_DHE = CFSTR("legacy_DHE");
+
+static
+tls_handshake_config_t SSLSessionConfig_to_tls_handshake_config(CFStringRef config)
+{
+    if(CFEqual(config, kSSLSessionConfig_ATSv1)){
+        return tls_handshake_config_ATSv1;
+    } else  if(CFEqual(config, kSSLSessionConfig_ATSv1_noPFS)){
+        return tls_handshake_config_ATSv1_noPFS;
+    } else  if(CFEqual(config, kSSLSessionConfig_standard)){
+        return tls_handshake_config_standard;
+    } else  if(CFEqual(config, kSSLSessionConfig_TLSv1_fallback)){
+        return tls_handshake_config_TLSv1_fallback;
+    } else  if(CFEqual(config, kSSLSessionConfig_TLSv1_RC4_fallback)){
+        return tls_handshake_config_TLSv1_RC4_fallback;
+    } else  if(CFEqual(config, kSSLSessionConfig_RC4_fallback)){
+        return tls_handshake_config_RC4_fallback;
+    } else  if(CFEqual(config, kSSLSessionConfig_legacy)){
+        return tls_handshake_config_legacy;
+    } else  if(CFEqual(config, kSSLSessionConfig_legacy_DHE)){
+        return tls_handshake_config_legacy_DHE;
+    } else  if(CFEqual(config, kSSLSessionConfig_default)){
+        return tls_handshake_config_default;
+    } else {
+        return tls_handshake_config_none;
+    }
+}
+
+static
+const CFStringRef tls_handshake_config_to_SSLSessionConfig(tls_handshake_config_t config)
+{
+    switch(config) {
+        case tls_handshake_config_ATSv1:
+            return kSSLSessionConfig_ATSv1;
+        case tls_handshake_config_ATSv1_noPFS:
+            return kSSLSessionConfig_ATSv1_noPFS;
+        case tls_handshake_config_standard:
+            return kSSLSessionConfig_standard;
+        case tls_handshake_config_RC4_fallback:
+            return kSSLSessionConfig_RC4_fallback;
+        case tls_handshake_config_TLSv1_fallback:
+            return kSSLSessionConfig_TLSv1_fallback;
+        case tls_handshake_config_TLSv1_RC4_fallback:
+            return kSSLSessionConfig_TLSv1_RC4_fallback;
+        case tls_handshake_config_legacy:
+            return kSSLSessionConfig_legacy;
+        case tls_handshake_config_legacy_DHE:
+            return kSSLSessionConfig_legacy_DHE;
+        case tls_handshake_config_default:
+            return kSSLSessionConfig_default;
+        case tls_handshake_config_none:
+            return NULL;
+    }
+}
+
+
+/* Set Predefined TLS Configuration */
+OSStatus
+SSLSetSessionConfig(SSLContextRef context,
+                    CFStringRef config)
+{
+    tls_handshake_config_t cfg = SSLSessionConfig_to_tls_handshake_config(config);
+    if(cfg>=0) {
+        return tls_handshake_set_config(context->hdsk, cfg);
+    } else {
+        return errSecParam;
+    }
+}
+
+OSStatus
+SSLGetSessionConfig(SSLContextRef context,
+                    CFStringRef *config)
+{
+    tls_handshake_config_t cfg;
+    OSStatus err = tls_handshake_get_config(context->hdsk, &cfg);
+    if(err) {
+        return err;
+    }
+
+    *config =  tls_handshake_config_to_SSLSessionConfig(cfg);
+
+    return noErr;
+}
+

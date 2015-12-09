@@ -164,6 +164,18 @@ struct sockaddr_dl;
 
 #include <krb5_asn1.h>
 
+#if __APPLE__
+
+#include <xpc/xpc.h>
+#if !TARGET_OS_SIMULATOR
+#include <NEHelperClient.h>
+#include <network/private.h>
+#include <ne_session.h>
+#endif /* !TARGET_OS_SIMULATOR */
+
+#endif /* __APPLE__ */
+
+
 struct send_to_kdc;
 
 /* XXX glue for pkinit */

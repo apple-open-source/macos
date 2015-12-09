@@ -170,14 +170,14 @@ format:table(nofallback) {
                     "GMT",
                     "DATE=RELATIVE_LONG,TIME=MEDIUM",
                     "ERA=1,YEAR=2012,MONTH=OCTOBER,DATE=8,HOUR_OF_DAY=23,MINUTE=59,SECOND=0",
-                    "8 Οκτωβρίου 2012 - 11:59:00 μ.μ."
+                    "8 Οκτωβρίου 2012 - 11:59:00 μμ"
                },
                {
                     "el@calendar=gregorian",         
                     "GMT",
                     "DATE=RELATIVE_LONG,TIME=MEDIUM",
                     "RELATIVE_ADD:DATE=-1,HOUR_OF_DAY=17,MINUTE=0,SECOND=0", // one day before now at specified time
-                    "χθες - 5:00:00 μ.μ."
+                    "χθες - 5:00:00 μμ"
                },
               // other tests
                {

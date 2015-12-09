@@ -52,11 +52,6 @@
 
 #include <TargetConditionals.h>
 
-#if TARGET_OS_EMBEDDED
-#include <dirent.h>
-#include <fts.h>
-#endif /* TARGET_OS_EMBEDDED */
-
 /* Sensible wrappers over the byte-swapping routines */
 #include "hfs_endian.h"
 #if !TARGET_OS_EMBEDDED
@@ -446,7 +441,6 @@ load_encoding(struct hfs_mnt_encoding *encp)
 	return (0);
 }
 
-
 int
 main(argc, argv)
 	int argc;
@@ -640,7 +634,6 @@ main(argc, argv)
 		if (args.hfs_mask == (mode_t)VNOVAL)
 			args.hfs_mask = sb.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO);
 	}
-
 
 #if DEBUG
     printf("mount_hfs: calling mount: \n" );

@@ -18,7 +18,7 @@
 */
 
 /*
- * $Id: PCSCv2part10.c 6559 2013-03-06 14:18:24Z rousseau $
+ * $Id$
  */
 
 #include <stdio.h>

@@ -819,6 +819,8 @@ static void SecCEPCrlDistributionPoints(SecCertificateRef certificate,
         policyQualifierId  PolicyQualifierId,
         qualifier          ANY DEFINED BY policyQualifierId }
 */
+/* maximum number of policies of 8192 seems more than adequate */
+#define MAX_CERTIFICATE_POLICIES 8192
 static void SecCEPCertificatePolicies(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
 	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
@@ -830,7 +832,8 @@ static void SecCEPCertificatePolicies(SecCertificateRef certificate,
     require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
     DERDecodedInfo piContent;
     DERSize policy_count = 0;
-    while ((drtn = DERDecodeSeqNext(&piSeq, &piContent)) == DR_Success) {
+    while ((policy_count < MAX_CERTIFICATE_POLICIES) &&
+           (drtn = DERDecodeSeqNext(&piSeq, &piContent)) == DR_Success) {
         require_quiet(piContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
         policy_count++;
     }
@@ -839,7 +842,8 @@ static void SecCEPCertificatePolicies(SecCertificateRef certificate,
                                                 * (policy_count > 0 ? policy_count : 1));
     DERDecodeSeqInit(&extn->extnValue, &tag, &piSeq);
     DERSize policy_ix = 0;
-    while ((drtn = DERDecodeSeqNext(&piSeq, &piContent)) == DR_Success) {
+    while ((policy_ix < (policy_count > 0 ? policy_count : 1)) &&
+           (drtn = DERDecodeSeqNext(&piSeq, &piContent)) == DR_Success) {
         DERPolicyInformation pi;
         drtn = DERParseSequenceContent(&piContent.content,
             DERNumPolicyInformationItemSpecs,
@@ -2200,7 +2204,7 @@ CFAbsoluteTime SecAbsoluteTimeFromDateContent(DERTag tag, const uint8_t *bytes,
     if (month > 2)
         day += is_leap_year;
 
-    CFAbsoluteTime absTime = (CFAbsoluteTime)((day * 24 + hour) * 60 + minute) * 60 + second;
+    CFAbsoluteTime absTime = (CFAbsoluteTime)((day * 24.0 + hour) * 60.0 + minute) * 60.0 + second;
 	return absTime - timeZoneOffset;
 }
 

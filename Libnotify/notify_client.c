@@ -157,7 +157,7 @@ typedef struct
 	char *name;
 	size_t name_len;
 	uint64_t name_id;
-	list_t *coalesced;
+	TAILQ_HEAD(, __registration_node_s) coalesced;
 	struct __registration_node_s *coalesce_base;
 } name_node_t;
 
@@ -175,6 +175,8 @@ typedef struct
  */
 typedef struct __registration_node_s
 {
+	TAILQ_ENTRY(__registration_node_s) registration_coalesced_entry;
+
 	int32_t refcount;
 	uint32_t token;
 	uint32_t flags;
@@ -262,7 +264,7 @@ name_node_dump(int level, name_node_t *n)
 		return;
 	}
 
-	_notify_client_log(level, "name_node_t %p name=%s name_id=%llu refcount=%d coalesce_base_token=%u coalesce_base=%p coalesce_list_count=%u\n", (n->name == NULL) ? "NULL" : n->name, n->name_id, n->refcount, n->coalesce_base_token, n->coalesce_base, _nc_list_count(n->coalesced));
+	_notify_client_log(level, "name_node_t %p name=%s name_id=%llu refcount=%d coalesce_base_token=%u coalesce_base=%p\n", (n->name == NULL) ? "NULL" : n->name, n->name_id, n->refcount, n->coalesce_base_token, n->coalesce_base);
 }
 #endif
 
@@ -305,6 +307,7 @@ name_node_for_name(const char *name, uint64_t nid, bool create, bool glock)
 		n->refcount = 1;
 		n->name_len = strlen(name);
 		n->name_id = nid;
+		TAILQ_INIT(&n->coalesced);
 		n->coalesce_base_token = NOTIFY_TOKEN_INVALID;
 		pthread_mutex_init(&n->lock, NULL);
 
@@ -383,8 +386,7 @@ name_node_add_coalesced_registration(name_node_t *n, registration_node_t *r)
 
 	mutex_lock(n->name, &n->lock, __func__, __LINE__);
 	registration_node_retain(n->coalesce_base);
-	list_t *l = _nc_list_new(r);
-	n->coalesced = _nc_list_prepend(n->coalesced, l);
+	TAILQ_INSERT_TAIL(&n->coalesced, r, registration_coalesced_entry);
 	mutex_unlock(n->name, &n->lock, __func__, __LINE__);
 }
 
@@ -395,7 +397,7 @@ name_node_remove_coalesced_registration(name_node_t *n, registration_node_t *r)
 	if (r == NULL) return;
 
 	mutex_lock(n->name, &n->lock, __func__, __LINE__);
-	n->coalesced = _nc_list_delete(n->coalesced, r);
+	TAILQ_REMOVE(&n->coalesced, r, registration_coalesced_entry);
 	mutex_unlock(n->name, &n->lock, __func__, __LINE__);
 
 	registration_node_release(n->coalesce_base);
@@ -425,7 +427,7 @@ registration_node_find(uint32_t token)
 	mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
 
 #ifdef DEBUG
-	if (_libnotify_debug & DEBUG_NODES) _notify_client_log(ASL_LEVEL_NOTICE, "registration_node_find token %u refcount %d -> %p", token, r->refcount, r);
+	if (_libnotify_debug & DEBUG_NODES) _notify_client_log(ASL_LEVEL_NOTICE, "registration_node_find token %u refcount %d -> %p", token, r ? r->refcount : -1, r);
 #endif
 
 	return r;
@@ -831,9 +833,6 @@ _notify_fork_child(void)
 	globals->notify_ipc_version = 0;
 	globals->notify_server_pid = 0;
 
-	globals->name_table = NULL;
-	globals->registration_table = NULL;
-
 	globals->fd_count = 0;
 	globals->fd_clnt = NULL;
 	globals->fd_srv = NULL;
@@ -1037,7 +1036,7 @@ _notify_lib_regenerate_registration(registration_node_t *r)
 	if (r == NULL) return;
 	if (r->flags & NOTIFY_FLAG_SELF) return;
 	if ((r->flags & NOTIFY_FLAG_REGEN) == 0) return;
-	if (r->token == globals->notify_common_token) return;
+	if (!strcmp(r->name_node->name, COMMON_PORT_KEY)) return;
 
 	port = MACH_PORT_NULL;
 	if (r->flags & NOTIFY_TYPE_PORT)
@@ -1957,10 +1956,9 @@ _notify_dispatch_handle(mach_port_t port)
 
 	if (r->flags & NOTIFY_TYPE_COALESCE_BASE)
 	{
-		list_t *l;
-		for (l = _nc_list_tail(n->coalesced); l != NULL; l = _nc_list_prev(l))
+		registration_node_t *x;
+		TAILQ_FOREACH(x, &n->coalesced, registration_coalesced_entry)
 		{
-			registration_node_t *x = (registration_node_t *)_nc_list_data(l);
 			if ((x != NULL) && (x != r)) _notify_dispatch_local_notification(x);
 		}
 	}

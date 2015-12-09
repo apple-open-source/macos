@@ -1094,7 +1094,7 @@ static struct test_server {
     { GNUTLS_SERVER, 5003, &client_auth_never, &gnutls_ecc_rsa_is_cipher_supported, &default_supported_unless_ssl3}, // gnutls-serv w/o client side auth, ecc/rsa,
     { GNUTLS_SERVER, 5004, &client_auth_never, &gnutls_ecc_ecc_is_cipher_supported, &default_supported_unless_ssl3}, // gnutls-serv w/o client side auth, ecc/ecc
     { "www.mikestoolbox.org", 443, &client_auth_ssl3_only, &mikes_is_cipher_supported, &default_supported_always}, // mike's  w/o client side auth
-//  { "tls.secg.org", 443, &client_auth_never, &secg_is_cipher_supported, &default_supported_always}, // secg ecc server w/o client side auth - This server generate DH params we didn't support, but this should be fixed now
+//  { "tls.secg.org", 443, &client_auth_never, &secg_is_cipher_supported, &default_supported_always}, // secg ecc server w/o client side auth - This server generate DH params we didnt support, but this should be fixed now 
 
     { OPENSSL_SERVER, 4011, &client_auth_always, &openssl_rsa_rsa_is_cipher_supported, &default_supported_always}, //openssl s_server w/ client side auth
     { OPENSSL_SERVER, 4012, &client_auth_always, &openssl_rsa_ecc_is_cipher_supported, &default_supported_always}, //openssl s_server w/ client side auth, rsa/ecc

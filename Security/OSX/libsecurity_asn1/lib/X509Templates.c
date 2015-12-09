@@ -45,9 +45,10 @@ static const SecAsn1Template * NSS_TimeChooser(
 	void *arg, 
 	Boolean enc,
 	const char *buf,
+	size_t len,
 	void *dest)
 {
-	return SecAsn1TaggedTemplateChooser(arg, enc, buf, dest, timeChoices);
+	return SecAsn1TaggedTemplateChooser(arg, enc, buf, len, dest, timeChoices);
 }
 
 static const SecAsn1TemplateChooserPtr NSS_TimeChooserPtr = NSS_TimeChooser;

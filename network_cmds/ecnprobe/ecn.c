@@ -72,7 +72,6 @@ int EstablishTcpConnection(u_int8_t syn_flags, u_int8_t ip_tos)
   int tcpoptlen = 4; /* For negotiating MSS */
   u_int8_t *opt = NULL;
   struct IPPacket *p = NULL;
-  u_int16_t nmss;
 
   /* allocate the syn packet -- Changed for new IPPacket structure */
   synPacket = AllocateIPPacket(0, tcpoptlen, 0, "ECN (SYN)");
@@ -325,7 +324,6 @@ void DataPkt (char *filename, u_int8_t iptos, u_int8_t tcp_flags)
 
     /* Check if we have received any packets */
     if ((read_packet =(char *)CaptureGetPacket(&pi)) != NULL) {
-
       p = (struct IPPacket *)FindHeaderBoundaries(read_packet);
 
       /*
@@ -535,7 +533,8 @@ void ECNAckData (struct IPPacket *p)
 
     SendSessionPacket(datapkt, ipsz,
       TCPFLAGS_PSH | TCPFLAGS_ACK | TCPFLAGS_CWR, 0, 0, 2);
-    
+
+    session.snd_nxt += (datalen + 1);
     send_cwr = 1;
     FreeIPPacket(&datapkt);
   }
@@ -720,5 +719,231 @@ void checkECN ()
       printf("Unknown value for ee: %d\n", ee);
       break;
   }
+  return;
+}
+
+void DataPktPathCheck(char *filename, u_int8_t iptos, u_int8_t tcp_flags)
+{
+  struct IPPacket *p, *datapkt;
+  struct pcap_pkthdr pi;
+  char *read_packet;
+  int i ;
+  int sendflag = 1 ;
+  u_int16_t lastSeqSent = session.snd_nxt;
+  double startTime = 0;
+  char *dataptr;
+  char data[MAXREQUESTLEN];
+  int datalen;
+  int ipsz;
+  unsigned int init_ttl;
+
+  datalen = PrepareRequest (data, filename);
+
+  datapkt = AllocateIPPacket(0, 0, datalen + 1, "ECN (datapkt)");
+
+  dataptr = (char *)datapkt->tcp + sizeof(struct TcpHeader);
+  memcpy((void *)dataptr,(void *)data, datalen);
+
+  ipsz = sizeof(struct IpHeader) + sizeof(struct TcpHeader) + datalen + 1;
+  /* send the data packet
+   * we try to "achieve" reliability by
+   * sending the packet upto 5 times, wating for
+   * 2 seconds between packets
+   * BAD busy-wait loop
+   */
+
+  i = 0 ;
+  init_ttl = 1;
+  while(1) {
+
+    if (sendflag == 1) {
+      session.curr_ttl = ++init_ttl;
+      if (init_ttl > 64) /* reached the max */
+        break;
+      SendSessionPacket(datapkt, ipsz,
+        TCPFLAGS_PSH | TCPFLAGS_ACK | tcp_flags, 0, 0, 0x3);
+
+      startTime = GetTime();
+      sendflag = 0;
+      i++ ;
+    }
+
+    /* Check if we have received any packets */
+    if ((read_packet =(char *)CaptureGetPacket(&pi)) != NULL) {
+
+      p = (struct IPPacket *)FindHeaderBoundaries(read_packet);
+
+      /*
+       * packet that we sent?
+       */
+
+      if (INSESSION(p,session.src, session.sport,
+        session.dst,session.dport) &&
+        (p->tcp->tcp_flags == (TCPFLAGS_PSH | TCPFLAGS_ACK)) &&
+        SEQ_GT(ntohl(p->tcp->tcp_seq), lastSeqSent) &&
+        SEQ_LEQ(ntohl(p->tcp->tcp_ack), session.rcv_nxt)) {
+        lastSeqSent = ntohl(p->tcp->tcp_seq);
+        if (session.debug >= SESSION_DEBUG_LOW) {
+          printf("xmit %d\n", i);
+          PrintTcpPacket(p);
+        }
+        StorePacket(p);
+        session.snd_nxt += datalen + 1;
+        session.totSeenSent ++ ;
+        continue ;
+      }
+
+      /*
+       * from them?
+       */
+      if (INSESSION(p, session.dst, session.dport, session.src,
+        session.sport) && (p->tcp->tcp_flags & TCPFLAGS_ACK) &&
+        (ntohl(p->tcp->tcp_seq) == session.rcv_nxt) &&
+        ntohl(p->tcp->tcp_ack) == session.snd_nxt) {
+          session.snd_una = ntohl(p->tcp->tcp_ack);
+          session.snd_nxt = session.snd_una;
+          if (p->ip->ip_ttl != session.ttl) {
+            session.ttl = p->ip->ip_ttl;
+          }
+          if (session.debug >= SESSION_DEBUG_LOW) {
+            printf("rcvd %d\n", i);
+	          PrintTcpPacket(p);
+	  }
+	  StorePacket(p);
+	  session.totRcvd ++;
+	  break ;
+      }
+      /*
+       * ICMP ttl exceeded
+       */
+      if (p->ip->ip_p == IPPROTOCOL_ICMP) {
+        uint16_t ip_hl;
+        struct IcmpHeader *icmp;
+        ip_hl = (p->ip->ip_vhl & 0x0f) << 2;
+	void *nexthdr;
+
+        icmp = (struct IcmpHeader *)((char *)p->ip + ip_hl);
+        nexthdr = (void *)icmp;
+        if (icmp->icmp_type == ICMP_TIMXCEED) {
+          struct IpHeader off_ip;
+          struct TcpHeader off_tcp;
+
+          bzero(&off_ip, sizeof(struct IpHeader));
+          nexthdr = nexthdr + sizeof(struct IcmpHeader);
+          memcpy((void *)&off_ip, nexthdr,
+            sizeof(struct IpHeader));
+          nexthdr += sizeof(struct IpHeader);
+
+          bzero(&off_tcp, sizeof(struct TcpHeader));
+          memcpy(&off_tcp, nexthdr, 4);
+          if (session.src == off_ip.ip_src &&
+            session.dst == off_ip.ip_dst) {
+            printf("Received ICMP TTL exceeded from %s:"
+              "ttl used %u ip_tos 0x%x sport %u dport %u\n",
+              InetAddress(p->ip->ip_src), init_ttl, off_ip.ip_tos,
+              ntohs(off_tcp.tcp_sport), ntohs(off_tcp.tcp_dport));
+          }
+        }
+      }
+      /*
+       * otherwise, this is a bad packet
+       * we must quit
+       */
+      //processBadPacket(p);
+    }
+    if ((GetTime() - startTime >= 1) && (sendflag == 0)) {
+      sendflag = 1;
+      session.snd_nxt = session.snd_una;
+    }
+  }
+
+  FreeIPPacket(&datapkt);
+}
+void ECNPathCheckTest(u_int32_t sourceAddress, u_int16_t sourcePort,
+    u_int32_t targetAddress, u_int16_t targetPort, int mss)
+{
+  int rawSocket, rc, flag;
+
+  arc4random_stir();
+
+  session.src = sourceAddress;
+  session.sport = sourcePort;
+  session.dst = targetAddress;
+  session.dport = targetPort;
+  session.rcv_wnd = 5*mss;
+  session.snd_nxt = arc4random();
+  session.iss = session.snd_nxt;
+  session.rcv_nxt = 0;
+  session.irs = 0;
+  session.mss = mss;
+  session.maxseqseen = 0;
+  session.epochTime = GetTime();
+  session.maxpkts = 1000;
+  session.debug = 0;
+
+  if ((session.dataRcvd = (u_int8_t *)calloc(sizeof(u_int8_t),
+    mss * session.maxpkts)) == NULL) {
+    printf("no memory to store data, error: %d \n", ERR_MEM_ALLOC);
+    Quit(ERR_MEM_ALLOC);
+  }
+
+  if ((rawSocket = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
+    perror("ERROR: couldn't open socket:");
+    Quit(ERR_SOCKET_OPEN);
+  }
+
+  flag = 1;
+  if (setsockopt(rawSocket, IPPROTO_IP, IP_HDRINCL,
+      (char *)&flag, sizeof(flag)) < 0) {
+    perror("ERROR: couldn't set raw socket options:");
+      Quit(ERR_SOCKOPT);
+  }
+
+  session.socket = rawSocket;
+
+  /* Establish a TCP connections with ECN bits */
+  rc = EstablishTcpConnection(TCPFLAGS_ECN_ECHO | TCPFLAGS_CWR, 0);
+  switch (rc) {
+    case ESTABLISH_FAILURE_EARLY_RST:
+    {
+      /* Received a RST when ECN bits are used. Try again without ECN */
+      rc = EstablishTcpConnection(0, 0);
+      if (rc == ESTABLISH_FAILURE_EARLY_RST) {
+        printf("Received RST with or without ECN negotiation\n");
+        printf("The server might not be listening on this port\n");
+        Quit(EARLY_RST);
+      } else if (rc == ESTABLISH_SUCCESS) {
+        printf("Received RST with ECN.\n");
+        printf("Connection established successfully without ECN\n");
+        Quit(ECN_SYN_DROP);
+      } else if (rc == ESTABLISH_FAILURE_NO_REPLY) {
+        printf("Received RST with ECN\n");
+        printf("Exceed max SYN retransmits without ECN\n");
+        Quit(NO_CONNECTION);
+      }
+      break;
+    }
+    case ESTABLISH_FAILURE_NO_REPLY:
+    {
+      /* No reply after retring, try again without ECN */
+      rc = EstablishTcpConnection(0, 0);
+      if (rc == ESTABLISH_FAILURE_EARLY_RST) {
+        printf("Exceeded max SYN retransmits with ECN\n");
+        printf("Received RST without ECN\n");
+        Quit(NO_CONNECTION);
+      } else if (rc == ESTABLISH_FAILURE_NO_REPLY) {
+        printf("Exceeded max SYN retransmits with ECN\n");
+        printf("Exceeded max SYN retransmits without ECN\n");
+        Quit(NO_CONNECTION);
+      } else {
+        printf("Exceeded max SYN retransmits with ECN\n");
+        printf("Connection established successfully without ECN\n");
+        Quit(ECN_SYN_DROP);
+      }
+      break;
+    }
+  }
+
+  DataPktPathCheck(session.filename, 3, 0);
   return;
 }

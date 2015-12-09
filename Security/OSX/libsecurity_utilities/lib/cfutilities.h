@@ -305,16 +305,34 @@ inline uint32_t cfNumber(CFNumberRef number) { return cfNumber<uint32_t>(number)
 //
 // Translate strings into CFStrings
 //
-inline CFStringRef makeCFString(const char *s, CFStringEncoding encoding = kCFStringEncodingUTF8)
+inline CFStringRef makeCFString(const char *s, CFStringEncoding encoding)
 {
 	return s ? CFStringCreateWithCString(NULL, s, encoding) : NULL;
 }
-
-inline CFStringRef makeCFString(const string &s, CFStringEncoding encoding = kCFStringEncodingUTF8)
+	
+inline CFStringRef makeCFString(const char *s)
 {
-	return CFStringCreateWithCString(NULL, s.c_str(), encoding);
+	if (s == NULL)
+		return NULL;
+	CFStringRef result = CFStringCreateWithCString(NULL, s, kCFStringEncodingUTF8);
+	if (result == NULL) {
+		result = CFStringCreateWithCString(NULL, s, kCFStringEncodingASCII);
+		if (result == NULL)
+			CFError::throwMe();
+	}
+	return result;
 }
 
+inline CFStringRef makeCFString(const string &s, CFStringEncoding encoding)
+{
+	return makeCFString(s.c_str(), encoding);
+}
+
+inline CFStringRef makeCFString(const string &s)
+{
+	return makeCFString(s.c_str());
+}
+	
 inline CFStringRef makeCFString(CFDataRef data, CFStringEncoding encoding = kCFStringEncodingUTF8)
 {
 	return CFStringCreateFromExternalRepresentation(NULL, data, encoding);

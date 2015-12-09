@@ -1435,16 +1435,19 @@ void IOHIDEventService::ejectTimerCallback(IOTimerEventSource *sender __unused)
 void IOHIDEventService::capsTimerCallback(IOTimerEventSource *sender __unused)
 {
     IOHID_DEBUG(kIOHIDDebugCode_CapsCallback, _keyboard.caps.state, 0, 0, 0);
+    AbsoluteTime timeStamp;
+    
+    clock_get_uptime(&timeStamp);
+#if TARGET_OS_EMBEDDED
+    dispatchKeyboardEvent(timeStamp, kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardCapsLock, 1, _keyboard.caps.options | kDelayedOption);
+#else
     if ( _keyboard.caps.state ) {
-        AbsoluteTime timeStamp;
-
-        clock_get_uptime(&timeStamp);
-
         dispatchKeyboardEvent(timeStamp, kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardCapsLock, 1, _keyboard.caps.options | kDelayedOption);
         dispatchKeyboardEvent(timeStamp, kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardCapsLock, 0, _keyboard.caps.options | kDelayedOption);
 
         _keyboard.caps.state = 0;
     }
+#endif
 }
 
 
@@ -1596,8 +1599,44 @@ void IOHIDEventService::dispatchKeyboardEvent(
        _keyboard.debug.mask == 0x30) {// ATV PlayPause + Volume-
         handle_stackshot_keychord(_keyboard.debug.mask);
     }
+    
+    // Keyboard caps lock delay - quick taps of caps lock could be accidental, so ignore
+    if ( _keyboard.caps.delayMS && (usagePage == kHIDPage_KeyboardOrKeypad) && (usage == kHIDUsage_KeyboardCapsLock ) ) {
+        if ( (options & kDelayedOption) == 0) {
+            if ( value ) {
+                if ( ( getElementValue(kHIDPage_LEDs, kHIDUsage_LED_CapsLock) == 0 ) ) {
+                    _keyboard.caps.options = options;
 
-    event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, value!=0, options);
+                    if ( _keyboard.caps.timer )
+                        _keyboard.caps.timer->setTimeoutMS( _keyboard.caps.delayMS );
+                }
+                else {
+                    event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, value!=0, _keyboard.caps.options);
+                }
+            }
+            else {
+                if ( ( getElementValue(kHIDPage_LEDs, kHIDUsage_LED_CapsLock) != 0 ) ) {
+                    event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, value!=0, _keyboard.caps.options);
+                }
+                else if ( _keyboard.caps.state ) {
+                    event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, value!=0, _keyboard.caps.options);
+                    _keyboard.caps.state = 0;
+                }
+
+                if ( _keyboard.caps.timer )
+                    _keyboard.caps.timer->cancelTimeout();
+            }
+        }
+        else {
+            event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, value!=0, _keyboard.caps.options);
+            _keyboard.caps.state = 1;
+        }
+    }
+    else
+    {
+        event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, value!=0, options);
+    }
+    
     if ( !event )
         return;
 

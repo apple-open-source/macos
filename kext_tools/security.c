@@ -1205,6 +1205,67 @@ void recordKextLoadForMT(OSKextRef aKext)
 }
 
 /*******************************************************************************
+ * checkSignaturesOfDependents() - check the signature for dependents of kext.
+ * Note - this also includes plugins.
+ *******************************************************************************/
+OSStatus checkSignaturesOfDependents(OSKextRef theKext,
+                                     Boolean checkExceptionList,
+                                     Boolean earlyBoot)
+{
+    OSStatus        result          = errSecCSSignatureFailed;
+    CFIndex         count, i;
+    CFArrayRef      loadList        = NULL;  // must release
+    OSStatus        sigResult;
+    OSKextRef       myKext;
+    
+    loadList = OSKextCopyLoadList(theKext, true);
+    if (loadList) {
+#if 0
+        OSKextLogCFString(NULL,
+                          kOSKextLogGeneralFlag | kOSKextLogErrorLevel,
+                          CFSTR("%s %d: dependencies are %@"),
+                          __func__, __LINE__, loadList);
+#endif
+        count = CFArrayGetCount(loadList);
+        for (i = 0; i < count; i++) {
+            myKext = (OSKextRef)CFArrayGetValueAtIndex(loadList, i);
+            sigResult = checkKextSignature(myKext, checkExceptionList, earlyBoot);
+            if ( sigResult != 0 ) {
+                if ( isInvalidSignatureAllowed() ) {
+                    CFStringRef     myKextPath = NULL; // must release
+                    
+                    myKextPath = copyKextPath(myKext);
+                    OSKextLogCFString(NULL,
+                                      kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                                      CFSTR("kext signature failure override allowing invalid signature %ld 0x%02lX for kext \"%@\""),
+                                      (long)sigResult, (long)sigResult,
+                                      myKextPath ? myKextPath : CFSTR("Unknown"));
+                    SAFE_RELEASE(myKextPath);
+                }
+                else {
+                    CFStringRef     myBundleID = NULL;         // do not release
+                    
+                    myBundleID = OSKextGetIdentifier(myKext);
+                    OSKextLogCFString(NULL,
+                                      kOSKextLogErrorLevel |
+                                      kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+                                      CFSTR("ERROR: invalid signature for %@, will not load"),
+                                      myBundleID ? myBundleID : CFSTR("Unknown"));
+                    goto finish;
+                }
+            }
+        } // for ...
+    } // dependents
+    
+    result = 0;
+    
+finish:
+    SAFE_RELEASE(loadList);
+    
+    return(result);
+}
+
+/*******************************************************************************
  * checkKextSignature() - check the signature for given kext.
  *******************************************************************************/
 OSStatus checkKextSignature(OSKextRef aKext,
@@ -1265,12 +1326,12 @@ OSStatus checkKextSignature(OSKextRef aKext,
     // errSecCSUnsigned == -67062
     if (earlyBoot) {
         result = SecStaticCodeCheckValidity(staticCodeRef,
-                                            kSecCSNoNetworkAccess,
+                                            kSecCSNoNetworkAccess | kSecCSCheckAllArchitectures,
                                             requirementRef);
     }
     else {
         result = SecStaticCodeCheckValidity(staticCodeRef,
-                                            kSecCSEnforceRevocationChecks,
+                                            kSecCSEnforceRevocationChecks | kSecCSCheckAllArchitectures,
                                             requirementRef);
     }
     if ( result != 0 &&
@@ -1736,7 +1797,7 @@ Boolean isInvalidSignatureAllowed(void)
                   kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
                   "Untrusted kexts are not allowed");
     }
-    
+
     return(result);
 }
 #include <Security/SecKeychainPriv.h>

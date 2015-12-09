@@ -82,6 +82,7 @@
 		0C179B4B18C5378E007B09BF /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C6C633715D1BB7100BC68CD /* CoreFoundation.framework */; };
 		0C179B4C18C53797007B09BF /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C03D5E917D7FC1F0087643B /* Security.framework */; };
 		0C179B4D18C537A0007B09BF /* sockets.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCC9A5C18AC27440019EC70 /* sockets.c */; };
+		0C1956DE1BE3DCF800587353 /* tls_metrics_bundles.inc in Headers */ = {isa = PBXBuildFile; fileRef = 0C1956DC1BE3DCF800587353 /* tls_metrics_bundles.inc */; settings = {ASSET_TAGS = (); }; };
 		0C1F071E189C5F0500E65030 /* sslMemory.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4260534D89900303760 /* sslMemory.c */; };
 		0C2775131889F02D000C0442 /* tls1RecordCallouts.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA414315C75863002AEC4C /* tls1RecordCallouts.c */; };
 		0C2775141889F02D000C0442 /* ssl3RecordCallouts.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA413515C75863002AEC4C /* ssl3RecordCallouts.c */; };
@@ -100,6 +101,8 @@
 		0C27752A188EF9F6000C0442 /* tls_ciphersuites.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4010534D89900303760 /* tls_ciphersuites.c */; };
 		0C2A501F1815D47300601766 /* tls_ciphersuites.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4010534D89900303760 /* tls_ciphersuites.c */; };
 		0C2A50291815D47300601766 /* tls_record.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C870BF317B43967008FB2CF /* tls_record.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		0C417E491B601A3100DE639E /* tls_metrics.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C417E471B601A3100DE639E /* tls_metrics.c */; };
+		0C417E4A1B601A3100DE639E /* tls_metrics.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C417E481B601A3100DE639E /* tls_metrics.h */; };
 		0C6CE0AB1A968F5300BF0994 /* sockets.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCC9A5C18AC27440019EC70 /* sockets.c */; };
 		0C6CE0AD1A968F5300BF0994 /* appleSession.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCB2E9918BBF15D00592893 /* appleSession.c */; };
 		0C6CE0AE1A968F5300BF0994 /* secCrypto.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCB2E9718BBF12F00592893 /* secCrypto.c */; };
@@ -155,7 +158,6 @@
 		0CCB2E9618BBCB3500592893 /* tls_03_client.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCB2E8F18BBC86200592893 /* tls_03_client.c */; };
 		0CCB2E9818BBF12F00592893 /* secCrypto.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCB2E9718BBF12F00592893 /* secCrypto.c */; };
 		0CCB2E9B18BBF15D00592893 /* appleSession.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCB2E9918BBF15D00592893 /* appleSession.c */; };
-		0CCB2E9E18BC228200592893 /* test_regressions.h in Sources */ = {isa = PBXBuildFile; fileRef = 0CCB2E8118BBC63500592893 /* test_regressions.h */; };
 		0CCB2E9F18BC229200592893 /* tls_02_self.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCB2E9C18BBF8CE00592893 /* tls_02_self.c */; };
 		0CE8868B18C4F51E00C4EF6A /* tls_client.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCC9A4618AC24420019EC70 /* tls_client.c */; };
 		0CE8868D18C4F51E00C4EF6A /* sockets.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCC9A5C18AC27440019EC70 /* sockets.c */; };
@@ -318,12 +320,15 @@
 		0C0E61BD1891BFD1007CD626 /* staticlib.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = staticlib.xcconfig; sourceTree = "<group>"; };
 		0C179B4118C533D0007B09BF /* tls_server.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tls_server.c; sourceTree = "<group>"; };
 		0C179B4218C533D0007B09BF /* tls_server.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tls_server.h; sourceTree = "<group>"; };
+		0C1956DC1BE3DCF800587353 /* tls_metrics_bundles.inc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.pascal; path = tls_metrics_bundles.inc; sourceTree = "<group>"; };
 		0C1C92ED15C8AC52007D377B /* kext.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 		0C2456341860A63600BA558D /* secCrypto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = secCrypto.h; sourceTree = "<group>"; };
 		0C2774F21889EE44000C0442 /* tlsnke.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = tlsnke.xcodeproj; path = kext/tlsnke.xcodeproj; sourceTree = "<group>"; };
 		0C2775261889F02D000C0442 /* libcoretls_kext.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libcoretls_kext.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		0C2A502E1815D47300601766 /* libcoretls_ciphersuites.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libcoretls_ciphersuites.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		0C401F021886F559002C969A /* handshake_server_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = handshake_server_test.c; sourceTree = "<group>"; };
+		0C417E471B601A3100DE639E /* tls_metrics.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tls_metrics.c; sourceTree = "<group>"; };
+		0C417E481B601A3100DE639E /* tls_metrics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tls_metrics.h; sourceTree = "<group>"; };
 		0C41FED118AC49E20052BCA6 /* sockets.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sockets.h; sourceTree = "<group>"; };
 		0C6C633715D1BB7100BC68CD /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		0C6C634215D1BDCF00BC68CD /* ssl-utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-utils.c"; sourceTree = "<group>"; };
@@ -593,6 +598,9 @@
 				4CAFF42C0534D89900303760 /* sslSession.c */,
 				4CAFF41E0534D89900303760 /* sslDigests.h */,
 				4CAFF41D0534D89900303760 /* sslDigests.c */,
+				0C417E471B601A3100DE639E /* tls_metrics.c */,
+				0C417E481B601A3100DE639E /* tls_metrics.h */,
+				0C1956DC1BE3DCF800587353 /* tls_metrics_bundles.inc */,
 			);
 			name = Handshake;
 			path = lib;
@@ -904,11 +912,13 @@
 			files = (
 				0C7A928A19A2B3FC0065A165 /* tls_types.h in Headers */,
 				0CC8D20617D68C700089DCFC /* sslHandshake.h in Headers */,
+				0C417E4A1B601A3100DE639E /* tls_metrics.h in Headers */,
 				0C08A3C21857A2FE00DFBA9D /* sslCrypto.h in Headers */,
 				0CFBC0D019A564A40003353C /* sslDecode.h in Headers */,
 				0CA9800817E3B90E00205D87 /* sslSession.h in Headers */,
 				0CC8D20117D6888A0089DCFC /* tls_handshake.h in Headers */,
 				0CC8D20817D692730089DCFC /* tls_handshake_priv.h in Headers */,
+				0C1956DE1BE3DCF800587353 /* tls_metrics_bundles.inc in Headers */,
 				0C03D5E617D7FAFF0087643B /* sslCipherSpecs.h in Headers */,
 				0C03D5A717D7AB1D0087643B /* sslDigests.h in Headers */,
 			);
@@ -1240,7 +1250,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0CCB2E9E18BC228200592893 /* test_regressions.h in Sources */,
 				0CCB2E9818BBF12F00592893 /* secCrypto.c in Sources */,
 				0CCB2E9418BBCB3500592893 /* tls_01_record.c in Sources */,
 				0CCB2E9618BBCB3500592893 /* tls_03_client.c in Sources */,
@@ -1288,6 +1297,7 @@
 				0C08A3C11857A2FE00DFBA9D /* sslCrypto.c in Sources */,
 				0C03D5AC17D7B5EF0087643B /* sslChangeCipher.c in Sources */,
 				0C03D5AB17D7B51A0087643B /* sslCert.c in Sources */,
+				0C417E491B601A3100DE639E /* tls_metrics.c in Sources */,
 				0C03D5AD17D7B6260087643B /* sslKeyExchange.c in Sources */,
 				0C03D5AA17D7AB480087643B /* sslAlertMessage.c in Sources */,
 				0CC8D20317D68C4F0089DCFC /* sslHandshake.c in Sources */,

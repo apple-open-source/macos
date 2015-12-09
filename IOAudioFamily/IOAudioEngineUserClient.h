@@ -125,6 +125,7 @@ protected:
 		UInt32								classicMode;
 		UInt32								commandGateStatus;						// <rdar://8518215>
 		SInt32								commandGateUsage;						// <rdar://8518215>
+		UInt32								connectionID;
 	};
 
 // <rdar://101000004> START

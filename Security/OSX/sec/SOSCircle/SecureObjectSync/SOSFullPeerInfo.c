@@ -306,81 +306,77 @@ SOSViewResultCode SOSFullPeerInfoUpdateViews(SOSFullPeerInfoRef peer, SOSViewAct
     }) ? retval : kSOSCCGeneralViewError;
 }
 
+static CFMutableSetRef SOSFullPeerInfoCopyViewUpdate(SOSFullPeerInfoRef peer, CFSetRef minimumViews, CFSetRef excludedViews) {
+    CFSetRef enabledViews = SOSPeerInfoCopyEnabledViews(peer->peer_info);
+    CFMutableSetRef newViews = SOSPeerInfoCopyEnabledViews(peer->peer_info);
 
-static bool CFSetIsSubset(CFSetRef smaller, CFSetRef bigger) {
-    __block bool isSubset = true;
-    CFSetForEach(smaller, ^(const void *value) {
-        if (!CFSetContainsValue(bigger, value)) {
-            isSubset = false;
-        }
-    });
+    if (isSet(minimumViews)) {
+        CFSetUnion(newViews, minimumViews);
+    }
+    if (isSet(excludedViews)) {
+        CFSetSubtract(newViews, excludedViews);
+    }
 
-    return isSubset;
+    if (CFEqualSafe(newViews, enabledViews)) {
+        CFReleaseNull(newViews);
+    }
+
+    CFReleaseNull(enabledViews);
+    return newViews;
 }
 
-static void CFSetUnionSet(CFMutableSetRef target, CFSetRef source) {
-    CFSetForEach(source, ^(const void *value) {
-        CFSetAddValue(target, value);
-    });
+static bool SOSFullPeerInfoNeedsViewUpdate(SOSFullPeerInfoRef peer, CFSetRef minimumViews, CFSetRef excludedViews) {
+    CFSetRef updatedViews = SOSFullPeerInfoCopyViewUpdate(peer, minimumViews, excludedViews);
+    bool needsUpdate = (updatedViews != NULL);
+    CFReleaseNull(updatedViews);
+    return needsUpdate;
 }
 
-static bool sosFullPeerInfoNeedsViewUpdate(SOSFullPeerInfoRef peer, CFSetRef minimumViews) {
-    CFSetRef currentViews = SOSPeerInfoCopyEnabledViews(peer->peer_info);
-    bool success = isSet(minimumViews) && (!isSet(currentViews) || !CFSetIsSubset(minimumViews, currentViews));
-    CFReleaseNull(currentViews);
-    return success;
-}
-
-static bool sosFullPeerInfoRequiresUpdate(SOSFullPeerInfoRef peer, CFSetRef minimumViews) {
+static bool sosFullPeerInfoRequiresUpdate(SOSFullPeerInfoRef peer, CFSetRef minimumViews, CFSetRef excludedViews) {
     
     if(!SOSPeerInfoVersionIsCurrent(peer->peer_info)) return true;
     if(!SOSPeerInfoSerialNumberIsSet(peer->peer_info)) return true;
     if(!(SOSPeerInfoV2DictionaryHasString(peer->peer_info, sDeviceID)))return true;
     if(!(SOSPeerInfoV2DictionaryHasString(peer->peer_info, sTransportType))) return true;
     if(!(SOSPeerInfoV2DictionaryHasBoolean(peer->peer_info, sPreferIDS))) return true;
-    if(sosFullPeerInfoNeedsViewUpdate(peer, minimumViews)) return true;
+    if(SOSFullPeerInfoNeedsViewUpdate(peer, minimumViews, excludedViews)) return true;
 
     return false;
 }
 
 // Returning false indicates we don't need to upgrade.
-bool SOSFullPeerInfoUpdateToCurrent(SOSFullPeerInfoRef peer, CFSetRef minimumViews) {
-    CFMutableSetRef newViews = NULL;
-    
-    if(!sosFullPeerInfoRequiresUpdate(peer, minimumViews)) return false;
+bool SOSFullPeerInfoUpdateToCurrent(SOSFullPeerInfoRef peer, CFSetRef minimumViews, CFSetRef excludedViews) {
+    bool success = false;
 
-    CFSetRef currentViews = SOSPeerInfoCopyEnabledViews(peer->peer_info);
-    if (sosFullPeerInfoNeedsViewUpdate(peer, minimumViews)) {
-        newViews = isSet(currentViews) ? CFSetCreateMutableCopy(kCFAllocatorDefault, 0, currentViews) : CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
-        CFSetUnionSet(newViews, minimumViews);
-    }
-    
+    CFMutableSetRef newViews = NULL;
     CFErrorRef copyError = NULL;
     CFErrorRef createError = NULL;
-    SecKeyRef device_key = SOSFullPeerInfoCopyDeviceKey(peer, &copyError);
+    SecKeyRef device_key = NULL;
+
+    require_quiet(sosFullPeerInfoRequiresUpdate(peer, minimumViews, excludedViews), errOut);
+
+    newViews = SOSFullPeerInfoCopyViewUpdate(peer, minimumViews, excludedViews);
+
+    device_key = SOSFullPeerInfoCopyDeviceKey(peer, &copyError);
     require_action_quiet(device_key, errOut,
                          secnotice("upgrade", "SOSFullPeerInfoCopyDeviceKey failed: %@", copyError));
     
     SOSPeerInfoRef newPeer = SOSPeerInfoCreateCurrentCopy(kCFAllocatorDefault, peer->peer_info,
-                                                          NULL, NULL, NULL, newViews ? newViews : minimumViews,
+                                                          NULL, NULL, NULL, newViews,
                                                           device_key, &createError);
     require_action_quiet(newPeer, errOut,
                          secnotice("upgrade", "Peer info v2 create copy failed: %@", createError));
 
     CFTransferRetained(peer->peer_info, newPeer);
-    
-    CFReleaseNull(currentViews);
-    CFReleaseSafe(newViews);
-    CFReleaseNull(device_key);
-    return true;
-    
+
+    success = true;
+
 errOut:
-    CFReleaseNull(currentViews);
-    CFReleaseSafe(newViews);
+    CFReleaseNull(newViews);
     CFReleaseNull(copyError);
     CFReleaseNull(createError);
     CFReleaseNull(device_key);
-    return false;
+    return success;
 }
 
 SOSViewResultCode SOSFullPeerInfoViewStatus(SOSFullPeerInfoRef peer, CFStringRef viewname, CFErrorRef *error)

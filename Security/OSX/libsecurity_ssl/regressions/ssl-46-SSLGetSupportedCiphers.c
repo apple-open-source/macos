@@ -62,165 +62,6 @@ out:
     return fail;
 }
 
-static
-int allowed_default_ciphers(SSLCipherSuite cs, bool server, bool dhe_enabled)
-{
-    switch (cs) {
-
-        /* BAD to enable by default */
-
-
-        /*
-         * Tags for SSL 2 cipher kinds which are not specified
-         * for SSL 3.
-         */
-        case SSL_RSA_WITH_RC2_CBC_MD5:
-        case SSL_RSA_WITH_IDEA_CBC_MD5:
-        case SSL_RSA_WITH_DES_CBC_MD5:
-        case SSL_RSA_WITH_3DES_EDE_CBC_MD5:
-
-        /* Export and Simple DES ciphers */
-        case SSL_RSA_EXPORT_WITH_RC4_40_MD5:
-        case SSL_RSA_EXPORT_WITH_RC2_CBC_40_MD5:
-        case SSL_RSA_WITH_IDEA_CBC_SHA:
-        case SSL_RSA_EXPORT_WITH_DES40_CBC_SHA:
-        case SSL_RSA_WITH_DES_CBC_SHA:
-        case SSL_DH_DSS_EXPORT_WITH_DES40_CBC_SHA:
-        case SSL_DH_DSS_WITH_DES_CBC_SHA:
-        case SSL_DH_RSA_EXPORT_WITH_DES40_CBC_SHA:
-        case SSL_DH_RSA_WITH_DES_CBC_SHA:
-        case SSL_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA:
-        case SSL_DHE_DSS_WITH_DES_CBC_SHA:
-        case SSL_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA:
-        case SSL_DHE_RSA_WITH_DES_CBC_SHA:
-        case SSL_DH_anon_EXPORT_WITH_RC4_40_MD5:
-        case SSL_DH_anon_EXPORT_WITH_DES40_CBC_SHA:
-        case SSL_DH_anon_WITH_DES_CBC_SHA:
-        case SSL_FORTEZZA_DMS_WITH_NULL_SHA:
-        case SSL_FORTEZZA_DMS_WITH_FORTEZZA_CBC_SHA:
-
-        case SSL_NO_SUCH_CIPHERSUITE:
-
-        /* Null ciphers. */
-        case TLS_NULL_WITH_NULL_NULL:
-        case TLS_RSA_WITH_NULL_MD5:
-        case TLS_RSA_WITH_NULL_SHA:
-        case TLS_RSA_WITH_NULL_SHA256:
-        case TLS_ECDH_ECDSA_WITH_NULL_SHA:
-        case TLS_ECDHE_ECDSA_WITH_NULL_SHA:
-        case TLS_ECDHE_RSA_WITH_NULL_SHA:
-        case TLS_ECDH_RSA_WITH_NULL_SHA:
-        case TLS_ECDH_anon_WITH_NULL_SHA:
-
-        /* Completely anonymous Diffie-Hellman */
-        case TLS_DH_anon_WITH_RC4_128_MD5:
-        case TLS_DH_anon_WITH_3DES_EDE_CBC_SHA:
-        case TLS_DH_anon_WITH_AES_128_CBC_SHA:
-        case TLS_DH_anon_WITH_AES_256_CBC_SHA:
-        case TLS_DH_anon_WITH_AES_128_CBC_SHA256:
-        case TLS_DH_anon_WITH_AES_256_CBC_SHA256:
-        case TLS_DH_anon_WITH_AES_128_GCM_SHA256:
-        case TLS_DH_anon_WITH_AES_256_GCM_SHA384:
-        case TLS_ECDH_anon_WITH_RC4_128_SHA:
-        case TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA:
-        case TLS_ECDH_anon_WITH_AES_128_CBC_SHA:
-        case TLS_ECDH_anon_WITH_AES_256_CBC_SHA:
-
-
-        /* Sstatic Diffie-Hellman and DSS */
-        case TLS_DH_DSS_WITH_3DES_EDE_CBC_SHA:
-        case TLS_DH_RSA_WITH_3DES_EDE_CBC_SHA:
-        case TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA:
-        case TLS_DH_DSS_WITH_AES_128_CBC_SHA:
-        case TLS_DH_RSA_WITH_AES_128_CBC_SHA:
-        case TLS_DHE_DSS_WITH_AES_128_CBC_SHA:
-        case TLS_DH_DSS_WITH_AES_256_CBC_SHA:
-        case TLS_DH_RSA_WITH_AES_256_CBC_SHA:
-        case TLS_DHE_DSS_WITH_AES_256_CBC_SHA:
-        case TLS_DH_DSS_WITH_AES_128_CBC_SHA256:
-        case TLS_DH_RSA_WITH_AES_128_CBC_SHA256:
-        case TLS_DHE_DSS_WITH_AES_128_CBC_SHA256:
-        case TLS_DH_DSS_WITH_AES_256_CBC_SHA256:
-        case TLS_DH_RSA_WITH_AES_256_CBC_SHA256:
-        case TLS_DHE_DSS_WITH_AES_256_CBC_SHA256:
-        case TLS_DH_RSA_WITH_AES_128_GCM_SHA256:
-        case TLS_DH_RSA_WITH_AES_256_GCM_SHA384:
-        case TLS_DHE_DSS_WITH_AES_128_GCM_SHA256:
-        case TLS_DHE_DSS_WITH_AES_256_GCM_SHA384:
-        case TLS_DH_DSS_WITH_AES_128_GCM_SHA256:
-        case TLS_DH_DSS_WITH_AES_256_GCM_SHA384:
-
-            return 0;
-
-
-        /* OK to enable by default on the client only (not supported on server) */
-        case TLS_ECDH_ECDSA_WITH_RC4_128_SHA:
-        case TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA:
-        case TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA:
-        case TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA:
-        case TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256:
-        case TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384:
-        case TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256:
-        case TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384:
-        case TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256:
-        case TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384:
-        case TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256:
-        case TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384:
-        case TLS_ECDH_RSA_WITH_RC4_128_SHA:
-        case TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA:
-        case TLS_ECDH_RSA_WITH_AES_128_CBC_SHA:
-        case TLS_ECDH_RSA_WITH_AES_256_CBC_SHA:
-            return !server;
-
-        /* OK to enable by default for both client and server */
-
-        case TLS_RSA_WITH_RC4_128_MD5:
-        case TLS_RSA_WITH_RC4_128_SHA:
-        case TLS_RSA_WITH_3DES_EDE_CBC_SHA:
-        case TLS_RSA_WITH_AES_128_CBC_SHA:
-        case TLS_RSA_WITH_AES_256_CBC_SHA:
-        case TLS_RSA_WITH_AES_128_CBC_SHA256:
-        case TLS_RSA_WITH_AES_256_CBC_SHA256:
-        case TLS_RSA_WITH_AES_128_GCM_SHA256:
-        case TLS_RSA_WITH_AES_256_GCM_SHA384:
-
-
-        case TLS_ECDHE_ECDSA_WITH_RC4_128_SHA:
-        case TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA:
-        case TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA:
-        case TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:
-        case TLS_ECDHE_RSA_WITH_RC4_128_SHA:
-        case TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA:
-        case TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:
-        case TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:
-        case TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:
-        case TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384:
-        case TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256:
-        case TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384:
-        case TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:
-        case TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:
-        case TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:
-        case TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:
-            return 1;
-
-        case TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA:
-        case TLS_DHE_RSA_WITH_AES_128_CBC_SHA:
-        case TLS_DHE_RSA_WITH_AES_256_CBC_SHA:
-        case TLS_DHE_RSA_WITH_AES_128_CBC_SHA256:
-        case TLS_DHE_RSA_WITH_AES_256_CBC_SHA256:
-        case TLS_DHE_RSA_WITH_AES_128_GCM_SHA256:
-        case TLS_DHE_RSA_WITH_AES_256_GCM_SHA384:
-            return dhe_enabled;
-
-        /* RFC 5746 - Secure Renegotiation - not specified by the user or returned by APIs*/
-        case TLS_EMPTY_RENEGOTIATION_INFO_SCSV:
-            return 0;
-
-        /* unknown cipher ? */
-        default:
-            return 0;
-    }
-}
 
 static OSStatus SocketWrite(SSLConnectionRef conn, const void *data, size_t *length)
 {
@@ -233,80 +74,223 @@ static OSStatus SocketRead(SSLConnectionRef conn, void *data, size_t *length)
 }
 
 
-static int test_GetEnabledCiphers(SSLContextRef ssl, bool server, bool dhe_enabled)
+
+static const SSLCipherSuite legacy_ciphersuites[] = {
+    TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA256,
+    TLS_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA,
+    TLS_RSA_WITH_AES_128_CBC_SHA,
+    SSL_RSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+    TLS_ECDHE_RSA_WITH_RC4_128_SHA,
+    SSL_RSA_WITH_RC4_128_SHA,
+    SSL_RSA_WITH_RC4_128_MD5,
+};
+
+const SSLCipherSuite legacy_DHE_ciphersuites[] = {
+    TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
+    TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+    SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA256,
+    TLS_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA,
+    TLS_RSA_WITH_AES_128_CBC_SHA,
+    SSL_RSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+    TLS_ECDHE_RSA_WITH_RC4_128_SHA,
+    SSL_RSA_WITH_RC4_128_SHA,
+    SSL_RSA_WITH_RC4_128_MD5,
+};
+
+
+
+const SSLCipherSuite standard_ciphersuites[] = {
+    TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA256,
+    TLS_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA,
+    TLS_RSA_WITH_AES_128_CBC_SHA,
+    SSL_RSA_WITH_3DES_EDE_CBC_SHA,
+};
+
+const SSLCipherSuite ATSv1_ciphersuites[] = {
+    TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+};
+
+const SSLCipherSuite ATSv1_noPFS_ciphersuites[] = {
+    TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+
+    TLS_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA256,
+    TLS_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA,
+    TLS_RSA_WITH_AES_128_CBC_SHA,
+};
+
+const SSLCipherSuite TLSv1_RC4_fallback_ciphersuites[] = {
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_RSA_WITH_AES_256_CBC_SHA256,
+    TLS_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA,
+    TLS_RSA_WITH_AES_128_CBC_SHA,
+    SSL_RSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+    TLS_ECDHE_RSA_WITH_RC4_128_SHA,
+    SSL_RSA_WITH_RC4_128_SHA,
+    SSL_RSA_WITH_RC4_128_MD5,
+};
+
+const SSLCipherSuite TLSv1_fallback_ciphersuites[] = {
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_RSA_WITH_AES_256_CBC_SHA256,
+    TLS_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA,
+    TLS_RSA_WITH_AES_128_CBC_SHA,
+    SSL_RSA_WITH_3DES_EDE_CBC_SHA,
+};
+
+
+
+static int test_GetEnabledCiphers(SSLContextRef ssl, unsigned expected_num_ciphers, const SSLCipherSuite *expected_ciphers)
 {
-    size_t max_ciphers = 0;
     size_t num_ciphers;
-    size_t num_ciphers_2;
     size_t size;
     int fail=1;
     SSLCipherSuite *ciphers = NULL;
-    SSLCipherSuite *ciphers_2 = NULL;
     OSStatus err;
 
     err=SSLSetIOFuncs(ssl, &SocketRead, &SocketWrite);
     err=SSLSetConnection(ssl, NULL);
 
-    require_noerr(SSLGetNumberEnabledCiphers(ssl, &max_ciphers), out);
+    require_noerr(SSLGetNumberEnabledCiphers(ssl, &num_ciphers), out);
+    require_string(num_ciphers==expected_num_ciphers, out, "wrong ciphersuites number");
 
-    err=SSLHandshake(ssl);
-
-    require_noerr(SSLGetNumberEnabledCiphers(ssl, &max_ciphers), out);
-
-    require(max_ciphers == (dhe_enabled?32:25), out);
-
-    size = max_ciphers * sizeof (SSLCipherSuite);
+    size = num_ciphers * sizeof (SSLCipherSuite);
     ciphers = (SSLCipherSuite *) malloc(size);
     require_string(ciphers, out, "out of memory");
     memset(ciphers, 0xff, size);
 
-    num_ciphers = max_ciphers;
     require_noerr(SSLGetEnabledCiphers(ssl, ciphers, &num_ciphers), out);
+    require_string(memcmp(ciphers, expected_ciphers, size)==0, out, "wrong ciphersuites");
 
-    //printf("Ciphers Enabled before first handshake: %zd\n", num_ciphers);
-
-    for (size_t i = 0; i < num_ciphers; i++) {
-        char csname[256];
-        snprintf(csname, 256, "(%04x) %s", ciphers[i], ciphersuite_name(ciphers[i]));
-        /* Uncomment the next line if you want to list the default enabled ciphers */
-        //printf("%s\n", csname);
-        require_string(allowed_default_ciphers(ciphers[i], server, dhe_enabled), out, csname);
-    }
+    free(ciphers);
+    ciphers = NULL;
 
     err=SSLHandshake(ssl);
 
-    require_noerr(SSLGetNumberEnabledCiphers(ssl, &max_ciphers), out);
 
-    size = max_ciphers * sizeof (SSLCipherSuite);
-    ciphers_2 = (SSLCipherSuite *) malloc(size);
-    require_string(ciphers_2, out, "out of memory");
-    memset(ciphers_2, 0xff, size);
+    require_noerr(SSLGetNumberEnabledCiphers(ssl, &num_ciphers), out);
+    require_string(num_ciphers==expected_num_ciphers, out, "wrong ciphersuites number");
 
-    num_ciphers_2 = max_ciphers;
-    require_noerr(SSLGetEnabledCiphers(ssl, ciphers_2, &num_ciphers_2), out);
+    size = num_ciphers * sizeof (SSLCipherSuite);
+    ciphers = (SSLCipherSuite *) malloc(size);
+    require_string(ciphers, out, "out of memory");
+    memset(ciphers, 0xff, size);
 
-    //printf("Ciphers Enabled after first handshake: %zd\n", num_ciphers_2);
-
-    for (size_t i = 0; i < num_ciphers_2; i++) {
-        char csname[256];
-        snprintf(csname, 256, "(%04x) %s", ciphers_2[i], ciphersuite_name(ciphers_2[i]));
-        /* Uncomment the next line if you want to list the default enabled ciphers */
-        //printf("%s\n", csname);
-    }
-
-    require(num_ciphers_2 == num_ciphers, out);
-    require((memcmp(ciphers, ciphers_2, num_ciphers*sizeof(uint16_t)) == 0), out);
+    require_noerr(SSLGetEnabledCiphers(ssl, ciphers, &num_ciphers), out);
+    require_string(memcmp(ciphers, expected_ciphers, size)==0, out, "wrong ciphersuites");
 
     /* Success! */
     fail=0;
 
 out:
-    if(ciphers) free(ciphers);
-    if(ciphers_2) free(ciphers_2);
+    free(ciphers);
     return fail;
 }
 
-static int test_SetEnabledCiphers(SSLContextRef ssl, bool server)
+static int test_SetEnabledCiphers(SSLContextRef ssl)
 {
     int fail=1;
     size_t num_enabled;
@@ -332,41 +316,88 @@ out:
 
 
 static void
-test(SSLProtocolSide side, bool dhe_enabled)
+test_dhe(SSLProtocolSide side, bool dhe_enabled)
 {
     SSLContextRef ssl = NULL;
     bool server = (side == kSSLServerSide);
 
-    require(ssl=SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType), out);
-    ok(ssl, "SSLCreateContext failed");
+    ssl=SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType);
+    ok(ssl, "test_dhe: SSLCreateContext(1) failed (%s, %s)", server?"server":"client", dhe_enabled?"enabled":"disabled");
+    require(ssl, out);
 
-    ok_status(SSLSetDHEEnabled(ssl, dhe_enabled));
+    ok_status(SSLSetDHEEnabled(ssl, dhe_enabled),"test_dhe: SSLSetDHEEnabled failed (%s, %s)", server?"server":"client", dhe_enabled?"enabled":"disabled");
 
+    unsigned num = (dhe_enabled?sizeof(legacy_DHE_ciphersuites):sizeof(legacy_ciphersuites))/sizeof(SSLCipherSuite);
+    const SSLCipherSuite *ciphers = dhe_enabled?legacy_DHE_ciphersuites:legacy_ciphersuites;
     /* The order of this tests does matter, be careful when adding tests */
-    ok(!test_GetSupportedCiphers(ssl, server), "GetSupportedCiphers test failed");
-    ok(!test_GetEnabledCiphers(ssl, server, dhe_enabled), "GetEnabledCiphers test failed");
+    ok(!test_GetSupportedCiphers(ssl, server), "test_dhe: GetSupportedCiphers test failed (%s, %s)", server?"server":"client", dhe_enabled?"enabled":"disabled");
+    ok(!test_GetEnabledCiphers(ssl, num, ciphers), "test_dhe: GetEnabledCiphers test failed (%s, %s)", server?"server":"client", dhe_enabled?"enabled":"disabled");
 
     CFRelease(ssl); ssl=NULL;
 
-    require(ssl=SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType), out);
-    ok(ssl, "SSLCreateContext failed");
-    
-    ok(!test_SetEnabledCiphers(ssl, server), "SetEnabledCiphers test failed");
+    ssl=SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType);
+    ok(ssl, "test_dhe: SSLCreateContext(2) failed (%s, %s)", server?"server":"client", dhe_enabled?"enabled":"disabled");
+    require(ssl, out);
+
+    ok(!test_SetEnabledCiphers(ssl), "test_dhe: SetEnabledCiphers test failed (%s, %s)", server?"server":"client", dhe_enabled?"enabled":"disabled");
+
+out:
+    if(ssl) CFRelease(ssl);
+}
+
+static void
+test_config(SSLProtocolSide side, CFStringRef config, unsigned num, const SSLCipherSuite *ciphers)
+{
+    SSLContextRef ssl = NULL;
+    bool server = (side == kSSLServerSide);
+
+    ssl=SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType);
+    ok(ssl, "test_config: SSLCreateContext(1) failed (%s,%@)", server?"server":"client", config);
+    require(ssl, out);
+
+    ok_status(SSLSetSessionConfig(ssl, config), "test_config: SSLSetSessionConfig failed (%s,%@)", server?"server":"client", config);
+
+    /* The order of this tests does matter, be careful when adding tests */
+    ok(!test_GetSupportedCiphers(ssl, server), "test_config: GetSupportedCiphers test failed (%s,%@)", server?"server":"client", config);
+    ok(!test_GetEnabledCiphers(ssl, num, ciphers), "test_config: GetEnabledCiphers test failed (%s,%@)", server?"server":"client", config);
+
+    CFRelease(ssl); ssl=NULL;
+
+    ssl=SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType);
+    ok(ssl, "test_config: SSLCreateContext(2) failed (%s,%@)", server?"server":"client", config);
+    require(ssl, out);
+
+    ok(!test_SetEnabledCiphers(ssl), "test_config: SetEnabledCiphers test failed (%s,%@)", server?"server":"client", config);
 
 out:
     if(ssl) CFRelease(ssl);
 }
 
 
+
 int ssl_46_SSLGetSupportedCiphers(int argc, char *const *argv)
 {
-    plan_tests(24);
+    plan_tests(132);
 
-    test(kSSLClientSide, true);
-    test(kSSLServerSide, true);
-    test(kSSLClientSide, false);
-    test(kSSLServerSide, false);
+    test_dhe(kSSLClientSide, true);
+    test_dhe(kSSLServerSide, true);
+    test_dhe(kSSLClientSide, false);
+    test_dhe(kSSLServerSide, false);
 
+#define TEST_CONFIG(x, y) do {  \
+    test_config(kSSLClientSide, x, sizeof(y)/sizeof(SSLCipherSuite), y); \
+    test_config(kSSLServerSide, x, sizeof(y)/sizeof(SSLCipherSuite), y); \
+} while(0)
+
+    TEST_CONFIG(kSSLSessionConfig_ATSv1, ATSv1_ciphersuites);
+    TEST_CONFIG(kSSLSessionConfig_ATSv1_noPFS, ATSv1_noPFS_ciphersuites);
+    TEST_CONFIG(kSSLSessionConfig_legacy, legacy_ciphersuites);
+    TEST_CONFIG(kSSLSessionConfig_legacy_DHE, legacy_DHE_ciphersuites);
+    TEST_CONFIG(kSSLSessionConfig_standard, standard_ciphersuites);
+    TEST_CONFIG(kSSLSessionConfig_RC4_fallback, legacy_ciphersuites);
+    TEST_CONFIG(kSSLSessionConfig_TLSv1_fallback, standard_ciphersuites);
+    TEST_CONFIG(kSSLSessionConfig_TLSv1_RC4_fallback, legacy_ciphersuites);
+    TEST_CONFIG(kSSLSessionConfig_default, legacy_ciphersuites);
 
     return 0;
 }

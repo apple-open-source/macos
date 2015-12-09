@@ -1,12 +1,12 @@
 # Process this file with autoconf to produce a configure script.
 # You may need to use autoconf 2.56 or newer
 
-# $Id: configure.ac 6795 2013-11-25 18:09:17Z rousseau $
+# $Id$
 
 # Require autoconf 2.61
 AC_PREREQ([2.69])
 
-AC_INIT([ccid],[1.4.14])
+AC_INIT([ccid],[1.4.20])
 AC_CONFIG_SRCDIR(src/ifdhandler.c)
 AC_CONFIG_AUX_DIR([.])
 AM_INIT_AUTOMAKE(1.8 dist-bzip2 no-dist-gzip subdir-objects)
@@ -69,7 +69,7 @@ AC_SUBST(LIBTOOL_DEPS)
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS(errno.h fcntl.h stdlib.h unistd.h termios.h string.h sys/time.h sys/types.h stdarg.h arpa/inet.h,,
+AC_CHECK_HEADERS(errno.h fcntl.h stdlib.h unistd.h termios.h string.h sys/time.h sys/types.h stdarg.h arpa/inet.h stdio.h,,
 	[AC_MSG_ERROR([some header files not found])])
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -101,7 +101,7 @@ AC_ARG_ENABLE(libusb,
 	[ use_libusb="${enableval}" ], [ use_libusb=yes ] )
 
 # check if libusb is used
-LIBUSB_NEEDED_VERSION="1.0.8"
+LIBUSB_NEEDED_VERSION="1.0.9"
 if test "x$use_libusb" != xno ; then
 	PKG_CHECK_EXISTS([libusb-1.0], [
 	PKG_CHECK_MODULES(LIBUSB, libusb-1.0 >= $LIBUSB_NEEDED_VERSION, [],
@@ -237,6 +237,18 @@ if test "${pcsclite}" != no ; then
 fi
 AM_CONDITIONAL(WITHOUT_PCSC, test "${pcsclite}" != "yes")
 
+
+
+# --enable-syslog
+AC_ARG_ENABLE(syslog,
+	AS_HELP_STRING([--enable-syslog],[use syslog instead of printf for debug (Yosemite)]),
+	[ use_syslog="${enableval}" ], [ use_syslog=no ] )
+
+if test x$use_syslog = xyes; then
+  AC_DEFINE(USE_SYSLOG, 1, [Use syslog(3) for debug])
+fi
+
+
 # --disable-class
 AC_ARG_ENABLE(class,
 	AS_HELP_STRING([--disable-class],[remove the CCIDCLASSDRIVER from Info.plist]),
@@ -301,6 +313,7 @@ serial Twin support:     ${twinserial}
 serial twin install dir: ${ccidtwindir}
 serial config directory: ${serialconfdir}
 compiled for pcsc-lite:  ${pcsclite}
+syslog debug:            ${use_syslog}
 class driver:            ${class}
 
 EOF

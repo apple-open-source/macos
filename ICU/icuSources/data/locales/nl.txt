@@ -1276,12 +1276,12 @@ nl{
         }
         gregorian{
             AmPmMarkers{
-                "a.m.",
-                "p.m.",
+                "AM",
+                "PM",
             }
             AmPmMarkersNarrow{
-                "a.m.",
-                "p.m.",
+                "AM",
+                "PM",
             }
             DateTimePatterns{
                 "HH:mm:ss zzzz",

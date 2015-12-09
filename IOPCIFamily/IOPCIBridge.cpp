@@ -3064,7 +3064,7 @@ void IOPCI2PCIBridge::handleInterrupt(IOInterruptEventSource * source, int count
 							correctable ? "" : "un", status, severity,
 							newEvent.data[1], newEvent.data[2], newEvent.data[3], newEvent.data[4]);
 
-					if (status & mask)
+					if (status & ~mask)
 					{
 						IOSimpleLockLock(gIOPCIEventSourceLock);
 						queue_iterate(&gIOPCIEventSourceQueue, src, IOPCIEventSource *, fQ)

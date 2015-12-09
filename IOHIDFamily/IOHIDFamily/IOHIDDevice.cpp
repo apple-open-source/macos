@@ -513,6 +513,13 @@ bool IOHIDDevice::start( IOService * provider )
                 
                 auth->release();
             }
+#if TARGET_OS_EMBEDDED
+            else
+            {
+                authenticated = false;
+                IOLog("Un-authenticated device attached\n");
+            }
+#endif
         }
     }
     

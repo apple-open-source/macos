@@ -188,7 +188,7 @@ de{
                 "{1} {0}",
             }
             availableFormats{
-                Ed{"E, d."}
+                Ed{"E d."}
                 Gy{"U"}
                 GyMMM{"MMM U"}
                 GyMMMEd{"E, d. MMM U"}
@@ -257,7 +257,7 @@ de{
                 "{1}, {0}",
             }
             availableFormats{
-                Ed{"E, d."}
+                Ed{"E d."}
                 Gy{"y G"}
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E, d. MMM y G"}
@@ -389,12 +389,12 @@ de{
         }
         gregorian{
             AmPmMarkers{
-                "vorm.",
-                "nachm.",
+                "AM",
+                "PM",
             }
             AmPmMarkersNarrow{
-                "vm.",
-                "nm.",
+                "AM",
+                "PM",
             }
             DateTimePatterns{
                 "HH:mm:ss zzzz",
@@ -420,7 +420,7 @@ de{
                 E{"ccc"}
                 EHm{"E, HH:mm"}
                 EHms{"E, HH:mm:ss"}
-                Ed{"E, d."}
+                Ed{"E d."}
                 Ehm{"E h:mm a"}
                 Ehms{"E, h:mm:ss a"}
                 Gy{"y G"}

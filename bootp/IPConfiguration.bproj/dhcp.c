@@ -2083,13 +2083,17 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		  break;
 	      }
 	      
-	      /* if not RENEW/REBIND/BOUND, do INIT-REBOOT */
-	      if (S_dhcp_cstate_is_bound_renew_or_rebind(dhcp->state)
-		  == FALSE) {
+	      /*
+	       * If we're not in RENEW/REBIND/BOUND, we haven't published,
+	       * or we couldn't resolve the router's MAC address,
+	       * enter INIT-REBOOT.
+	       */
+	      if (S_dhcp_cstate_is_bound_renew_or_rebind(dhcp->state) == FALSE
+		  || ServiceIsPublished(service_p) == FALSE
+		  || dhcp->resolve_router_timed_out) {
 		  struct in_addr	our_ip;
-		  
+
 		  our_ip = dhcp->saved.our_ip;
-		  
 		  dhcp_init_reboot(service_p, IFEventID_start_e, &our_ip);
 		  break;
 	      }
@@ -2186,6 +2190,7 @@ dhcp_init(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  dhcp->state = dhcp_cstate_init_e;
 
 	  dhcp->allow_wake_with_short_lease = TRUE;
+	  dhcp->resolve_router_timed_out = FALSE;
 
 	  /* clean-up anything that might have come before */
 	  dhcp_cancel_pending_events(service_p);
@@ -2435,6 +2440,7 @@ dhcp_init_reboot(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  dhcpoa_t	 	options;
 
 	  dhcp->state = dhcp_cstate_init_reboot_e;
+	  dhcp->resolve_router_timed_out = FALSE;
 	  dhcp->allow_wake_with_short_lease = TRUE;
 	  dhcp->start_secs = current_time;
 	  dhcp->try = 0;

@@ -34,11 +34,10 @@
 #include <notify.h>
 #include <sys/sysctl.h>
 
+#include <mach/mach.h>
+
 int use_pacemaker = 0;
 int mode_wakeup;
-#define TV_SLEEP 0
-#define TV_WAKE 1
-static struct timeval tvals[2];
 
 /*
  * These routines provide support for the event timer.	The timer is
@@ -66,9 +65,10 @@ static	u_long adjust_timer;	/* second timer */
 static	u_long stats_timer;	/* stats timer */
 static	u_long huffpuff_timer;	/* huff-n'-puff timer */
 u_long  dns_timer;		/* update DNS flags on peers */
-static u_long	sleep_timer;		/* system is going to sleep -- start checking for wake */
-u_long wake_timer; /* check for new wake time in kern.waketime */
+u_long wake_timer; /* if this is set, start a transmit */
+static u_long powerchange_timer;
 static int sleep_token;
+static int clockset_token;
 u_long	leapsec;		/* leapseconds countdown */
 l_fp	sys_time;		/* current system time */
 #ifdef OPENSSL
@@ -159,49 +159,6 @@ reinit_timer(void)
 # endif /* VMS */
 }
 
-void
-trigger_timer(void)
-{
-    struct itimerval itimerval;
-    if (nap_time == 1) {
-        return;
-    }
-    /* Adjust nap_time to reflect that we'll wake up in one second */
-    getitimer(ITIMER_REAL, &itimerval);
-    current_time += nap_time - itimerval.it_value.tv_sec;
-    nap_time = 1;
-    itimerval.it_interval.tv_sec = itimerval.it_value.tv_sec = nap_time;
-    itimerval.it_interval.tv_usec = itimerval.it_value.tv_usec = 0;
-    setitimer(ITIMER_REAL, &itimerval, NULL);
-}
-
-// 1 == new waketime on system
-static int
-check_sleep_wake_tv(int which)
-{
-	int rc = 0;
-	struct timeval tv;
-	size_t tv_size = sizeof(tv);
-	
-	if (0 == sysctlbyname(which ? "kern.sleeptime" : "kern.waketime", &tv, &tv_size, NULL, 0)) {
-		if (tv.tv_sec != tvals[which].tv_sec) {
-			tvals[which] = tv;
-			rc = 1;
-		}
-	}
-	return rc;
-}
-
-static RETSIGTYPE sigsleep(int sig) {
-	if (check_sleep_wake_tv(1)) {
-		wake_timer = current_time;
-	} else {
-		sleep_timer = current_time;
-		mode_wakeup = FALSE;		// Avoid timesync while going to sleep
-	}
-	trigger_timer();
-}
-
 /*
  * init_timer - initialize the timer data structures
  */
@@ -284,10 +241,49 @@ init_timer(void)
 	}
 
 #endif /* SYS_WINNT */
-	signal_no_reset(SIGINFO, sigsleep);
-	check_sleep_wake_tv(TV_SLEEP);
-	check_sleep_wake_tv(TV_WAKE);
-	notify_register_signal("com.apple.powermanagement.systempowerstate", SIGINFO, &sleep_token);
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+
+        dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+        notify_register_dispatch("com.apple.powermanagement.systempowerstate", &sleep_token, queue, ^(int token) {
+            powerchange_timer = current_time;
+            msyslog(LOG_DEBUG, "com.apple.powermanagement.systempowerstate: %ld", current_time);
+        });
+
+        static mach_port_t cc_port;
+        kern_return_t kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &cc_port);
+        if (kr == KERN_SUCCESS) {
+            dispatch_source_t cc_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, cc_port, 0, DISPATCH_TARGET_QUEUE_DEFAULT);
+            if (cc_source != NULL) {
+                dispatch_source_set_event_handler(cc_source, ^{
+                    struct {
+                        mach_msg_header_t hdr;
+                        mach_msg_trailer_t trailer;
+                    } message = { .hdr = {
+                        .msgh_bits = 0,
+                        .msgh_size = sizeof(mach_msg_header_t),
+                        .msgh_remote_port = MACH_PORT_NULL,
+                        .msgh_local_port = cc_port,
+                        .msgh_voucher_port = MACH_PORT_NULL,
+                        .msgh_id = 0,
+                    }};
+                    if (mach_msg_receive(&message.hdr) == MACH_MSG_SUCCESS) {
+                        mach_msg_destroy(&message.hdr);
+                    }
+                    if (current_time < (powerchange_timer + 6)) {
+                        wake_timer = current_time;
+                        powerchange_timer = 0;
+                    }
+                    msyslog(LOG_DEBUG, "HOST_NOTIFY_CALENDAR_CHANGE: %ld wake_timer:%ld", current_time, wake_timer);
+                    // re-arm the notification
+                    host_request_notification(mach_host_self(), HOST_NOTIFY_CALENDAR_CHANGE, cc_port);
+                });
+                dispatch_resume(cc_source);
+                // arm the notification
+                host_request_notification(mach_host_self(), HOST_NOTIFY_CALENDAR_CHANGE, cc_port);
+            }
+        }
+    });
 }
 
 #if defined(SYS_WINNT)
@@ -368,6 +364,7 @@ timer(void)
 				}
 			}
 			msyslog(LOG_DEBUG, "wake transmit");
+            wake_timer = 0;
 		} else {
 			delta = wake_timer - current_time;
 			if (delta < nap_time) {
@@ -376,25 +373,6 @@ timer(void)
 			
 		}
 	}
-    if (sleep_timer) {
-        if (sleep_timer <= current_time) {
-			if (check_sleep_wake_tv(TV_WAKE)) {
-				sleep_timer = 0;
-				wake_timer = current_time;
-			} else {
-				msyslog(LOG_DEBUG, "sleep noticed");
-				if (sleep_timer < current_time + 10) { // If we don't get a wake in 10s bail
-					sleep_timer = 0;
-				}
-				wake_timer = 0;
-			}
-        } else {
-            delta = sleep_timer - current_time;
-            if (delta < nap_time) {
-                nap_time = delta;
-            }
-        }
-    }
  
 	/*
 	 * Now dispatch any peers whose event timer has expired. Be

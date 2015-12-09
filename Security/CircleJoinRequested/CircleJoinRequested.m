@@ -7,34 +7,35 @@
 //
 #import <Accounts/Accounts.h>
 #import <Accounts/ACAccountStore_Private.h>
+#import <Accounts/ACAccountType_Private.h>
 #import <AggregateDictionary/ADClient.h>
+#import <AppSupport/AppSupportUtils.h>
 #import <AppleAccount/AppleAccount.h>
 #import <AppleAccount/ACAccountStore+AppleAccount.h>
-#import <Accounts/ACAccountType_Private.h>
+#import <CloudServices/SecureBackup.h>
+#import <CoreFoundation/CFUserNotification.h>
 #import <Foundation/Foundation.h>
+#import <ManagedConfiguration/MCProfileConnection.h>
+#import <ManagedConfiguration/MCFeatures.h>
+#import <MobileCoreServices/MobileCoreServices.h>
+#import <MobileCoreServices/LSApplicationWorkspace.h>
+#import <MobileGestalt.h>
+#import <ProtectedCloudStorage/CloudIdentity.h>
+#import <Security/SecFrameworkStrings.h>
+#import <SpringBoardServices/SBSCFUserNotificationKeys.h>
 #include <dispatch/dispatch.h>
 #include "SecureObjectSync/SOSCloudCircle.h"
 #include "SecureObjectSync/SOSPeerInfo.h"
-#import <CoreFoundation/CFUserNotification.h>
-#import <SpringBoardServices/SBSCFUserNotificationKeys.h>
 #include <notify.h>
 #include <sysexits.h>
 #import "Applicant.h"
 #import "NSArray+map.h"
-#import <ManagedConfiguration/MCProfileConnection.h>
-#import <ManagedConfiguration/MCFeatures.h>
-#import <Security/SecFrameworkStrings.h>
 #import "PersistentState.h"
 #include <xpc/private.h>
 #include <sys/time.h>
 #import "NSDate+TimeIntervalDescription.h"
-#include <MobileGestalt.h>
 #include <xpc/activity.h>
 #include <xpc/private.h>
-#import <MobileCoreServices/MobileCoreServices.h>
-#import <MobileCoreServices/LSApplicationWorkspace.h>
-#import <CloudServices/SecureBackup.h>
-#import <AppSupport/AppSupportUtils.h>
 #import <syslog.h>
 #include "utilities/SecCFRelease.h"
 #include "utilities/debugging.h"
@@ -52,6 +53,7 @@ volatile NSString *debugState = @"main?";
 dispatch_block_t doOnceInMainBlockChain = NULL;
 
 NSString *castleKeychainUrl = @"prefs:root=CASTLE&path=Keychain/ADVANCED";
+NSString *rejoinICDPUrl     = @"prefs:root=CASTLE&aaaction=CDP&command=rejoin";
 
 static void doOnceInMain(dispatch_block_t block)
 {
@@ -453,8 +455,22 @@ static void kickOutChoice(CFUserNotificationRef userNotification, CFOptionFlags 
 	if (responseFlags == kCFUserNotificationDefaultResponse) {
 		// We need to let things unwind to main for the new state to get saved
 		doOnceInMain(^{
-			BOOL ok = [[LSApplicationWorkspace defaultWorkspace] openSensitiveURL:[NSURL URLWithString:castleKeychainUrl] withOptions:nil];
-			NSLog(@"ok=%d opening %@", ok, [NSURL URLWithString:castleKeychainUrl]);
+			ACAccountStore	  *store	= [ACAccountStore new];
+			ACAccount		  *primary  = [store aa_primaryAppleAccount];
+			NSString		  *dsid 	= [primary aa_personID];
+			bool			  localICDP = false;
+			if (dsid) {
+				NSDictionary	  *options = @{ (__bridge id) kPCSSetupDSID : dsid, };
+				PCSIdentitySetRef identity = PCSIdentitySetCreate((__bridge CFDictionaryRef) options, NULL, NULL);
+
+				if (identity) {
+					localICDP = PCSIdentitySetIsICDP(identity, NULL);
+					CFRelease(identity);
+				}
+			}
+			NSURL    		  *url		= [NSURL URLWithString: localICDP ? rejoinICDPUrl : castleKeychainUrl];
+			BOOL 			  ok		= [[LSApplicationWorkspace defaultWorkspace] openSensitiveURL:url withOptions:nil];
+			NSLog(@"ok=%d opening %@", ok, url);
 		});
 	}
 	cancelCurrentAlert(true);

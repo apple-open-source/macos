@@ -1,3 +1,1026 @@
+2015-10-29  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r191756.
+
+    2015-10-29  Simon Fraser  <simon.fraser@apple.com>
+
+            Very slow typing on pages with wheel event handlers on the body, and deep content
+            https://bugs.webkit.org/show_bug.cgi?id=150692
+            rdar://problem/23242631
+
+            Reviewed by Zalan Bujtas.
+
+            On a large page with a wheel event handler on the body, we would call
+            Element::absoluteEventHandlerBounds() for every element under the body,
+            and compute an absolute bounds for each one. This is very slow.
+
+            For now, optimize computing a region for the <body> by just using the document
+            bounds, which will always be as big or larger. It's OK for this region to
+            be an overestimate.
+
+            * dom/Document.cpp:
+            (WebCore::Document::absoluteRegionForEventTargets):
+
+2015-10-29  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r191706. rdar://problem/23319292
+
+    2015-10-28  Andy Estes  <aestes@apple.com>
+
+            [Content Filtering] Crash when allowing a 0-byte resource to load
+            https://bugs.webkit.org/show_bug.cgi?id=150644
+            <rdar://problem/23288538>
+
+            Reviewed by Darin Adler.
+
+            Test: contentfiltering/allow-empty-document.html
+
+            * loader/ContentFilter.cpp:
+            (WebCore::ContentFilter::deliverResourceData): resourceBuffer will be null if the resource contained no data.
+
+2015-10-27  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r191636. rdar://problem/23078059
+
+    2015-10-27  Alex Christensen  <achristensen@webkit.org>
+
+            Cancel navigation policy checks like we do content policy checks.
+            https://bugs.webkit.org/show_bug.cgi?id=150582
+            rdar://problem/22077579
+
+            Reviewed by Brent Fulgham.
+
+            This was verified manually and I'll write a layout test for it soon.
+
+            * loader/DocumentLoader.cpp:
+            (WebCore::DocumentLoader::DocumentLoader):
+            (WebCore::DocumentLoader::~DocumentLoader):
+            (WebCore::DocumentLoader::willSendRequest):
+            (WebCore::DocumentLoader::continueAfterNavigationPolicy):
+            (WebCore::DocumentLoader::cancelPolicyCheckIfNeeded):
+            * loader/DocumentLoader.h:
+            Add a bool to keep track of whether we are waiting for navigation policy checks, like we do with content policy checks.
+            Without this check, sometimes callbacks are made to DocumentLoaders that do not exist any more because they do not get
+            cancelled by cancelPolicyCheckIfNeeded when detaching from the frame.
+
+2015-10-27  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r191525. rdar://problem/23239748
+
+    2015-10-23  Simon Fraser  <simon.fraser@apple.com>
+
+            Avoid SVG-induced layouts inside Element::absoluteEventBounds()
+            https://bugs.webkit.org/show_bug.cgi?id=150516
+
+            Reviewed by Zalan Bujtas.
+
+            Speculative fix for a crash under RenderObject::localToContainerQuad() when
+            computing the wheel event handler region, which uses Element::absoluteEventHandlerBounds().
+            Element::absoluteEventBounds() was calling SVGElement::getBoundingBox() in a way
+            that could trigger a layout.
+
+            * dom/Element.cpp:
+            (WebCore::Element::absoluteEventBounds):
+
+2015-10-23  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r191484.
+
+    2015-10-22  Gordon Sheridan  <gordon_sheridan@apple.com>
+
+            Fix build for clang-700.0.59.5 by replacing deprecated calls to convert points between screen and window coordinates for Mac.
+            https://bugs.webkit.org/show_bug.cgi?id=150379
+
+            Reviewed by Andy Estes.
+
+            Provide WAKWindow versions of the non-deprecated methods for converting an NSRect between
+            window and screen coordinates, which replace the deprecated methods that operated on an NSPoint.
+
+            * platform/ios/wak/WAKWindow.h:
+            * platform/ios/wak/WAKWindow.mm:
+            (-[WAKWindow convertRectToScreen:]): Added.
+            (-[WAKWindow convertRectFromScreen:]): Added.
+
+2015-10-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r191357. rdar://problem/23103279
+
+    2015-10-20  Chris Fleizach  <cfleizach@apple.com>
+
+            AX: CrashTracer: com.apple.WebKit.WebContent at com.apple.WebCore: WebCore::AccessibilityTable::tableElement const + 116
+            https://bugs.webkit.org/show_bug.cgi?id=150349
+
+            Reviewed by Brent Fulgham.
+
+            The crash point for this bug says that the parentElement of the firstBody is garbage when it's accessed.
+            Unfortunately, I could not reproduce this in-situ or with a test.
+            So my speculative solution is to recalculate those body elements to ensure that they're valid before we access.
+
+            * accessibility/AccessibilityTable.cpp:
+            (WebCore::AccessibilityTable::tableElement):
+            (WebCore::AccessibilityTable::isDataTable):
+
+2015-10-14  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r191077. rdar://problem/22993325
+
+    2015-10-14  Alex Christensen  <achristensen@webkit.org>
+
+            [Content Extensions] Make blocked async XHR call onerror
+            https://bugs.webkit.org/show_bug.cgi?id=146706
+
+            Reviewed by Brady Eidson.
+
+            Test: http/tests/contentextensions/async-xhr-onerror.html
+
+            * xml/XMLHttpRequest.cpp:
+            (WebCore::XMLHttpRequest::XMLHttpRequest):
+            (WebCore::XMLHttpRequest::createRequest):
+            (WebCore::XMLHttpRequest::networkError):
+            (WebCore::XMLHttpRequest::networkErrorTimerFired):
+            (WebCore::XMLHttpRequest::abortError):
+            * xml/XMLHttpRequest.h:
+            Make a timer that calls networkError in 0 time if a content blocker blocks the asynchronous load.
+            It is necessary to call setPendingActivity and dropProtection (which calls unsetPendingActivity)
+            to keep a reference to the XMLHttpRequest alive.
+
+2015-10-14  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r191008. rdar://problem/23111794
+
+    2015-10-13  Dean Jackson  <dino@apple.com>
+
+            Device motion and orientation should only be visible from the main frame's security origin
+            https://bugs.webkit.org/show_bug.cgi?id=150072
+            <rdar://problem/23082036>
+
+            Reviewed by Brent Fulgham.
+
+            There are reports that gyroscope and accelerometer information can
+            be used to detect keyboard entry. One initial step to reduce the
+            risk is to forbid device motion and orientation events from
+            being fired in frames that are a different security origin from the main page.
+
+            Manual test: deviceorientation-main-frame-only.html
+
+            * page/DOMWindow.cpp:
+            (WebCore::DOMWindow::isSameSecurityOriginAsMainFrame): New helper function.
+            (WebCore::DOMWindow::addEventListener): Check if we are the main frame, or the
+            same security origin as the main frame. If not, don't add the event
+            listeners.
+
+2015-10-14  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r188477. rdar://problem/22801969
+
+    2015-08-14  Tim Horton  <timothy_horton@apple.com>
+
+            Fix the Mavericks build.
+
+            * platform/spi/mac/LookupSPI.h:
+
+2015-10-14  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r188473. rdar://problem/22801969
+
+    2015-08-14  Tim Horton  <timothy_horton@apple.com>
+
+            Fix the build.
+
+            * platform/spi/mac/LookupSPI.h:
+
+2015-10-13  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r190570. rdar://problem/23075530
+
+    2015-10-05  Zalan Bujtas  <zalan@apple.com>
+
+            Mark the line dirty when RenderQuote's text changes.
+            https://bugs.webkit.org/show_bug.cgi?id=149784
+            rdar://problem/22558169
+
+            Reviewed by Antti Koivisto.
+
+            When quotation mark changes ( " -> ' or empty string), we
+            need to mark the line dirty to ensure its content gets laid out properly.
+
+            Test: fast/inline/quotation-text-changes-dynamically.html
+
+            * rendering/RenderQuote.cpp:
+            (WebCore::quoteTextRenderer):
+            (WebCore::RenderQuote::updateText):
+            (WebCore::fragmentChild): Deleted.
+
+2015-10-13  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r190382. rdar://problem/22934301
+
+    2015-09-30  Dean Jackson  <dino@apple.com>
+
+            GraphicsContext3D::mappedSymbolName should initialize count variable
+            https://bugs.webkit.org/show_bug.cgi?id=149692
+            <rdar://problem/22871304>
+
+            Reviewed by Simon Fraser.
+
+            While debugging another WebGL issue, I noticed that some
+            OpenGL renderers can get into a state where they
+            drop resources (e.g. a GPU reset). If we don't detect that
+            in time, we might try to ask for the currently attached
+            resources and our in-parameter will not be set. In this
+            case, initialize it to zero so that we don't do silly things.
+
+            * platform/graphics/opengl/GraphicsContext3DOpenGLCommon.cpp:
+            (WebCore::GraphicsContext3D::mappedSymbolName): Initialize count to 0.
+
+2015-10-13  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r190339. rdar://problem/23075538
+
+    2015-09-29  Jon Honeycutt  <jhoneycutt@apple.com>
+
+            Avoid reparsing an XSLT stylesheet after the first failure.
+            https://bugs.webkit.org/show_bug.cgi?id=149188
+            <rdar://problem/22709912>
+
+            Reviewed by Dave Hyatt.
+
+            Patch by Jiewen Tan, jiewen_tan@apple.com.
+
+            Test: svg/custom/invalid-xslt-crash.svg
+
+            * xml/XSLStyleSheet.h:
+            Add a new member variable m_compilationFailed that tracks whether
+            compilation has failed. Default value is false.
+
+            * xml/XSLStyleSheetLibxslt.cpp:
+            (WebCore::XSLStyleSheet::compileStyleSheet):
+            Return early if the compilation has failed before. After compiling the
+            style sheet, if we failed, set m_compilationFailed to true.
+
+2015-10-13  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r190097. rdar://problem/23075540
+
+    2015-09-21  Ryosuke Niwa  <rniwa@webkit.org>
+
+            Fix release builds with security assertion after r190007.
+
+            * dom/DocumentOrderedMap.cpp:
+            * dom/DocumentOrderedMap.h:
+
+2015-10-13  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r190007. rdar://problem/23075540
+
+    2015-09-18  Ryosuke Niwa  <rniwa@webkit.org>
+
+            REGRESSION(r150187): updateIdForTreeScope may not be called inside shadow trees
+            https://bugs.webkit.org/show_bug.cgi?id=149364
+
+            Reviewed by Antti Koivisto.
+
+            Since the tree scope is set to that of Document's inside removeBetween when a node is removed from a shadow tree,
+            oldScope != &treeScope() was already true inside Element::removedFrom. This can introduce an inconsistency in
+            DocumentOrderedMap which could result in a crash. Fixed the bug by checking it against document(), which is the
+            behavior we had prior to r150187.
+
+            Also added a consistency check in DocumentOrderedMap to catch bugs like this.
+
+            No new tests. New assertions fail in existing tests without this fix.
+
+            * dom/DocumentOrderedMap.cpp:
+            (WebCore::DocumentOrderedMap::add):
+            (WebCore::DocumentOrderedMap::remove):
+            (WebCore::DocumentOrderedMap::get):
+            * dom/DocumentOrderedMap.h:
+            * dom/Element.cpp:
+            (WebCore::Element::removedFrom):
+
+2015-10-13  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r189979. rdar://problem/23075525
+
+    2015-09-18  Chris Dumez  <cdumez@apple.com>
+
+            WebContent crash in WebCore::MemoryPressureHandler::releaseCriticalMemory() with GuardMalloc when preparing to suspend
+            https://bugs.webkit.org/show_bug.cgi?id=149350
+
+            Reviewed by Antti Koivisto.
+
+            in MemoryPressureHandler::releaseCriticalMemory(), iterate over a copy of
+            Document::allDocuments() instead of iterating over allDocuments() directly.
+            Also make sure the Documents are ref'd inside the copy.
+
+            This is needed because clearing the StyleResolver of a Document may cause
+            Documents to be unref'd and removed from the allDocument() HashSet.
+
+            No new tests, already covered by existing tests.
+
+            * platform/MemoryPressureHandler.cpp:
+            (WebCore::MemoryPressureHandler::releaseCriticalMemory):
+
+2015-10-13  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r189421. rdar://problem/22802049
+
+    2015-09-04  Myles C. Maxfield  <mmaxfield@apple.com>
+
+            Crash when font completes downloading after calling 2D canvas setText() multiple times
+            https://bugs.webkit.org/show_bug.cgi?id=148789
+
+            Reviewed by Darin Adler.
+
+            The CSSFontSelector has a list of clients, and when fonts complete downloading, these
+            clients get a call back. CanvasRenderingContext2D::State is one such of these clients. However,
+            the CSSFontSelector may be destroyed and recreated at any time. We were getting into a case
+            where multiple CSSFontSelectors were thinking that the same CanvasRenderingContext2D::State were
+            their client. When the CanvasRenderingContext2D::State was destroyed, it only unregistered
+            itself from one of the CSSFontSelectors, which means the CSSFontSelector left over has a dangling
+            pointer to it.
+
+            The solution is to implement a new helper class, FontProxy, to hold the
+            CanvasRenderingContext2D::State's font, and maintain the invariant that this object is always
+            registered to exactly one CSSFontSelector, and this CSSFontSelector is the one which is associated
+            with the FontProxy's FontCascade object. This patch maintains this invariant, as well as protecting
+            all access to the State's FontCascade object so no one can reach in and change it without going
+            through functions which maintain the invariant.
+
+            Test: fast/canvas/font-selector-crash.html
+
+            * css/CSSFontSelector.cpp:
+            (WebCore::CSSFontSelector::registerForInvalidationCallbacks):
+            (WebCore::CSSFontSelector::unregisterForInvalidationCallbacks):
+            (WebCore::CSSFontSelector::dispatchInvalidationCallbacks):
+            * css/CSSFontSelector.h:
+            * dom/Document.cpp:
+            (WebCore::Document::fontsNeedUpdate):
+            (WebCore::Document::fontSelector):
+            (WebCore::Document::clearStyleResolver):
+            * dom/Document.h:
+            * html/canvas/CanvasRenderingContext2D.cpp:
+            (WebCore::CanvasRenderingContext2D::State::State):
+            (WebCore::CanvasRenderingContext2D::State::operator=):
+            (WebCore::CanvasRenderingContext2D::FontProxy::~FontProxy):
+            (WebCore::CanvasRenderingContext2D::FontProxy::FontProxy):
+            (WebCore::CanvasRenderingContext2D::FontProxy::update):
+            (WebCore::CanvasRenderingContext2D::FontProxy::fontsNeedUpdate):
+            (WebCore::CanvasRenderingContext2D::FontProxy::initialize):
+            (WebCore::CanvasRenderingContext2D::FontProxy::fontMetrics):
+            (WebCore::CanvasRenderingContext2D::FontProxy::fontDescription):
+            (WebCore::CanvasRenderingContext2D::FontProxy::width):
+            (WebCore::CanvasRenderingContext2D::FontProxy::drawBidiText):
+            (WebCore::CanvasRenderingContext2D::font):
+            (WebCore::CanvasRenderingContext2D::setFont):
+            (WebCore::CanvasRenderingContext2D::measureText):
+            (WebCore::CanvasRenderingContext2D::drawTextInternal):
+            (WebCore::CanvasRenderingContext2D::State::~State): Deleted.
+            (WebCore::CanvasRenderingContext2D::State::fontsNeedUpdate): Deleted.
+            (WebCore::CanvasRenderingContext2D::accessFont): Deleted.
+            * html/canvas/CanvasRenderingContext2D.h:
+            * platform/graphics/FontSelector.h:
+
+2015-10-13  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r189834. rdar://problem/22801966
+
+    2015-09-15  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Paused Debugger prevents page reload
+            https://bugs.webkit.org/show_bug.cgi?id=148174
+
+            Reviewed by Brian Burg.
+
+            When navigating the page while paused, suppress any pausing until the page
+            has completed navigation. If not paused and navigating, you can still pause
+            in pagehide and unload handlers or other late page events.
+
+            Could not write a reliable test for this at the moment.
+            InspectorTest.reloadPage has multiple issues with the output,
+            so I'll investigate making reload tests more reliable later.
+
+            * inspector/InspectorController.h:
+            * inspector/InspectorController.cpp:
+            (WebCore::InspectorController::resume): Deleted.
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::continueLoadAfterNavigationPolicy):
+            We now use existing InspectorInstrumentation functions instead of a method
+            on InspectorController during load. In dropping the method InspectorController
+            can drop a member variable no longer used.
+
+            * inspector/InspectorInstrumentation.h:
+            (WebCore::InspectorInstrumentation::willStartProvisionalLoad):
+            Add a new instrumentation hook.
+
+            * inspector/InspectorInstrumentation.cpp:
+            (WebCore::InspectorInstrumentation::willStartProvisionalLoadImpl):
+            (WebCore::InspectorInstrumentation::didCommitLoadImpl):
+            When starting or completing main frame navigations, let the PageDebuggerAgent do some work.
+
+            * inspector/PageDebuggerAgent.h:
+            * inspector/PageDebuggerAgent.cpp:
+            (WebCore::PageDebuggerAgent::mainFrameStartedLoading):
+            (WebCore::PageDebuggerAgent::mainFrameStoppedLoading):
+            (WebCore::PageDebuggerAgent::mainFrameNavigated):
+            Suppress pausing if navigating while paused. Otherwise behave as normal.
+
+2015-10-13  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r188443. rdar://problem/22801969
+
+    2015-08-13  Tim Horton  <timothy_horton@apple.com>
+
+            Performing a Lookup on wrapped text puts the popover arrow in the wrong place (off to the right)
+            https://bugs.webkit.org/show_bug.cgi?id=148012
+            <rdar://problem/19238094>
+
+            Reviewed by Simon Fraser.
+
+            * platform/spi/mac/LookupSPI.h:
+            Add some SPI.
+
+2015-10-09  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r189168
+
+    2015-08-31  Alexey Proskuryakov  <ap@apple.com>
+
+            Build fix.
+
+            * page/EventHandler.h:
+            (WebCore::EventHandler::immediateActionStage): Don't export an inline function,
+            to avoid "weak external symbol" errors.
+
+2015-10-08  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r190602. rdar://problem/22995830
+
+    2015-10-05  Alex Christensen  <achristensen@webkit.org>
+
+            Invalid CSS Selector for Content Blockers invalidates others
+            https://bugs.webkit.org/show_bug.cgi?id=148446
+            rdar://problem/22918235
+
+            Reviewed by Benjamin Poulain.
+
+            Test: http/tests/contentextensions/invalid-selector.html
+
+            * contentextensions/ContentExtensionParser.cpp:
+            (WebCore::ContentExtensions::loadTrigger):
+            (WebCore::ContentExtensions::isValidSelector):
+            (WebCore::ContentExtensions::loadAction):
+            (WebCore::ContentExtensions::loadRule):
+            Add a check to see if a selector is valid before adding it.
+
+2015-10-08  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r190375. rdar://problem/22881748
+
+    2015-09-30  Myles C. Maxfield  <mmaxfield@apple.com>
+
+            Crash when using an SVG font with > 390 glyphs
+            https://bugs.webkit.org/show_bug.cgi?id=149677
+            <rdar://problem/21676402>
+
+            Reviewed by Simon Fraser.
+
+            The "Charset Index" in OTF are indices into a collection of strings. There are
+            390 predefined strings in this collection. We were currently assigning each
+            glyph to one of these strings. However, if there are more glyphs than strings,
+            we will be using invalid indices.
+
+            The values of the strings themselves are not necessary for SVG fonts. Therefore,
+            the solution is to create a single dummy string, and have all glyphs target it.
+
+            Tests: svg/custom/many-glyphs.svg
+
+            * css/CSSFontFaceSource.cpp:
+            (WebCore::CSSFontFaceSource::font):
+            * svg/SVGToOTFFontConversion.cpp:
+            (WebCore::SVGToOTFFontConverter::appendCFFTable):
+
+2015-10-08  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r189976. rdar://problem/22824652
+
+    2015-09-18  Chris Dumez  <cdumez@apple.com>
+
+            REGRESSION (r182449, Mavericks ONLY): Pages re-open empty after swiping back and scrolling on them
+            https://bugs.webkit.org/show_bug.cgi?id=149317
+            <rdar://problem/22521514>
+
+            Reviewed by Tim Horton.
+
+            Disable on Mavericks a PageCache optimization from r182449 which lets
+            into PageCache pages that only have certain types of pending loads
+            (images and XHR). This is because it has been determined via bisection
+            that this change is the one that introduced the bug on Mavericks.
+
+            * loader/DocumentLoader.cpp:
+            (WebCore::areAllLoadersPageCacheAcceptable):
+
+2015-10-08  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r189976. rdar://problem/22824652
+
+    2015-09-18  Chris Dumez  <cdumez@apple.com>
+
+            REGRESSION (r182449, Mavericks ONLY): Pages re-open empty after swiping back and scrolling on them
+            https://bugs.webkit.org/show_bug.cgi?id=149317
+            <rdar://problem/22521514>
+
+            Reviewed by Tim Horton.
+
+            Disable on Mavericks a PageCache optimization from r182449 which lets
+            into PageCache pages that only have certain types of pending loads
+            (images and XHR). This is because it has been determined via bisection
+            that this change is the one that introduced the bug on Mavericks.
+
+            * loader/DocumentLoader.cpp:
+            (WebCore::areAllLoadersPageCacheAcceptable):
+
+2015-10-08  Andy Estes  <aestes@apple.com>
+
+        Merge r188150, r188517, r188844, r188845, r188851, r188852, r188880, r188881, r188988, r189193, r189289, and r190133.
+        rdar://problem/22847063
+
+    2015-08-26  Andy Estes  <aestes@apple.com>
+
+            [Content Filtering] Determine navigation and content policy before continuing to filter a load
+            https://bugs.webkit.org/show_bug.cgi?id=148506
+
+            Reviewed by Brady Eidson.
+
+            Prior to this change, ContentFilter would hide from DocumentLoader all CachedRawResourceClient callbacks until
+            a decision was made, then replay the missed callbacks. This approach interacted poorly with some features of
+            the loader, notably appcache and downloads. In the case of appcache, DocumentLoader might not have a chance to
+            check for substitute data until the original load has finished, wasting bandwidth, and might receive duplicate
+            or out-of-order callbacks. In the case of downloads, it would often be too late to convert the existing
+            connection to a download, leading to restarted downloads or outright failures.
+
+            Bandaids were put in place for these issues in r188150, r188486, and r188851 to fix crashes or serious
+            regressions in behavior, but these weren't complete fixes. They did not solve any of the duplicate data loading
+            problems, and they did not make downloads work reliably in all cases.
+
+            This patch rolls out the bandaids (but keeps their tests) and replaces them with a more robust fix. Instead of
+            hiding callbacks from DocumentLoader, ContentFilter now delivers willSendRequest(), redirectReceived(), and
+            responseReceived() to DocumentLoader immediately, and cancels filtering if DocumentLoader decides to ignore the
+            load, download it, or load substitute data. ContentFilter continues to buffer incoming data to prevent partial
+            rendering of blocked content.
+
+            The existing tests for r188150 and r188851 were kept, the test for r188486 was rewritten to be specific to
+            content filtering, and new tests were added to cover the case where ContentFilter is still undecided after a
+            load finishes.
+
+            Tests: contentfiltering/allow-never.html
+                   contentfiltering/block-never.html
+                   ContentFiltering.AllowDownloadAfterAddData
+                   ContentFiltering.AllowDownloadAfterFinishedAddingData
+                   ContentFiltering.AllowDownloadAfterRedirect
+                   ContentFiltering.AllowDownloadAfterResponse
+                   ContentFiltering.AllowDownloadAfterWillSendRequest
+                   ContentFiltering.AllowDownloadNever
+                   ContentFiltering.BlockDownloadAfterAddData
+                   ContentFiltering.BlockDownloadAfterFinishedAddingData
+                   ContentFiltering.BlockDownloadAfterRedirect
+                   ContentFiltering.BlockDownloadAfterResponse
+                   ContentFiltering.BlockDownloadAfterWillSendRequest
+                   ContentFiltering.BlockDownloadNever
+
+            * bindings/js/JSMockContentFilterSettingsCustom.cpp:
+            (WebCore::JSMockContentFilterSettings::decisionPoint): Taught to handle DecisionPoint::Never, and rewrote to
+            not need a set of const uint8_ts that mirror the DecisionPoint enum.
+            (WebCore::JSMockContentFilterSettings::setDecisionPoint): Ditto.
+            (WebCore::toJSValue): Rewrote to not need a set of const uint8_ts that mirror the Decision enum.
+            (WebCore::toDecision): Ditto.
+            * loader/ContentFilter.cpp:
+            (WebCore::ContentFilter::createIfEnabled): Renamed from createIfNeeded, and changed to take a DocumentLoader&
+            instead of a DecisionFunction.
+            (WebCore::ContentFilter::ContentFilter):
+            (WebCore::ContentFilter::responseReceived): If m_state != Blocked after filtering, call DocumentLoader::responseReceived().
+            (WebCore::ContentFilter::dataReceived): If m_state == Allowed after filtering, deliver buffered data to DocumentLoader.
+            If no filtering was necessary, call DocumentLoader::dataReceived() directly.
+            (WebCore::ContentFilter::redirectReceived): If m_state != Blocked after filtering, call DocumentLoader::redirectReceived().
+            (WebCore::ContentFilter::notifyFinished): If an error occured, call DocumentLoader::notifyFinished() immediately and return.
+            If m_state != Blocked after filtering, deliver buffered data to DocumentLoader and call DocumentLoader::notifyFinished().
+            If no filtering was necessary and m_state != Blocked, call DocumentLoader::notifyFinished() directly.
+            (WebCore::ContentFilter::didDecide): Called DocumentLoader::contentFilterDidDecide() instead of m_decisionFunction().
+            (WebCore::ContentFilter::deliverResourceData): Added a helper function to deliver buffered data to DocumentLoader.
+            (WebCore::ContentFilter::createIfNeeded): Renamed to createIfEnabled().
+            * loader/ContentFilter.h:
+            * loader/DocumentLoader.cpp:
+            (WebCore::DocumentLoader::DocumentLoader):
+            (WebCore::DocumentLoader::willSendRequest): Stopped asserting that redirectResponse is null and made it part of
+            the if condition instead, since willSendRequest() will now be called on redirects when there is an active ContentFilter.
+            (WebCore::DocumentLoader::startLoadingMainResource): Called becomeMainResourceClient() instead of becomeMainResourceClientIfFilterAllows().
+            (WebCore::DocumentLoader::becomeMainResourceClient): Renamed from becomeMainResourceClientIfFilterAllows().
+            Only called ContentFilter::startFilteringMainResource() if the filter state is Initialized, since ContentFilter
+            might have already made a decision in willSendRequest().
+            (WebCore::DocumentLoader::contentFilterDidDecide): Stopped deleting m_contentFilter, since it will continue to deliver callbacks
+            even after making a decision. Fixed a bug where we were creating two copies of ContentFilter's replacement data.
+            (WebCore::DocumentLoader::syntheticRedirectReceived): Deleted.
+            (WebCore::DocumentLoader::becomeMainResourceClientIfFilterAllows): Renamed to becomeMainResourceClient().
+            * loader/DocumentLoader.h:
+            * loader/EmptyClients.h:
+            * loader/FrameLoaderClient.h:
+            * loader/ResourceLoader.cpp:
+            (WebCore::ResourceLoader::willSendRequestInternal): Removed part of r188851.
+            * loader/SubresourceLoader.cpp:
+            (WebCore::SubresourceLoader::didReceiveResponse): Removed part of r188486.
+            * loader/SubresourceLoader.h:
+            * loader/cache/CachedRawResource.cpp:
+            (WebCore::CachedRawResource::didAddClient): Removed part of r188150.
+            * loader/cache/CachedRawResourceClient.h:
+            (WebCore::CachedRawResourceClient::syntheticRedirectReceived): Removed part of r188150.
+            * testing/MockContentFilterSettings.h: Defined DecisionPoint::Never.
+            * testing/MockContentFilterSettings.idl: Defined DECISION_POINT_NEVER.
+
+2015-10-08  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r188148. rdar://problem/22802036
+
+    2015-08-06  Dean Jackson  <dino@apple.com>
+
+            Shadows don't draw on fillText when using a gradient fill
+            https://bugs.webkit.org/show_bug.cgi?id=147758
+            <rdar://problem/20860912>
+
+            Reviewed by Myles Maxfield.
+
+            Since we use a mask to render a pattern or gradient
+            into text, any shadow was being clipped out. Change
+            this to draw the shadow before the mask + fill operation,
+            using a technique similar to text-shadow.
+
+            Test: fast/canvas/gradient-text-with-shadow.html
+
+            * html/canvas/CanvasRenderingContext2D.cpp:
+            (WebCore::CanvasRenderingContext2D::drawTextInternal): Get the current shadow
+            style, paint the text with a transformed shadow offset so that we only
+            see the shadow and not the text, then combine with the existing pattern/gradient
+            fill.
+
+2015-10-08  Lucas Forschler  <lforschler@apple.com>
+
+        Rollout r190745
+
+2015-10-08  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r188443. rdar://problem/22801969
+
+    2015-08-13  Tim Horton  <timothy_horton@apple.com>
+
+            Performing a Lookup on wrapped text puts the popover arrow in the wrong place (off to the right)
+            https://bugs.webkit.org/show_bug.cgi?id=148012
+            <rdar://problem/19238094>
+
+            Reviewed by Simon Fraser.
+
+            * platform/spi/mac/LookupSPI.h:
+            Add some SPI.
+
+2015-10-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r190380. rdar://problem/22888962
+
+    2015-09-30  Dean Jackson  <dino@apple.com>
+
+            Crash in gleLookupHashObject when context is lost
+            https://bugs.webkit.org/show_bug.cgi?id=149690
+            <rdar://problem/22751585>
+            <rdar://problem/22465495>
+
+            Reviewed by Simon Fraser.
+
+            When we received notification that the GPU has reset,
+            we were nulling out and deleting our OpenGL contexts
+            and then trying to do it all over again. The fix was
+            to flip the order of operations.
+
+            While there I added some logging, and changed the
+            way we check GPU status to make sure we do a check
+            after the first draw call.
+
+            Unfortunately we can't test automatically because it
+            involves resetting the GPU which can possibly cause
+            concurrent tests to fail.
+
+            * platform/graphics/mac/GraphicsContext3DMac.mm:
+            (WebCore::GraphicsContext3D::checkGPUStatusIfNecessary): Move forceContextLost()
+            to be the first thing we do after we've realised we need to
+            bail.
+
+2015-10-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r190252. rdar://problem/22867962
+
+    2015-09-25  Beth Dakin  <bdakin@apple.com>
+
+            Clicking on a data detected item inside a form control always pops up a map
+            on force touch trackpad
+            https://bugs.webkit.org/show_bug.cgi?id=149559
+            -and corresponding-
+            rdar://problem/22826796
+
+            Reviewed by Tim Horton.
+
+            The real bug here appears to be a bug in Lookup, but we can work around it.
+            For normal text, we call directly into Data Detectors for map results, and
+            that works fine. For text within form controls, we did not properly extract
+            the text for DD, so we sent it to Lookup instead, and Lookup has this bug
+            where they will pop open the map right away. If we properly extract the text
+            for form controls, then we can work around this bug.
+
+            * editing/mac/DataDetection.mm:
+            (WebCore::detectItemAtPositionWithRange):
+            (WebCore::DataDetection::detectItemAroundHitTestResult):
+
+2015-10-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r189560. rdar://problem/22824659
+
+    2015-09-09  Benjamin Poulain  <bpoulain@apple.com>
+
+            CSS general sibling selectors does not work without CSS JIT
+            https://bugs.webkit.org/show_bug.cgi?id=148987
+            rdar://problem/22559860
+
+            Reviewed by Andreas Kling.
+
+            When traversing with the indirect adjacent combinator, SelectorChecker
+            was not setting the style invalidation flag on the right element.
+
+            Tests: fast/css/indirect-adjacent-style-invalidation-1.html
+                   fast/css/indirect-adjacent-style-invalidation-2.html
+                   fast/css/indirect-adjacent-style-invalidation-3.html
+
+            * css/SelectorChecker.cpp:
+            (WebCore::SelectorChecker::matchRecursively):
+
+2015-10-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r188990. rdar://problem/22802029
+
+    2015-08-26  Beth Dakin  <bdakin@apple.com>
+
+            REGRESSION: Safari navigates after a cancelled force click
+            https://bugs.webkit.org/show_bug.cgi?id=148491
+            -and corresponding-
+            rdar://problem/22394323
+
+            Reviewed by Tim Horton.
+
+            This regression was introduced on El Capitan because AppKit sends ‘cancel’ to
+            gesture recognizer BEFORE it sends the mouseUp. So the ImmediateActionStage needs
+            to track whether a cancel happened after updates or without any updates since they
+            signify different things.
+
+            Don’t perform default behaviors when the stage is ActionCancelledAfterUpdate.
+            * page/EventHandler.cpp:
+            (WebCore::EventHandler::handleMouseReleaseEvent):
+
+            New possible stages, and new getter for the current stage.
+            * page/EventHandler.h:
+            (WebCore::EventHandler::immediateActionStage):
+
+2015-10-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r188768. rdar://problem/22802019
+
+    2015-08-21  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: REGRESSION(173684): Edit as HTML not working
+            https://bugs.webkit.org/show_bug.cgi?id=148268
+
+            Reviewed by Chris Dumez.
+
+            Tests: inspector/dom/getOuterHTML.html
+                   inspector/dom/setOuterHTML.html
+
+            * inspector/DOMPatchSupport.cpp:
+            (WebCore::DOMPatchSupport::innerPatchChildren):
+            Revert the optimization change made in r173684. The optimization changes
+            had a few issues. It changed the logic to potentially drop out of the
+            loop before all new items were processed and using a node reference
+            to track an index did not account for the modifications insertBefore
+            may have made to that node's index in the list.
+
+2015-10-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r188690. rdar://problem/22802006
+
+    2015-08-20  Chris Dumez  <cdumez@apple.com>
+
+            [Cocoa] Treat Epoch as invalid value for "Last-Modified" header
+            https://bugs.webkit.org/show_bug.cgi?id=148162
+            rdar://problem/22330837
+
+            Reviewed by Antti Koivisto.
+
+            Ignore "Last-Modified" header when computing heuristic freshness if it
+            is Epoch. CFNetwork currently converts a malformed date for Last-Modified
+            into Epoch so there is no way for us to distinguish Epoch from invalid
+            input. Without this, we would end up with cached resources that have a
+            giant lifetime (> 4 years) due to a malformed HTTP header.
+
+            Some Websites (e.g. www.popehat.com) also wrongly return Epoch as
+            Last-Modified value and we would end up caching it overly aggressively.
+            Now that we consider Epoch as an invalid value for Last-Modified, it will
+            also work around this content bug.
+
+            Test: http/tests/cache/disk-cache/disk-cache-last-modified.html
+
+            * platform/network/ResourceResponseBase.cpp:
+            (WebCore::ResourceResponseBase::lastModified):
+
+2015-10-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r189102. rdar://problem/22802034
+
+    2015-08-28  Timothy Horton  <timothy_horton@apple.com>
+
+            [Mac] Right-clicking on GIFs spins the UI process for a while
+            https://bugs.webkit.org/show_bug.cgi?id=148566
+            <rdar://problem/22460854>
+
+            Reviewed by Brady Eidson.
+
+            * platform/ContextMenuItem.h:
+            Properly mark this as Mac-only. It's only implemented in ContextMenuItemMac.
+
+            * platform/mac/ContextMenuItemMac.mm:
+            (WebCore::ContextMenuItem::shareMenuItem):
+            Take a NSImage directly, so we don't have to round-trip through BitmapImage,
+            which can be lossy and expensive.
+
+2015-10-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r188634. rdar://problem/22802013
+
+    2015-08-18  Myles C. Maxfield  <mmaxfield@apple.com>
+
+            [Cocoa] Punctuation near Hindi text is garbled when styled with the system font
+            https://bugs.webkit.org/show_bug.cgi?id=148164
+
+            Reviewed by Brian Burg.
+
+            Fonts cache whether or not they are the system font. This caching took place at the end of Font::platformInit().
+            However, in the middle of Font::platformInit(), we look up a glyph, which calls GlyphPage::fill() which consults
+            with this cache. However, at this point, the cache has not been constructed yet. The solution is just to
+            construct the cache earlier (at the beginning of the function).
+
+            Consulting with the cache before it is populated causes it to erroneously say that no fonts are system fonts.
+            Then, we use Core Graphics to ask for glyphs instead of Core Text. Core Graphics, however, is incapable of
+            handling the system font, and returns us garbled results. In particular, when the system language is set to
+            Japanese, the system font does not support punctuation, and Core Text tells us so. However, Core Graphics
+            erroneously tells us that the system font does support punctuation.
+
+            Then, if text is near the punctuation which causes us to take the complex text codepath (such as Hindi text),
+            we tell Core Text to explicitly lay out the punctuation using the system font (which does not support
+            punctuation). Core Text then replies that the provided font doesn't support the punctuation, and that we should
+            use LastResort with some other glyphs instead. WebKit then disregards the font CoreText told us to use (because
+            we are oh-so-sure that the font in question supports punctuation) and uses the LastResort glyph IDs with our
+            font, which causes arbitrary glyphs to be shown.
+
+            Test: fast/text/hindi-system-font-punctuation.html
+
+            * platform/graphics/cocoa/FontCocoa.mm:
+            (WebCore::Font::platformInit):
+
+2015-10-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r188622. rdar://problem/22802016
+
+    2015-08-18  Dean Jackson  <dino@apple.com>
+
+            Add null check in ImageBufferData::getData
+            https://bugs.webkit.org/show_bug.cgi?id=148156
+            <rdar://problem/22337157>
+
+            Reviewed by Simon Fraser.
+
+            We're getting a number of crash reports that suggest the allocation
+            of the result buffer has failed, but have been unable to reproduce.
+            This patch adds a null check to the allocation, and logs a message
+            to the system console. This might avoid the crashes, and hopefully
+            we'll see the message.
+
+            No new tests, since we're unable to reproduce this crash.
+
+            * platform/graphics/cg/ImageBufferDataCG.cpp:
+            (WebCore::ImageBufferData::getData): Add a null-check and early
+            return.
+
+2015-10-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r188298. rdar://problem/22885242
+
+    2015-08-11  Zalan Bujtas  <zalan@apple.com>
+
+            Invalid FrameView::m_viewportRenderer after layout is finished.
+            https://bugs.webkit.org/show_bug.cgi?id=147848
+            rdar://problem/22205197
+
+            Reviewed by Simon Fraser.
+
+            We cache the current viewport renderer (FrameView::m_viewportRenderer) right before layout.
+            It gets dereferenced later when layout is finished to update the overflow status.
+            If the viewport renderer gets destroyed during layout, we end up with a dangling pointer.
+            This patch replaces the pointer caching with type caching (none, body, document).
+
+            Unable to construct a test case.
+
+2015-10-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r187921. rdar://problem/22801988
+
+    2015-08-04  Chris Dumez  <cdumez@apple.com>
+
+            Subframes with no current HistoryItem should not prevent page-caching
+            https://bugs.webkit.org/show_bug.cgi?id=147649
+            <rdar://problem/21614832>
+
+            Reviewed by Andreas Kling.
+
+            Subframes with no current HistoryItem should not prevent page-caching.
+            We need one for the main frame as this is the key in the PageCache.
+            However, there is no reason to require one for subframes.
+
+            This is a common reason for page-caching failures nowadays.
+
+            Frames do no have a current HistoryItem until something has been loaded in them.
+
+            Test: http/tests/navigation/page-cache-iframe-no-current-historyItem.html
+
+            * history/PageCache.cpp:
+            (WebCore::logCanCacheFrameDecision):
+            (WebCore::PageCache::canCachePageContainingThisFrame):
+
+2015-10-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r187593. rdar://problem/22801973
+
+    2015-07-30  Simon Fraser  <simon.fraser@apple.com>
+
+            Selecting in an iframe can cause main page scrolling
+            https://bugs.webkit.org/show_bug.cgi?id=147431
+            rdar://problem/19244589
+
+            Reviewed by Zalan Bujtas.
+
+            The RenderLayer auatoscroll code walks up the RenderLayer hierarchy, crossing
+            frame boundaries. However, as it crosses into an ancestor frame it failed to
+            map the target rect into the coordinate space of the new frame, which caused
+            us to scroll to an incorrect location in that parent frame.
+
+            Test: fast/events/autoscroll-in-iframe.html
+
+            * rendering/RenderLayer.cpp:
+            (WebCore::parentLayerCrossFrame): Make the layer a reference, and pass in
+            an optional rect. When crossing frame boundaries, map the rect from the
+            contents of the child frame to the contents of the parent frame.
+            (WebCore::RenderLayer::enclosingScrollableLayer): Pass optional rect.
+            (WebCore::RenderLayer::scrollRectToVisible):
+            (WebCore::RenderLayer::hasScrollableOrRubberbandableAncestor):
+            * rendering/RenderLayer.h:
+
+2015-10-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r187210. rdar://problem/22801995
+
+    2015-07-22  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Coordinates-based snap offsets don't update correctly when container is scrolled
+            https://bugs.webkit.org/show_bug.cgi?id=147215
+
+            Reviewed by Brent Fulgham.
+
+            Fixes the way we append the snap offsets of child elements with coordinates. We
+            now consider the scroll offset of the parent scroll snapping container, so snap
+            offset recomputations don't fail on scroll snapping containers.
+
+            Test: css3/scroll-snap/scroll-snap-coordinate-overflow-resize.html
+
+            * page/scrolling/AxisScrollSnapOffsets.cpp:
+            (WebCore::appendChildSnapOffsets): Fixed to consider the scroll offset of the
+                parent container.
+
+2015-10-02  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r187145. rdar://problem/22801952
+
+    2015-07-21  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Node highlights are wrong when the page is zoomed
+            https://bugs.webkit.org/show_bug.cgi?id=147177
+
+            Reviewed by Simon Fraser.
+
+            * inspector/InspectorOverlay.cpp:
+            (WebCore::InspectorOverlay::update):
+            Remove scaling that appears to no longer be needed, it was double
+            scaling the overlay content and misplacing it in the process.
+
 2015-09-25  Brent Fulgham  <bfulgham@apple.com>
 
         Merge r190235. rdar://problem/22852382

@@ -41,6 +41,7 @@
 #include <sys/wait.h>
 #include <grp.h>
 #include <pwd.h>
+#include <msgtracer_client.h>
 
 using namespace MDSClient;
 
@@ -435,6 +436,14 @@ void Token::notify(NotificationEvent event)
     free (data.data());
 }
 
+static void mt_log_ctk_tokend(const char *signature, const char *signature2)
+{
+    msgtracer_log_with_keys("com.apple.ctk.tokend", ASL_LEVEL_NOTICE,
+                            "com.apple.message.signature", signature,
+                            "com.apple.message.signature2", signature2,
+                            "com.apple.message.summarize", "YES",
+                            NULL);
+}
 
 //
 // Choose a token daemon for our card.
@@ -451,6 +460,8 @@ RefPointer<TokenDaemon> Token::chooseTokend()
 	candidates.update();
 	//@@@ we could sort by reverse "maxScore" and avoid launching those who won't cut it anyway...
 	
+	string chosenIdentifier;
+	set<string> candidateIdentifiers;
 	RefPointer<TokenDaemon> leader;
 	for (CodeRepository<Bundle>::const_iterator it = candidates.begin();
 			it != candidates.end(); it++) {
@@ -465,6 +476,9 @@ RefPointer<TokenDaemon> Token::chooseTokend()
 			RefPointer<TokenDaemon> tokend = new TokenDaemon(candidate,
 				reader().name(), reader().pcscState(), reader().cache);
 			
+			// add identifier to candidate names set
+			candidateIdentifiers.insert(tokend->bundleIdentifier());
+
 			if (tokend->state() == ServerChild::dead)	// ah well, this one's no good
 				continue;
 			
@@ -473,12 +487,24 @@ RefPointer<TokenDaemon> Token::chooseTokend()
 				continue;
 
 			// we got a contender!
-			if (!leader || tokend->score() > leader->score())
+			if (!leader || tokend->score() > leader->score()) {
 				leader = tokend;		// a new front runner, he is...
+				chosenIdentifier = leader->bundleIdentifier();
+			}
 		} catch (...) {
 			secdebug("token", "exception setting up %s (moving on)", candidate->canonicalPath().c_str());
 		}
 	}
+
+	// concatenate all candidate identifiers (sorted internally inside std::set)
+	string identifiers;
+	for (set<string>::const_iterator i = candidateIdentifiers.begin(), e = candidateIdentifiers.end(); i != e; ++i) {
+		if (i != candidateIdentifiers.begin())
+			identifiers.append(";");
+		identifiers.append(*i);
+	}
+	mt_log_ctk_tokend(identifiers.c_str(), chosenIdentifier.c_str());
+
 	return leader;
 }
 

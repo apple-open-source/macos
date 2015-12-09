@@ -136,6 +136,8 @@ Install (or re-install) the MDS database.
 Run
 .Pa /usr/bin/leaks
 on this proccess.
+.It Nm verify-cert
+Verify certificate(s).
 .El
 .Sh "COMMON COMMAND OPTIONS"
 This section describes the
@@ -219,7 +221,7 @@ Unset it if no keychain is specified.
 .Op Fl p Ar password
 .Op Ar keychain...
 .Bl -item -offset -indent
-Create keychains and add them to the search list.  if no keychains are specified the user is prompted for one.
+Create keychains and add them to the search list.  If no keychains are specified the user is prompted for one.
 .It  
 Options:
 .Bl -tag -compact -width -indent-indent
@@ -321,7 +323,7 @@ Dump raw (possibly ciphertext) data of items.
 .Op Fl n Ar name
 .Op Fl A Ns | Ns Fl T Ar app1:app2:...
 .Bl -item -offset -indent
-Create an assymetric keypair.
+Create an asymmetric keypair.
 .El
 .It
 .Nm add-internet-password
@@ -381,7 +383,7 @@ arguments are provided,
 will search the default search list.
 .It
 Options:
-.Bl -tag -compact -width -indent-indent
+.Bl -tag -compact -width -indent
 .It Fl a
 Find all matching certificates, not just the first one.
 .It Fl g Ar dl Ns | Ns Ar cspdl
@@ -549,7 +551,42 @@ Ignore leaks called from
 .Ar symbol Ns .
 .El
 .El
+.It
+.Nm verify-cert
+.Op Fl c Ar certFile
+.Op Fl r Ar rootCertFile
+.Op Fl p Ar policy
+.Op Fl d Ar date
+.Op Fl n Ar name
+.Op Fl L
+.Op Fl q
+.Op Fl C
+.Bl -item -offset -indent
+Verify one or more certificates.
+.It
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl c Ar certFile
+Certificate to verify, in DER or PEM format. Can be specified more than once; leaf certificate has to be specified first.
+.It Fl r Ar rootCertFile
+Root certificate, in DER or PEM format. Can be specified more than once. If not specified, the system anchor certificates are used.
+.It Fl p Ar policy
+Specify verification policy (ssl, smime, codeSign, IPSec, basic, eap, appleID, timestamping, revocation). Default is basic.
+.It Fl d Ar date
+Date to set for verification. Specified in the format of YYYY-MM-DD-hh:mm:ss (time optional). e.g: 2016-04-25-15:59:59 for April 25, 2016 at 3:59:59 pm in GMT
+.It Fl n Ar name
+Specify name for the policy (ssl, IPSec, smime).
+.It Fl L
+Use local certificates only. If an issuing CA certificate is missing, this option will avoid accessing the network to fetch it.
+.It Fl q
+Quiet, no stdout or stderr.
+.It Fl C
+Set to client-side. Otherwise, defaults to server.
 .El
+.It
+.Sy Examples
+.Bl -tag -width -indent
+.Dl security> verify-cert -r serverbasic.crt
 .El
 .Sh ENVIRONMENT      \" May not be needed
 .Bl -tag -width -indent

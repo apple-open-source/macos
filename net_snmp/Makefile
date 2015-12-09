@@ -7,7 +7,7 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 148
+Submission	= 149
 
 
 #
@@ -136,7 +136,7 @@ MIBDIR		= $(SHAREDIR)/snmp/mibs
 
 # Automatic Extract & Patch
 AEP		= YES
-AEP_Version	= 5.6
+AEP_Version	= 5.6.2.1
 AEP_Patches    = diskio.patch IPv6.patch universal_builds.patch \
 			container.patch darwin-header.patch \
 			host.patch CVE-2012-6151.patch CVE-2014-3565.patch \

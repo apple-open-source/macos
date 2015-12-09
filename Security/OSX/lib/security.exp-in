@@ -1307,6 +1307,7 @@ _kSecPolicyAppleATVAppSigning
 _kSecPolicyAppleTestATVAppSigning
 _kSecPolicyApplePayIssuerEncryption
 _kSecPolicyAppleOSXProvisioningProfileSigning
+_kSecPolicyAppleATVVPNProfileSigning
 _kSecPolicyOid
 _kSecPolicyName
 _kSecPolicyClient
@@ -1752,6 +1753,7 @@ _SecPolicyCreateAppleMMCSService
 _SecPolicyCreateApplePPQService
 _SecPolicyCreateAppleATVAppSigning
 _SecPolicyCreateTestAppleATVAppSigning
+_SecPolicyCreateAppleATVVPNProfileSigning
 _SecPolicyCreateApplePayIssuerEncryption
 _SecPolicyCreateAppleSSLService
 _SecPolicyCreateBasicX509
@@ -2156,6 +2158,19 @@ _SSLGetMinimumDHGroupSize
 _SSLSetSessionStrengthPolicy
 _SSLSetDHEEnabled
 _SSLGetDHEEnabled
+_SSLSetSessionConfig
+_SSLGetSessionConfig
+
+_kSSLSessionConfig_default
+_kSSLSessionConfig_ATSv1
+_kSSLSessionConfig_ATSv1_noPFS
+_kSSLSessionConfig_legacy
+_kSSLSessionConfig_standard
+_kSSLSessionConfig_RC4_fallback
+_kSSLSessionConfig_TLSv1_fallback
+_kSSLSessionConfig_TLSv1_RC4_fallback
+_kSSLSessionConfig_legacy_DHE
+
 //
 // libsecurity_transform
 //
@@ -2310,6 +2325,7 @@ _SecSetLoggingInfoForCircleScope
 //
 // utilities
 //
+_SecSecdUsage
 
 // SecDH
 _SecDHComputeKey

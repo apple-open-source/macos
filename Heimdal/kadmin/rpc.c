@@ -933,7 +933,7 @@ rpcgssapi_handle_protocol(struct gctx *gctx,
 	INSIST(gctx->handle.length == 0);
 
 	CHECK(krb5_data_alloc(&gctx->handle, 16));
-	CCRandomCopyBytes(kCCRandomDefault, gctx->handle.data, gctx->handle.length);
+	krb5_generate_random_block(gctx->handle.data, gctx->handle.length);
 
     } else {
 	INSIST(gacred.handle.length != 0);
@@ -991,8 +991,7 @@ rpcgssapi_handle_protocol(struct gctx *gctx,
 
 		setup_context(gctx, src_name);
 
-		CCRandomCopyBytes(kCCRandomDefault, 
-				  &gctx->seq_num, sizeof(gctx->seq_num));
+		krb5_generate_random_block(&gctx->seq_num, sizeof(gctx->seq_num));
 
 		netseqnum = htonl(gctx->seq_num);
 		gin.value = &netseqnum;

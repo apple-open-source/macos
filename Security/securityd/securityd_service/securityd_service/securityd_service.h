@@ -27,6 +27,7 @@ enum {
     SERVICE_KB_IS_LOCKED,
     SERVICE_KB_RESET,
     SERVICE_STASH_LOAD_KEY,
+    SERVICE_KB_UNLOAD,
 };
 
 #endif

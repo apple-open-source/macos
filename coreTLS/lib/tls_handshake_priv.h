@@ -339,6 +339,7 @@ struct _tls_handshake_s {
 
     DNListElem          *acceptableDNList;
 	tls_buffer          peerDomainName;
+    char                *userAgent;             /* User Agent for diagnostic purpose */
 
     bool                advanceHandshake;       /* true if message was processed but state was not advanced */
     tls_handshake_message_t currentMessage;     /* which message was last processed before callback paused the handshake */
@@ -377,7 +378,7 @@ struct _tls_handshake_s {
 	/* SessionTicket support (RFC 5077) */
     bool                sessionTicket_enabled;    /* Client/Server: sessionTicket extension is enabled */
     bool                sessionTicket_announced;  /* Client: sessionTicket extension was sent, Server: sessionTicket extension was received */
-    bool                sessionTicket_confirmed;  /* Client: sessionTicker extension was received, Server: sessionTicket extension was sent */
+    bool                sessionTicket_confirmed;  /* Client: sessionTicket extension was received, Server: sessionTicket extension was sent */
 	tls_buffer			sessionTicket;            /* Session Ticket (as sent by server) */
     uint32_t			sessionTicket_lifetime;   /* Session Ticket lifetime hint (as sent by server) */
 
@@ -408,9 +409,12 @@ struct _tls_handshake_s {
     /* List of client-specified supported_signature_algorithms (for key exchange) */
 	unsigned                         numClientSigAlgs;
 	tls_signature_and_hash_algorithm *clientSigAlgs;
+    tls_signature_and_hash_algorithm kxSigAlg;  /* selected by server */
+
     /* List of server-specified supported_signature_algorithms (for client cert) */
 	unsigned                         numServerSigAlgs;
 	tls_signature_and_hash_algorithm *serverSigAlgs;
+    tls_signature_and_hash_algorithm certSigAlg;  /* selected by client */
 
 
     /* Retransmit attempt number for DTLS */
@@ -465,6 +469,8 @@ struct _tls_handshake_s {
     bool                sct_peer_enabled;   /* Server: Client has sent extension */
     tls_buffer_list_t   *sct_list;          /* Sent by Server, received by Client */
 
+    /* config */
+    tls_handshake_config_t config;          /* preset configuration */
     /* callbacks, context, etc... */
 
     tls_handshake_ctx_t ctx;

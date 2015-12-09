@@ -694,6 +694,7 @@ HeimCredDelete
 HeimCredDeleteByUUID
 HeimCredDeleteQuery
 HeimCredGetUUID
+HeimCredGetImpersonateBundle
 HeimCredMove
 HeimCredReleaseTransient
 HeimCredRetainTransient

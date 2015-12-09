@@ -61,6 +61,9 @@ void    recordKextLoadForMT(OSKextRef aKext);
 OSStatus checkKextSignature(OSKextRef aKext,
                             Boolean checkExceptionList,
                             Boolean earlyBoot);
+OSStatus checkSignaturesOfDependents(OSKextRef theKext,
+                                     Boolean checkExceptionList,
+                                     Boolean earlyBoot);
 Boolean isInExceptionList(OSKextRef theKext, CFURLRef theKextURL, Boolean useCache);
 Boolean isInLibraryExtensionsFolder(OSKextRef theKext);
 Boolean isInSystemLibraryExtensionsFolder(OSKextRef theKext);

@@ -1219,6 +1219,8 @@
 		EB270FE111BB0AF70087021A /* rsa-cdsa.c in Sources */ = {isa = PBXBuildFile; fileRef = EB270FE011BB0AF70087021A /* rsa-cdsa.c */; settings = {COMPILER_FLAGS = "-Wno-deprecated-declarations"; }; };
 		EB27104C11BB15410087021A /* common.c in Sources */ = {isa = PBXBuildFile; fileRef = EB27104A11BB15410087021A /* common.c */; settings = {COMPILER_FLAGS = "-Wno-deprecated-declarations"; }; };
 		EB27104D11BB15410087021A /* common.h in Headers */ = {isa = PBXBuildFile; fileRef = EB27104B11BB15410087021A /* common.h */; };
+		EB2895441BBDD6A0003911B5 /* heimcred-const.h in Headers */ = {isa = PBXBuildFile; fileRef = EBE5864C16CC4F18000D7E07 /* heimcred-const.h */; };
+		EB2895451BBDD6A0003911B5 /* heimcred.h in Headers */ = {isa = PBXBuildFile; fileRef = EB2C3E0516CC08E400D75FA0 /* heimcred.h */; };
 		EB295B6B184000E100522D26 /* fuzzer.c in Sources */ = {isa = PBXBuildFile; fileRef = EBD1205118339012004489A2 /* fuzzer.c */; };
 		EB295B6C184000E100522D26 /* fuzzer.h in Headers */ = {isa = PBXBuildFile; fileRef = EBD1205218339012004489A2 /* fuzzer.h */; };
 		EB29F8931405A6CF00FE4217 /* gssapi_krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EB91CFD90F28477300CCDEA3 /* gssapi_krb5.h */; };
@@ -14591,6 +14593,7 @@
 				EB432D9F0F2841C1000EA2F7 /* wind.h in Headers */,
 				EB432DA00F2841C1000EA2F7 /* parse_time.h in Headers */,
 				EB432DA20F2841DC000EA2F7 /* roken-common.h in Headers */,
+				EB2895451BBDD6A0003911B5 /* heimcred.h in Headers */,
 				EB432DA40F2841FE000EA2F7 /* base64.h in Headers */,
 				EB432DA60F284222000EA2F7 /* krb5-types.h in Headers */,
 				EB432DA90F284240000EA2F7 /* der-protos.h in Headers */,
@@ -14612,6 +14615,7 @@
 				EB5675FE11097EEB00CE2FA9 /* heim-ipc.h in Headers */,
 				EBA4ECD911233E6500062CDC /* kcm.h in Headers */,
 				EB42F527116C0FA800FCDD8F /* heimbase.h in Headers */,
+				EB2895441BBDD6A0003911B5 /* heimcred-const.h in Headers */,
 				EBA055D1122B27C2002E2390 /* gsskrb5_crypto.h in Headers */,
 				EBAE7ACD12B0462A002DA026 /* gssapi_rewrite.h in Headers */,
 				EB085EC41429F38A00AD2AA2 /* gssapi_oid.h in Headers */,

@@ -24,6 +24,8 @@
 #include <sysexits.h>
 #include "timestampclient.h"
 #include <syslog.h>
+#include <Security/SecTask.h>
+#include <xpc/private.h>
 
 struct connection_info {
     xpc_connection_t peer;
@@ -129,6 +131,37 @@ static void debugShowTSAResponseInfo(NSURLResponse *response, NSData *data, NSEr
         }
     }
 #endif
+}
+
+/*
+ * Check whether the caller can access the network. Currently, this applies
+ * only to applications running under App Sandbox.
+ */
+static bool callerHasNetworkEntitlement(audit_token_t auditToken)
+{
+    bool result = true; /* until proven otherwise */
+    SecTaskRef task = SecTaskCreateWithAuditToken(NULL, auditToken);
+    if(task != NULL) {
+        CFTypeRef appSandboxValue = SecTaskCopyValueForEntitlement(task,
+                                    CFSTR("com.apple.security.app-sandbox"),
+                                    NULL);
+        if(appSandboxValue != NULL) {
+            if(!CFEqual(kCFBooleanFalse, appSandboxValue)) {
+                CFTypeRef networkClientValue = SecTaskCopyValueForEntitlement(task,
+                                               CFSTR("com.apple.security.network.client"),
+                                               NULL);
+                if(networkClientValue != NULL) {
+                    result = (!CFEqual(kCFBooleanFalse, networkClientValue));
+                    CFRelease(networkClientValue);
+                } else {
+                    result = false;
+                }
+            }
+            CFRelease(appSandboxValue);
+        }
+        CFRelease(task);
+    }
+    return result;
 }
 
 static void communicateWithTimeStampingServer(xpc_object_t event, const char *requestData, size_t requestLength, const char *tsaURL)
@@ -244,13 +277,20 @@ void handle_request_event(struct connection_info *info, xpc_object_t event)
     {
         size_t length = 0;
         const char *operation = xpc_dictionary_get_string(event, "operation");
+        audit_token_t auditToken  = {};
+        xpc_connection_get_audit_token(peer, &auditToken);
+
         if (operation && !strcmp(operation, "TimeStampRequest"))
         {
-            xpctsaDebug("Handling TimeStampRequest event");
-            const void *requestData = xpc_dictionary_get_data(event, "TimeStampRequest", &length);
-            const char *url = xpc_dictionary_get_string(event, "ServerURL");
+            if (callerHasNetworkEntitlement(auditToken)) {
+                xpctsaDebug("Handling TimeStampRequest event");
+                const void *requestData = xpc_dictionary_get_data(event, "TimeStampRequest", &length);
+                const char *url = xpc_dictionary_get_string(event, "ServerURL");
 
-            communicateWithTimeStampingServer(event, requestData, length, url);
+                communicateWithTimeStampingServer(event, requestData, length, url);
+            }
+            else
+                xpctsaDebug("No network entitlement for pid %d", xpc_connection_get_pid(peer));
         }
         else
             xpctsaDebug("Unknown op=%s request from pid %d", operation, xpc_connection_get_pid(peer));

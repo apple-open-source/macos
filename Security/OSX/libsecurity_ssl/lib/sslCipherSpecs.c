@@ -160,171 +160,6 @@ static const uint16_t STKnownCipherSuites[] = {
 
 static const unsigned STCipherSuiteCount = sizeof(STKnownCipherSuites)/sizeof(STKnownCipherSuites[0]);
 
-/*
- * Build ctx->validCipherSpecs as a copy of KnownCipherSpecs, assuming that
- * validCipherSpecs is currently not valid (i.e., SSLSetEnabledCiphers() has
- * not been called).
- */
-OSStatus sslBuildCipherSuiteArray(SSLContext *ctx)
-{
-	size_t          size;
-	unsigned        dex;
-
-	assert(ctx != NULL);
-	assert(ctx->validCipherSuites == NULL);
-
-	ctx->numValidCipherSuites = STCipherSuiteCount;
-	size = STCipherSuiteCount * sizeof(uint16_t);
-	ctx->validCipherSuites = (uint16_t *)sslMalloc(size);
-	if(ctx->validCipherSuites == NULL) {
-		ctx->numValidCipherSuites = 0;
-		return errSecAllocate;
-	}
-
-	/*
-	 * Trim out inappropriate ciphers:
-	 *  -- trim anonymous ciphers if !ctx->anonCipherEnable
-	 *  -- trim ECDSA ciphers for server side if appropriate
-	 *  -- trim ECDSA ciphers if TLSv1 disable or SSLv2 enabled (since
-	 *     we MUST do the Client Hello extensions to make these ciphers
-	 *     work reliably)
-     *  -- trim Stream ciphers if DTLSv1 enable
-     *  -- trim CBC ciphers when doing SSLv3 fallback
-	 */
-	uint16_t *dst = ctx->validCipherSuites;
-	const uint16_t *src = STKnownCipherSuites;
-
-    bool trimDHE = !ctx->dheEnabled;
-    bool trimECDHE = false;
-    const bool trimECDH = true;
-
-    if(ctx->maxProtocolVersion == SSL_Version_3_0) {
-        /* We trim ECDSA cipher suites if SSL2 is enabled or
-         The maximum allowed protocol is SSL3.  Note that this
-         won't trim ECDSA cipherspecs for DTLS which should be
-         the right thing to do here. */
-		trimECDHE = true;
-	}
-
-    /* trim Stream Ciphers for DTLS */
-    bool trimRC4 = ctx->isDTLS;
-
-    /* trim CBC cipher when doing SSLv3 only fallback */
-    bool trimCBC = (ctx->protocolSide==kSSLClientSide)
-                    && (ctx->maxProtocolVersion == SSL_Version_3_0)
-                    && ctx->fallbackEnabled;
-
-	for(dex=0; dex<STCipherSuiteCount; dex++) {
-        KeyExchangeMethod kem = sslCipherSuiteGetKeyExchangeMethod(*src);
-        uint8_t keySize = sslCipherSuiteGetSymmetricCipherKeySize(*src);
-        HMAC_Algs mac = sslCipherSuiteGetMacAlgorithm(*src);
-        SSL_CipherAlgorithm cipher = sslCipherSuiteGetSymmetricCipherAlgorithm(*src);
-		/* Skip ciphers as appropriate */
-        switch(kem) {
-            case SSL_ECDHE_ECDSA:
-            case SSL_ECDHE_RSA:
-                if(trimECDHE) {
-                    /* Skip this one */
-                    ctx->numValidCipherSuites--;
-                    src++;
-                    continue;
-                }
-                else {
-                    break;
-                }
-            case SSL_ECDH_ECDSA:
-            case SSL_ECDH_RSA:
-            case SSL_ECDH_anon:
-                if(trimECDH) {
-                    /* Skip this one */
-                    ctx->numValidCipherSuites--;
-                    src++;
-                    continue;
-				}
-                else {
-                    break;
-                }
-            case SSL_DHE_RSA:
-                if(trimDHE) {
-                    /* Skip this one */
-                    ctx->numValidCipherSuites--;
-                    src++;
-                    continue;
-                }
-            default:
-                break;
-        }
-		if(!ctx->anonCipherEnable) {
-			/* trim out the anonymous (and null-auth-cipher) ciphers */
-			if(mac == HA_Null) {
-                /* skip this one */
-				ctx->numValidCipherSuites--;
-				src++;
-				continue;
-			}
-			switch(kem) {
-				case SSL_DH_anon:
-				case SSL_DH_anon_EXPORT:
-				case SSL_ECDH_anon:
-					/* skip this one */
-					ctx->numValidCipherSuites--;
-					src++;
-					continue;
-				default:
-					break;
-			}
-		}
-
-        /* This will skip the simple DES cipher suites, but not the NULL cipher ones */
-        if (keySize == 8)
-        {
-            /* skip this one */
-            ctx->numValidCipherSuites--;
-            src++;
-            continue;
-        }
-
-        /* Trim PSK ciphersuites, they need to be enabled explicitely */
-        if (kem==TLS_PSK) {
-            ctx->numValidCipherSuites--;
-            src++;
-            continue;
-        }
-
-        if (trimRC4 && (cipher==SSL_CipherAlgorithmRC4_128)) {
-            ctx->numValidCipherSuites--;
-            src++;
-            continue;
-        }
-
-        if(trimCBC) {
-            switch (cipher) {
-                case SSL_CipherAlgorithmAES_128_CBC:
-                case SSL_CipherAlgorithmAES_256_CBC:
-                case SSL_CipherAlgorithm3DES_CBC:
-                    ctx->numValidCipherSuites--;
-                    src++;
-                    continue;
-                default:
-                    break;
-            }
-        }
-
-        if(cipher==SSL_CipherAlgorithmNull) {
-            ctx->numValidCipherSuites--;
-            src++;
-            continue;
-        }
-
-        /* This one is good to go */
-        *dst++ = *src++;
-	}
-
-    tls_handshake_set_ciphersuites(ctx->hdsk, ctx->validCipherSuites, ctx->numValidCipherSuites);
-
-	return errSecSuccess;
-}
-
 
 /*
  * Convert an array of uint16_t
@@ -397,10 +232,7 @@ SSLSetEnabledCiphers		(SSLContextRef			ctx,
 							 const SSLCipherSuite	*ciphers,
 							 size_t					numCiphers)
 {
-	size_t size;
-    unsigned foundCiphers=0;
-	unsigned callerDex;
-	unsigned tableDex;
+    uint16_t *cs;
 
 	if((ctx == NULL) || (ciphers == NULL) || (numCiphers == 0)) {
 		return errSecParam;
@@ -409,38 +241,20 @@ SSLSetEnabledCiphers		(SSLContextRef			ctx,
 		/* can't do this with an active session */
 		return errSecBadReq;
 	}
-	size = numCiphers * sizeof(uint16_t);
-	ctx->validCipherSuites = (uint16_t *)sslMalloc(size);
-	if(ctx->validCipherSuites == NULL) {
-		ctx->numValidCipherSuites = 0;
+
+    cs = (uint16_t *)sslMalloc(numCiphers * sizeof(uint16_t));
+    if(cs == NULL) {
 		return errSecAllocate;
 	}
 
-	/*
-	 * Run thru caller's specs, keep only the supported ones.
-	 */
-    for(callerDex=0; callerDex<numCiphers; callerDex++) {
-        /* find matching CipherSpec in our known table */
-        for(tableDex=0; tableDex<STCipherSuiteCount; tableDex++) {
-            if(ciphers[callerDex] == STKnownCipherSuites[tableDex]) {
-                ctx->validCipherSuites[foundCiphers] = STKnownCipherSuites[tableDex];
-                foundCiphers++;
-                break;
-            }
-        }
+    for(int i=0; i<numCiphers; i++)
+    {
+        cs[i] = ciphers[i];
 	}
 
-    if(foundCiphers==0) {
-        /* caller specified only unsupported ciphersuites */
-        sslFree(ctx->validCipherSuites);
-        ctx->validCipherSuites = NULL;
-        return errSSLBadCipherSuite;
-    }
-    
-	/* success */
-	ctx->numValidCipherSuites = foundCiphers;
+    tls_handshake_set_ciphersuites(ctx->hdsk, cs, (unsigned) numCiphers);
 
-    tls_handshake_set_ciphersuites(ctx->hdsk, ctx->validCipherSuites, ctx->numValidCipherSuites);
+    sslFree(cs);
 
     return errSecSuccess;
 }

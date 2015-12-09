@@ -64,7 +64,7 @@ static CFDataRef CopyBackupKeyForString(CFStringRef string, CFErrorRef *error)
     return result;
 }
 
-static int kTestTestCount = 114;
+static int kTestTestCount = 112;
 #else
 static int kTestTestCount = 1;
 #endif
@@ -158,7 +158,7 @@ static void tests(void)
     CFReleaseNull(error);
     
     //Alice should kick Bob out of the backup!
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 3, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
     
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kTestView1), "Bob left the circle, Alice is not in the backup");
 

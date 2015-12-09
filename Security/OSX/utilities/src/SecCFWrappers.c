@@ -238,3 +238,44 @@ void withStringOfAbsoluteTime(CFAbsoluteTime at, void (^action)(CFStringRef decr
     
     CFReleaseNull(formattedString);
 }
+
+
+//
+// MARK: Custom Sensitive Data Allocator
+//
+#include <malloc/malloc.h>
+static CFStringRef SecCFAllocatorCopyDescription(const void *info) {
+    return CFSTR("Custom CFAllocator for sensitive data");
+}
+
+// primary goal of this allocator is to clear memory when it is deallocated
+static void SecCFAllocatorDeallocate(void *ptr, void *info) {
+    if (!ptr) return;
+    size_t sz = malloc_size(ptr);
+    if(sz) cc_clear(sz, ptr);
+
+    CFAllocatorDeallocate(NULL, ptr);
+}
+
+CFAllocatorRef CFAllocatorSensitive(void) {
+    static dispatch_once_t sOnce = 0;
+    static CFAllocatorRef sAllocator = NULL;
+    dispatch_once(&sOnce, ^{
+        CFAllocatorContext defaultCtx;
+        CFAllocatorGetContext(NULL, &defaultCtx);
+
+        CFAllocatorContext ctx = {0,
+            defaultCtx.info,
+            defaultCtx.retain,
+            defaultCtx.release,
+            SecCFAllocatorCopyDescription,
+            defaultCtx.allocate,
+            defaultCtx.reallocate,
+            SecCFAllocatorDeallocate,
+            defaultCtx.preferredSize};
+
+        sAllocator = CFAllocatorCreate(NULL, &ctx);
+    });
+
+    return sAllocator;
+}

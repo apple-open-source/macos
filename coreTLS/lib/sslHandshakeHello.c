@@ -678,7 +678,7 @@ SSLEncodeClientHello(tls_buffer *clientHello, tls_handshake_t ctx)
     size_t          sctLen = 0;  /* SCT extension */
     size_t          paddingLen = 0;  /* Padding extension */
 	size_t			totalExtenLen = 0;
-    UInt16          numCipherSuites;
+    UInt16          numCipherSuites = 0;
     int             head;
 
     assert(!ctx->isServer);
@@ -717,7 +717,12 @@ SSLEncodeClientHello(tls_buffer *clientHello, tls_handshake_t ctx)
         }
     }
 
-    numCipherSuites = ctx->numEnabledCipherSuites;
+    /* Count valid ciphersuites */
+    for(i=0;i<ctx->numEnabledCipherSuites; i++) {
+        if(tls_handshake_ciphersuite_is_valid(ctx, ctx->enabledCipherSuites[i])) {
+            numCipherSuites++;
+        }
+    }
 
     /* RFC 5746 : add the fake ciphersuite unless we are including the extension */
     if(!ctx->secure_renegotiation)
@@ -944,9 +949,11 @@ SSLEncodeClientHello(tls_buffer *clientHello, tls_handshake_t ctx)
         p = SSLEncodeInt(p, TLS_FALLBACK_SCSV, 2);
 
     for (i = 0; i<ctx->numEnabledCipherSuites; ++i) {
-		sslLogNegotiateDebug("Sending ciphersuite %04x",
-					(unsigned)ctx->enabledCipherSuites[i]);
-        p = SSLEncodeInt(p, ctx->enabledCipherSuites[i], 2);
+        if(tls_handshake_ciphersuite_is_valid(ctx, ctx->enabledCipherSuites[i])) {
+            sslLogNegotiateDebug("Sending ciphersuite %04x",
+                        (unsigned)ctx->enabledCipherSuites[i]);
+            p = SSLEncodeInt(p, ctx->enabledCipherSuites[i], 2);
+        }
 	}
     *p++ = 1;                               /* 1 byte long vector */
     *p++ = 0;                               /* null compression */
@@ -1381,7 +1388,7 @@ SSLProcessClientHello(tls_buffer message, tls_handshake_t ctx)
     charPtr += 2;
 	err = sslVerifyProtVersion(ctx, ctx->clientReqProtocol, &negVersion);
 	if(err) {
-        sslErrorLog("SSLProcessClientHello: protocol version error %04x - %04x\n", ctx->clientReqProtocol, negVersion);
+        sslErrorLog("SSLProcessClientHello: protocol version error %04x\n", ctx->clientReqProtocol);
 		return err;
 	}
 	switch(negVersion) {

@@ -262,30 +262,30 @@ krb5_sendto_set_sitename(krb5_context context,
     return 0;
 }
 
-#include <xpc/xpc.h>
-#if !TARGET_OS_SIMULATOR
-#include <NEHelperClient.h>
-#endif
-
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_sendto_set_delegated_app(krb5_context context,
 			      krb5_sendto_ctx ctx,
 			      krb5_uuid uuid,
 			      const char *signingIdentity)
 {
+    const char *type = "unknown";
     ctx->contextflags |= KRBHST_CTX_F_HAVE_DELEGATED_UUID;
-    if (uuid)
+    if (uuid) {
+	type = "passed-in";
 	memcpy(ctx->delegated_uuid, uuid, sizeof(krb5_uuid));
-    else if (signingIdentity) {
+    } else if (signingIdentity) {
 #if TARGET_OS_SIMULATOR
 	memset(ctx->delegated_uuid, 0, sizeof(krb5_uuid));
+	type = "sim";
 #else
 	xpc_object_t uuid_array = NEHelperCacheCopyAppUUIDMapping(signingIdentity, NULL);
 	if (uuid_array && xpc_get_type(uuid_array) == XPC_TYPE_ARRAY && xpc_array_get_count(uuid_array) > 0) {
 	    const uint8_t *neuuid = xpc_array_get_uuid(uuid_array, 0);
 	    memcpy(ctx->delegated_uuid, neuuid, sizeof(krb5_uuid));
+	    type = "NEHelperCacheCopyAppUUIDMapping";
 	} else {
 	    memset(ctx->delegated_uuid, 0, sizeof(krb5_uuid));
+	    type = "NEHelperCacheCopyAppUUIDMapping-fail";
 	}
 	if (uuid_array) {
 	    xpc_release(uuid_array);
@@ -298,6 +298,16 @@ krb5_sendto_set_delegated_app(krb5_context context,
     }
     if (signingIdentity)
 	ctx->delegated_signing_identity = strdup(signingIdentity);
+
+    uuid = ctx->delegated_uuid;
+
+    _krb5_debugx(context, 5, "krb5_sendto_set_delegated_app: %s - %s uuid: %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+		 type,
+		 signingIdentity,
+		 uuid[0],uuid[1],uuid[2],uuid[3],uuid[4],uuid[5],uuid[6],uuid[7],
+		 uuid[8],uuid[9],uuid[10],uuid[11],uuid[12],uuid[13],uuid[14],uuid[15]);
+
+
     return 0;
 }
 
@@ -923,14 +933,8 @@ eval_host_state(krb5_context context,
  *
  */
 
-#if !TARGET_OS_SIMULATOR
-#include <network/private.h>
-#include <ne_session.h>
-
 #ifndef SO_FLOW_DIVERT_TOKEN
 #define	SO_FLOW_DIVERT_TOKEN	0x1106
-#endif
-
 #endif
 
 static void
@@ -943,6 +947,7 @@ prepare_app_vpn(krb5_context context,
     const char *hostname = hi->hostname;
     nw_path_evaluator_t evaluator = NULL;
     nw_parameters_t parameters = NULL;
+    nw_parameters_t resultParameters = NULL;
     nw_endpoint_t nwhost = NULL;
     xpc_object_t token = NULL;
     nw_path_t path = NULL;
@@ -975,6 +980,8 @@ prepare_app_vpn(krb5_context context,
 	goto out;
     }
 
+    resultParameters = nw_path_copy_derived_parameters(path);
+
     if (!nw_path_is_flow_divert(path)) {
 	_krb5_debugx(context, 5, "host_create: no flow divert");
 	goto out;
@@ -985,25 +992,25 @@ prepare_app_vpn(krb5_context context,
 	_krb5_debugx(context, 5, "host_create: divert unit");
 	goto out;
     }
-
+    
     uuid_t config_uuid;
-
+    
     if (!nw_path_get_vpn_config_id(path, &config_uuid)) {
 	_krb5_debugx(context, 5, "host_create: no config");
 	goto out;
     }
-
+    
     xpc_object_t flow_properties = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_data(flow_properties, NESessionFlowPropertyHostAddress, hi->ai->ai_addr, hi->ai->ai_addrlen);
     xpc_dictionary_set_string(flow_properties, NESessionFlowPropertyHostName, hostname);
     xpc_dictionary_set_int64(flow_properties, NESessionFlowPropertyHostPort, hi->port);
-
+    
     token = ne_session_policy_copy_flow_divert_token(config_uuid, flow_divert_unit, flow_properties, ctx->delegated_signing_identity);
     if (token == NULL) {
 	_krb5_debugx(context, 5, "host_create: no token");
 	goto out;
     }
-
+    
     error = setsockopt(fd,
 		       SOL_SOCKET,
 		       SO_FLOW_DIVERT_TOKEN,
@@ -1013,9 +1020,7 @@ prepare_app_vpn(krb5_context context,
 	_krb5_debugx(context, 5, "host_create: SO_FLOW_DIVERT_TOKEN failed: %d", errno);
 	goto out;
     }
-
-    _krb5_debugx(context, 5, "host_create: have app vpn divert");
-
+    
 out:
     if (nwhost)
 	network_release(nwhost);
@@ -1025,6 +1030,8 @@ out:
 	network_release(path);
     if (evaluator)
 	network_release(evaluator);
+    if (resultParameters)
+	network_release(resultParameters);
     if (token)
 	xpc_release(token);
 #endif
@@ -1071,8 +1078,6 @@ host_create(krb5_context context,
 	break;
     }
 
-
-
 #if __APPLE__
 #ifndef SO_DELEGATED_UUID
 #define    SO_DELEGATED_UUID    0x1108
@@ -1092,7 +1097,26 @@ host_create(krb5_context context,
 
 	prepare_app_vpn(context, ctx, hi, host->fd);
     }
+
+#if !TARGET_IPHONE_SIMULATOR
+    /*
+     * Hint to kernel what direction this connection is going
+     */
+    char *lhostname = strdup(host->hi->hostname);
+    char *hostname = host->hi->hostname;
+    if (lhostname) {
+	strlwr(lhostname);
+	hostname = lhostname;
+    }
+
+    _krb5_debugx(context, 5, "host_create: setting hostname %s", hostname);
+
+    (void)ne_session_set_socket_attributes(host->fd, hostname, NULL);
+    if (lhostname)
+	free(lhostname);
 #endif
+
+#endif /* __APPLE__ */
 
     host->tries = host->fun->ntries;
     
@@ -1552,7 +1576,6 @@ krb5_sendto_context(krb5_context context,
 	     *
 	     * Collect time spent in krbhst (dns, plugin, etc)
 	     */
-
 
 	    gettimeofday(&nrstart, NULL);
 

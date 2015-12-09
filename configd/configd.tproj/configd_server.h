@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2006, 2008, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008, 2011. 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -35,6 +35,7 @@
 #define _S_CONFIGD_SERVER_H
 
 #include <sys/cdefs.h>
+#include <sys/fileport.h>
 #include <mach/mach.h>
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -163,8 +164,7 @@ kern_return_t	_notifyviaport	(mach_port_t		server,
 				 int			*status);
 
 kern_return_t	_notifyviafd	(mach_port_t		server,
-				 xmlData_t		pathRef,
-				 mach_msg_type_number_t	pathLen,
+				 fileport_t		fileport,
 				 int			identifier,
 				 int			*status);
 

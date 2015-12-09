@@ -590,6 +590,8 @@ tests(void)
             uint16_t cs = (uint16_t)(SupportedCipherSuites[i]);
             KeyExchangeMethod kem = sslCipherSuiteGetKeyExchangeMethod(cs);
             SSL_CipherAlgorithm cipher = sslCipherSuiteGetSymmetricCipherAlgorithm(cs);
+            tls_protocol_version min_version = sslCipherSuiteGetMinSupportedTLSVersion(cs);
+
             CFArrayRef server_certs;
 
             if(kem == SSL_ECDHE_ECDSA) {
@@ -601,13 +603,31 @@ tests(void)
 
             SKIP:{
                 bool dtls = (protos[p] == kDTLSProtocol1);
-                bool dtls_ok = (cipher != SSL_CipherAlgorithmRC4_128);
                 bool server_ok = ((kem != SSL_ECDH_ECDSA) && (kem != SSL_ECDH_RSA) && (kem != SSL_ECDH_anon));
                 bool dh_anonymous = ((kem == SSL_DH_anon) || (kem == TLS_PSK));
+                bool version_ok;
 
+                switch(protos[p]) {
+                    case kDTLSProtocol1:
+                        version_ok = cipher != SSL_CipherAlgorithmRC4_128 && (min_version != tls_protocol_version_TLS_1_2);
+                        break;
+                    case kSSLProtocol3:
+                        version_ok = (min_version == tls_protocol_version_SSL_3);
+                        break;
+                    case kTLSProtocol1:
+                    case kTLSProtocol11:
+                        version_ok = (min_version != tls_protocol_version_TLS_1_2);
+                        break;
+                    case kTLSProtocol12:
+                        version_ok = true;
+                        break;
+                    default:
+                        version_ok = false;
+
+                }
 
                 skip("This ciphersuite is not supported by Server", 1, server_ok);
-                skip("This ciphersuite is not supported for DTLS", 1, (dtls_ok || !dtls));
+                skip("This ciphersuite is not supported for this protocol version", 1, version_ok);
 
                 int sp[2];
                 if (socketpair(AF_UNIX, SOCK_STREAM, 0, sp)) exit(errno);

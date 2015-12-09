@@ -1573,7 +1573,7 @@ create_cred(enum kcm_cred_type type)
     cred->labels = heim_dict_create(0);
     cred->refcount = 1;
 
-    CCRandomCopyBytes(kCCRandomDefault, cred->uuid, sizeof(cred->uuid));
+    krb5_generate_random_block(cred->uuid, sizeof(cred->uuid));
 
     return cred;
 }
@@ -2144,10 +2144,7 @@ kcm_op_do_ntlm(krb5_context context,
 	if (type2.flags & NTLM_NEG_NTLM2_SESSION) {
 	    unsigned char nonce[8];
 	    
-	    if (CCRandomCopyBytes(kCCRandomDefault, nonce, sizeof(nonce))) {
-		ret = EINVAL;
-		goto error;
-	    }
+	    krb5_generate_random_block(nonce, sizeof(nonce));
 
 	    ret = heim_ntlm_calculate_ntlm2_sess(nonce,
 						 type2.challenge,

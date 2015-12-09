@@ -18,7 +18,7 @@
 */
 
 /*
- * $Id: PCSCv2part10.h 6429 2012-08-10 13:20:29Z rousseau $
+ * $Id$
  */
 
 #ifndef __reader_h__

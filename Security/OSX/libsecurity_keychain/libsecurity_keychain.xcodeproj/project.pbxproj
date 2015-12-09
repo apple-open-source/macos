@@ -111,7 +111,7 @@
 		BE50AE680F687AB900D28C54 /* TrustAdditions.h in Headers */ = {isa = PBXBuildFile; fileRef = BE50AE660F687AB900D28C54 /* TrustAdditions.h */; };
 		BEA830070EB17344001CA937 /* SecItemConstants.c in Sources */ = {isa = PBXBuildFile; fileRef = BEE897100A62CDD800BF88A5 /* SecItemConstants.c */; };
 		BECE5141106B056C0091E644 /* TrustKeychains.h in Headers */ = {isa = PBXBuildFile; fileRef = BECE5140106B056C0091E644 /* TrustKeychains.h */; settings = {ATTRIBUTES = (); }; };
-		BED2BCA21B96217B006CF43A /* si-20-sectrust-provisioning.c in Sources */ = {isa = PBXBuildFile; fileRef = BED2BCA11B96217B006CF43A /* si-20-sectrust-provisioning.c */; settings = {ASSET_TAGS = (); }; };
+		BED2BCA21B96217B006CF43A /* si-20-sectrust-provisioning.c in Sources */ = {isa = PBXBuildFile; fileRef = BED2BCA11B96217B006CF43A /* si-20-sectrust-provisioning.c */; };
 		BEE896E20A61F0BB00BF88A5 /* SecItem.h in Headers */ = {isa = PBXBuildFile; fileRef = BEE896E00A61F0BB00BF88A5 /* SecItem.h */; settings = {ATTRIBUTES = (); }; };
 		BEE896E30A61F0BB00BF88A5 /* SecItemPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = BEE896E10A61F0BB00BF88A5 /* SecItemPriv.h */; settings = {ATTRIBUTES = (); }; };
 		BEE896E70A61F12300BF88A5 /* SecItem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BEE896E60A61F12300BF88A5 /* SecItem.cpp */; };
@@ -157,6 +157,7 @@
 		C2AA2C22052E099D006D0211 /* TrustStore.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2AA2BB2052E099D006D0211 /* TrustStore.cpp */; };
 		C2FD26380731CEFB0027896A /* defaultcreds.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2FD26370731CEE60027896A /* defaultcreds.cpp */; };
 		C429431E053B2F8B00470431 /* KCUtilities.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C429431C053B2F8B00470431 /* KCUtilities.cpp */; };
+		D4A2FC821BC8A65B00BF6E56 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D4A2FC811BC8A65B00BF6E56 /* Security.framework */; };
 		D6095E960A94F17C0026C68B /* KCEventNotifier.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D6E1457B0A632A5A008AA7E8 /* KCEventNotifier.cpp */; };
 		F92321381ACF69EE00634C21 /* si-34-one-true-keychain.c in Sources */ = {isa = PBXBuildFile; fileRef = F92321371ACF69EE00634C21 /* si-34-one-true-keychain.c */; };
 /* End PBXBuildFile section */
@@ -420,6 +421,7 @@
 		C429431D053B2F8B00470431 /* KCUtilities.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KCUtilities.h; sourceTree = "<group>"; };
 		C4A397A1053B1D50000E1B34 /* SecKeychainPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecKeychainPriv.h; sourceTree = "<group>"; };
 		C4A397FA053B21F9000E1B34 /* SecKeychainItemPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecKeychainItemPriv.h; sourceTree = "<group>"; };
+		D4A2FC811BC8A65B00BF6E56 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		D6E1457B0A632A5A008AA7E8 /* KCEventNotifier.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = KCEventNotifier.cpp; sourceTree = "<group>"; };
 		D6E1457C0A632A5A008AA7E8 /* KCEventNotifier.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KCEventNotifier.h; sourceTree = "<group>"; };
 		F92321371ACF69EE00634C21 /* si-34-one-true-keychain.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "si-34-one-true-keychain.c"; path = "regressions/si-34-one-true-keychain.c"; sourceTree = "<group>"; };
@@ -446,6 +448,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D4A2FC821BC8A65B00BF6E56 /* Security.framework in Frameworks */,
 				52200F8B14F2B87F00F7F6E7 /* CoreFoundation.framework in Frameworks */,
 				52B609D914F55B6800134209 /* Foundation.framework in Frameworks */,
 			);
@@ -738,6 +741,7 @@
 		52200F9914F2B93700F7F6E7 /* xpc-tsa */ = {
 			isa = PBXGroup;
 			children = (
+				D4A2FC811BC8A65B00BF6E56 /* Security.framework */,
 				52B609D814F55B6800134209 /* Foundation.framework */,
 				52200F9B14F2B93700F7F6E7 /* XPCTimeStampingService-Info.plist */,
 				52B60A0614F5CA9500134209 /* main-tsa.m */,

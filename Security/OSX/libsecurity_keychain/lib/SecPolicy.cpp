@@ -910,6 +910,15 @@ SecPolicyRef SecPolicyCreateOSXProvisioningProfileSigning(void)
 }
 #endif
 
+
+#if !SECTRUST_OSX
+/* new in 10.11 */
+SecPolicyRef SecPolicyCreateAppleATVVPNProfileSigning(void)
+{
+    return _SecPolicyCreateWithOID(kSecPolicyAppleX509Basic);
+}
+#endif
+
 #if !SECTRUST_OSX
 SecPolicyRef SecPolicyCreateAppleSSLService(CFStringRef hostname)
 {
@@ -972,6 +981,7 @@ SecPolicyCreateAppleTimeStampingAndRevocationPolicies(CFTypeRef policyOrArray)
         resultPolicyArray=appleTimeStampingPolicies.yield();
     }
     catch (...) {
+        syslog(LOG_ERR, "SecPolicyCreateAppleTimeStampingAndRevocationPolicies: unable to create policy array");
         CFReleaseNull(resultPolicyArray);
     };
 #else

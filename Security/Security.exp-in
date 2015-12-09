@@ -99,6 +99,19 @@ _SSLWrite
 _SSLSetSessionStrengthPolicy
 _SSLSetDHEEnabled
 _SSLGetDHEEnabled
+_SSLSetSessionConfig
+_SSLGetSessionConfig
+
+_kSSLSessionConfig_default
+_kSSLSessionConfig_ATSv1
+_kSSLSessionConfig_ATSv1_noPFS
+_kSSLSessionConfig_legacy
+_kSSLSessionConfig_standard
+_kSSLSessionConfig_RC4_fallback
+_kSSLSessionConfig_TLSv1_fallback
+_kSSLSessionConfig_TLSv1_RC4_fallback
+_kSSLSessionConfig_legacy_DHE
+
 
 /* Those are deprecated */
 __SSLCopyPeerCertificates

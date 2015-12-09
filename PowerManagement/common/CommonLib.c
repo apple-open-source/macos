@@ -825,7 +825,30 @@ __private_extern__ CFCalendarRef        _gregorian(void)
 }
 
 /***************************************************************************/
-/***************************************************************************/
-/***************************************************************************/
-/***************************************************************************/
+__private_extern__  asl_object_t open_pm_asl_store(void)
+{
+    asl_object_t        response = NULL;
+    size_t              endMessageID;
+
+    asl_object_t query = asl_new(ASL_TYPE_LIST);
+    if (query != NULL)
+    {
+		asl_object_t cq = asl_new(ASL_TYPE_QUERY);
+		if (cq != NULL)
+		{
+			asl_set_query(cq, ASL_KEY_FACILITY, kPMFacility, ASL_QUERY_OP_EQUAL);
+			asl_append(query, cq);
+			asl_release(cq);
+
+			asl_object_t pmstore = asl_open_path(kPMASLStorePath, 0);
+			if (pmstore != NULL) {
+				response = asl_match(pmstore, query, &endMessageID, 0, 0, 0, ASL_MATCH_DIRECTION_FORWARD);
+			}
+			asl_release(pmstore);
+		}
+		asl_release(query);
+    }
+
+    return response;
+}
 

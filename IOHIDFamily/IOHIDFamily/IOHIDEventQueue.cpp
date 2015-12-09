@@ -151,6 +151,7 @@ void IOHIDEventQueue::start()
         // Free the existing queue data
         if (dataQueue) {
             IOFreeAligned(dataQueue, round_page_32(getQueueSize() + DATA_QUEUE_MEMORY_HEADER_SIZE));
+            dataQueue = NULL;
         }
         
         if (_descriptor) {

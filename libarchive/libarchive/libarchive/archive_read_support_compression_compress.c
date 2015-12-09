@@ -376,6 +376,12 @@ next_code(struct archive_read_filter *self)
 
 	/* Generate output characters in reverse order. */
 	while (code >= 256) {
+		/* 22872683: Avoid infinite loop. */
+		if (code == state->prefix[code]) {
+			archive_set_error(&(self->archive->archive), -1,
+			    "Invalid compressed data");
+			return (ARCHIVE_FATAL);
+		}
 		*state->stackp++ = state->suffix[code];
 		code = state->prefix[code];
 	}

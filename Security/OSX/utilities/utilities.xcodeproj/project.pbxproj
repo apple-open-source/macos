@@ -56,6 +56,7 @@
 		72B918A2179723C100940533 /* iCloudKeychainTrace.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B918A0179723AE00940533 /* iCloudKeychainTrace.h */; };
 		BEA22A361811E4C800BE7682 /* SecCertificateTrace.c in Sources */ = {isa = PBXBuildFile; fileRef = BEA22A341811E4A600BE7682 /* SecCertificateTrace.c */; };
 		BEA22A371811E4CF00BE7682 /* SecCertificateTrace.h in Headers */ = {isa = PBXBuildFile; fileRef = BEA22A351811E4A600BE7682 /* SecCertificateTrace.h */; };
+		D4DFE88E1BE5678B00E8A196 /* SecdUsage.c in Sources */ = {isa = PBXBuildFile; fileRef = D4DFE88D1BE5678B00E8A196 /* SecdUsage.c */; };
 		E706B78A18FC822B00797907 /* simulate_crash.c in Sources */ = {isa = PBXBuildFile; fileRef = E706B78918FC822B00797907 /* simulate_crash.c */; };
 		E7188DF81AAA819400B46156 /* SecBuffer.c in Sources */ = {isa = PBXBuildFile; fileRef = E7188DF61AAA819400B46156 /* SecBuffer.c */; };
 		E7188DF91AAA819400B46156 /* SecBuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = E7188DF71AAA819400B46156 /* SecBuffer.h */; };
@@ -135,6 +136,7 @@
 		72B918A0179723AE00940533 /* iCloudKeychainTrace.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = iCloudKeychainTrace.h; sourceTree = "<group>"; };
 		BEA22A341811E4A600BE7682 /* SecCertificateTrace.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecCertificateTrace.c; sourceTree = "<group>"; };
 		BEA22A351811E4A600BE7682 /* SecCertificateTrace.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecCertificateTrace.h; sourceTree = "<group>"; };
+		D4DFE88D1BE5678B00E8A196 /* SecdUsage.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecdUsage.c; sourceTree = "<group>"; };
 		E706B78918FC822B00797907 /* simulate_crash.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = simulate_crash.c; sourceTree = "<group>"; };
 		E7188DF61AAA819400B46156 /* SecBuffer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecBuffer.c; sourceTree = "<group>"; };
 		E7188DF71AAA819400B46156 /* SecBuffer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecBuffer.h; sourceTree = "<group>"; };
@@ -239,6 +241,7 @@
 				4C3600441680DEB90049891B /* iOSforOSX-SecRandom.c */,
 				4C143CF7165172AD003035A3 /* SecDb.c */,
 				4C143CF9165172C0003035A3 /* SecDb.h */,
+				D4DFE88D1BE5678B00E8A196 /* SecdUsage.c */,
 				52743BD516BB278C001A299D /* SecFileLocations.c */,
 				52743BD716BB27A1001A299D /* SecFileLocations.h */,
 				52E2E4941738371400E78313 /* SecXPCError.h */,
@@ -456,6 +459,7 @@
 				E777C72315B74038004044A8 /* SecCFError.c in Sources */,
 				489E6E501A71B07600D7EB8C /* der_set.c in Sources */,
 				4C143CF8165172AD003035A3 /* SecDb.c in Sources */,
+				D4DFE88E1BE5678B00E8A196 /* SecdUsage.c in Sources */,
 				4CF1FAC21654EAD100261CF4 /* SecCFWrappers.c in Sources */,
 				521C60C61A9D31580034F742 /* SecCFCCWrappers.c in Sources */,
 				52E2E4971738394C00E78313 /* SecXPCError.c in Sources */,

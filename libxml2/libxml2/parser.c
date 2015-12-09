@@ -3491,7 +3491,14 @@ xmlParseNCNameComplex(xmlParserCtxtPtr ctxt) {
 	c = CUR_CHAR(l);
 	if (c == 0) {
 	    count = 0;
+	    /*
+	     * when shrinking to extend the buffer we really need to preserve
+	     * the part of the name we already parsed. Hence rolling back
+	     * by current lenght.
+	     */
+	    ctxt->input->cur -= l;
 	    GROW;
+	    ctxt->input->cur += l;
             if (ctxt->instate == XML_PARSER_EOF)
                 return(NULL);
 	    end = ctxt->input->cur;
@@ -3523,7 +3530,7 @@ xmlParseNCNameComplex(xmlParserCtxtPtr ctxt) {
 
 static const xmlChar *
 xmlParseNCName(xmlParserCtxtPtr ctxt) {
-    const xmlChar *in;
+    const xmlChar *in, *e;
     const xmlChar *ret;
     int count = 0;
 
@@ -3535,16 +3542,19 @@ xmlParseNCName(xmlParserCtxtPtr ctxt) {
      * Accelerator for simple ASCII names
      */
     in = ctxt->input->cur;
-    if (((*in >= 0x61) && (*in <= 0x7A)) ||
-	((*in >= 0x41) && (*in <= 0x5A)) ||
-	(*in == '_')) {
+    e = ctxt->input->end;
+    if ((((*in >= 0x61) && (*in <= 0x7A)) ||
+	 ((*in >= 0x41) && (*in <= 0x5A)) ||
+	 (*in == '_')) && (in < e)) {
 	in++;
-	while (((*in >= 0x61) && (*in <= 0x7A)) ||
-	       ((*in >= 0x41) && (*in <= 0x5A)) ||
-	       ((*in >= 0x30) && (*in <= 0x39)) ||
-	       (*in == '_') || (*in == '-') ||
-	       (*in == '.'))
+	while ((((*in >= 0x61) && (*in <= 0x7A)) ||
+	        ((*in >= 0x41) && (*in <= 0x5A)) ||
+	        ((*in >= 0x30) && (*in <= 0x39)) ||
+	        (*in == '_') || (*in == '-') ||
+	        (*in == '.')) && (in < e))
 	    in++;
+	if (in >= e)
+	    goto complex;
 	if ((*in > 0) && (*in < 0x80)) {
 	    count = in - ctxt->input->cur;
             if ((count > XML_MAX_NAME_LENGTH) &&
@@ -3562,6 +3572,7 @@ xmlParseNCName(xmlParserCtxtPtr ctxt) {
 	    return(ret);
 	}
     }
+complex:
     return(xmlParseNCNameComplex(ctxt));
 }
 
@@ -11172,7 +11183,7 @@ xmlCheckCdataPush(const xmlChar *utf, int len) {
 	    else
 	        return(-ix);
 	} else if ((c & 0xe0) == 0xc0) {/* 2-byte code, starts with 110 */
-	    if (ix + 2 > len) return(ix);
+	    if (ix + 2 > len) return(-ix);
 	    if ((utf[ix+1] & 0xc0 ) != 0x80)
 	        return(-ix);
 	    codepoint = (utf[ix] & 0x1f) << 6;
@@ -11181,7 +11192,7 @@ xmlCheckCdataPush(const xmlChar *utf, int len) {
 	        return(-ix);
 	    ix += 2;
 	} else if ((c & 0xf0) == 0xe0) {/* 3-byte code, starts with 1110 */
-	    if (ix + 3 > len) return(ix);
+	    if (ix + 3 > len) return(-ix);
 	    if (((utf[ix+1] & 0xc0) != 0x80) ||
 	        ((utf[ix+2] & 0xc0) != 0x80))
 		    return(-ix);
@@ -11192,7 +11203,7 @@ xmlCheckCdataPush(const xmlChar *utf, int len) {
 	        return(-ix);
 	    ix += 3;
 	} else if ((c & 0xf8) == 0xf0) {/* 4-byte code, starts with 11110 */
-	    if (ix + 4 > len) return(ix);
+	    if (ix + 4 > len) return(-ix);
 	    if (((utf[ix+1] & 0xc0) != 0x80) ||
 	        ((utf[ix+2] & 0xc0) != 0x80) ||
 		((utf[ix+3] & 0xc0) != 0x80))

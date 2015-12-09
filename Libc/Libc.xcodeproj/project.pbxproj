@@ -235,7 +235,6 @@
 		C9257F33138E1C8200B3107C /* opendir.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53750138D9E990028D27C /* opendir.c */; settings = {COMPILER_FLAGS = "-include gen/__dirent.h"; }; };
 		C9257F34138E1C8200B3107C /* pause.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53753138D9E990028D27C /* pause.c */; };
 		C9257F35138E1C8200B3107C /* popen.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53757138D9E990028D27C /* popen.c */; };
-		C9257F36138E1C8200B3107C /* pselect.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5375B138D9E990028D27C /* pselect.c */; };
 		C9257F37138E1C8200B3107C /* psignal.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5375F138D9E990028D27C /* psignal.c */; };
 		C9257F38138E1C8200B3107C /* raise.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53761138D9E990028D27C /* raise.c */; };
 		C9257F39138E1C8200B3107C /* readdir.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53766138D9E990028D27C /* readdir.c */; settings = {COMPILER_FLAGS = "-include gen/__dirent.h"; }; };
@@ -638,7 +637,6 @@
 		C94210C013900C8A004BA536 /* opendir.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53750138D9E990028D27C /* opendir.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS___OPENDIR2 -DLIBC_ALIAS_OPENDIR -include gen/__dirent.h"; }; };
 		C94210C113900C8A004BA536 /* pause.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53753138D9E990028D27C /* pause.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_PAUSE"; }; };
 		C94210C213900C8A004BA536 /* popen.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53757138D9E990028D27C /* popen.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_POPEN"; }; };
-		C94210C313900C8A004BA536 /* pselect.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5375B138D9E990028D27C /* pselect.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_PSELECT $(FreeBSD_CFLAGS)"; }; };
 		C94210C413900C8A004BA536 /* psignal.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5375F138D9E990028D27C /* psignal.c */; };
 		C94210C513900C8A004BA536 /* raise.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53761138D9E990028D27C /* raise.c */; };
 		C94210C613900C8A004BA536 /* readdir.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53766138D9E990028D27C /* readdir.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -include gen/__dirent.h"; }; };
@@ -1177,7 +1175,6 @@
 		C95B7F6B138F3C55004311DA /* opendir.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53750138D9E990028D27C /* opendir.c */; };
 		C95B7F6C138F3C55004311DA /* pause.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53753138D9E990028D27C /* pause.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_PAUSE"; }; };
 		C95B7F6D138F3C55004311DA /* popen.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53757138D9E990028D27C /* popen.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_POPEN"; }; };
-		C95B7F6E138F3C55004311DA /* pselect.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5375B138D9E990028D27C /* pselect.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_PSELECT"; }; };
 		C95B7F6F138F3C55004311DA /* psignal.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5375F138D9E990028D27C /* psignal.c */; };
 		C95B7F70138F3C55004311DA /* raise.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53761138D9E990028D27C /* raise.c */; };
 		C95B7F71138F3C55004311DA /* readdir.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53766138D9E990028D27C /* readdir.c */; };
@@ -1701,7 +1698,6 @@
 		C95B8216138F52B0004311DA /* opendir.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53750138D9E990028D27C /* opendir.c */; };
 		C95B8217138F52B0004311DA /* pause.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53753138D9E990028D27C /* pause.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_PAUSE"; }; };
 		C95B8218138F52B0004311DA /* popen.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53757138D9E990028D27C /* popen.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_POPEN"; }; };
-		C95B8219138F52B0004311DA /* pselect.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5375B138D9E990028D27C /* pselect.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_PSELECT -U__DARWIN_NON_CANCELABLE -D__DARWIN_NON_CANCELABLE=0"; }; };
 		C95B821A138F52B0004311DA /* psignal.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5375F138D9E990028D27C /* psignal.c */; };
 		C95B821B138F52B0004311DA /* raise.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53761138D9E990028D27C /* raise.c */; };
 		C95B821C138F52B0004311DA /* readdir.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53766138D9E990028D27C /* readdir.c */; };
@@ -2225,7 +2221,6 @@
 		C95B84BC138F53DB004311DA /* opendir.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53750138D9E990028D27C /* opendir.c */; };
 		C95B84BD138F53DB004311DA /* pause.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53753138D9E990028D27C /* pause.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_PAUSE"; }; };
 		C95B84BE138F53DB004311DA /* popen.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53757138D9E990028D27C /* popen.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_POPEN"; }; };
-		C95B84BF138F53DB004311DA /* pselect.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5375B138D9E990028D27C /* pselect.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_PSELECT $(FreeBSD_CFLAGS) -U__DARWIN_NON_CANCELABLE -D__DARWIN_NON_CANCELABLE=0"; }; };
 		C95B84C0138F53DB004311DA /* psignal.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5375F138D9E990028D27C /* psignal.c */; };
 		C95B84C1138F53DB004311DA /* raise.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53761138D9E990028D27C /* raise.c */; };
 		C95B84C2138F53DB004311DA /* readdir.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53766138D9E990028D27C /* readdir.c */; };
@@ -2750,7 +2745,6 @@
 		C9765F40138EC61900741512 /* opendir.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53750138D9E990028D27C /* opendir.c */; };
 		C9765F41138EC61900741512 /* pause.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53753138D9E990028D27C /* pause.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_PAUSE -U__DARWIN_NON_CANCELABLE -D__DARWIN_NON_CANCELABLE=0"; }; };
 		C9765F42138EC61900741512 /* popen.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53757138D9E990028D27C /* popen.c */; };
-		C9765F43138EC61900741512 /* pselect.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5375B138D9E990028D27C /* pselect.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_PSELECT -U__DARWIN_NON_CANCELABLE -D__DARWIN_NON_CANCELABLE=0"; }; };
 		C9765F44138EC61900741512 /* psignal.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5375F138D9E990028D27C /* psignal.c */; };
 		C9765F45138EC61900741512 /* raise.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53761138D9E990028D27C /* raise.c */; };
 		C9765F46138EC61900741512 /* readdir.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53766138D9E990028D27C /* readdir.c */; };
@@ -3288,7 +3282,6 @@
 		C97A701D1517AF53005E1998 /* opendir.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53750138D9E990028D27C /* opendir.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS___OPENDIR2 -DLIBC_ALIAS_OPENDIR -include gen/__dirent.h"; }; };
 		C97A701E1517AF53005E1998 /* pause.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53753138D9E990028D27C /* pause.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_PAUSE"; }; };
 		C97A701F1517AF53005E1998 /* popen.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53757138D9E990028D27C /* popen.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_POPEN"; }; };
-		C97A70201517AF53005E1998 /* pselect.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5375B138D9E990028D27C /* pselect.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_PSELECT $(FreeBSD_CFLAGS)"; }; };
 		C97A70211517AF53005E1998 /* psignal.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5375F138D9E990028D27C /* psignal.c */; };
 		C97A70221517AF53005E1998 /* raise.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53761138D9E990028D27C /* raise.c */; };
 		C97A70231517AF53005E1998 /* readdir.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53766138D9E990028D27C /* readdir.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -include gen/__dirent.h"; }; };
@@ -3938,7 +3931,6 @@
 		C9EB305B138F6D880075BB52 /* opendir.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53750138D9E990028D27C /* opendir.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS___OPENDIR2 -DLIBC_ALIAS_OPENDIR -include gen/__dirent.h"; }; };
 		C9EB305C138F6D880075BB52 /* pause.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53753138D9E990028D27C /* pause.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_PAUSE"; }; };
 		C9EB305D138F6D880075BB52 /* popen.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53757138D9E990028D27C /* popen.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_POPEN"; }; };
-		C9EB305E138F6D880075BB52 /* pselect.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5375B138D9E990028D27C /* pselect.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_PSELECT $(FreeBSD_CFLAGS)"; }; };
 		C9EB305F138F6D880075BB52 /* psignal.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5375F138D9E990028D27C /* psignal.c */; };
 		C9EB3060138F6D880075BB52 /* raise.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53761138D9E990028D27C /* raise.c */; };
 		C9EB3061138F6D880075BB52 /* readdir.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53766138D9E990028D27C /* readdir.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -include gen/__dirent.h"; }; };
@@ -4462,7 +4454,6 @@
 		C9EB3302138F75580075BB52 /* opendir.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53750138D9E990028D27C /* opendir.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS___OPENDIR2 -DLIBC_ALIAS_OPENDIR -include gen/__dirent.h"; }; };
 		C9EB3303138F75580075BB52 /* pause.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53753138D9E990028D27C /* pause.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_PAUSE"; }; };
 		C9EB3304138F75580075BB52 /* popen.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53757138D9E990028D27C /* popen.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -DLIBC_ALIAS_POPEN"; }; };
-		C9EB3305138F75580075BB52 /* pselect.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5375B138D9E990028D27C /* pselect.c */; settings = {COMPILER_FLAGS = "-DLIBC_ALIAS_PSELECT $(FreeBSD_CFLAGS)"; }; };
 		C9EB3306138F75580075BB52 /* psignal.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B5375F138D9E990028D27C /* psignal.c */; };
 		C9EB3307138F75580075BB52 /* raise.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53761138D9E990028D27C /* raise.c */; };
 		C9EB3308138F75580075BB52 /* readdir.c in Sources */ = {isa = PBXBuildFile; fileRef = C9B53766138D9E990028D27C /* readdir.c */; settings = {COMPILER_FLAGS = "$(FreeBSD_CFLAGS) -include gen/__dirent.h"; }; };
@@ -5434,8 +5425,6 @@
 		C9B53753138D9E990028D27C /* pause.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pause.c; sourceTree = "<group>"; };
 		C9B53755138D9E990028D27C /* popen.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = popen.3; sourceTree = "<group>"; };
 		C9B53757138D9E990028D27C /* popen.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = popen.c; sourceTree = "<group>"; };
-		C9B53759138D9E990028D27C /* pselect.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = pselect.3; sourceTree = "<group>"; };
-		C9B5375B138D9E990028D27C /* pselect.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pselect.c; sourceTree = "<group>"; };
 		C9B5375D138D9E990028D27C /* psignal.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = psignal.3; sourceTree = "<group>"; };
 		C9B5375F138D9E990028D27C /* psignal.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = psignal.c; sourceTree = "<group>"; };
 		C9B53760138D9E990028D27C /* raise.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = raise.3; sourceTree = "<group>"; };
@@ -7088,8 +7077,6 @@
 				C9B53753138D9E990028D27C /* pause.c */,
 				C9B53755138D9E990028D27C /* popen.3 */,
 				C9B53757138D9E990028D27C /* popen.c */,
-				C9B53759138D9E990028D27C /* pselect.3 */,
-				C9B5375B138D9E990028D27C /* pselect.c */,
 				C9B5375D138D9E990028D27C /* psignal.3 */,
 				C9B5375F138D9E990028D27C /* psignal.c */,
 				C9B53760138D9E990028D27C /* raise.3 */,
@@ -9345,7 +9332,6 @@
 				C9257F33138E1C8200B3107C /* opendir.c in Sources */,
 				C9257F34138E1C8200B3107C /* pause.c in Sources */,
 				C9257F35138E1C8200B3107C /* popen.c in Sources */,
-				C9257F36138E1C8200B3107C /* pselect.c in Sources */,
 				C9257F37138E1C8200B3107C /* psignal.c in Sources */,
 				C9257F38138E1C8200B3107C /* raise.c in Sources */,
 				C9257F39138E1C8200B3107C /* readdir.c in Sources */,
@@ -9853,7 +9839,6 @@
 				C94210C013900C8A004BA536 /* opendir.c in Sources */,
 				C94210C113900C8A004BA536 /* pause.c in Sources */,
 				C94210C213900C8A004BA536 /* popen.c in Sources */,
-				C94210C313900C8A004BA536 /* pselect.c in Sources */,
 				C94210C413900C8A004BA536 /* psignal.c in Sources */,
 				C94210C513900C8A004BA536 /* raise.c in Sources */,
 				C94210C613900C8A004BA536 /* readdir.c in Sources */,
@@ -10408,7 +10393,6 @@
 				C95B7F6B138F3C55004311DA /* opendir.c in Sources */,
 				C95B7F6C138F3C55004311DA /* pause.c in Sources */,
 				C95B7F6D138F3C55004311DA /* popen.c in Sources */,
-				C95B7F6E138F3C55004311DA /* pselect.c in Sources */,
 				C95B7F6F138F3C55004311DA /* psignal.c in Sources */,
 				C95B7F70138F3C55004311DA /* raise.c in Sources */,
 				C95B7F71138F3C55004311DA /* readdir.c in Sources */,
@@ -10946,7 +10930,6 @@
 				C95B8216138F52B0004311DA /* opendir.c in Sources */,
 				C95B8217138F52B0004311DA /* pause.c in Sources */,
 				C95B8218138F52B0004311DA /* popen.c in Sources */,
-				C95B8219138F52B0004311DA /* pselect.c in Sources */,
 				C95B821A138F52B0004311DA /* psignal.c in Sources */,
 				C95B821B138F52B0004311DA /* raise.c in Sources */,
 				C95B821C138F52B0004311DA /* readdir.c in Sources */,
@@ -11484,7 +11467,6 @@
 				C95B84BC138F53DB004311DA /* opendir.c in Sources */,
 				C95B84BD138F53DB004311DA /* pause.c in Sources */,
 				C95B84BE138F53DB004311DA /* popen.c in Sources */,
-				C95B84BF138F53DB004311DA /* pselect.c in Sources */,
 				C95B84C0138F53DB004311DA /* psignal.c in Sources */,
 				C95B84C1138F53DB004311DA /* raise.c in Sources */,
 				C95B84C2138F53DB004311DA /* readdir.c in Sources */,
@@ -12036,7 +12018,6 @@
 				C97A701D1517AF53005E1998 /* opendir.c in Sources */,
 				C97A701E1517AF53005E1998 /* pause.c in Sources */,
 				C97A701F1517AF53005E1998 /* popen.c in Sources */,
-				C97A70201517AF53005E1998 /* pselect.c in Sources */,
 				C97A70211517AF53005E1998 /* psignal.c in Sources */,
 				C97A70221517AF53005E1998 /* raise.c in Sources */,
 				C97A70231517AF53005E1998 /* readdir.c in Sources */,
@@ -12756,7 +12737,6 @@
 				C9765F40138EC61900741512 /* opendir.c in Sources */,
 				C9765F41138EC61900741512 /* pause.c in Sources */,
 				C9765F42138EC61900741512 /* popen.c in Sources */,
-				C9765F43138EC61900741512 /* pselect.c in Sources */,
 				C9765F44138EC61900741512 /* psignal.c in Sources */,
 				C9765F45138EC61900741512 /* raise.c in Sources */,
 				C9765F46138EC61900741512 /* readdir.c in Sources */,
@@ -13294,7 +13274,6 @@
 				C9EB305B138F6D880075BB52 /* opendir.c in Sources */,
 				C9EB305C138F6D880075BB52 /* pause.c in Sources */,
 				C9EB305D138F6D880075BB52 /* popen.c in Sources */,
-				C9EB305E138F6D880075BB52 /* pselect.c in Sources */,
 				C9EB305F138F6D880075BB52 /* psignal.c in Sources */,
 				C9EB3060138F6D880075BB52 /* raise.c in Sources */,
 				C9EB3061138F6D880075BB52 /* readdir.c in Sources */,
@@ -13833,7 +13812,6 @@
 				C9EB3302138F75580075BB52 /* opendir.c in Sources */,
 				C9EB3303138F75580075BB52 /* pause.c in Sources */,
 				C9EB3304138F75580075BB52 /* popen.c in Sources */,
-				C9EB3305138F75580075BB52 /* pselect.c in Sources */,
 				C9EB3306138F75580075BB52 /* psignal.c in Sources */,
 				C9EB3307138F75580075BB52 /* raise.c in Sources */,
 				C9EB3308138F75580075BB52 /* readdir.c in Sources */,

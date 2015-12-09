@@ -333,7 +333,7 @@ local_clock(
 			    fp_offset);
 			report_event(EVNT_SPIK, NULL, tbuf);
 			state = EVNT_SPIK;
-			msyslog(LOG_NOTICE, "SYNC state ignoring %+.6f s",
+			msyslog(LOG_DEBUG, "SYNC state ignoring %+.6f s",
 						fp_offset);
 			return (0);
 
@@ -344,7 +344,7 @@ local_clock(
 		 */
 		case EVNT_FREQ:
 			if (mu < clock_minstep) {
-				msyslog(LOG_NOTICE, "FREQ state ignoring %+.6f s",
+				msyslog(LOG_DEBUG, "FREQ state ignoring %+.6f s",
 						fp_offset);
 
 				return (0);
@@ -360,7 +360,7 @@ local_clock(
 		 */
 		case EVNT_SPIK:
 			if (mu < clock_minstep) {
-				msyslog(LOG_NOTICE, "SPIK state ignoring %+.6f s",
+				msyslog(LOG_DEBUG, "SPIK state ignoring %+.6f s",
 						fp_offset);
 
 				return (0);
@@ -452,7 +452,7 @@ local_clock(
 		 */
 		case EVNT_FREQ:
 			if (mu < clock_minstep) {
-				msyslog(LOG_NOTICE, "FREQ state ignoring %+.6f s",
+				msyslog(LOG_DEBUG, "FREQ state ignoring %+.6f s",
 						fp_offset);
 				return (0);
 			}

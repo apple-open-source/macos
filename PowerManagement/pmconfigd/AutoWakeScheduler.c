@@ -1409,10 +1409,11 @@ __private_extern__ bool checkPendingWakeReqs(int options)
             wakeup_abs = getWakeScheduleTime(event);
             if (!wakeup_abs) continue;
 
-            wakeup_date = CFDateCreate(0, wakeup_abs);
 
             if (wakeup_abs < lowerbound_ts)
                 continue;
+
+            wakeup_date = CFDateCreate(0, wakeup_abs);
 
             if (wakeup_abs > upperbound_ts) {
                 break;

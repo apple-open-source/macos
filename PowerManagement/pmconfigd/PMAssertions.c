@@ -2597,6 +2597,7 @@ __private_extern__ void HandleProcessExit(pid_t deadPID)
     int i;
     assertionType_t *assertType = NULL;
     assertion_t     *assertion = NULL;
+    assertion_t     *nextAssertion = NULL;
     __block LIST_HEAD(, assertion) list  = LIST_HEAD_INITIALIZER(list);     /* list of assertions released */
     ProcessInfo         *pinfo = NULL;
 
@@ -2624,14 +2625,17 @@ __private_extern__ void HandleProcessExit(pid_t deadPID)
             (*assertType->handler)(assertType, kAssertionOpRelease);
 
         /* Release memory after calling the handler to get proper aggregate_assertions value into log */
-        while( (assertion = LIST_FIRST(&list)) )
+        assertion = LIST_FIRST(&list);
+        while (assertion != NULL)
         {
 #if !TARGET_OS_SIMULATOR
             entr_act_end(kEnTrCompSysPower, kEnTrActSPPMAssertion,
                                     assertion->assertionId, kEnTrQualNone, kEnTrValNone);
 #endif
             LIST_REMOVE(assertion, link);
+            nextAssertion = LIST_FIRST(&list);
             releaseAssertionMemory(assertion, kAClientDeathLog);
+            assertion = nextAssertion;
         }
 
     }

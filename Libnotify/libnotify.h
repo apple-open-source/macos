@@ -24,6 +24,7 @@
 #ifndef _LIBNOTIFY_H_
 #define _LIBNOTIFY_H_
 
+#include <sys/queue.h>
 #include <pthread.h>
 #include <mach/mach.h>
 #include <dispatch/dispatch.h>
@@ -130,11 +131,12 @@ typedef struct
 	uint64_t state;
 	uint64_t state_time;
 	void *private;
-	list_t *subscriptions;
+	LIST_HEAD(, client_s) subscriptions;
 } name_info_t;
 
-typedef struct
+typedef struct client_s
 {
+	LIST_ENTRY(client_s) client_subscription_entry;
 	uint64_t client_id;
 	uint32_t state;
 	name_info_t *name_info;

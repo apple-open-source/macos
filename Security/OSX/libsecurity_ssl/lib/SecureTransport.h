@@ -303,11 +303,6 @@ typedef CF_ENUM(int, SSLConnectionType)
     kSSLDatagramType
 };
 
-typedef CF_ENUM(int, SSLSessionStrengthPolicy)
-{
-    kSSLSessionStrengthPolicyDefault,
-    kSSLSessionStrengthPolicyATSv1
-};
 
 /******************
  *** Public API ***
@@ -722,6 +717,19 @@ SSLGetEnabledCiphers		(SSLContextRef			context,
 							 SSLCipherSuite			*ciphers,		/* RETURNED */
 							 size_t					*numCiphers)	/* IN/OUT */
 	__OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_5_0);
+
+
+/* Deprecated, does nothing */
+typedef CF_ENUM(int, SSLSessionStrengthPolicy)
+{
+    kSSLSessionStrengthPolicyDefault,
+    kSSLSessionStrengthPolicyATSv1,
+    kSSLSessionStrengthPolicyATSv1_noPFS,
+};
+
+OSStatus
+SSLSetSessionStrengthPolicy(SSLContextRef context,
+                            SSLSessionStrengthPolicy policyStrength);
 
 
 #if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
@@ -1341,14 +1349,6 @@ SSLGetDatagramWriteSize		(SSLContextRef dtlsContext,
 OSStatus
 SSLClose					(SSLContextRef		context)
 	__OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_5_0);
-
-/*
- * Set the minimum acceptable strength of policy to be negotiated for an
- * ATS session
- */
-OSStatus
-SSLSetSessionStrengthPolicy(SSLContextRef context,
-                            SSLSessionStrengthPolicy policyStrength);
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

@@ -316,16 +316,14 @@ sigio_handler(
 	get_systime(&ts);
 
 # if defined(HAVE_SIGACTION)
-	sigio_handler_active++;
-	if (sigio_handler_active != 1)  /* This should never happen! */
+	if (__sync_add_and_fetch(&sigio_handler_active, 1) != 1)  /* This should never happen! */
 	    msyslog(LOG_ERR, "sigio_handler: sigio_handler_active != 1");
 # endif
 
 	(void)input_handler(&ts);
 
 # if defined(HAVE_SIGACTION)
-	sigio_handler_active--;
-	if (sigio_handler_active != 0)  /* This should never happen! */
+	if (__sync_sub_and_fetch(&sigio_handler_active, 1) != 0)  /* This should never happen! */
 	    msyslog(LOG_ERR, "sigio_handler: sigio_handler_active != 0");
 # endif
 
@@ -372,11 +370,11 @@ block_io_and_alarm(void)
 void
 block_sigio(void)
 {
+    __sync_add_and_fetch(&sigio_block_count, 1);
 	if ( sigio_handler_active == 0 )  /* not called from within signal handler */
 	{
 		sigset_t set;
 
-		++sigio_block_count;
 		if (sigio_block_count > 1)
 		    msyslog(LOG_INFO, "block_sigio: sigio_block_count > 1");
 		if (sigio_block_count < 1)
@@ -424,11 +422,11 @@ unblock_io_and_alarm(void)
 void
 unblock_sigio(void)
 {
+    __sync_sub_and_fetch(&sigio_block_count, 1);
 	if ( sigio_handler_active == 0 )  /* not called from within signal handler */
 	{
 		sigset_t unset;
 
-		--sigio_block_count;
 		if (sigio_block_count > 0)
 		    msyslog(LOG_INFO, "unblock_sigio: sigio_block_count > 0");
 		if (sigio_block_count < 0)

@@ -41,6 +41,10 @@ static my_per_task_info_t NOT_FOUND_TASK_INFO = {
     .treeCount = 0,
     .valid = FALSE,
     .processName = "Unknown",
+    .exceptionInfo = {0},
+    .threadInfos = NULL,
+    .threadCount = 0,
+    .threadExceptionInfos = NULL
 };
 
 char * get_task_name_by_pid(pid_t pid);
@@ -81,10 +85,79 @@ kern_return_t collect_per_task_info(my_per_task_info_t *taskinfo, task_t target_
     
     taskinfo->task = target_task;
     pid_for_task(target_task, &taskinfo->pid);
+
+    ret = task_get_exception_ports(taskinfo->task, EXC_MASK_ALL, taskinfo->exceptionInfo.masks, &taskinfo->exceptionInfo.count, taskinfo->exceptionInfo.ports, taskinfo->exceptionInfo.behaviors, taskinfo->exceptionInfo.flavors);
+
+    if (ret != KERN_SUCCESS) {
+        fprintf(stderr, "task_get_exception_ports() failed: pid:%d error: %s\n",taskinfo->pid, mach_error_string(ret));
+        taskinfo->pid = 0;
+    }
+
+    /* collect threads port as well */
+    taskinfo->threadCount = 0;
+    thread_act_array_t threadPorts;
+    ret = task_threads(taskinfo->task, &threadPorts, &taskinfo->threadCount);
+
+    if (ret != KERN_SUCCESS) {
+        fprintf(stderr, "task_threads() failed: pid:%d error: %s\n",taskinfo->pid, mach_error_string(ret));
+        taskinfo->threadCount = 0;
+    } else {
+        /* collect the thread information */
+        taskinfo->threadInfos = (struct my_per_thread_info *)malloc(sizeof(struct my_per_thread_info) * taskinfo->threadCount);
+        bzero(taskinfo->threadInfos, sizeof(struct my_per_thread_info) * taskinfo->threadCount);
+
+        /* now collect exception ports for each of those threads as well */
+        taskinfo->threadExceptionInfos = (struct exc_port_info *) malloc(sizeof(struct exc_port_info) * taskinfo->threadCount);
+        boolean_t found_exception = false;
+        for (int i = 0; i < taskinfo->threadCount; i++) {
+            unsigned th_kobject = 0;
+            unsigned th_kotype = 0;
+            ipc_voucher_t th_voucher = IPC_VOUCHER_NULL;
+            thread_identifier_info_data_t th_info;
+            mach_msg_type_number_t th_info_count = THREAD_IDENTIFIER_INFO_COUNT;
+            struct exc_port_info *excinfo = &(taskinfo->threadExceptionInfos[i]);
+
+            ret = thread_get_exception_ports(threadPorts[i], EXC_MASK_ALL, excinfo->masks, &excinfo->count, excinfo->ports, excinfo->behaviors, excinfo->flavors);
+            if (ret != KERN_SUCCESS){
+                fprintf(stderr, "thread_get_exception_ports() failed: pid: %d thread: %d error %s\n", taskinfo->pid, threadPorts[i], mach_error_string(ret));
+            }
+
+            if (excinfo->count != 0) {
+                found_exception = true;
+            }
+
+            taskinfo->threadInfos[i].thread = threadPorts[i];
+
+            if (KERN_SUCCESS == mach_port_kernel_object(mach_task_self(), threadPorts[i], &th_kotype, &th_kobject)) {
+                taskinfo->threadInfos[i].th_kobject = th_kobject;
+                if (KERN_SUCCESS == thread_info(threadPorts[i], THREAD_IDENTIFIER_INFO, (thread_info_t)&th_info, &th_info_count)) {
+                    taskinfo->threadInfos[i].th_id = th_info.thread_id;
+                }
+            }
+
+            if (KERN_SUCCESS == thread_get_mach_voucher(threadPorts[i], 0, &th_voucher) && th_voucher != IPC_VOUCHER_NULL) {
+                char *detail = copy_voucher_detail(mach_task_self(), th_voucher);
+                taskinfo->threadInfos[i].voucher_detail = strndup(detail, VOUCHER_DETAIL_MAXLEN);
+                free(detail);
+
+                mach_port_deallocate(mach_task_self(), th_voucher);
+            }
+
+            mach_port_deallocate(mach_task_self(), threadPorts[i]);
+            threadPorts[i] = MACH_PORT_NULL;
+        }
+
+        if (found_exception == false) {
+            free(taskinfo->threadExceptionInfos);
+            taskinfo->threadExceptionInfos = NULL;
+        }
+
+    }
+
+    vm_deallocate(mach_task_self(), threadPorts, taskinfo->threadCount * sizeof(thread_act_t));
+    threadPorts = NULL;
     
-    ret = mach_port_space_info(target_task, &taskinfo->info,
-                               &taskinfo->table, &taskinfo->tableCount,
-                               &taskinfo->tree, &taskinfo->treeCount);
+    ret = mach_port_space_info(target_task, &taskinfo->info, &taskinfo->table, &taskinfo->tableCount, &taskinfo->tree, &taskinfo->treeCount);
     
     if (ret != KERN_SUCCESS) {
         fprintf(stderr, "mach_port_space_info() failed: pid:%d error: %s\n",taskinfo->pid, mach_error_string(ret));
@@ -93,6 +166,7 @@ kern_return_t collect_per_task_info(my_per_task_info_t *taskinfo, task_t target_
     }
     
     proc_pid_to_name(taskinfo->pid, taskinfo->processName);
+
     ret = mach_port_kernel_object(mach_task_self(), taskinfo->task, &kotype, (unsigned *)&kobject);
     
     if (ret == KERN_SUCCESS && kotype == IKOT_TASK) {
@@ -103,13 +177,7 @@ kern_return_t collect_per_task_info(my_per_task_info_t *taskinfo, task_t target_
     return ret;
 }
 
-struct exc_port_info {
-    mach_msg_type_number_t   count;
-    mach_port_t      ports[EXC_TYPES_COUNT];
-    exception_mask_t masks[EXC_TYPES_COUNT];
-    exception_behavior_t behaviors[EXC_TYPES_COUNT];
-    thread_state_flavor_t flavors[EXC_TYPES_COUNT];
-};
+
 
 void get_exc_behavior_string(exception_behavior_t b, char *out_string, size_t len)
 {
@@ -165,51 +233,41 @@ void get_exc_mask_string(exception_mask_t m, char *out_string, size_t len)
 
 kern_return_t print_task_exception_info(my_per_task_info_t *taskinfo)
 {
-    kern_return_t kr = KERN_SUCCESS;
-    exception_mask_t mask = EXC_MASK_ALL;
-    struct exc_port_info excinfo;
+
     char behavior_string[30];
     char mask_string[200];
-    
-    kr = task_get_exception_ports(taskinfo->task, mask, excinfo.masks, &excinfo.count, excinfo.ports, excinfo.behaviors, excinfo.flavors);
-    
-    if (kr != KERN_SUCCESS) {
-        fprintf(stderr, "Failed task_get_exception_ports task: %d pid: %d\n", taskinfo->task, taskinfo->pid);
-        return kr;
-    }
+
     boolean_t header_required = TRUE;
-    for (int i = 0; i < excinfo.count; i++) {
-        if (excinfo.ports[i] != MACH_PORT_NULL) {
+    for (int i = 0; i < taskinfo->exceptionInfo.count; i++) {
+        if (taskinfo->exceptionInfo.ports[i] != MACH_PORT_NULL) {
             if (header_required) {
-                printf("port        flavor <behaviors>           mask   \n");
+
+                printf("    exc_port    flavor <behaviors>           mask   \n");
                 header_required = FALSE;
             }
-            get_exc_behavior_string(excinfo.behaviors[i], behavior_string, sizeof(behavior_string));
-            get_exc_mask_string(excinfo.masks[i], mask_string, 200);
-            printf("0x%08x  0x%03x  <%s> %s  \n" , excinfo.ports[i], excinfo.flavors[i], behavior_string, mask_string);
-            mach_port_deallocate(mach_task_self(), excinfo.ports[i]);
+            get_exc_behavior_string(taskinfo->exceptionInfo.behaviors[i], behavior_string, sizeof(behavior_string));
+            get_exc_mask_string(taskinfo->exceptionInfo.masks[i], mask_string, 200);
+            printf("    0x%08x  0x%03x  <%s>           %s  \n" , taskinfo->exceptionInfo.ports[i], taskinfo->exceptionInfo.flavors[i], behavior_string, mask_string);
         }
         
     }
     
-    return kr;
+    return KERN_SUCCESS;
 }
 
 
 kern_return_t print_task_threads_special_ports(my_per_task_info_t *taskinfo)
 {
     kern_return_t kret = KERN_SUCCESS;
-    thread_act_array_t threadlist;
-    mach_msg_type_number_t threadcount=0;
-    kret = task_threads(taskinfo->task, &threadlist, &threadcount);
+    mach_msg_type_number_t threadcount = taskinfo->threadCount;
     boolean_t header_required = TRUE;
     boolean_t newline_required = TRUE;
-    unsigned th_kobject = 0;
-    unsigned th_kotype = 0;
+    struct my_per_thread_info * info = NULL;
     
     for (int i = 0; i < threadcount; i++) {
+        info = &taskinfo->threadInfos[i];
         if (header_required) {
-            printf("Threads             Thread-ID     Port Description.");
+            printf("Thread_KObject  Thread-ID     Port Description.");
             header_required = FALSE;
         }
         
@@ -217,26 +275,62 @@ kern_return_t print_task_threads_special_ports(my_per_task_info_t *taskinfo)
             printf("\n");
         }
         newline_required = TRUE;
-        if (KERN_SUCCESS == mach_port_kernel_object(mach_task_self(), threadlist[i], &th_kotype, &th_kobject)) {
+        
+        if (info->th_kobject != 0) {
             /* TODO: Should print tid and stuff */
-            thread_identifier_info_data_t th_info;
-            mach_msg_type_number_t th_info_count = THREAD_IDENTIFIER_INFO_COUNT;
-            printf("0x%08x ", th_kobject);
-            if (KERN_SUCCESS == thread_info(threadlist[i], THREAD_IDENTIFIER_INFO, (thread_info_t)&th_info, &th_info_count)) {
-                printf("0x%llx  ", th_info.thread_id);
-            }
-            else
-                printf("                   ");
-            
+            printf("0x%08x       ", info->th_kobject);
+            printf("0x%llx  ", info->th_id);
         }
 
-        ipc_voucher_t th_voucher = IPC_VOUCHER_NULL;
-        if (KERN_SUCCESS == thread_get_mach_voucher(threadlist[i], 0, &th_voucher) && th_voucher != IPC_VOUCHER_NULL) {
-            show_voucher_detail(mach_task_self(), th_voucher);
-            mach_port_deallocate(mach_task_self(), th_voucher);
-            newline_required = FALSE;
+        if (info->voucher_detail != NULL) {
+            printf("%s\n", info->voucher_detail);
         }
-        mach_port_deallocate(mach_task_self(), threadlist[i]);
+
+        /* print the thread exception ports also */
+        if (taskinfo->threadExceptionInfos != NULL)
+        {
+
+            struct exc_port_info *excinfo = &taskinfo->threadExceptionInfos[i];
+            char behavior_string[30];
+            char mask_string[200];
+
+            if (excinfo->count > 0) {
+                boolean_t header_required = TRUE;
+                for (int i = 0; i < excinfo->count; i++) {
+                    if (excinfo->ports[i] != MACH_PORT_NULL) {
+                        if (header_required) {
+                            printf("\n    exc_port    flavor <behaviors>           mask   -> name    owner\n");
+                            header_required = FALSE;
+                        }
+                        get_exc_behavior_string(excinfo->behaviors[i], behavior_string, sizeof(behavior_string));
+                        get_exc_mask_string(excinfo->masks[i], mask_string, sizeof(mask_string));
+                        printf("    0x%08x  0x%03x  <%s>           %s  " , excinfo->ports[i], excinfo->flavors[i], behavior_string, mask_string);
+
+                        ipc_info_name_t actual_sendinfo;
+                        if (KERN_SUCCESS == get_ipc_info_from_lsmp_spaceinfo(excinfo->ports[i], &actual_sendinfo)) {
+                            my_per_task_info_t *recv_holder_taskinfo;
+                            mach_port_name_t recv_name = MACH_PORT_NULL;
+                            if (KERN_SUCCESS == get_taskinfo_of_receiver_by_send_right(&actual_sendinfo, &recv_holder_taskinfo, &recv_name)) {
+                                printf("   -> 0x%08x  0x%08x  (%d) %s\n",
+                                       recv_name,
+                                       actual_sendinfo.iin_object,
+                                       recv_holder_taskinfo->pid,
+                                       recv_holder_taskinfo->processName);
+                            }
+
+                        } else {
+                            fprintf(stderr, "failed to find");
+                        }
+
+                        printf("\n");
+
+                    }
+
+                }
+            }
+
+        }
+
     }
     printf("\n");
     return kret;
@@ -281,6 +375,29 @@ kern_return_t get_taskinfo_of_receiver_by_send_right(ipc_info_name_t *sendright,
         }
     }
     return retval;
+}
+
+kern_return_t get_ipc_info_from_lsmp_spaceinfo(mach_port_t port_name, ipc_info_name_t *out_sendright){
+    kern_return_t retval = KERN_FAILURE;
+    bzero(out_sendright, sizeof(ipc_info_name_t));
+    my_per_task_info_t *mytaskinfo = NULL;
+    for (int i = global_taskcount - 1; i >= 0; i--){
+        if (global_taskinfo[i].task == mach_task_self()){
+            mytaskinfo = &global_taskinfo[i];
+            break;
+        }
+    }
+    if (mytaskinfo) {
+        for (int k = 0; k < mytaskinfo->tableCount; k++) {
+            if (port_name == mytaskinfo->table[k].iin_name){
+                bcopy(&mytaskinfo->table[k], out_sendright, sizeof(ipc_info_name_t));
+                retval = KERN_SUCCESS;
+                break;
+            }
+        }
+    }
+    return retval;
+
 }
 
 

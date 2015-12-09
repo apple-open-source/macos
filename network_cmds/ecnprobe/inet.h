@@ -55,6 +55,9 @@ typedef unsigned int uint32;
 #define IPPROTOCOL_UDP		17
 #define IP_DF 0x4000
 
+/* ICMP type */
+#define ICMP_TIMXCEED	11
+
 /* TCP Flags */
 #define TCPFLAGS_FIN	0x01
 #define TCPFLAGS_SYN	0x02
@@ -149,6 +152,16 @@ struct ICMPUnreachableErrorPacket {
   struct IcmpHeader icmp;
   struct IpHeader off_ip;
   /* 8-first bytes of TCP header */
+  uint16 tcp_sport;
+  uint16 tcp_dport;
+  uint32 tcp_seqno;
+};
+
+struct ICMPTimeExceededErrorPacket {
+  struct IpHeader ip;
+  struct IcmpHeader icmp;
+  struct IpHeader off_ip;
+  /* 8-first bytes of Tcpheader */
   uint16 tcp_sport;
   uint16 tcp_dport;
   uint32 tcp_seqno;

@@ -17,16 +17,15 @@
 	Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-/* $Id: proto-t1.h 3292 2009-01-26 13:02:58Z rousseau $ */
+/* $Id$ */
 
 #ifndef __PROTO_T1_H__
 #define __PROTO_T1_H__
 
-#include "config.h"
+#include <config.h>
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
-#include <unistd.h>
 
 #include "buffer.h"
 

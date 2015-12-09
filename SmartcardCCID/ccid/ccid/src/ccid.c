@@ -18,16 +18,27 @@
 */
 
 /*
- * $Id: ccid.c 6783 2013-10-24 09:36:52Z rousseau $
+ * $Id$
  */
 
+#include <config.h>
+
+#ifdef HAVE_STDIO_H
 #include <stdio.h>
+#endif
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
+#endif
+#ifdef HAVE_STRING_H
 #include <string.h>
+#endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
 #include <pcsclite.h>
 #include <ifdhandler.h>
 
-#include "config.h"
 #include "debug.h"
 #include "ccid.h"
 #include "defs.h"
@@ -50,12 +61,6 @@ int ccid_open_hack_pre(unsigned int reader_index)
 
 	switch (ccid_descriptor->readerID)
 	{
-		case CARDMAN3121+1:
-			/* Reader announces APDU but is in fact TPDU */
-			ccid_descriptor->dwFeatures &= ~CCID_CLASS_EXCHANGE_MASK;
-			ccid_descriptor->dwFeatures |= CCID_CLASS_TPDU;
-			break;
-
 		case MYSMARTPAD:
 			ccid_descriptor->dwMaxIFSD = 254;
 			break;
@@ -66,17 +71,9 @@ int ccid_open_hack_pre(unsigned int reader_index)
 			ccid_descriptor->readTimeout = 60*1000; /* 60 seconds */
 			break;
 
-		case GEMPCTWIN:
-		case GEMPCKEY:
-		case DELLSCRK:
-			/* Only the chipset with firmware version 2.00 is "bogus"
-			 * The reader may send packets of 0 bytes when the reader is
-			 * connected to a USB 3 port */
-			if (0x0200 == ccid_descriptor->IFD_bcdDevice)
-			{
-				ccid_descriptor->zlp = TRUE;
-				DEBUG_INFO("ZLP fixup");
-			}
+		case OZ776:
+		case OZ776_7772:
+			ccid_descriptor->dwMaxDataRate = 9600;
 			break;
 	}
 
@@ -144,7 +141,7 @@ static void dump_gemalto_firmware_features(struct GEMALTO_FIRMWARE_FEATURES *gff
 	DEBUG_INFO2(" bEntryValidationCondition: 0x%02X",
 		gff->bEntryValidationCondition);
 
-	DEBUG_INFO(" Reader supports PC/SCv2 features:");
+	DEBUG_INFO1(" Reader supports PC/SCv2 features:");
 	DEBUG_INFO2("  VerifyPinStart: %s", YESNO(gff->VerifyPinStart));
 	DEBUG_INFO2("  VerifyPinFinish: %s", YESNO(gff->VerifyPinFinish));
 	DEBUG_INFO2("  ModifyPinStart: %s", YESNO(gff->ModifyPinStart));
@@ -199,8 +196,8 @@ static void set_gemalto_firmware_features(unsigned int reader_index)
 		unsigned int len_features = sizeof *gf_features;
 		RESPONSECODE ret;
 
-		ret = CmdEscape(reader_index, cmd, sizeof cmd,
-			(unsigned char*)gf_features, &len_features, 0);
+		ret = CmdEscapeCheck(reader_index, cmd, sizeof cmd,
+			(unsigned char*)gf_features, &len_features, 0, TRUE);
 		if ((IFD_SUCCESS == ret) &&
 		    (len_features == sizeof *gf_features))
 		{
@@ -427,7 +424,7 @@ int ccid_open_hack_post(unsigned int reader_index)
 				}
 
 				(void)sleep(1);
-				if (IFD_SUCCESS == CmdEscape(reader_index, cmd, sizeof(cmd), res, &length_res, 0))
+				if (IFD_SUCCESS == CmdEscape(reader_index, cmd, sizeof(cmd), res, &length_res, DEFAULT_COM_READ_TIMEOUT))
 				{
 					DEBUG_COMM("l10n string loaded successfully");
 				}
@@ -436,11 +433,27 @@ int ccid_open_hack_post(unsigned int reader_index)
 					DEBUG_COMM("Failed to load l10n strings");
 					return_value = IFD_COMMUNICATION_ERROR;
 				}
+
+				if (DriverOptions & DRIVER_OPTION_DISABLE_PIN_RETRIES)
+				{
+					/* disable VERIFY from reader */
+					const unsigned char cmd2[] = {0xb5, 0x00};
+					length_res = sizeof(res);
+					if (IFD_SUCCESS == CmdEscape(reader_index, cmd2, sizeof(cmd2), res, &length_res, DEFAULT_COM_READ_TIMEOUT))
+					{
+						DEBUG_COMM("Disable SPE retry counter successfull");
+					}
+					else
+					{
+						DEBUG_CRITICAL("Failed to disable SPE retry counter");
+					}
+				}
 			}
 			break;
 
 		case HPSMARTCARDKEYBOARD:
 		case HP_CCIDSMARTCARDKEYBOARD:
+		case FUJITSUSMARTKEYB:
 			/* the Secure Pin Entry is bogus so disable it
 			 * http://martinpaljak.net/2011/03/19/insecure-hp-usb-smart-card-keyboard/
 			 */
@@ -499,8 +512,10 @@ int ccid_open_hack_post(unsigned int reader_index)
  *					ccid_error
  *
  ****************************************************************************/
-void ccid_error(int error, const char *file, int line, const char *function)
+void ccid_error(int log_level, int error, const char *file, int line,
+	const char *function)
 {
+#ifndef NO_LOG
 	const char *text;
 	char var_text[30];
 
@@ -617,7 +632,8 @@ void ccid_error(int error, const char *file, int line, const char *function)
 			text = var_text;
 			break;
 	}
-	log_msg(PCSC_LOG_ERROR, "%s:%d:%s %s", file, line, function, text);
+	log_msg(log_level, "%s:%d:%s %s", file, line, function, text);
+#endif
 
 } /* ccid_error */
 

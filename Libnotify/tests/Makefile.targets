@@ -1,0 +1,119 @@
+# Basic compilation rules for libdarwintest using tests
+#
+# Makefile.common should be included before including this file.
+# 
+# This will automatically compile all *.c and *.m files.  Tests that are
+# multi-file should be placed in their own directory so that they are ignored
+# by the default rules.  
+#
+# Custom rules can then be written and the target defined in OTHER_TARGETS
+# before this file is included to avoid them being compiled by the default
+# rules.  
+#
+# If TARGETS is defined prior to this file being included, only the
+# targets listed there will be compiled.
+#
+# The values of OTHER_CFLAGS and OTHER_LDFLAGS will be used when building the
+# tests.
+
+VPATH = $(SRCROOT):$(OBJROOT):$(SYMROOT):$(DSTROOT)
+
+SOURCES_c := $(notdir $(wildcard $(SRCROOT)/*.c))
+SOURCES_m := $(notdir $(wildcard $(SRCROOT)/*.m))
+ifndef TARGETS
+TARGETS_c := $(filter-out $(OTHER_TARGETS),$(patsubst %.c,%,$(SOURCES_c)))
+TARGETS_m := $(filter-out $(OTHER_TARGETS),$(patsubst %.m,%,$(SOURCES_m)))
+TARGETS := $(TARGETS_c) $(TARGETS_m) $(OTHER_TARGETS)
+else
+TARGETS_c := $(filter-out $(OTHER_TARGETS),$(filter $(TARGETS),$(patsubst %.c,%,$(SOURCES_c))))
+TARGETS_m := $(filter-out $(OTHER_TARGETS),$(filter $(TARGETS),$(patsubst %.m,%,$(SOURCES_m))))
+endif
+TESTS   := $(patsubst %,test-%,$(TARGETS))
+
+# We currently don't support libdarwintest in the simulator
+ifeq ($(Simulator),YES)
+TARGETS :=
+TESTS :=
+endif
+
+all: $(TARGETS)
+
+% :: %.c
+	$(CC) $(OTHER_CFLAGS) $(CFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $< -o $(SYMROOT)/$@
+
+% :: %.m
+	$(CC) $(OTHER_CFLAGS) $(CFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $(OBJCFLAGS) $< -o $(SYMROOT)/$@
+
+$(TARGETS_c): % : %.c
+	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $< -o $(SYMROOT)/$@
+
+$(TARGETS_m): % : %.m
+	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $(OBJCFLAGS) $< -o $(SYMROOT)/$@
+
+installhdrs:
+install: all bats.plist
+ifneq ($(TARGETS),)
+	mkdir -p $(INSTALLDIR)
+	cp $(patsubst %,$(SYMROOT)/%,$(TARGETS)) $(INSTALLDIR)/
+	mkdir -p $(DSTROOT)/AppleInternal/CoreOS/BATS/unit_tests
+	cp $(SYMROOT)/bats.plist $(DSTROOT)/AppleInternal/CoreOS/BATS/unit_tests/$(PROJECT).plist
+endif
+
+clean:
+	rm -rf $(wildcard $(OBJROOT)/*) $(wildcard $(SYMROOT)/*)
+
+define _bats_plist_generation_script
+BEGIN { 
+print "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+print "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">"
+print "<plist version=\"1.0\">"
+print "<dict>"
+print "   <key>BATSConfigVersion</key>"
+print "   <string>0.1.0</string>"
+print "   <key>Project</key>"
+print "   <string>$(PROJECT)</string>"
+print "   <key>Timeout</key>"
+print "   <integer>300</integer> "
+print "   <key>Tests</key>"
+print "   <array>"
+}
+
+{
+print "       <dict>"
+print "           <key>TestName</key>"
+print "           <string>" $$1 "</string>"
+print "           <key>WorkingDirectory</key>"
+print "           <string>$(INSTALLPATH)</string>"
+print "           <key>Arch</key>"
+print "           <string>platform-native</string>"
+print "           <key>AsRoot</key>"
+print "           <true/>"
+print "           <key>Command</key>"
+print "           <array>"
+print "               <string>./" $$1 "</string>"
+print "           </array>"
+print "           <key>Timeout</key>"
+print "           <integer>60</integer>"
+print "       </dict>"
+}
+
+END {
+print "   </array>"
+print "</dict>"
+print "</plist>"
+}
+endef
+export bats_plist_generation_script=$(_bats_plist_generation_script)
+
+bats.plist:
+ifneq ($(TARGETS),)
+	@echo $(TARGETS) | tr ' ' '\n' | awk "$$bats_plist_generation_script" > $(SYMROOT)/$@
+endif
+
+$(TESTS): test-%: %
+	@$(TEST_ENV) $<
+	@echo
+
+test: $(TESTS)
+
+.PHONY: all test clean install bats.plist $(TESTS)

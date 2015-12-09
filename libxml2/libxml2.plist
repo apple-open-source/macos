@@ -5,11 +5,11 @@
 	<key>OpenSourceProject</key>
 	<string>libxml2</string>
 	<key>OpenSourceVersion</key>
-	<string>2.9.0</string>
+	<string>2.9.2</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://xmlsoft.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://xmlsoft.org/sources/libxml2-2.9.0.tar.gz</string>
+	<string>http://xmlsoft.org/sources/libxml2-2.9.2.tar.gz</string>
 	<key>OpenSourceMD5</key>
 	<string>5b9bebf4f5d2200ae2c4efe8fa6103f7</string>
 	<key>OpenSourceImportDate</key>

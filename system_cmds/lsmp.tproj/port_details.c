@@ -81,64 +81,78 @@ static const unsigned int voucher_contents_size = 8192;
 static uint8_t voucher_contents[voucher_contents_size];
 
 
-void show_recipe_detail(mach_voucher_attr_recipe_t recipe) {
-    printf(VOUCHER_DETAIL_PREFIX "Key: %u, ", recipe->key);
-    printf("Command: %u, ", recipe->command);
-    printf("Previous voucher: 0x%x, ", recipe->previous_voucher);
-    printf("Content size: %u\n", recipe->content_size);
-    switch (recipe->key) {
-        case MACH_VOUCHER_ATTR_KEY_ATM:
-            printf(VOUCHER_DETAIL_PREFIX "ATM ID: %llu\n", *(uint64_t *)(uintptr_t)recipe->content);
-            break;
-        case MACH_VOUCHER_ATTR_KEY_IMPORTANCE:
-            printf(VOUCHER_DETAIL_PREFIX "IMPORTANCE INFO: %s\n", (char *)recipe->content);
-            break;
-        case MACH_VOUCHER_ATTR_KEY_BANK:
-            printf(VOUCHER_DETAIL_PREFIX "RESOURCE ACCOUNTING INFO: %s\n", (char *)recipe->content);
-            break;
-        default:
-            print_hex_data(VOUCHER_DETAIL_PREFIX, "Recipe Contents", (void *)recipe->content, MIN(recipe->content_size, lsmp_config.voucher_detail_length));
-            break;
-    }
-    
+static uint32_t safesize (int len){
+    return (len > 0)? len : 0;
 }
 
-void show_voucher_detail(mach_port_t task, mach_port_name_t voucher) {
+void show_recipe_detail(mach_voucher_attr_recipe_t recipe, char *voucher_outstr, uint32_t maxlen) {
+    uint32_t len = 0;
+    len += safesize(snprintf(&voucher_outstr[len], maxlen - len, VOUCHER_DETAIL_PREFIX "Key: %u, ", recipe->key));
+    len += safesize(snprintf(&voucher_outstr[len], maxlen - len, "Command: %u, ", recipe->command));
+    len += safesize(snprintf(&voucher_outstr[len], maxlen - len, "Previous voucher: 0x%x, ", recipe->previous_voucher));
+    len += safesize(snprintf(&voucher_outstr[len], maxlen - len, "Content size: %u\n", recipe->content_size));
+    switch (recipe->key) {
+        case MACH_VOUCHER_ATTR_KEY_ATM:
+            len += safesize(snprintf(&voucher_outstr[len], maxlen - len, VOUCHER_DETAIL_PREFIX "ATM ID: %llu\n", *(uint64_t *)(uintptr_t)recipe->content));
+            break;
+        case MACH_VOUCHER_ATTR_KEY_IMPORTANCE:
+            len += safesize(snprintf(&voucher_outstr[len], maxlen - len, VOUCHER_DETAIL_PREFIX "IMPORTANCE INFO: %s\n", (char *)recipe->content));
+            break;
+        case MACH_VOUCHER_ATTR_KEY_BANK:
+            len += safesize(snprintf(&voucher_outstr[len], maxlen - len, VOUCHER_DETAIL_PREFIX "RESOURCE ACCOUNTING INFO: %s\n", (char *)recipe->content));
+            break;
+        default:
+            print_hex_data(&voucher_outstr[len], maxlen - len, VOUCHER_DETAIL_PREFIX, "Recipe Contents", (void *)recipe->content, MIN(recipe->content_size, lsmp_config.voucher_detail_length));
+            break;
+    }
+
+}
+
+
+char * copy_voucher_detail(mach_port_t task, mach_port_name_t voucher) {
     unsigned int recipe_size = voucher_contents_size;
     kern_return_t kr = KERN_SUCCESS;
     bzero((void *)&voucher_contents[0], sizeof(voucher_contents));
     unsigned v_kobject = 0;
     unsigned v_kotype = 0;
+    uint32_t detail_maxlen = VOUCHER_DETAIL_MAXLEN;
+    char * voucher_outstr = (char *)malloc(detail_maxlen);
+    voucher_outstr[0] = '\0';
+    uint32_t plen = 0;
+
     kr = mach_port_kernel_object( task,
                                  voucher,
                                  &v_kotype, (unsigned *)&v_kobject);
     if (kr == KERN_SUCCESS && v_kotype == IKOT_VOUCHER ) {
- 
+
         kr = mach_voucher_debug_info(task, voucher,
                                      (mach_voucher_attr_raw_recipe_array_t)&voucher_contents[0],
                                      &recipe_size);
         if (kr != KERN_SUCCESS && kr != KERN_NOT_SUPPORTED) {
-            printf(VOUCHER_DETAIL_PREFIX "Voucher: 0x%x Failed to get contents %s\n", v_kobject, mach_error_string(kr));
-            return;
+            plen += safesize(snprintf(&voucher_outstr[plen], detail_maxlen - plen, VOUCHER_DETAIL_PREFIX "Voucher: 0x%x Failed to get contents %s\n", v_kobject, mach_error_string(kr)));
+            return voucher_outstr;
         }
- 
+
         if (recipe_size == 0) {
-            printf(VOUCHER_DETAIL_PREFIX "Voucher: 0x%x has no contents\n", v_kobject);
-            return;
+            plen += safesize(snprintf(&voucher_outstr[plen], detail_maxlen - plen, VOUCHER_DETAIL_PREFIX "Voucher: 0x%x has no contents\n", v_kobject));
+            return voucher_outstr;
         }
-        printf(VOUCHER_DETAIL_PREFIX "Voucher: 0x%x\n", v_kobject);
+
+        plen += safesize(snprintf(&voucher_outstr[plen], detail_maxlen - plen, VOUCHER_DETAIL_PREFIX "Voucher: 0x%x\n", v_kobject));
         unsigned int used_size = 0;
         mach_voucher_attr_recipe_t recipe = NULL;
         while (recipe_size > used_size) {
             recipe = (mach_voucher_attr_recipe_t)&voucher_contents[used_size];
             if (recipe->key) {
-                show_recipe_detail(recipe);
+                show_recipe_detail(recipe, &voucher_outstr[plen], detail_maxlen - plen);
             }
             used_size += sizeof(mach_voucher_attr_recipe_data_t) + recipe->content_size;
         }
     } else {
-        printf(VOUCHER_DETAIL_PREFIX "Invalid voucher: 0x%x\n", voucher);
+        plen += safesize(snprintf(&voucher_outstr[plen], detail_maxlen - plen, VOUCHER_DETAIL_PREFIX "Invalid voucher: 0x%x\n", voucher));
     }
+    
+    return voucher_outstr;
 }
 
 void get_receive_port_context(task_t taskp, mach_port_name_t portname, mach_port_context_t *context) {
@@ -373,7 +387,9 @@ void show_task_mach_ports(my_per_task_info_t *taskinfo, uint32_t taskCount, my_p
             if (kotype == IKOT_VOUCHER) {
                 vouchercount++;
                 if (lsmp_config.show_voucher_details) {
-                    show_voucher_detail(taskinfo->task, taskinfo->table[i].iin_name);
+                    char * detail = copy_voucher_detail(taskinfo->task, taskinfo->table[i].iin_name);
+                    printf("%s\n", detail);
+                    free(detail);
                 }
             }
 			continue;
@@ -414,24 +430,25 @@ void show_task_mach_ports(my_per_task_info_t *taskinfo, uint32_t taskCount, my_p
     
 }
 
-void print_hex_data(char *prefix, char *desc, void *addr, int len) {
+void print_hex_data(char *outstr, size_t maxlen, char *prefix, char *desc, void *addr, int len) {
     int i;
     unsigned char buff[17];
     unsigned char *pc = addr;
+    uint32_t plen = 0;
     
     if (desc != NULL)
-        printf ("%s%s:\n", prefix, desc);
+        plen += safesize(snprintf(&outstr[len], maxlen - plen, "%s%s:\n", prefix, desc));
     
     for (i = 0; i < len; i++) {
         
         if ((i % 16) == 0) {
             if (i != 0)
-                printf ("  %s\n", buff);
+                plen += safesize(snprintf(&outstr[len], maxlen - plen, "  %s\n", buff));
             
-            printf ("%s  %04x ", prefix, i);
+            plen += safesize(snprintf(&outstr[len], maxlen - plen, "%s  %04x ", prefix, i));
         }
         
-        printf (" %02x", pc[i]);
+        plen += safesize(snprintf(&outstr[len], maxlen - plen, " %02x", pc[i]));
         
         if ((pc[i] < 0x20) || (pc[i] > 0x7e))
             buff[i % 16] = '.';
@@ -441,9 +458,9 @@ void print_hex_data(char *prefix, char *desc, void *addr, int len) {
     }
     
     while ((i % 16) != 0) {
-        printf ("   ");
+        plen += safesize(snprintf(&outstr[len], maxlen - plen, "   "));
         i++;
     }
     
-    printf ("  %s\n", buff);
+    plen += safesize(snprintf(&outstr[len], maxlen - plen, "  %s\n", buff));
 }

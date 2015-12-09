@@ -684,6 +684,16 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 		krb5_cc_end_seq_get(pam_context, ccache_temp, &cursor);
 
 		PAM_LOG("Done iterating");
+
+		krbret = krb5_cc_destroy(pam_context, ccache_temp);
+		if (krbret != 0) {
+			PAM_LOG("Error krb5_cc_destroy(): %s",
+					krb5_get_err_text(pam_context, krbret));
+			krb5_cc_destroy(pam_context, ccache_perm);
+			retval = PAM_SERVICE_ERR;
+			goto cleanup2;
+		}
+		PAM_LOG("Temporary FILE cache destroyed");
 	}
 
 	/* Get the cache type and name */

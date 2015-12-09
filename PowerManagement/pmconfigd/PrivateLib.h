@@ -325,19 +325,13 @@ void mt2RecordWakeReason(CFStringRef wakeType, CFStringRef claimedWake);
  */
 void mt2PublishReports(void);
 
-/* mt2PublishSleepFailure
- * powerd should call to report a sleep failure.
- * @arg failType is the category of the failure
+/* mt2PublishSleepWakeFailure
+ * powerd should call to report a sleep/wake failure.
+ * @arg failType indicates if it is sleep/wake failure
+ * @arg failPhase is the category of the failure
  * @arg pci_string is a list of pci devices
  */
-void mt2PublishSleepFailure(const char *failType, const char *pci_string);
-
-/* mt2PublishWakeFailure
- * powerd should call to report a wake failure.
- * @arg failType is the category of the failure
- * @arg pci_string is a list of pci devices
- */
-void mt2PublishWakeFailure(const char *failType, const char *pci_string);
+void mt2PublishSleepWakeFailure(const char *failType, const char *failPhase, const char *pci_string);
 
 
 
@@ -354,8 +348,6 @@ __private_extern__ void                 logASLMessageWake(const char *sig, const
 
 __private_extern__ void                 logASLAppWakeReason(const char * ident, const char * reason);
 
-
-__private_extern__ void                 logASLMessageHibernateStatistics(void);
 
 __private_extern__ void                 logASLMessagePMConnectionResponse(CFStringRef logSourceString, CFStringRef appNameString,
                                                          CFStringRef responseTypeString, CFNumberRef responseTime,
@@ -468,5 +460,6 @@ __private_extern__ IOReturn getNvramArgInt(char *key, int *value);
 __private_extern__ IOReturn getNvramArgStr(char *key, char *buf, size_t bufSize);
 
 __private_extern__ uint64_t             getMonotonicTime( );
+__private_extern__ void                 incrementSleepCnt();
 #endif
 

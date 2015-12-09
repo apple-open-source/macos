@@ -217,16 +217,16 @@ xpc_object_t create_keychain_and_lock_paths(xpc_connection_t peer, xpc_object_t 
 }
 
 static
-xpc_object_t create_one_sandbox_extension(xpc_object_t path, uint64_t extension_flags)
+xpc_object_t create_one_sandbox_extension(xpc_object_t path, bool read_only)
 {
-	char *sandbox_extension = NULL;
-	int status = sandbox_issue_fs_extension(xpc_string_get_string_ptr(path), extension_flags, &sandbox_extension);
-	if (0 == status && sandbox_extension) {
+	const char * extension_class = read_only ? APP_SANDBOX_READ : APP_SANDBOX_READ_WRITE;
+	char *sandbox_extension = sandbox_extension_issue_file(extension_class, xpc_string_get_string_ptr(path), SANDBOX_EXTENSION_CANONICAL);
+	if (sandbox_extension) {
 		xpc_object_t sandbox_extension_as_xpc_string = xpc_string_create(sandbox_extension);
         free(sandbox_extension);
         return sandbox_extension_as_xpc_string;
 	} else {
-		syslog(LOG_ERR, "Can't get sandbox fs extension for %s, status=%d errno=%m ext=%s", xpc_string_get_string_ptr(path), status, sandbox_extension);
+		syslog(LOG_ERR, "Can't get sandbox fs extension for %s", xpc_string_get_string_ptr(path));
 	}
 	return NULL;
 }
@@ -236,19 +236,19 @@ xpc_object_t create_all_sandbox_extensions(xpc_object_t path_dict)
 {
     xpc_object_t extensions = xpc_array_create(NULL, 0);
 	
-	xpc_object_t sandbox_extension = create_one_sandbox_extension(keychain_prefs_path, FS_EXT_FOR_PATH|FS_EXT_READ);
+	xpc_object_t sandbox_extension = create_one_sandbox_extension(keychain_prefs_path, true);
 	if (sandbox_extension) {
 		xpc_array_append_value(extensions, sandbox_extension);
 		xpc_release(sandbox_extension);
 	}
 
 	xpc_dictionary_apply(path_dict, ^(const char *keychain_domain, xpc_object_t path_array) {
-		uint64_t extension_flags = FS_EXT_FOR_PATH|FS_EXT_READ;
+		bool read_only = true;
 		if (keychain_domain_needs_writes(keychain_domain)) {
-			extension_flags = FS_EXT_FOR_PATH|FS_EXT_READ|FS_EXT_WRITE;
+			read_only = false;
 		}
 		xpc_array_apply(path_array, ^(size_t index, xpc_object_t path) {
-			xpc_object_t sandbox_extension = create_one_sandbox_extension(path, extension_flags);
+			xpc_object_t sandbox_extension = create_one_sandbox_extension(path, read_only);
 			if (sandbox_extension) {
 				xpc_array_append_value(extensions, sandbox_extension);
 				xpc_release(sandbox_extension);

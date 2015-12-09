@@ -158,9 +158,9 @@ bool SOSAccountUpdateDSID(SOSAccountRef account, CFStringRef dsid){
     return true;
 }
 
-bool SOSAccountUpdateFullPeerInfo(SOSAccountRef account, CFSetRef minimumViews) {
+bool SOSAccountUpdateFullPeerInfo(SOSAccountRef account, CFSetRef minimumViews, CFSetRef excludedViews) {
     if (account->trusted_circle && account->my_identity) {
-        if(SOSFullPeerInfoUpdateToCurrent(account->my_identity, minimumViews)) {
+        if(SOSFullPeerInfoUpdateToCurrent(account->my_identity, minimumViews, excludedViews)) {
             SOSAccountModifyCircle(account, NULL, ^(SOSCircleRef circle_to_change) {
                 secnotice("circleChange", "Calling SOSCircleUpdatePeerInfo for gestalt change");
                 return SOSCircleUpdatePeerInfo(circle_to_change, SOSFullPeerInfoGetPeerInfo(account->my_identity));
@@ -559,29 +559,7 @@ static bool SOSAccountThisDeviceCanSyncWithCircle(SOSAccountRef account) {
     require_action_quiet(account->my_identity, xit,
                          SOSCreateError(kSOSErrorBadFormat, CFSTR("Account identity not set"), NULL, &error));
     
-    CFStringRef deviceID = SOSPeerInfoCopyDeviceID(SOSFullPeerInfoGetPeerInfo(account->my_identity));
-    if(deviceID == NULL || CFStringGetLength(deviceID) == 0){
-        hasID = false;
-        secerror("Cannot sync with all peers at this time, securityd needs the IDS device ID first.");
-        
-        __block bool success = true;
-        
-        SOSCloudKeychainGetIDSDeviceID(^(CFDictionaryRef returnedValues, CFErrorRef sync_error){
-            success = (sync_error == NULL);
-            if (!success) {
-                CFRetainAssign(error, sync_error);
-            }
-        });
-        
-        if(!success){
-            secerror("Could not ask IDSKeychainSyncingProxy for Device ID: %@", error);
-        }
-        else{
-            secdebug("IDS Transport", "Attempting to retrieve the IDS Device ID");
-        }
-    }
-    CFReleaseNull(deviceID);
-
+    SOSTransportMessageIDSGetIDSDeviceID(account);
     
     require_action_quiet(account->trusted_circle, xit,
                          SOSCreateError(kSOSErrorBadFormat, CFSTR("Account trusted circle not set"), NULL, &error));
@@ -1729,29 +1707,7 @@ bool SOSAccountEnsurePeerRegistration(SOSAccountRef account, CFErrorRef *error) 
 
     //Initialize our device ID
     if(whichTransportType == kSOSTransportIDS || whichTransportType == kSOSTransportFuture || whichTransportType == kSOSTransportPresent){
-        CFStringRef deviceID = SOSPeerInfoCopyDeviceID(SOSFullPeerInfoGetPeerInfo(account->my_identity));
-        if( deviceID == NULL || CFStringGetLength(deviceID) == 0){
-            
-            __block bool success = true;
-            __block CFErrorRef localError = NULL;
-            
-                SOSCloudKeychainGetIDSDeviceID(^(CFDictionaryRef returnedValues, CFErrorRef sync_error){
-                    success = (sync_error == NULL);
-                    if (!success) {
-                        CFRetainAssign(localError, sync_error);
-                    }
-                });
-                
-                if(!success && localError != NULL && error != NULL){
-                    secerror("Could not ask IDSKeychainSyncingProxy for Device ID: %@", localError);
-                    *error = localError;
-                }
-                else{
-                    secdebug("IDS Transport", "Attempting to retrieve the IDS Device ID");
-                }
-            CFReleaseNull(localError);
-        }
-        CFReleaseNull(deviceID);
+        SOSTransportMessageIDSGetIDSDeviceID(account);
     }
     
 done:

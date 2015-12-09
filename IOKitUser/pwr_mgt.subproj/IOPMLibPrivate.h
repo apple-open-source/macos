@@ -778,10 +778,11 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
  *
  *  @param          the_block is a block that doesn't take any arguments. IOPMPerformBlockWithAssertion
  *                  will invoke the_block synchronously on the calling thread, and run until it completes.
+ *
+ *  @result         Returns kIOReturnSuccess when the block is executed.
+ *                  Otherwise, appropriate error code is returned.
  */
 IOReturn IOPMPerformBlockWithAssertion(CFDictionaryRef assertion_properties, dispatch_block_t the_block);
-
-//IOReturn IOPMPerformBlockWithAssertionType(CFStringRef type, dispatch_block_t the_block);
 
 /*! @function IOPMAssertionSetTimeout
  *  @abstract Set a timeout for the given assertion.

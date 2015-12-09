@@ -405,12 +405,17 @@ CFTypeRef SecXPCDictionaryCopyPList(xpc_object_t message, const char *key, CFErr
     }
 
     const uint8_t *der_end = der + size;
-    der = der_decode_plist(kCFAllocatorDefault, kCFPropertyListImmutable,
+    /* use the sensitive allocator so that the dictionary is zeroized upon deallocation */
+    const uint8_t *decode_end = der_decode_plist(CFAllocatorSensitive(), kCFPropertyListImmutable,
                                           &cfobject, error, der, der_end);
-    if (der != der_end) {
+    if (decode_end != der_end) {
         SecError(errSecParam, error, CFSTR("trailing garbage after der decoded object for key %s"), key);
         CFReleaseNull(cfobject);
     }
+
+    /* zeroize xpc value as it may have contained raw key material */
+    cc_clear(size, (void *)der);
+
     return cfobject;
 }
 

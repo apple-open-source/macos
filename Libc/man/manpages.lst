@@ -219,7 +219,6 @@ popen.3 popen.3 pclose.3
 posix_memalign.3 posix_memalign.3
 printf.3 printf.3 asprintf.3 dprintf.3 fprintf.3 snprintf.3 sprintf.3 vasprintf.3 vdprintf.3 vfprintf.3 vprintf.3 vsnprintf.3 vsprintf.3
 printf_l.3 printf_l.3 asprintf_l.3 fprintf_l.3 snprintf_l.3 sprintf_l.3 vasprintf_l.3 vfprintf_l.3 vprintf_l.3 vsnprintf_l.3 vsprintf_l.3
-pselect.3 pselect.3
 psignal.3 psignal.3 sys_siglist.3 sys_signame.3 strsignal.3 sys_siglist.3 sys_signame.3
 psort.3 psort.3 psort_b.3 psort_r.3
 putc.3 putc.3 fputc.3 putc_unlocked.3 putchar.3 putchar_unlocked.3 putw.3

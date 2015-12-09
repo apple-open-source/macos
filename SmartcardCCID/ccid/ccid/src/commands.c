@@ -19,17 +19,28 @@
 */
 
 /*
- * $Id: commands.c 6783 2013-10-24 09:36:52Z rousseau $
+ * $Id$
  */
 
+#include <config.h>
+
+#ifdef HAVE_STRING_H
 #include <string.h>
+#endif
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
+#endif
+#ifdef HAVE_ERRNO_H
 #include <errno.h>
+#endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
 #include <pcsclite.h>
 #include <ifdhandler.h>
 #include <reader.h>
 
-#include "config.h"
 #include "misc.h"
 #include "commands.h"
 #include "openct/proto-t1.h"
@@ -37,6 +48,7 @@
 #include "defs.h"
 #include "ccid_ifdhandler.h"
 #include "debug.h"
+#include "utils.h"
 
 /* All the pinpad readers I used are more or less bogus
  * I use code to change the user command and make the firmware happy */
@@ -167,7 +179,7 @@ RESPONSECODE CmdPowerOn(unsigned int reader_index, unsigned int * nlength,
 
 			/* Status Information? */
 			if (0x40 == tmp[0])
-				ccid_error(tmp[2], __FILE__, __LINE__, __FUNCTION__);
+				ccid_error(PCSC_LOG_ERROR, tmp[2], __FILE__, __LINE__, __FUNCTION__);
 			return IFD_COMMUNICATION_ERROR;
 		}
 
@@ -191,19 +203,19 @@ RESPONSECODE CmdPowerOn(unsigned int reader_index, unsigned int * nlength,
 
 		if ((1 == voltage) && !(bVoltageSupport & 1))
 		{
-			DEBUG_INFO("5V requested but not support by reader");
+			DEBUG_INFO1("5V requested but not support by reader");
 			voltage = 2;	/* 3V */
 		}
 
 		if ((2 == voltage) && !(bVoltageSupport & 2))
 		{
-			DEBUG_INFO("3V requested but not support by reader");
+			DEBUG_INFO1("3V requested but not support by reader");
 			voltage = 3;	/* 1.8V */
 		}
 
 		if ((3 == voltage) && !(bVoltageSupport & 4))
 		{
-			DEBUG_INFO("1.8V requested but not support by reader");
+			DEBUG_INFO1("1.8V requested but not support by reader");
 			voltage = 0;	/* auto */
 		}
 	}
@@ -234,7 +246,7 @@ again:
 
 	if (buffer[STATUS_OFFSET] & CCID_COMMAND_FAILED)
 	{
-		ccid_error(buffer[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);    /* bError */
+		ccid_error(PCSC_LOG_ERROR, buffer[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);    /* bError */
 
 		if (0xBB == buffer[ERROR_OFFSET] &&	/* Protocol error in EMV mode */
 			((GEMPC433 == ccid_descriptor->readerID)
@@ -258,7 +270,9 @@ again:
 		/* continue with 3 volts and 5 volts */
 		if (voltage > 1)
 		{
+#ifndef NO_LOG
 			const char *voltage_code[] = { "auto", "5V", "3V", "1.8V" };
+#endif
 
 			DEBUG_INFO3("Power up with %s failed. Try with %s.",
 				voltage_code[voltage], voltage_code[voltage-1]);
@@ -319,7 +333,7 @@ RESPONSECODE SecurePINVerify(unsigned int reader_index,
 	if ((pvs->ulDataLength + 19  == TxLength) &&
 		(bei2i((unsigned char*)(&pvs->ulDataLength)) == pvs->ulDataLength))
 	{
-		DEBUG_INFO("Reversing order from big to little endian");
+		DEBUG_INFO1("Reversing order from big to little endian");
 		/* If ulDataLength is big endian, assume others are too */
 		/* reverse the byte order for 3 fields */
 		pvs->wPINMaxExtraDigit = BSWAP_16(pvs->wPINMaxExtraDigit);
@@ -393,7 +407,7 @@ RESPONSECODE SecurePINVerify(unsigned int reader_index,
 		tmp = TxBuffer[6];
 		TxBuffer[6] = TxBuffer[5];
 		TxBuffer[5] = tmp;
-		DEBUG_INFO("Correcting wPINMaxExtraDigit for Dell keyboard");
+		DEBUG_INFO1("Correcting wPINMaxExtraDigit for Dell keyboard");
 	}
 #endif
 
@@ -497,8 +511,72 @@ RESPONSECODE SecurePINVerify(unsigned int reader_index,
 		}
 		else
 		{
-			/* get only the T=1 data */
 			/* FIXME: manage T=1 error blocks */
+
+			/* defines from openct/proto-t1.c */
+			#define PCB 1
+			#define DATA 3
+			#define T1_S_BLOCK		0xC0
+			#define T1_S_RESPONSE		0x20
+			#define T1_S_TYPE(pcb)		((pcb) & 0x0F)
+			#define T1_S_WTX		0x03
+
+			/* WTX S-block */
+			if ((T1_S_BLOCK | T1_S_WTX) == RxBuffer[PCB])
+			{
+/*
+ * The Swiss health care card sends a WTX request before returning the
+ * SW code. If the reader is in TPDU the driver must manage the request
+ * itself.
+ *
+ * received: 00 C3 01 09 CB
+ * openct/proto-t1.c:432:t1_transceive() S-Block request received
+ * openct/proto-t1.c:489:t1_transceive() CT sent S-block with wtx=9
+ * sending: 00 E3 01 09 EB
+ * openct/proto-t1.c:667:t1_xcv() New timeout at WTX request: 23643 sec
+ * received: 00 40 02 90 00 D2
+*/
+				ct_buf_t tbuf;
+				unsigned char sblk[1]; /* we only need 1 byte of data */
+				t1_state_t *t1 = &get_ccid_slot(reader_index)->t1;
+				unsigned int slen;
+				int oldReadTimeout;
+
+				DEBUG_COMM2("CT sent S-block with wtx=%u", RxBuffer[DATA]);
+				t1->wtx = RxBuffer[DATA];
+
+				oldReadTimeout = ccid_descriptor->readTimeout;
+				if (t1->wtx > 1)
+				{
+					/* set the new temporary timeout at WTX card request */
+					ccid_descriptor->readTimeout *= t1->wtx;
+					DEBUG_INFO2("New timeout at WTX request: %d sec",
+							ccid_descriptor->readTimeout);
+				}
+
+				ct_buf_init(&tbuf, sblk, sizeof(sblk));
+				t1->wtx = RxBuffer[DATA];
+				ct_buf_putc(&tbuf, RxBuffer[DATA]);
+
+				slen = t1_build(t1, RxBuffer, 0,
+					T1_S_BLOCK | T1_S_RESPONSE | T1_S_TYPE(RxBuffer[PCB]),
+					&tbuf, NULL);
+
+				ret = CCID_Transmit(t1 -> lun, slen, RxBuffer, 0, t1->wtx);
+				if (ret != IFD_SUCCESS)
+					return ret;
+
+				/* I guess we have at least 6 bytes in RxBuffer */
+				*RxLength = 6;
+				ret = CCID_Receive(reader_index, RxLength, RxBuffer, NULL);
+				if (ret != IFD_SUCCESS)
+					return ret;
+
+				/* Restore initial timeout */
+				ccid_descriptor->readTimeout = oldReadTimeout;
+			}
+
+			/* get only the T=1 data */
 			memmove(RxBuffer, RxBuffer+3, *RxLength -4);
 			*RxLength -= 4;	/* remove NAD, PCB, LEN and CRC */
 		}
@@ -589,7 +667,7 @@ RESPONSECODE SecurePINModify(unsigned int reader_index,
 	if ((pms->ulDataLength + 24  == TxLength) &&
 		(bei2i((unsigned char*)(&pms->ulDataLength)) == pms->ulDataLength))
 	{
-		DEBUG_INFO("Reversing order from big to little endian");
+		DEBUG_INFO1("Reversing order from big to little endian");
 		/* If ulDataLength is big endian, assume others are too */
 		/* reverse the byte order for 3 fields */
 		pms->wPINMaxExtraDigit = BSWAP_16(pms->wPINMaxExtraDigit);
@@ -662,7 +740,7 @@ RESPONSECODE SecurePINModify(unsigned int reader_index,
 	gemalto_modify_pin_bug = has_gemalto_modify_pin_bug(ccid_descriptor);
 	if (gemalto_modify_pin_bug)
 	{
-		DEBUG_INFO("Gemalto CCID Modify Pin Bug");
+		DEBUG_INFO1("Gemalto CCID Modify Pin Bug");
 
 		/* The reader requests a value for bMsgIndex2 and bMsgIndex3
 		 * even if they should not be present. So we fake
@@ -807,6 +885,21 @@ RESPONSECODE CmdEscape(unsigned int reader_index,
 	const unsigned char TxBuffer[], unsigned int TxLength,
 	unsigned char RxBuffer[], unsigned int *RxLength, unsigned int timeout)
 {
+	return CmdEscapeCheck(reader_index, TxBuffer, TxLength, RxBuffer, RxLength,
+		timeout, FALSE);
+} /* CmdEscape */
+
+
+/*****************************************************************************
+ *
+ *					Escape (with check of gravity)
+ *
+ ****************************************************************************/
+RESPONSECODE CmdEscapeCheck(unsigned int reader_index,
+	const unsigned char TxBuffer[], unsigned int TxLength,
+	unsigned char RxBuffer[], unsigned int *RxLength, unsigned int timeout,
+	int mayfail)
+{
 	unsigned char *cmd_in, *cmd_out;
 	status_t res;
 	unsigned int length_in, length_out;
@@ -899,7 +992,9 @@ time_request:
 
 	if (cmd_out[STATUS_OFFSET] & CCID_COMMAND_FAILED)
 	{
-		ccid_error(cmd_out[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);    /* bError */
+		/* mayfail: the error may be expected and not fatal */
+		ccid_error(mayfail ? PCSC_LOG_INFO : PCSC_LOG_ERROR,
+			cmd_out[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);    /* bError */
 		return_value = IFD_COMMUNICATION_ERROR;
 	}
 
@@ -917,7 +1012,7 @@ end:
 		ccid_descriptor -> readTimeout = old_read_timeout;
 
 	return return_value;
-} /* Escape */
+} /* EscapeCheck */
 
 
 /*****************************************************************************
@@ -1001,7 +1096,7 @@ RESPONSECODE CmdPowerOff(unsigned int reader_index)
 
 	if (cmd[STATUS_OFFSET] & CCID_COMMAND_FAILED)
 	{
-		ccid_error(cmd[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);    /* bError */
+		ccid_error(PCSC_LOG_ERROR, cmd[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);    /* bError */
 		return_value = IFD_COMMUNICATION_ERROR;
 	}
 
@@ -1122,7 +1217,7 @@ again_status:
 		&& (buffer[ERROR_OFFSET] != 0xFE))
 	{
 		return_value = IFD_COMMUNICATION_ERROR;
-		ccid_error(buffer[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);    /* bError */
+		ccid_error(PCSC_LOG_ERROR, buffer[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);    /* bError */
 	}
 
 	return return_value;
@@ -1351,7 +1446,7 @@ time_request_ICCD_B:
 
 			case 0x40:
 				/* Status Information */
-				ccid_error(rx_buffer[2], __FILE__, __LINE__, __FUNCTION__);
+				ccid_error(PCSC_LOG_ERROR, rx_buffer[2], __FILE__, __LINE__, __FUNCTION__);
 				return IFD_COMMUNICATION_ERROR;
 
 			case 0x80:
@@ -1410,7 +1505,7 @@ time_request:
 
 	if (cmd[STATUS_OFFSET] & CCID_COMMAND_FAILED)
 	{
-		ccid_error(cmd[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);    /* bError */
+		ccid_error(PCSC_LOG_ERROR, cmd[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);    /* bError */
 		switch (cmd[ERROR_OFFSET])
 		{
 			case 0xEF:	/* cancel */
@@ -2166,7 +2261,7 @@ RESPONSECODE SetParameters(unsigned int reader_index, char protocol,
 
 	if (cmd[STATUS_OFFSET] & CCID_COMMAND_FAILED)
 	{
-		ccid_error(cmd[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);    /* bError */
+		ccid_error(PCSC_LOG_ERROR, cmd[ERROR_OFFSET], __FILE__, __LINE__, __FUNCTION__);    /* bError */
 		if (0x00 == cmd[ERROR_OFFSET])	/* command not supported */
 			return IFD_NOT_SUPPORTED;
 		else

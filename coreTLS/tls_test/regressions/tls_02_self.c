@@ -78,6 +78,9 @@ typedef struct {
 
     bool forget_to_set_pubkey;
 
+    tls_handshake_config_t client_config;
+    tls_handshake_config_t server_config;
+
     // expected outputs of test case
     bool handshake_ok;
     int client_err;
@@ -549,7 +552,11 @@ int init_context(myFilterCtx_t *c, bool server, const char *name, tls_test_case 
 
     require((c->filter=tls_handshake_create(false, server)), fail);
 
+    require_noerr(tls_handshake_set_user_agent(c->filter, "tls_test"), fail);
+
     if(server) {
+        if(test->server_config)
+            require_noerr(tls_handshake_set_config(c->filter, test->server_config), fail);
         require_noerr(tls_handshake_set_client_auth(c->filter, test->request_client_auth), fail);
         require_noerr(tls_handshake_set_identity(c->filter, test->server_certs, test->server_key), fail);
         require_noerr(tls_handshake_set_renegotiation(c->filter, test->server_allow_renegotiation), fail);
@@ -562,6 +569,8 @@ int init_context(myFilterCtx_t *c, bool server, const char *name, tls_test_case 
         if(test->dh_parameters)
             require_noerr(tls_handshake_set_dh_parameters(c->filter, test->dh_parameters), fail);
     } else {
+        if(test->client_config)
+            require_noerr(tls_handshake_set_config(c->filter, test->client_config), fail);
         require_noerr(tls_handshake_set_ocsp_enable(c->filter, test->client_ocsp_enable), fail);
         if(test->ocsp_request_extensions)
             require_noerr(tls_handshake_set_ocsp_request_extensions(c->filter, *test->ocsp_request_extensions), fail);
@@ -663,6 +672,184 @@ static bool tls_buffer_list_equal(const tls_buffer_list_t *a, const tls_buffer_l
 }
 
 
+const uint16_t default_ciphersuites[] = {
+    TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA256,
+    TLS_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA,
+    TLS_RSA_WITH_AES_128_CBC_SHA,
+    SSL_RSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+    TLS_ECDHE_RSA_WITH_RC4_128_SHA,
+    SSL_RSA_WITH_RC4_128_SHA,
+    SSL_RSA_WITH_RC4_128_MD5,
+};
+
+const uint16_t DHE_ciphersuites[] = {
+    TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
+    TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+    SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA256,
+    TLS_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA,
+    TLS_RSA_WITH_AES_128_CBC_SHA,
+    SSL_RSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+    TLS_ECDHE_RSA_WITH_RC4_128_SHA,
+    SSL_RSA_WITH_RC4_128_SHA,
+    SSL_RSA_WITH_RC4_128_MD5,
+};
+
+
+
+const uint16_t standard_ciphersuites[] = {
+    TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA256,
+    TLS_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA,
+    TLS_RSA_WITH_AES_128_CBC_SHA,
+    SSL_RSA_WITH_3DES_EDE_CBC_SHA,
+};
+
+const uint16_t ATSv1_ciphersuites[] = {
+    TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+};
+
+const uint16_t ATSv1_noPFS_ciphersuites[] = {
+    TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+
+    TLS_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA256,
+    TLS_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA,
+    TLS_RSA_WITH_AES_128_CBC_SHA,
+};
+
+
+static bool test_ciphersuites(tls_test_case *test, bool server, const uint16_t *ciphersuites, unsigned int n)
+{
+    unsigned expected_n = 0;
+    const uint16_t *expected_ciphersuites = NULL;
+
+    if(test->ciphersuites) {
+        expected_n = test->num_ciphersuites;
+        expected_ciphersuites = test->ciphersuites;
+    } else if(!server && test->client_ciphersuites) {
+            expected_n = test->num_client_ciphersuites;
+            expected_ciphersuites = test->client_ciphersuites;
+    } else if(server && test->server_ciphersuites) {
+            expected_n = test->num_server_ciphersuites;
+            expected_ciphersuites = test->server_ciphersuites;
+    } else {
+        switch(server?test->server_config:test->client_config) {
+            case tls_handshake_config_ATSv1:
+                expected_n = sizeof(ATSv1_ciphersuites)/sizeof(uint16_t);
+                expected_ciphersuites = ATSv1_ciphersuites;
+                break;
+            case tls_handshake_config_ATSv1_noPFS:
+                expected_n = sizeof(ATSv1_noPFS_ciphersuites)/sizeof(uint16_t);
+                expected_ciphersuites = ATSv1_noPFS_ciphersuites;
+                break;
+            case tls_handshake_config_standard:
+            case tls_handshake_config_TLSv1_fallback:
+                expected_n = sizeof(standard_ciphersuites)/sizeof(uint16_t);
+                expected_ciphersuites = standard_ciphersuites;
+                break;
+            case tls_handshake_config_legacy_DHE:
+                expected_n = sizeof(DHE_ciphersuites)/sizeof(uint16_t);
+                expected_ciphersuites = DHE_ciphersuites;
+                break;
+            case tls_handshake_config_RC4_fallback:
+            case tls_handshake_config_TLSv1_RC4_fallback:
+            case tls_handshake_config_legacy:
+            case tls_handshake_config_default:
+                expected_n = sizeof(default_ciphersuites)/sizeof(uint16_t);
+                expected_ciphersuites = default_ciphersuites;
+                break;
+            case tls_handshake_config_none:  /* none means custom, so always return true */
+                expected_n = n;
+                expected_ciphersuites = ciphersuites;
+                break;
+        }
+    }
+
+    return (n==expected_n) && (memcmp(ciphersuites, expected_ciphersuites, expected_n*sizeof(uint16_t))==0);
+
+}
+
 static int test_result(myFilterCtx_t *client, myFilterCtx_t *server)
 {
     int err = 0;
@@ -687,6 +874,21 @@ static int test_result(myFilterCtx_t *client, myFilterCtx_t *server)
         tls_handshake_get_min_protocol_version(server->filter, &pv_min);
         if(pv_min>pv_max) {
             fprintf(stderr,"server has inconsistent protocol version (%04x>%04x)\n",pv_min, pv_max);
+            err = -1;
+        }
+
+        const uint16_t *ciphersuites;
+        unsigned int n;
+
+        tls_handshake_get_ciphersuites(client->filter, &ciphersuites, &n);
+        if(!test_ciphersuites(test, false, ciphersuites, n)) {
+            fprintf(stderr,"client has unexpected ciphersuites\n");
+            err = -1;
+        }
+
+        tls_handshake_get_ciphersuites(server->filter, &ciphersuites, &n);
+        if(!test_ciphersuites(test, true, ciphersuites, n)) {
+            fprintf(stderr,"server has unexpected ciphersuites\n");
             err = -1;
         }
 
@@ -1005,7 +1207,7 @@ static tls_private_key_t server_key_for_cipher(uint16_t cs)
 // MARK: positive self tests
 //
 
-static void good_tests(const CipherSuiteName *ciphers, size_t n_ciphers, bool tls_only, bool csa)
+static void good_tests(const CipherSuiteName *ciphers, size_t n_ciphers, int min_proto, bool csa)
 {
     tls_test_case test = {0,};
 
@@ -1013,7 +1215,7 @@ static void good_tests(const CipherSuiteName *ciphers, size_t n_ciphers, bool tl
 
     for(i=0; i<n_ciphers; i++) {
         // Skip SSL3 for tls only ciphers:
-        for(j=(tls_only)?1:0; j<nprotos; j++) {
+        for(j=min_proto; j<nprotos; j++) {
             test.client_protocol_min = protos[j];
             test.client_protocol_max = protos[j];
             test.server_protocol_min = protos[j];
@@ -1111,7 +1313,7 @@ static void ciphersuites_tests(void)
 //
 
 // TODO: resumption tests for TLS only ciphers
-static void resumption_tests(const CipherSuiteName *ciphers, size_t n_ciphers, bool tls_only)
+static void resumption_tests(const CipherSuiteName *ciphers, size_t n_ciphers, int min_proto)
 {
     tls_test_case test = {0,};
 
@@ -1121,7 +1323,7 @@ static void resumption_tests(const CipherSuiteName *ciphers, size_t n_ciphers, b
 
     for(i=0; i<n_ciphers; i++) {
         // Skip SSL3 for tls only ciphers:
-        for(j=(tls_only)?1:0; j<nprotos; j++) {
+        for(j=min_proto; j<nprotos; j++) {
             test.client_protocol_min = protos[j];
             test.client_protocol_max = protos[j];
             test.server_protocol_min = protos[j];
@@ -2475,6 +2677,36 @@ static void min_dh_size_test(void)
 
 
 //
+// config tests
+//
+
+static void config_tests(void)
+{
+    tls_test_case test = {0,};
+    int err;
+    int i;
+
+    for(i=0; i<=tls_handshake_config_legacy_DHE; i++)
+    {
+        test.client_config = i;
+        test.server_config = i;
+        test.server_certs = &g_server_cert;
+        test.server_key = g_server_key;
+        test.client_certs = &g_client_cert;
+        test.client_key = g_client_key;
+
+        // expected outputs of test case
+        test.handshake_ok = true;
+
+        test_log_start();
+        test_printf("Test case config (%d)\n", i);
+        err = test_one_case(&test);
+        ok(!err, "Test case config (%d)", i);
+        test_log_end(err);
+    }
+}
+
+//
 // MARK: main
 //
 
@@ -2484,12 +2716,12 @@ int tls_02_self(int argc, char * const argv[])
                + n_ssl_ciphers*nprotos*2      // good tests (ssl)
                + n_anon_ciphers*nprotos       // good tests (anon)
                + n_psk_ciphers*(nprotos-1)    // good tests (psk)
-               + n_gcm_ciphers*(nprotos-1)*2  // good tests (gcm)
+               + n_gcm_ciphers*(nprotos-2)*2  // good tests (gcm)
                + n_ecdhe_ciphers*(nprotos-1)*2  // good tests (ecdhe)
                + n_ssl_ciphers*nprotos*2      // resumption tests (ssl)
                + n_anon_ciphers*nprotos*2     // resumption tests (anon)
                + n_psk_ciphers*(nprotos-1)*2  // resumption tests (psk)
-               + n_gcm_ciphers*(nprotos-1)*2  // resumption tests (gcm)
+               + n_gcm_ciphers*(nprotos-2)*2  // resumption tests (gcm)
                + n_ecdhe_ciphers*(nprotos-1)*2  // resumption tests (ecdhe)
                + 4 // ciphersuites test
                + 8 // renegotiation_tests
@@ -2510,6 +2742,7 @@ int tls_02_self(int argc, char * const argv[])
                + 1 // forget_pubkey_test
                + 4 // resumption_mismatch_test
                + 20 // dhe size tests
+               + 9 // config tests
                );
 
     int err;
@@ -2548,20 +2781,19 @@ int tls_02_self(int argc, char * const argv[])
     ok(!err, "init server ECDSA keys()");
     if(err) return 0;
 
-
-    good_tests(ssl_ciphers, n_ssl_ciphers, false, false);
-    good_tests(ssl_ciphers, n_ssl_ciphers, false, true);
-    good_tests(anon_ciphers, n_anon_ciphers, false, false);
-    good_tests(psk_ciphers, n_psk_ciphers, true, false);
-    good_tests(gcm_ciphers, n_gcm_ciphers, true, false);
-    good_tests(gcm_ciphers, n_gcm_ciphers, true, true);
-    good_tests(ecdhe_ciphers, n_ecdhe_ciphers, true, false);
-    good_tests(ecdhe_ciphers, n_ecdhe_ciphers, true, true);
-    resumption_tests(ssl_ciphers, n_ssl_ciphers, false);
-    resumption_tests(anon_ciphers, n_anon_ciphers, false);
-    resumption_tests(psk_ciphers, n_psk_ciphers, true);
-    resumption_tests(gcm_ciphers, n_gcm_ciphers, true);
-    resumption_tests(ecdhe_ciphers, n_ecdhe_ciphers, true);
+    good_tests(ssl_ciphers, n_ssl_ciphers, 0, false);
+    good_tests(ssl_ciphers, n_ssl_ciphers, 0, true);
+    good_tests(anon_ciphers, n_anon_ciphers, 0, false);
+    good_tests(psk_ciphers, n_psk_ciphers, 1, false);
+    good_tests(gcm_ciphers, n_gcm_ciphers, 3, false);
+    good_tests(gcm_ciphers, n_gcm_ciphers, 3, true);
+    good_tests(ecdhe_ciphers, n_ecdhe_ciphers, 1, false);
+    good_tests(ecdhe_ciphers, n_ecdhe_ciphers, 1, true);
+    resumption_tests(ssl_ciphers, n_ssl_ciphers, 0);
+    resumption_tests(anon_ciphers, n_anon_ciphers, 0);
+    resumption_tests(psk_ciphers, n_psk_ciphers, 1);
+    resumption_tests(gcm_ciphers, n_gcm_ciphers, 3);
+    resumption_tests(ecdhe_ciphers, n_ecdhe_ciphers, 1);
 
     ciphersuites_tests();
     renegotiation_tests();
@@ -2583,6 +2815,7 @@ int tls_02_self(int argc, char * const argv[])
     forget_pubkey_test();
     resumption_mismatch_tests();
     min_dh_size_test();
+    config_tests();
 
     clean_server_keys(g_server_key);
     clean_server_keys(g_client_key);

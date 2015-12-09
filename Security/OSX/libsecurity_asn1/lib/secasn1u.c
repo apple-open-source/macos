@@ -88,7 +88,8 @@ SEC_ASN1GetSubtemplate (
 	PRBool encoding
 	#ifdef	__APPLE__
 	,
-	const char *buf			// for decode only
+	const char *buf,			// for decode only
+	size_t len
 	#endif
 	)
 {
@@ -105,7 +106,7 @@ SEC_ASN1GetSubtemplate (
 			if (thing != NULL) {
 				thing = (char *)thing - theTemplate->offset;
 			}
-			subt = (* chooserp)(thing, encoding, buf, dest);
+			subt = (* chooserp)(thing, encoding, buf, len, dest);
 	    }
 	} else {
 	    subt = (SecAsn1Template*)theTemplate->sub;

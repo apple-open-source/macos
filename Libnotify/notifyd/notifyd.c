@@ -175,7 +175,6 @@ fprint_quick_client(FILE *f, client_t *c, int pname)
 static void
 fprint_quick_name_info(FILE *f, name_info_t *n)
 {
-	list_t *sl;
 	client_t *c;
 
 	if (n == NULL) return;
@@ -189,9 +188,8 @@ fprint_quick_name_info(FILE *f, name_info_t *n)
 
 	fprintf(f, "\n");
 
-	for (sl = n->subscriptions; sl != NULL; sl = _nc_list_next(sl))
+	LIST_FOREACH(c, &n->subscriptions, client_subscription_entry)
 	{
-		c = _nc_list_data(sl);
 		if (c == NULL) break;
 
 		fprint_quick_client(f, c, 0);
@@ -203,7 +201,6 @@ fprint_quick_name_info(FILE *f, name_info_t *n)
 static void
 fprint_name_info(FILE *f, const char *name, name_info_t *n, table_t *pid_table, pid_t *max_pid)
 {
-	list_t *sl;
 	client_t *c;
 	uint32_t i, reg[N_NOTIFY_TYPES];
 
@@ -232,11 +229,10 @@ fprint_name_info(FILE *f, const char *name, name_info_t *n, table_t *pid_table, 
 
 	for (i = 0; i < N_NOTIFY_TYPES; i++) reg[i] = 0;
 
-	for (sl = n->subscriptions; sl != NULL; sl = _nc_list_next(sl))
+	LIST_FOREACH(c, &n->subscriptions, client_subscription_entry)
 	{
 		list_t *l;
 
-		c = _nc_list_data(sl);
 		if (c == NULL) break;
 
 		if ((c->pid != (pid_t)-1) && (c->pid > *max_pid)) *max_pid = c->pid;
@@ -264,9 +260,8 @@ fprint_name_info(FILE *f, const char *name, name_info_t *n, table_t *pid_table, 
 
 	fprintf(f, "types: none %u   memory %u   plain %u   port %u   file %u   signal %u\n", reg[0], reg[1], reg[2], reg[3], reg[4], reg[5]);
 
-	for (sl = n->subscriptions; sl != NULL; sl = _nc_list_next(sl))
+	LIST_FOREACH(c, &n->subscriptions, client_subscription_entry)
 	{
-		c = _nc_list_data(sl);
 		if (c == NULL) break;
 
 		fprintf(f, "\n");

@@ -116,7 +116,7 @@ mcc_alloc(const char *name)
     m->creds = NULL;
     m->mtime = time(NULL);
     m->kdc_offset = 0;
-    CCRandomCopyBytes(kCCRandomDefault, m->uuid, sizeof(m->uuid));
+    krb5_generate_random_block(m->uuid, sizeof(m->uuid));
     
     m->next = mcc_head;
     mcc_head = m;

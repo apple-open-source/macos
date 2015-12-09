@@ -675,13 +675,13 @@ pl{
                         "S",
                     }
                     short{
-                        "niedz.",
-                        "pon.",
-                        "wt.",
-                        "śr.",
-                        "czw.",
-                        "pt.",
-                        "sob.",
+                        "nie",
+                        "pon",
+                        "wto",
+                        "śro",
+                        "czw",
+                        "pią",
+                        "sob",
                     }
                     wide{
                         "niedziela",
@@ -713,13 +713,13 @@ pl{
                         "S",
                     }
                     short{
-                        "niedz.",
-                        "pon.",
-                        "wt.",
-                        "śr.",
-                        "czw.",
-                        "pt.",
-                        "sob.",
+                        "nie",
+                        "pon",
+                        "wto",
+                        "śro",
+                        "czw",
+                        "pią",
+                        "sob",
                     }
                     wide{
                         "niedziela",

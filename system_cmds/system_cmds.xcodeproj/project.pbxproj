@@ -11,6 +11,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = BA4FD2FF1372FE4E0025925C /* Build configuration list for PBXAggregateTarget "All_MacOSX" */;
 			buildPhases = (
+				C9D64CD21B91066B00CFA43B /* CopyFiles */,
 			);
 			dependencies = (
 				97999D351AE84D3A00E8B10F /* PBXTargetDependency */,
@@ -167,6 +168,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = BACC1D191377B4C9007728F4 /* Build configuration list for PBXAggregateTarget "All_iOS" */;
 			buildPhases = (
+				C9D64CD01B91064700CFA43B /* CopyFiles */,
 			);
 			dependencies = (
 				97999D371AE84D4100E8B10F /* PBXTargetDependency */,
@@ -542,6 +544,8 @@
 		C96F50BD15BDFEFB008682F7 /* lsmp.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = C96F50AC15BDCBF0008682F7 /* lsmp.1 */; };
 		C96F50BE15BDFF03008682F7 /* lsmp.c in Sources */ = {isa = PBXBuildFile; fileRef = C96F50AD15BDCE8E008682F7 /* lsmp.c */; };
 		C9779F6E159A2A0C009436FD /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = BA4B7A091373BA4600003422 /* libutil.dylib */; };
+		C9D64CD11B91065D00CFA43B /* system_cmds.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C9D64CCF1B91063200CFA43B /* system_cmds.plist */; };
+		C9D64CD31B91067500CFA43B /* system_cmds.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C9D64CCF1B91063200CFA43B /* system_cmds.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1979,6 +1983,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		C9D64CD01B91064700CFA43B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				C9D64CD11B91065D00CFA43B /* system_cmds.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		C9D64CD21B91066B00CFA43B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				C9D64CD31B91067500CFA43B /* system_cmds.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -2374,6 +2398,7 @@
 		C96F50AC15BDCBF0008682F7 /* lsmp.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = lsmp.1; path = lsmp.tproj/lsmp.1; sourceTree = SOURCE_ROOT; };
 		C96F50AD15BDCE8E008682F7 /* lsmp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = lsmp.c; path = lsmp.tproj/lsmp.c; sourceTree = SOURCE_ROOT; };
 		C96F50B715BDCEC3008682F7 /* lsmp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = lsmp; sourceTree = BUILT_PRODUCTS_DIR; };
+		C9D64CCF1B91063200CFA43B /* system_cmds.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = system_cmds.plist; path = tests/system_cmds.plist; sourceTree = "<group>"; };
 		FEBEE5CF1B0EACEB00166A8B /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -3023,6 +3048,7 @@
 		BA2DE9161372FA9100D1913C = {
 			isa = PBXGroup;
 			children = (
+				C9D64CCF1B91063200CFA43B /* system_cmds.plist */,
 				A6738D041AF6FFB5001EF064 /* CoreFoundation.framework */,
 				A6738D021AF6FF9F001EF064 /* IOKit.framework */,
 				A624DA851AF6F3CF00F56A5C /* CoreSymbolication.framework */,
@@ -6474,7 +6500,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BA4FD2FB1372FB710025925C /* BSD.xcconfig */;
 			buildSettings = {
-				APPLY_RULES_IN_COPY_FILES = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -7350,7 +7375,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BA4FD2FB1372FB710025925C /* BSD.xcconfig */;
 			buildSettings = {
-				APPLY_RULES_IN_COPY_FILES = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;

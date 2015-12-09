@@ -400,6 +400,7 @@ static void item_with_acl_caused_maxauth(uint32_t *item_num)
     __security_simulatecrash_enable(false);
 
     LASetErrorCodeBlock(okBlock);
+    diag("this will cause an internal assert - on purpose");
     is_status(SecItemAdd(item, NULL), errSecAuthFailed, "max auth attempts failed");
 
     is(__security_simulatecrash_enable(true), 1, "Expecting simcrash max auth threshold passed");

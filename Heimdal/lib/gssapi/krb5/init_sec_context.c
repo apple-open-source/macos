@@ -35,6 +35,8 @@
 
 #include "gsskrb5_locl.h"
 
+#include "HeimCred.h"
+
 #ifdef __APPLE__
 
 
@@ -1391,6 +1393,17 @@ init_krb5_auth(OM_uint32 * minor_status,
 	if (outbuf.length < 1 || ((((unsigned char *)outbuf.data)[0]) & 2))
 	    allow_dns = 0;
 	krb5_data_free(&outbuf);
+    }
+
+    /*
+     * Can't allow DNS canonalization when running in AppVPN since the
+     * getaddrinfo() codepath doesn't support that.
+     */
+    if (HeimCredGetImpersonateBundle()) {
+	_gss_mg_log(1, "gss-krb5: ISC disabled kerberos DNS canonalization");
+	allow_dns = 0;
+    } else {
+	_gss_mg_log(1, "gss-krb5: ISC no AppVPN");
     }
 
     if (_gss_mg_log_level(1)) {

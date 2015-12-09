@@ -249,7 +249,6 @@ static struct {
 /*
  * reallocing snprintf with offset
  */
-
 static int
 raosnprintf(char **buf, size_t *size, ssize_t *offset, char *fmt, ...)
 {
@@ -699,8 +698,8 @@ acl_to_text(acl_t acl, ssize_t *len_p)
 		}
 	    }
 	}
-	buf[(*len_p)++] = '\n';
-	buf[(*len_p)] = 0;
+
+	if(!raosnprintf(&buf, &bufsize, len_p, "\n")) goto err_nomem;
 	return buf;
 
 err_nomem:

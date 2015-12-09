@@ -163,10 +163,7 @@ extern uint32_t  gDebugFlags;
 // foward declarations
 static void initializeESPrefsDynamicStore(void);
 static void initializeInterestNotifications(void);
-static void initializeHIDInterestNotifications(
-                int usagePage,
-                int usage,
-                IONotificationPortRef notify_port);
+static void initializeHIDInterestNotifications(IONotificationPortRef notify_port);
 static void initializeTimezoneChangeNotifications(void);
 static void initializeCalendarResyncNotification(void);
 static void initializeShutdownNotifications(void);
@@ -182,6 +179,7 @@ static void ESPrefsHaveChanged(
                 SCPreferencesRef prefs,
                 SCPreferencesNotification notificationType,
                 void *info);
+static CFMutableDictionaryRef copyUPSMatchingDict( );
 static void _ioupsd_exited(pid_t, int, struct rusage *, void *);
 static void UPSDeviceAdded(void *, io_iterator_t);
 static void ioregBatteryMatch(void *, io_iterator_t);
@@ -635,6 +633,7 @@ static void _ioupsd_exited(
     struct rusage   *rusage,
     void            *context)
 {
+    asl_log(0,0,ASL_LEVEL_ERR, "ioupsd exited with status %d\n", status);
     if(0 != status)
     {
         // ioupsd didn't exit cleanly.
@@ -650,6 +649,21 @@ static void _ioupsd_exited(
                               "/usr/libexec/ioupsd", argv);
     } else {
         _alreadyRunningIOUPSD = 0;
+
+        // Re-scan the registry for any objects of interest that might have
+        // been published before _ioupsd_exited() is called.
+        io_iterator_t   iter;
+        CFDictionaryRef matchingDict = copyUPSMatchingDict();
+        if (matchingDict) {
+            kern_return_t kr = IOServiceGetMatchingServices(kIOMasterPortDefault, matchingDict, &iter);
+            matchingDict = 0; // reference consumed by IOServiceGetMatchingServices
+
+            if ((kr == kIOReturnSuccess) && (iter != MACH_PORT_NULL)) {
+                UPSDeviceAdded(NULL, iter);
+                IOObjectRelease(iter);
+            }
+        }
+
     }
 }
 
@@ -663,6 +677,7 @@ static void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
 {
     io_object_t                 upsDevice = MACH_PORT_NULL;
         
+    asl_log(0,0,ASL_LEVEL_ERR, "UPSDeviceAdded. _alreadyRunningIOUPSD:%d\n", _alreadyRunningIOUPSD);
     while ( (upsDevice = IOIteratorNext(iterator)) )
     {
         // If not running, launch the management process ioupsd now.
@@ -1409,19 +1424,107 @@ initializeInterestNotifications()
         asl_log(NULL, NULL, ASL_LEVEL_ERR, 
                 "Failed to match DisplayWrangler(0x%x)\n", kr);
     }
-    
+
     // Listen for Power devices and Battery Systems to start ioupsd
-    initializeHIDInterestNotifications(kIOPowerDeviceUsageKey, 0, notify_port);
-    initializeHIDInterestNotifications(kIOBatterySystemUsageKey, 0, notify_port);
-    initializeHIDInterestNotifications(kHIDPage_AppleVendor, kHIDUsage_AppleVendor_AccessoryBattery, notify_port);
+    initializeHIDInterestNotifications(notify_port);
+}
+
+static CFMutableDictionaryRef
+copyUPSMatchingDict( )
+{
+    CFMutableArrayRef devicePairs = NULL;
+    CFMutableDictionaryRef matchingDict = NULL;
+    CFNumberRef cfUsageKey = NULL;
+    bool dictCreated = false;
+    CFMutableDictionaryRef pair  = NULL;
+    CFNumberRef  cfUsagePageKey = NULL;
+    int i, count;
+
+    int usagePages[]    = {kIOPowerDeviceUsageKey,  kIOBatterySystemUsageKey,   kHIDPage_AppleVendor};
+    int usages[]        = {0,                       0,                          kHIDUsage_AppleVendor_AccessoryBattery};
+
+    matchingDict = IOServiceMatching(kIOHIDDeviceKey);
+    if (!matchingDict) {
+        goto exit;
+    }
+
+    devicePairs = CFArrayCreateMutable(kCFAllocatorDefault, 3, &kCFTypeArrayCallBacks);
+    if (!devicePairs) {
+        goto exit;
+    }
+
+    count = sizeof(usagePages)/sizeof(usagePages[0]);
+    for (i = 0; i < count; i++) {
+        if (!usagePages[i]) {
+            continue;
+        }
+
+        pair = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
+                                                                &kCFTypeDictionaryValueCallBacks);
+        if (!pair) {
+            goto exit;
+        }
+
+        // We need to box the Usage Page value up into a CFNumber... sorry bout that
+        cfUsagePageKey = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &usagePages[i]);
+        if (!cfUsagePageKey) {
+            goto exit;
+        }
+
+        CFDictionarySetValue(pair, CFSTR(kIOHIDDeviceUsagePageKey), cfUsagePageKey);
+        CFRelease(cfUsagePageKey);
+        cfUsagePageKey = NULL;
+
+        if (usages[i]) {
+            cfUsageKey = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &usages[i]);
+            if (!cfUsageKey) {
+                goto exit;
+            }
+
+            CFDictionarySetValue(pair, CFSTR(kIOHIDDeviceUsageKey), cfUsageKey);
+            CFRelease(cfUsageKey);
+            cfUsageKey = NULL;
+        }
+
+        CFArrayAppendValue(devicePairs, pair);
+        CFRelease(pair);
+        pair = NULL;
+    }
+
+    CFDictionarySetValue(matchingDict, CFSTR(kIOHIDDeviceUsagePairsKey), devicePairs);
+    CFRelease(devicePairs);
+    devicePairs = 0;
+    dictCreated = true;
+
+exit:
+
+    if (devicePairs) {
+        CFRelease(devicePairs);
+    }
+    if (pair) {
+        CFRelease(pair);
+    }
+    if (cfUsagePageKey) {
+        CFRelease(cfUsagePageKey);
+    }
+    if (cfUsageKey) {
+        CFRelease(cfUsageKey);
+    }
+    if (!dictCreated && matchingDict) {
+        CFRelease(matchingDict);
+        matchingDict = NULL;
+    }
+
+    return matchingDict;
 }
 
 static void
-initializeHIDInterestNotifications(int usagePage,
-                                   int usage,			
-                                   IONotificationPortRef notify_port)
+initializeHIDInterestNotifications(IONotificationPortRef notify_port)
 {
-    CFMutableDictionaryRef matchingDict = IOServiceMatching(kIOHIDDeviceKey);
+    CFMutableDictionaryRef matchingDict = NULL;
+    asl_log(0,0,ASL_LEVEL_ERR, "Registering for UPS devices\n");
+#if 0
+    matchingDict = IOServiceMatching(kIOHIDDeviceKey);
     if (!matchingDict) {
         return;
     }
@@ -1439,7 +1542,7 @@ initializeHIDInterestNotifications(int usagePage,
                          CFSTR(kIOHIDDeviceUsagePageKey),
                          cfUsagePageKey);
     CFRelease(cfUsagePageKey);
-    
+
     if (usage) {
         CFNumberRef cfUsageKey = CFNumberCreate(kCFAllocatorDefault,
                                                     kCFNumberIntType,
@@ -1448,12 +1551,15 @@ initializeHIDInterestNotifications(int usagePage,
             CFRelease(matchingDict);
             return;
         }
-        
+
         CFDictionarySetValue(matchingDict,
                              CFSTR(kIOHIDDeviceUsageKey),
                              cfUsageKey);
         CFRelease(cfUsageKey);
     }
+#else
+    matchingDict = copyUPSMatchingDict();
+#endif
     
     // Now set up a notification to be called when a device is first matched by
     // I/O Kit. Note that this will not catch any devices that were already

@@ -469,7 +469,7 @@ static SOSAccountRef GetSharedAccount(void) {
                 
                 if (CFSetContainsValue(peer_additions, me)) {
                     // TODO: Potentially remove from here and move this to the engine
-                    // TODO: We also need to do this when our views change.        
+                    // TODO: We also need to do this when our views change.
                     SOSCCSyncWithAllPeers();
                 }
             }
@@ -1158,9 +1158,8 @@ bool SOSCCIDSDeviceIDIsAvailableTest_Server(CFErrorRef *error){
         result = SOSAccountRetrieveDeviceIDFromIDSKeychainSyncingProxy(account, &blockError);
         return result;
     });
-    if(blockError != NULL && error != NULL)
+    if(blockError && error != NULL)
         *error = blockError;
-
     
     return didSendTestMessages;
 }
@@ -1386,14 +1385,14 @@ bool SOSCCWaitForInitialSync_Server(CFErrorRef* error) {
 }
 
 static CFArrayRef SOSAccountCopyYetToSyncViews(SOSAccountRef account, CFErrorRef *error) {
-    CFArrayRef result = NULL;
+    __block CFArrayRef result = NULL;
 
     CFTypeRef valueFetched = SOSAccountGetValue(account, kSOSUnsyncedViewsKey, error);
     if (valueFetched == kCFBooleanTrue) {
         SOSPeerInfoRef myPI = SOSAccountGetMyPeerInfo(account);
         if (myPI) {
             SOSPeerInfoWithEnabledViewSet(myPI, ^(CFSetRef enabled) {
-                CFSetCopyValues(enabled);
+                result = CFSetCopyValues(enabled);
             });
         }
     } else if (isSet(valueFetched)) {

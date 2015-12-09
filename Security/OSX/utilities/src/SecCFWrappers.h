@@ -153,7 +153,7 @@ void withStringOfAbsoluteTime(CFAbsoluteTime at, void (^action)(CFStringRef decr
 
 
 //
-// Call block function
+// MARK: Call block function
 //
 
 
@@ -168,7 +168,7 @@ static void apply_block_2(const void *key, const void *value, void *context)
 }
 
 //
-// CFEqual Helpers
+// MARK CFEqual Helpers
 //
 
 static inline bool CFEqualSafe(CFTypeRef left, CFTypeRef right)
@@ -181,7 +181,7 @@ static inline bool CFEqualSafe(CFTypeRef left, CFTypeRef right)
 
 
 //
-// Printing
+// MARK: Printing
 //
 
 static void fprint_string(FILE *file, CFStringRef string) {
@@ -218,7 +218,7 @@ static inline void cffprint(FILE *file, CFStringRef fmt, ...) {
 }
 
 //
-// CFError Helpers
+// MARK: CFError Helpers
 //
 
 /* Return false if possibleError is set.  Propagates possibleError into *error
@@ -237,7 +237,7 @@ bool CFErrorPropagate(CFErrorRef possibleError CF_CONSUMED, CFErrorRef *error) {
 }
 
 //
-// CFNumber Helpers
+// MARK: CFNumber Helpers
 //
 
 static inline CFNumberRef CFNumberCreateWithCFIndex(CFAllocatorRef allocator, CFIndex value)
@@ -246,7 +246,7 @@ static inline CFNumberRef CFNumberCreateWithCFIndex(CFAllocatorRef allocator, CF
 }
 
 //
-// CFData Helpers
+// MARK: CFData Helpers
 //
 
 static inline CFMutableDataRef CFDataCreateMutableWithScratch(CFAllocatorRef allocator, CFIndex size) {
@@ -325,7 +325,7 @@ static inline CFDataRef CFDataCreateCopyFromPositions(CFAllocatorRef allocator, 
 
 
 //
-// CFString Helpers
+// MARK: CFString Helpers
 //
 
 //
@@ -680,6 +680,17 @@ static inline void CFSetSubtract(CFMutableSetRef set, CFSetRef subtract) {
     });
 }
 
+static inline bool CFSetIsSubset(CFSetRef smaller, CFSetRef bigger) {
+    __block bool isSubset = true;
+    CFSetForEach(smaller, ^(const void *value) {
+        if (!CFSetContainsValue(bigger, value)) {
+            isSubset = false;
+        }
+    });
+
+    return isSubset;
+}
+
 static inline void CFSetSetValues(CFMutableSetRef set, CFArrayRef valuesToSet) {
     CFArrayForEach(valuesToSet, ^(const void *value) {
         CFSetSetValue(set, value);
@@ -912,6 +923,10 @@ static inline CF_RETURNS_RETAINED CFPropertyListRef CFPropertyListReadFromFile(C
     return result;
 }
 
+//
+// MARK: Custom Allocator for Sensitive Data
+//
+CFAllocatorRef CFAllocatorSensitive(void);
 
 __END_DECLS
 

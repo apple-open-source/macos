@@ -317,7 +317,6 @@ namespace WebCore {
         bool isPostOrRedirectAfterPost(const ResourceRequest&, const ResourceResponse&);
 
         void continueAfterNavigationPolicy(const ResourceRequest&, bool shouldContinue);
-
         void continueAfterContentPolicy(PolicyAction);
 
         void stopLoadingForPolicyChange();
@@ -338,9 +337,10 @@ namespace WebCore {
         void clearMainResource();
 
         void cancelPolicyCheckIfNeeded();
+        void becomeMainResourceClient();
 
 #if ENABLE(CONTENT_FILTERING)
-        void becomeMainResourceClientIfFilterAllows();
+        friend class ContentFilter;
         void installContentFilterUnblockHandler(ContentFilter&);
         void contentFilterDidDecide();
 #endif
@@ -428,7 +428,8 @@ namespace WebCore {
         unsigned long m_identifierForLoadWithoutResourceLoader;
 
         DocumentLoaderTimer m_dataLoadTimer;
-        bool m_waitingForContentPolicy;
+        bool m_waitingForContentPolicy { false };
+        bool m_waitingForNavigationPolicy { false };
 
         RefPtr<IconLoadDecisionCallback> m_iconLoadDecisionCallback;
         RefPtr<IconDataCallback> m_iconDataCallback;

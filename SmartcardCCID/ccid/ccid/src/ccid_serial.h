@@ -18,7 +18,7 @@
 */
 
 /*
- * $Id: ccid_serial.h 4973 2010-06-01 09:43:29Z rousseau $
+ * $Id$
  */
 
 #ifndef __CCID_SERAL_H__

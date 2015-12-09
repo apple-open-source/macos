@@ -2,7 +2,12 @@ SOURCES := $(wildcard *.c)
 TARGETS := $(patsubst %.c,%,$(SOURCES))
 TESTS   := $(patsubst %,test-%,$(TARGETS))
 
-CFLAGS := -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
+include Makefile.common
+
+CFLAGS += -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
+
+%: %.c
+	$(CC) -o $(BUILDDIR)/$@ $< $(CFLAGS)
 
 all: $(TARGETS)
 
@@ -16,5 +21,16 @@ $(TESTS): test-%: %
 
 clean:
 	rm -f $(TARGETS)
+
+setup:
+	mkdir -p $(BUILDDIR)
+
+
+# B&I Targets
+
+installhdrs:
+
+install: setup all
+
 
 .PHONY: all test check clean $(TESTS)

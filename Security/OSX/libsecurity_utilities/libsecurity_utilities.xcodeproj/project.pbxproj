@@ -274,7 +274,7 @@
 		C2B1EE2906D5929700F68F34 /* muscle++.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "muscle++.h"; sourceTree = "<group>"; };
 		C2B9F35F0D5A288900CAB713 /* cfmunge.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cfmunge.cpp; sourceTree = "<group>"; };
 		C2B9F3600D5A288900CAB713 /* cfmunge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cfmunge.h; sourceTree = "<group>"; };
-		C2B9F3610D5A288900CAB713 /* macho++.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "macho++.cpp"; sourceTree = "<group>"; };
+		C2B9F3610D5A288900CAB713 /* macho++.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "macho++.cpp"; sourceTree = "<group>"; usesTabs = 1; };
 		C2B9F3620D5A288900CAB713 /* macho++.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "macho++.h"; sourceTree = "<group>"; };
 		C2C164890F66F2CA00FD6D34 /* kq++.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "kq++.h"; sourceTree = "<group>"; };
 		C2C1648D0F66F2D300FD6D34 /* kq++.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "kq++.cpp"; sourceTree = "<group>"; };

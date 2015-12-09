@@ -2748,6 +2748,7 @@ IPv4RouteListCreateWithDictionary(IPv4RouteListRef routes,
 				  CFDictionaryRef dict,
 				  CFNumberRef rank_assertion)
 {
+    boolean_t		add_broadcast = FALSE;
     boolean_t		add_default = FALSE;
     boolean_t		add_router_subnet = FALSE;
     boolean_t		add_subnet = FALSE;
@@ -2877,8 +2878,13 @@ IPv4RouteListCreateWithDictionary(IPv4RouteListRef routes,
 	n++;
     }
 
-    if (ifindex != lo0_ifindex() && router.s_addr != 0) {
-	add_default = TRUE;
+    if (ifindex != lo0_ifindex()) {
+	if (router.s_addr != 0) {
+	    add_default = TRUE;
+	    n++;
+	}
+	/* allow traffic to 255.255.255.255 (rdar://problem/22794309) */
+	add_broadcast = TRUE;
 	n++;
     }
     if (allow_additional_routes) {
@@ -2925,6 +2931,19 @@ IPv4RouteListCreateWithDictionary(IPv4RouteListRef routes,
 	else {
 	    r->gateway = addr;
 	}
+	r->rank = primary_rank;
+	r++;
+    }
+    if (add_broadcast) {
+	/* add the broadcast route */
+	if ((flags & kRouteFlagsIsNULL) != 0) {
+	    r->flags |= kRouteFlagsIsNULL;
+	}
+	r->dest.s_addr = INADDR_BROADCAST;
+	r->mask.s_addr = INADDR_BROADCAST;
+	r->prefix_length = IPV4_ROUTE_ALL_BITS_SET;
+	r->ifindex = ifindex;
+	r->ifa = addr;
 	r->rank = primary_rank;
 	r++;
     }

@@ -440,6 +440,25 @@ OSStatus SSLSetDHEEnabled(SSLContextRef ctx, bool enabled);
 
 OSStatus SSLGetDHEEnabled(SSLContextRef ctx, bool *enabled);
 
+extern const CFStringRef kSSLSessionConfig_default;
+extern const CFStringRef kSSLSessionConfig_ATSv1;
+extern const CFStringRef kSSLSessionConfig_ATSv1_noPFS;
+extern const CFStringRef kSSLSessionConfig_legacy;
+extern const CFStringRef kSSLSessionConfig_standard;
+extern const CFStringRef kSSLSessionConfig_RC4_fallback;
+extern const CFStringRef kSSLSessionConfig_TLSv1_fallback;
+extern const CFStringRef kSSLSessionConfig_TLSv1_RC4_fallback;
+extern const CFStringRef kSSLSessionConfig_legacy_DHE;
+
+OSStatus
+SSLSetSessionConfig(SSLContextRef context,
+                    CFStringRef config);
+
+OSStatus
+SSLGetSessionConfig(SSLContextRef context,
+                    CFStringRef *config);
+
+
 #if TARGET_OS_IPHONE
 
 /* Following are SPIs on iOS */

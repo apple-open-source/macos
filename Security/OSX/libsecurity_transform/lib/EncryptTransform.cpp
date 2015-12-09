@@ -28,7 +28,7 @@
 #include "Utilities.h"
 #include "SecDigestTransform.h"
 #include "Digest.h"
-#include <Security/SecRandom.h>
+#include <Security/SecRandomP.h>
 #include <Security/SecKey.h>
 #include "SecMaskGenerationFunctionTransform.h"
 
@@ -627,22 +627,16 @@ CFDataRef EncryptDecryptBase::apply_oaep_padding(CFDataRef dataValue)
 	seed = (CFDataRef)this->GetAttribute(CFSTR("FixedSeedForOAEPTesting"));
 	raw_seed = NULL;
 	if (seed) {
-		raw_seed = (UInt8*)CFDataGetBytePtr(seed);
 		(void)transforms_assume(hLen == CFDataGetLength(seed));
 		CFRetain(seed);
 	} else {
-		raw_seed = (UInt8*)malloc(hLen);
-		if (!raw_seed) {
+		seed = SecRandomCopyData(kSecRandomDefault, hLen);
+		if (!seed) {
 			error = GetNoMemoryErrorAndRetain();
 			goto out;
 		}
-		SecRandomCopyBytes(kSecRandomDefault, hLen, raw_seed);
-		seed = CFDataCreateWithBytesNoCopy(NULL, raw_seed, hLen, kCFAllocatorMalloc);
-		if (!seed) {
-			free(raw_seed);
-			error = GetNoMemoryErrorAndRetain();
-		}
 	}
+    raw_seed = (UInt8*)CFDataGetBytePtr(seed);
 
 	// (7) Let dbMask = MGF (seed, emLen − hLen).
 	mgf_dbMask = transforms_assume(SecCreateMaskGenerationFunctionTransform(hashAlgo, desired_message_length - hLen, &error));

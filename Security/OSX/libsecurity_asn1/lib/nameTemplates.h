@@ -57,10 +57,11 @@ typedef struct {
  * Generalized Template chooser.
  */
 const SecAsn1Template * SecAsn1TaggedTemplateChooser(
-	/* Four args passed to specific SecAsn1TemplateChooser */
+	/* Five args passed to specific SecAsn1TemplateChooser */
 	void *arg, 				// currently not used
 	Boolean enc,			
 	const char *buf,
+	size_t len,
 	void *dest,
 	/* array of tag/template pairs */
 	const NSS_TagChoice *chooser);

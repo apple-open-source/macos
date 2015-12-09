@@ -851,7 +851,7 @@ OSStatus
 EAPSecPolicyCopy(SecPolicyRef * ret_policy)
 {
 #if TARGET_OS_EMBEDDED
-    *ret_policy = SecPolicyCreateEAP(FALSE, NULL);
+    *ret_policy = SecPolicyCreateEAP(TRUE, NULL);
 #else /* TARGET_OS_EMBEDDED */
     *ret_policy = SecPolicyCreateWithProperties(kSecPolicyAppleEAP, NULL);
 #endif /* TARGET_OS_EMBEDDED */
@@ -1241,7 +1241,7 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
     }
     client_status = kEAPClientStatusSecurityError;
     trusted_server_names = get_trusted_server_names(properties);
-    policy = SecPolicyCreateEAP(FALSE, trusted_server_names);
+    policy = SecPolicyCreateEAP(TRUE, trusted_server_names);
     if (policy == NULL) {
 	goto done;
     }

@@ -2102,6 +2102,7 @@ static void PMConnectionPowerCallBack(
             IOAllowPowerChange(gRootDomainConnect, (long)capArgs->notifyRef);                
         }
 
+        incrementSleepCnt();
         return;
     } else if (SYSTEM_WILL_SLEEP_TO_S0DARK(capArgs))
     {

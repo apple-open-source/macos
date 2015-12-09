@@ -313,12 +313,12 @@ nb{
         }
         gregorian{
             AmPmMarkers{
-                "a.m.",
-                "p.m.",
+                "am",
+                "pm",
             }
             AmPmMarkersAbbr{
-                "a.m.",
-                "p.m.",
+                "am",
+                "pm",
             }
             AmPmMarkersNarrow{
                 "a",

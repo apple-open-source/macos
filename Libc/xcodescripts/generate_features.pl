@@ -1,9 +1,5 @@
 #!/usr/bin/perl
 
-if ($ENV{"ACTION"} eq "installhdrs") {
-	exit 0;
-}
-
 # Generates the libc-features.h files used to control #ifdef behaviour in Libc
 use warnings;
 use Data::Dumper;

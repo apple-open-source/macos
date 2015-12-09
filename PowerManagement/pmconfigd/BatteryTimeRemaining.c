@@ -759,7 +759,8 @@ static void HandlePublishAllPowerSources(void)
     int                         percentRemaining = 0;
     static int                  prev_percentRemaining = 0;
     bool                        tr_posted;
-    bool                        ups_externalConnected = false;
+    int                         ups_externalConnected = 0;
+    static int                  ups_prevExternalConnected = -1;
     bool                        externalConnected, tr_unknown, is_charging, fully_charged;
     bool                        rawExternalConnected = false;
     CFDictionaryRef             ups = NULL;
@@ -791,8 +792,13 @@ static void HandlePublishAllPowerSources(void)
         }
 
         CFStringRef src = CFDictionaryGetValue(ups, CFSTR(kIOPSPowerSourceStateKey));
-        if (src && (CFStringCompare(src, CFSTR(kIOPSACPowerValue), kNilOptions) == kCFCompareEqualTo))
-            ups_externalConnected = true;
+        if (src && (CFStringCompare(src, CFSTR(kIOPSACPowerValue), kNilOptions) == kCFCompareEqualTo)) {
+            ups_externalConnected = 1;
+        }
+        if (ups_prevExternalConnected != ups_externalConnected) {
+            control.needsNotifyAC = true;
+            ups_prevExternalConnected = ups_externalConnected;
+        }
     }
     
     if (b) {
@@ -803,11 +809,11 @@ static void HandlePublishAllPowerSources(void)
 
             if (ups) {
                 externalConnected = b->externalConnected && ups_externalConnected;
-                rawExternalConnected = b->rawExternalConnected;
             }
             else {
                 externalConnected = b->externalConnected;
             }
+            rawExternalConnected = b->rawExternalConnected;
     }
     else {
         int mcap = 0, ccap = 0;
@@ -1720,7 +1726,6 @@ kern_return_t _io_ps_update_pspowersource(
                 }
             }
 
-            *return_code = kIOReturnSuccess;
             if ((next->psType == kPSTypeIntBattery) || (next->psType == kPSTypeUPS)) {
                 if (next->description) {
                     CFRelease(next->description);
@@ -1729,6 +1734,7 @@ kern_return_t _io_ps_update_pspowersource(
                 updateLogBuffer(next, false);
                 dispatch_async(dispatch_get_main_queue(), ^()
                            { HandlePublishAllPowerSources(); });
+                *return_code = kIOReturnSuccess;
             }
             else if (next->psType == kPSTypeAccessory) {
                *return_code = HandleAccessoryPowerSources(next, details);

@@ -430,17 +430,17 @@ See remaining rules for examples.
 			<key>shared</key>
 			<false/>
 		</dict>
-		<key>com.apple.iCloud.passwordReset</key>
-                <dict>
-                        <key>class</key>
-                        <string>user</string>
-                        <key>comment</key>
-                        <string>Authenticate as the session owner to reset iCloud password</string>
-                        <key>session-owner</key>
-                        <true/>
+		<key>com.apple.icloud.passwordreset</key>
+		<dict>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>Authenticate as the session owner to reset iCloud password</string>
+			<key>session-owner</key>
+			<true/>
 			<key>timeout</key>
 			<integer>0</integer>
-                </dict>
+		</dict>
 		<key>com.apple.library-repair</key>
 		<dict>
 			<key>class</key>

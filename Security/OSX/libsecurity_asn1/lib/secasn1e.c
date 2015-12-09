@@ -285,7 +285,7 @@ sec_asn1e_init_state_based_on_template (sec_asn1e_state *state)
 		}
 	
 		subt = SEC_ASN1GetSubtemplate (state->theTemplate, state->src, PR_TRUE,
-			NULL /* __APPLE__ */);
+			NULL /* __APPLE__ */, 0 /* __APPLE__ */);
 		state = sec_asn1e_push_state (state->top, subt, src, PR_FALSE);
 		if (state == NULL)
 			return NULL;
@@ -575,7 +575,7 @@ sec_asn1e_contents_length (const SecAsn1Template *theTemplate, void *src,
 	/* XXX any bits we want to disallow (PORT_Assert against) here? */
 
 	theTemplate = SEC_ASN1GetSubtemplate (theTemplate, src, PR_TRUE,
-		NULL /* __APPLE__ */);
+		NULL /* __APPLE__ */, 0 /* __APPLE__ */);
 
 	if (encode_kind & SEC_ASN1_POINTER) {
 	    /*
@@ -677,7 +677,7 @@ sec_asn1e_contents_length (const SecAsn1Template *theTemplate, void *src,
 		break;
 
 	    tmpt = SEC_ASN1GetSubtemplate (theTemplate, src, PR_TRUE,
-			NULL /* __APPLE__ */);
+			NULL /* __APPLE__ */, 0 /* __APPLE__ */);
 
 	    for (; *group != NULL; group++) {
 			sub_src = (char *)(*group) + tmpt->offset;
@@ -884,7 +884,7 @@ sec_asn1e_write_header (sec_asn1e_state *state)
 				      SEC_ASN1GetSubtemplate(state->theTemplate,
 							     state->src,
 							     PR_TRUE,
-								 NULL /* __APPLE__ */),
+								 NULL /* __APPLE__ */, 0 /* __APPLE__ */),
 				      state->src, PR_TRUE);
 	if (state != NULL)
 	    state = sec_asn1e_init_state_based_on_template (state);
@@ -914,7 +914,7 @@ sec_asn1e_write_header (sec_asn1e_state *state)
 	    }
 	    state->place = duringGroup;
 	    subt = SEC_ASN1GetSubtemplate (state->theTemplate, state->src,
-					   PR_TRUE, NULL /* __APPLE__ */);
+					   PR_TRUE, NULL /* __APPLE__ */, 0 /* __APPLE__ */);
 	    state = sec_asn1e_push_state (state->top, subt, *group, PR_TRUE);
 	    if (state != NULL)
 		state = sec_asn1e_init_state_based_on_template (state);

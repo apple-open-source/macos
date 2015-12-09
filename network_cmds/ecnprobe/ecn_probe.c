@@ -78,6 +78,7 @@ void usage(char *name)
 	printf("\t-s <source hostname or ip address>\n");
 	printf("\t-f <file-name to get>\n");
 	printf("\t-d <interface name>\n");
+	printf("\t-C for CE path check\n");
 	return;
 }
 
@@ -250,15 +251,13 @@ int main(int argc, char **argv)
 	u_int32_t sourceIpAddress = 0;
 	int mss = DEFAULT_MSS;
 	int mtu = DEFAULT_MTU;
-	int fd;
-	int opt;
-	int usedev = 0, rc = 0;
+	int fd, opt, usedev = 0, rc = 0, path_check = 0;
 	struct sockaddr_in saddr;
 	char dev[11];  /* device name for pcap init */
 	struct ifaddrs *ifap, *tmp;
 
 	bzero(&session, sizeof(session));
-	while ((opt = getopt(argc, argv, "n:p:w:m:M:s:d:f:")) != -1) {
+	while ((opt = getopt(argc, argv, "n:p:w:m:M:s:d:f:-C")) != -1) {
 		switch (opt) {
 		case 'n':
 			if (strlen(optarg) > (MAXHOSTNAMELEN - 1)) {
@@ -305,6 +304,9 @@ int main(int argc, char **argv)
 			} else {
 				printf("Invalid file name \n");
 			}
+			break;
+		case 'C':
+			path_check = 1;
 			break;
 		default:
 			usage(argv[0]);
@@ -391,9 +393,14 @@ int main(int argc, char **argv)
 	SetupFirewall(targetIpAddress, targetPort, dev);
 
 	printf("Starting ECN test\n");
-	ECNTest(sourceIpAddress, sourcePort, targetIpAddress, targetPort, mss);
-
-	Cleanup();
+	if (path_check) {
+	  ECNPathCheckTest(sourceIpAddress, sourcePort, targetIpAddress,
+            targetPort, mss);
+	} else {
+	  ECNTest(sourceIpAddress, sourcePort, targetIpAddress,
+            targetPort, mss);
+	}
+	Quit(SUCCESS);
 	close(session.socket);
 	return (0);
 }

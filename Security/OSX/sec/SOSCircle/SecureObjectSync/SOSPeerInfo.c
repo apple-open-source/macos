@@ -238,9 +238,6 @@ static SOSPeerInfoRef SOSPeerInfoCreate_Internal(CFAllocatorRef allocator,
                                                               sGestaltKey,   pi->gestalt,
                                                               NULL);
 
-    if (backup_key != NULL)
-        SOSPeerInfoV2DictionarySetValue(pi, sBackupKeyKey, backup_key);
-
     description_modifier(pi->description);
     
     

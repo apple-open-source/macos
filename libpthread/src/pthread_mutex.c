@@ -69,6 +69,8 @@
 #define	PLOCKSTAT_MUTEX_RELEASE(x, y)
 #endif /* PLOCKSTAT */
 
+#define PTHREAD_MUTEX_INIT_UNUSED 1
+
 extern int __unix_conforming;
 
 #ifndef BUILDING_VARIANT
@@ -109,8 +111,9 @@ static inline void
 MUTEX_GETSEQ_ADDR(_pthread_mutex *mutex,
 		  volatile uint64_t **seqaddr)
 {
-	// addr of m_seq[1] for misaligned, m_seq[0] for aligned mutex struct
-	*seqaddr = (volatile uint64_t *)(((uintptr_t)&mutex->m_seq[1]) & ~0x7ul);
+	// 64-bit aligned address inside m_seq array (&m_seq[0] for aligned mutex)
+	// We don't require more than byte alignment on OS X. rdar://22278325
+	*seqaddr = (volatile uint64_t*)(((uintptr_t)mutex->m_seq + 0x7ul) & ~0x7ul);
 }
 
 PTHREAD_ALWAYS_INLINE
@@ -118,8 +121,9 @@ static inline void
 MUTEX_GETTID_ADDR(_pthread_mutex *mutex,
 				  volatile uint64_t **tidaddr)
 {
-	// addr of m_tid[1] for misaligned, m_tid[0] for aligned mutex struct
-	*tidaddr = (volatile uint64_t *)(((uintptr_t)&mutex->m_tid[1]) & ~0x7ul);
+	// 64-bit aligned address inside m_tid array (&m_tid[0] for aligned mutex)
+	// We don't require more than byte alignment on OS X. rdar://22278325
+	*tidaddr = (volatile uint64_t*)(((uintptr_t)mutex->m_tid + 0x7ul) & ~0x7ul);
 }
 
 #ifndef BUILDING_VARIANT /* [ */
@@ -994,8 +998,11 @@ pthread_mutex_unlock(pthread_mutex_t *omutex)
 
 
 static inline int
-_pthread_mutex_init(_pthread_mutex *mutex, const pthread_mutexattr_t *attr, uint32_t static_type)
+_pthread_mutex_init(_pthread_mutex *mutex, const pthread_mutexattr_t *attr,
+		uint32_t static_type)
 {
+	mutex->mtxopts.value = 0;
+	mutex->mtxopts.options.mutex = 1;
 	if (attr) {
 		if (attr->sig != _PTHREAD_MUTEX_ATTR_SIG) {
 			return EINVAL;
@@ -1031,27 +1038,21 @@ _pthread_mutex_init(_pthread_mutex *mutex, const pthread_mutexattr_t *attr, uint
 		}
 		mutex->mtxopts.options.pshared = _PTHREAD_DEFAULT_PSHARED;
 	}
-	
-	mutex->mtxopts.options.notify = 0;
-	mutex->mtxopts.options.unused = 0;
-	mutex->mtxopts.options.hold = 0;
-	mutex->mtxopts.options.mutex = 1;
-	mutex->mtxopts.options.lock_count = 0;
-
-	mutex->m_tid[0] = 0;
-	mutex->m_tid[1] = 0;
-	mutex->m_seq[0] = 0;
-	mutex->m_seq[1] = 0;
-	mutex->m_seq[2] = 0;
-	mutex->prioceiling = 0;
 	mutex->priority = 0;
 
-	mutex->mtxopts.options.misalign = (((uintptr_t)&mutex->m_seq[0]) & 0x7ul) != 0;
-	if (mutex->mtxopts.options.misalign) {
-		mutex->m_tid[0] = ~0u;
-	} else {
-		mutex->m_seq[2] = ~0u;
+	volatile uint64_t *seqaddr;
+	MUTEX_GETSEQ_ADDR(mutex, &seqaddr);
+	volatile uint64_t *tidaddr;
+	MUTEX_GETTID_ADDR(mutex, &tidaddr);
+#if PTHREAD_MUTEX_INIT_UNUSED
+	if ((uint32_t*)tidaddr != mutex->m_tid) {
+		mutex->mtxopts.options.misalign = 1;
+		__builtin_memset(mutex->m_tid, 0xff, sizeof(mutex->m_tid));
 	}
+	__builtin_memset(mutex->m_mis, 0xff, sizeof(mutex->m_mis));
+#endif // PTHREAD_MUTEX_INIT_UNUSED
+	*tidaddr = 0;
+	*seqaddr = 0;
 
 	long sig = _PTHREAD_MUTEX_SIG;
 	if (mutex->mtxopts.options.type == PTHREAD_MUTEX_NORMAL &&
@@ -1060,9 +1061,19 @@ _pthread_mutex_init(_pthread_mutex *mutex, const pthread_mutexattr_t *attr, uint
 		sig = _PTHREAD_MUTEX_SIG_fast;
 	}
 
-	// unused, purely for detecting copied mutexes and smashes during debugging:
-	mutex->reserved2[0] = ~(uintptr_t)mutex; // use ~ to hide from leaks
-	mutex->reserved2[1] = (uintptr_t)sig;
+#if PTHREAD_MUTEX_INIT_UNUSED
+	// For detecting copied mutexes and smashes during debugging
+	uint32_t sig32 = (uint32_t)sig;
+#if defined(__LP64__)
+	uintptr_t guard =  ~(uintptr_t)mutex; // use ~ to hide from leaks
+	__builtin_memcpy(mutex->_reserved, &guard, sizeof(guard));
+	mutex->_reserved[2] = sig32;
+	mutex->_reserved[3] = sig32;
+	mutex->_pad = sig32;
+#else
+	mutex->_reserved[0] = sig32;
+#endif
+#endif // PTHREAD_MUTEX_INIT_UNUSED
 
 	// Ensure all contents are properly set before setting signature.
 #if defined(__LP64__)

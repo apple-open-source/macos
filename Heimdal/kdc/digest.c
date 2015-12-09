@@ -375,8 +375,8 @@ _kdc_do_digest(krb5_context context,
     case choice_DigestReqInner_init: {
 	unsigned char server_nonce[16], identifier;
 
-	CCRandomCopyBytes(kCCRandomDefault, &identifier, sizeof(identifier));
-	CCRandomCopyBytes(kCCRandomDefault, server_nonce, sizeof(server_nonce));
+	krb5_generate_random_block(&identifier, sizeof(identifier));
+	krb5_generate_random_block(server_nonce, sizeof(server_nonce));
 
 	server_nonce[0] = kdc_time & 0xff;
 	server_nonce[1] = (kdc_time >> 8) & 0xff;
@@ -1066,9 +1066,8 @@ _kdc_do_digest(krb5_context context,
 	    goto out;
 	}
 	r.u.ntlmInitReply.challenge.length = 8;
-	CCRandomCopyBytes(kCCRandomDefault,
-			  r.u.ntlmInitReply.challenge.data,
-			  r.u.ntlmInitReply.challenge.length);
+	krb5_generate_random_block(r.u.ntlmInitReply.challenge.data,
+				   r.u.ntlmInitReply.challenge.length);
 	/* XXX fix targetinfo */
 	ALLOC(r.u.ntlmInitReply.targetinfo);
 	if (r.u.ntlmInitReply.targetinfo == NULL) {

@@ -3190,6 +3190,12 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
     return;
 }
 
+PRIVATE_EXTERN boolean_t
+ServiceIsPublished(ServiceRef service_p)
+{
+    return (service_p->ready && service_p->status == ipconfig_status_success_e);
+}
+
 PRIVATE_EXTERN void
 service_publish_failure_sync(ServiceRef service_p, ipconfig_status_t status,
 			     boolean_t sync)

@@ -359,12 +359,12 @@ he{
         }
         gregorian{
             AmPmMarkers{
-                "לפנה״צ",
-                "אחה״צ",
+                "לפ׳",
+                "אח׳",
             }
             AmPmMarkersNarrow{
-                "לפנה״צ",
-                "אחה״צ",
+                "לפ׳",
+                "אח׳",
             }
             DateTimePatterns{
                 "H:mm:ss zzzz",

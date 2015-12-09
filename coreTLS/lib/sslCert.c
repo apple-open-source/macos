@@ -596,6 +596,7 @@ SSLEncodeCertificateVerify(tls_buffer *certVerify, tls_handshake_t ctx)
         if(err)
             goto fail;
         outputLen += 2;
+        ctx->certSigAlg = sigAlg; // Save for metrics reporting.
     }
 
     assert(ctx->sslTslCalls != NULL);

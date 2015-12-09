@@ -82,7 +82,7 @@ static CFSetRef SOSAccountCopyBackupPeersForView(SOSAccountRef account, CFString
 
     require_quiet(circle, exit);
 
-    SOSCircleForEachActiveValidPeer(circle, account->user_public, ^(SOSPeerInfoRef peer) {
+    SOSCircleForEachValidPeer(circle, account->user_public, ^(SOSPeerInfoRef peer) {
         if (SOSPeerInfoIsViewBackupEnabled(peer, viewName))
             CFSetAddValue(backupPeers, peer);
     });

@@ -202,7 +202,7 @@ SecCmsAttributeCompareValue(SecCmsAttribute *attr, CSSM_DATA_PTR av)
  * helper function for dynamic template determination of the attribute value
  */
 static const SecAsn1Template *
-cms_attr_choose_attr_value_template(void *src_or_dest, Boolean encoding, const char *buf, void *dest)
+cms_attr_choose_attr_value_template(void *src_or_dest, Boolean encoding, const char *buf, size_t len, void *dest)
 {
     const SecAsn1Template *theTemplate;
     SecCmsAttribute *attribute;

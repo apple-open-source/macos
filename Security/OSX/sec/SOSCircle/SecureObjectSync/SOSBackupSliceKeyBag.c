@@ -142,6 +142,7 @@ uint8_t* der_encode_BackupSliceKeyBag(SOSBackupSliceKeyBagRef set, CFErrorRef *e
     if (der_end == NULL) return der_end;
 
     require_quiet(SecRequirementError(set != NULL, error, CFSTR("Null set passed to encode")), fail);
+    require_quiet(set, fail); // This should be removed when SecRequirementError can squelch analyzer warnings
 
     der_end = ccder_encode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, der_end, der,
               der_encode_data(set->aks_bag, error, der,

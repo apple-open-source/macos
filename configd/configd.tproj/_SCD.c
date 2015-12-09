@@ -268,11 +268,15 @@ pushNotifications(FILE *_configd_trace)
 			/*
 			 * Post notification as mach message
 			 */
-			SC_trace(_configd_trace, "%s : %5d : port = %d, msgid = %d\n",
+			SC_trace(_configd_trace, "%s : %5d : port = %d\n",
 				 "-->port",
 				 storePrivate->server,
-				 storePrivate->notifyPort,
-				 storePrivate->notifyPortIdentifier);
+				 storePrivate->notifyPort);
+
+			/* use a random (and non-zero) identifier */
+			while (storePrivate->notifyPortIdentifier == 0) {
+				storePrivate->notifyPortIdentifier = (mach_msg_id_t)random();
+			}
 
 			_SC_sendMachMessage(storePrivate->notifyPort, storePrivate->notifyPortIdentifier);
 		}

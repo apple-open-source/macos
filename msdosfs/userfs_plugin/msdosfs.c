@@ -81,7 +81,6 @@ struct _userfs_stream_s {
 const char * (*device_name)(userfs_device_t device);
 int (*device_fd)(userfs_device_t device);
 pthread_mutex_t* (*device_mutex)(userfs_device_t device);
-pthread_cond_t* (*device_cond)(userfs_device_t device);
 int (*cache_get_buffer)(userfs_device_t device, uint64_t offset, size_t length, userfs_buffer_t *buffer);
 void (*cache_release_buffer)(userfs_device_t device, userfs_buffer_t buffer);     // TODO: Should this take a "dirty" flag?
 int (*cache_flush_buffer)(userfs_device_t device, userfs_buffer_t buffer);
@@ -94,8 +93,7 @@ void (*buffer_mark_dirty)(userfs_buffer_t buffer);
 
 bool (*cache_get_content_buffer)(userfs_device_t device, userfs_contentbuffer_t *buffer, uint64_t offset, bool empty);
 void * (*content_buffer_bytes)(userfs_contentbuffer_t buffer);
-void (*content_buffer_set_complete)(userfs_contentbuffer_t buffer);
-bool (*content_buffer_is_complete)(userfs_contentbuffer_t buffer);
+void (*populate_content_buffer_cache)(userfs_device_t device, userfs_contentbuffer_t buffer);
 
 
 struct unistr255 {
@@ -1593,10 +1591,8 @@ static errno_t stream_get_read_data(userfs_stream_t stream, uint64_t offset, siz
     size_t tail_length = 0;
 
     pthread_mutex_t* readahead_mutex = device_mutex(stream->volume->device);
-    pthread_cond_t* readahead_cond = device_cond(stream->volume->device);
 
     assert(readahead_mutex != NULL);
-    assert(readahead_cond != NULL);
 
     while (length > 0)
     {
@@ -1617,12 +1613,6 @@ static errno_t stream_get_read_data(userfs_stream_t stream, uint64_t offset, siz
 
         /* Check if the data is in cache. */
         found_cache_data = cache_get_content_buffer(stream->volume->device, &buf, cache_offset, false);
-
-        while(found_cache_data && (content_buffer_is_complete(buf) == false))
-        {
-            asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "Waiting for io to be complete");
-            pthread_cond_wait(readahead_cond, readahead_mutex);
-        }
 
         if (found_cache_data)
         {
@@ -1699,10 +1689,8 @@ static errno_t stream_get_read_ahead_data(userfs_stream_t stream, uint64_t offse
     int fd = device_fd(stream->volume->device);
 
     pthread_mutex_t* readahead_mutex = device_mutex(stream->volume->device);
-    pthread_cond_t* readahead_cond = device_cond(stream->volume->device);
 
     assert(readahead_mutex != NULL);
-    assert(readahead_cond != NULL);
 
     pthread_mutex_lock(readahead_mutex);
 
@@ -1788,15 +1776,12 @@ static errno_t stream_get_read_ahead_data(userfs_stream_t stream, uint64_t offse
         }
         else
         {
-            /* readv successfully completed, now mark the buffers as io_complete
-             * and signal any thread who is waiting for io to complete.
-             */
-			while(i < iter)
+            /* readv successfully completed, populate the content buffer cache. */
+            while(i < iter)
             {
-                content_buffer_set_complete(buffer_list[i]);
+                populate_content_buffer_cache(stream->volume->device, buffer_list[i]);
                 i++;
             }
-            pthread_cond_signal(readahead_cond);
         }
 
         free(iov);
@@ -1807,6 +1792,7 @@ static errno_t stream_get_read_ahead_data(userfs_stream_t stream, uint64_t offse
     }
 
 done:
+
     if (offset > stream->last_offset_in_cache)
     {
         stream->last_offset_in_cache = offset;
@@ -2660,7 +2646,6 @@ void userfs_plugin_init(struct userfs_plugin_operations *ops, const struct userf
     device_name           = callbacks->device_name;
     device_fd             = callbacks->device_fd;
     device_mutex          = callbacks->device_mutex;
-    device_cond           = callbacks->device_cond;
     cache_get_buffer      = callbacks->cache_get_buffer;
     cache_release_buffer  = callbacks->cache_release_buffer;
     cache_flush_buffer    = callbacks->cache_flush_buffer;
@@ -2674,6 +2659,5 @@ void userfs_plugin_init(struct userfs_plugin_operations *ops, const struct userf
 	/* Content caching */
     cache_get_content_buffer  = callbacks->cache_get_content_buffer;
     content_buffer_bytes   = callbacks->content_buffer_bytes;
-    content_buffer_set_complete = callbacks->content_buffer_set_complete;
-	content_buffer_is_complete = callbacks->content_buffer_is_complete;
+    populate_content_buffer_cache = callbacks->populate_content_buffer_cache;
 }

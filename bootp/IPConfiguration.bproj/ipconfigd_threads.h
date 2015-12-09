@@ -275,6 +275,9 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
 			  struct in6_addr * router, int router_count,
 			  dhcpv6_info_t * dhcp_info_p,
 			  CFStringRef signature);
+boolean_t
+ServiceIsPublished(ServiceRef service_p);
+
 void
 ServiceSetRequestedIPv6Address(ServiceRef service_p,
 			       const struct in6_addr * addr_p,

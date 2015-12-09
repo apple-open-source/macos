@@ -1,5 +1,5 @@
 /*
-    proto-t1.h: header file for proto-t1.c
+    checksum.h: header file checksum.c
     Copyright (C) 2004   Ludovic Rousseau
 
     This library is free software; you can redistribute it and/or
@@ -17,16 +17,18 @@
 	Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-/* $Id: checksum.h 2974 2008-05-28 18:32:52Z rousseau $ */
+/* $Id$ */
 
 #ifndef __CHECKSUM_H__
 #define __CHECKSUM_H__
 
-#include "config.h"
+#include <config.h>
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
 extern unsigned int	csum_lrc_compute(const uint8_t *, size_t, unsigned char *);
 extern unsigned int	csum_crc_compute(const uint8_t *, size_t, unsigned char *);

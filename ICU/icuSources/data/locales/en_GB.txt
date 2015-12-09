@@ -10,10 +10,49 @@ en_GB{
     %%Parent{"en_001"}
     Version{"2.1.11.59"}
     calendar{
+        chinese{
+            availableFormats{
+                Ed{"E d"}
+                GyMMMEd{"E, d MMM r(U)"}
+                GyMMMd{"d MMM r"}
+                M{"LL"}
+                MEd{"E dd/MM"}
+                MMMEd{"E d MMM"}
+                MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
+                Md{"dd/MM"}
+                UMMMd{"d MMM U"}
+                UMd{"dd/MM/U"}
+                yMd{"dd/MM/r"}
+                yyyyM{"MM/r"}
+                yyyyMEd{"E, dd/MM/r"}
+                yyyyMMMEd{"E, d MMM r(U)"}
+                yyyyMMMd{"d MMM r"}
+                yyyyMd{"dd/MM/r"}
+            }
+        }
+        generic{
+            availableFormats{
+                Ed{"E d"}
+                GyMMMEd{"E, d MMM y G"}
+                GyMMMd{"d MMM y G"}
+                M{"LL"}
+                MEd{"E dd/MM"}
+                MMMEd{"E d MMM"}
+                MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
+                Md{"dd/MM"}
+                yyyyM{"MM/y GGGGG"}
+                yyyyMEd{"E, dd/MM/y GGGGG"}
+                yyyyMMMEd{"E, d MMM y G"}
+                yyyyMMMd{"d MMM y G"}
+                yyyyMd{"dd/MM/y GGGGG"}
+            }
+        }
         gregorian{
             AmPmMarkers{
-                "a.m.",
-                "p.m.",
+                "am",
+                "pm",
             }
             DateTimePatterns{
                 "HH:mm:ss zzzz",
@@ -29,6 +68,21 @@ en_GB{
                 "{1} 'at' {0}",
                 "{1}, {0}",
                 "{1}, {0}",
+            }
+            availableFormats{
+                GyMMMEd{"E, d MMM y G"}
+                GyMMMd{"d MMM y G"}
+                MEd{"E dd/MM"}
+                MMMEd{"E d MMM"}
+                MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
+                MMdd{"dd/MM"}
+                Md{"dd/MM"}
+                yM{"MM/y"}
+                yMEd{"E, dd/MM/y"}
+                yMMMEd{"E, d MMM y"}
+                yMMMd{"d MMM y"}
+                yMd{"dd/MM/y"}
             }
         }
     }

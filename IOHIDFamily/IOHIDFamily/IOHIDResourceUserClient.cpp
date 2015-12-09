@@ -29,6 +29,7 @@
 #endif
 
 #include "IOHIDResourceUserClient.h"
+#include <libkern/OSAtomic.h>
 
 #define kHIDClientTimeoutUS     1000000ULL
 
@@ -690,12 +691,12 @@ exit:
 IOReturn IOHIDResourceDeviceUserClient::postReportResult(IOExternalMethodArguments * arguments)
 {
     OSObject * object = NULL;
+    IOReturn result = kIOReturnNotFound;
     
     u_int64_t token = (u_int64_t)arguments->scalarInput[kIOHIDResourceUserClientResponseIndexToken];
 
     OSCollectionIterator * iterator = OSCollectionIterator::withCollection(_pending);
-    if ( !iterator )
-        return kIOReturnNoMemory;
+    require_action(iterator, exit, result = kIOReturnNoMemory);
     
     while ( (object = iterator->getNextObject()) ) {
         __ReportResult * pResult = (__ReportResult*)((OSData*)object)->getBytesNoCopy();
@@ -718,10 +719,14 @@ IOReturn IOHIDResourceDeviceUserClient::postReportResult(IOExternalMethodArgumen
         
         _commandGate->commandWakeup(object);
         
-        return kIOReturnSuccess;
+        result = kIOReturnSuccess;
+        break;
     }
+    
+    iterator->release();
 
-    return kIOReturnNotFound;
+exit:
+    return result;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -852,7 +857,7 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
             // exactly matches the available space at the end of the queue.
             // The tail can range from 0 to getQueueSize() inclusive.
 
-            dataQueue->tail += entrySize;
+            OSAddAtomic(entrySize, (int32_t *)&dataQueue->tail);
         }
         else if ( head > entrySize )     // Is there enough room at the beginning?
         {
@@ -873,7 +878,8 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
             bcopy(header, &dataQueue->queue->data, sizeof(IOHIDResourceDataQueueHeader));
             if ( report )
                 report->readBytes(0, ((UInt8*)&dataQueue->queue->data) + headerSize, reportSize);
-            dataQueue->tail = entrySize;
+   
+            OSCompareAndSwap(dataQueue->tail, entrySize, (int32_t *)&dataQueue->tail);
         }
         else
         {
@@ -894,7 +900,8 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
             bcopy(header, &entry->data, sizeof(IOHIDResourceDataQueueHeader));
             if ( report )
                 report->readBytes(0, ((UInt8*)&entry->data) + headerSize, reportSize);
-            dataQueue->tail += entrySize;
+            
+            OSAddAtomic(entrySize, (int32_t *)&dataQueue->tail);
         }
         else
         {

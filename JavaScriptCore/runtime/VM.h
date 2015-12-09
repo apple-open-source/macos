@@ -352,16 +352,6 @@ public:
         return OBJECT_OFFSETOF(VM, m_exception);
     }
 
-    static ptrdiff_t vmEntryFrameForThrowOffset()
-    {
-        return OBJECT_OFFSETOF(VM, vmEntryFrameForThrow);
-    }
-
-    static ptrdiff_t topVMEntryFrameOffset()
-    {
-        return OBJECT_OFFSETOF(VM, topVMEntryFrame);
-    }
-
     static ptrdiff_t callFrameForThrowOffset()
     {
         return OBJECT_OFFSETOF(VM, callFrameForThrow);
@@ -391,6 +381,14 @@ public:
     JS_EXPORT_PRIVATE JSValue throwException(ExecState*, JSValue);
     JS_EXPORT_PRIVATE JSObject* throwException(ExecState*, JSObject*);
 
+    void setFailNextNewCodeBlock() { m_failNextNewCodeBlock = true; }
+    bool getAndClearFailNextNewCodeBlock()
+    {
+        bool result = m_failNextNewCodeBlock;
+        m_failNextNewCodeBlock = false;
+        return result;
+    }
+    
     void* stackPointerAtVMEntry() const { return m_stackPointerAtVMEntry; }
     void setStackPointerAtVMEntry(void*);
 
@@ -426,7 +424,6 @@ public:
     JSValue hostCallReturnValue;
     unsigned varargsLength;
     ExecState* newCallFrameReturnValue;
-    VMEntryFrame* vmEntryFrameForThrow;
     ExecState* callFrameForThrow;
     void* targetMachinePCForThrow;
     Instruction* targetInterpreterPCForThrow;
@@ -579,6 +576,7 @@ private:
     void* m_lastStackTop;
     Exception* m_exception { nullptr };
     Exception* m_lastException { nullptr };
+    bool m_failNextNewCodeBlock { false };
     bool m_inDefineOwnProperty;
     std::unique_ptr<CodeCache> m_codeCache;
     LegacyProfiler* m_enabledProfiler;

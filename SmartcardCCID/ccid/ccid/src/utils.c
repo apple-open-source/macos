@@ -18,12 +18,12 @@
 */
 
 /*
- * $Id: utils.c 5185 2010-08-26 08:58:06Z rousseau $
+ * $Id$
  */
 
 #include <pcsclite.h>
 
-#include "config.h"
+#include <config.h>
 #include "ccid.h"
 #include "defs.h"
 #include "ccid_ifdhandler.h"

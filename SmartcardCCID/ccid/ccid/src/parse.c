@@ -18,7 +18,7 @@
 */
 
 /*
- * $Id: parse.c 6633 2013-05-22 14:11:37Z rousseau $
+ * $Id$
  */
 
 #include <stdio.h>
@@ -27,6 +27,7 @@
 # include <sys/types.h>
 # endif
 #include <errno.h>
+#include <unistd.h>
 
 #include "defs.h"
 #include "ccid.h"

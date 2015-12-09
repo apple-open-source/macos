@@ -19,6 +19,7 @@
 		<string>Added support for quarantine and copyfile.</string>
 		<string>Added tar --disable-copyfile option.</string>
 		<string>Changed -f behavior; no longer use _PATH_DEFTAPE (6236525).</string>
+		<string>archive_read_support_compression_compress.c: 22872683</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

@@ -184,7 +184,8 @@ struct BC_statistics {
 	u_int	ss_batch_initiated_reads[STAT_DISKMAX][STAT_BATCHMAX+1];	/* read operations we initiated per batch */
 	u_int	ss_batch_time[STAT_DISKMAX][STAT_BATCHMAX+1];	/* msecs per batch, +1 for sum of extra batches */
 	u_int	ss_cache_time;		/* msecs cache was alive */
-	u_int	ss_preload_time;	/* msecs before cache started */
+	u_int	ss_preload_time;	/* msecs after kext load before cache started */
+	u_int64_t	ss_start_time;	/* machabstime when cache started */
 
 	u_int	ss_read_bytes_lowpri;                         /* number of bytes read */
 	u_int	ss_batch_bytes_lowpri[STAT_DISKMAX];          /* number of bytes in read per disk */

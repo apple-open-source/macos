@@ -1140,7 +1140,7 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FloatPoint locati
     }
 
     // FIXME: Avoid scanning if we will just throw away the result (e.g. we're over a link).
-    if (!pageOverlayDidOverrideDataDetectors && hitTestResult.innerNode() && hitTestResult.innerNode()->isTextNode()) {
+    if (!pageOverlayDidOverrideDataDetectors && hitTestResult.innerNode() && (hitTestResult.innerNode()->isTextNode() || hitTestResult.isOverTextInsideFormControlElement())) {
         FloatRect detectedDataBoundingBox;
         RefPtr<Range> detectedDataRange;
         immediateActionResult.detectedDataActionContext = DataDetection::detectItemAroundHitTestResult(hitTestResult, detectedDataBoundingBox, detectedDataRange);
@@ -1204,7 +1204,11 @@ void WebPage::immediateActionDidUpdate()
 
 void WebPage::immediateActionDidCancel()
 {
-    m_page->mainFrame().eventHandler().setImmediateActionStage(ImmediateActionStage::ActionCancelled);
+    ImmediateActionStage lastStage = m_page->mainFrame().eventHandler().immediateActionStage();
+    if (lastStage == ImmediateActionStage::ActionUpdated)
+        m_page->mainFrame().eventHandler().setImmediateActionStage(ImmediateActionStage::ActionCancelledAfterUpdate);
+    else
+        m_page->mainFrame().eventHandler().setImmediateActionStage(ImmediateActionStage::ActionCancelledWithoutUpdate);
 }
 
 void WebPage::immediateActionDidComplete()

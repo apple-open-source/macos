@@ -45,6 +45,7 @@
 #include <CommonCrypto/CommonDigest.h>
 #include <CommonCrypto/CommonCryptor.h>
 #include <CommonCrypto/CommonHMAC.h>
+#include <corecrypto/cc.h>
 #include <Security/SecureTransport.h>
 #include <Security/SecCertificate.h>
 #include <sys/param.h>
@@ -2621,8 +2622,8 @@ process_crypto_binding(EAPFASTPluginDataRef context,
     CCHmac(kCCHmacAlgSHA1,
 	   imck + S_IMCK_LENGTH, CMK_LENGTH,
 	   (unsigned char *)cb_p, sizeof(*cb_p), compound_mac);
-    if (bcmp(crypto->cb_compound_mac, compound_mac,
-	     sizeof(compound_mac)) != 0) {
+    if (cc_cmp_safe(sizeof(compound_mac), crypto->cb_compound_mac,
+	     compound_mac) != 0) {
 	EAPLOG(LOG_NOTICE,
 	       "EAP-FAST: process_crypto_binding Compound MAC is incorrect");
 	goto done;

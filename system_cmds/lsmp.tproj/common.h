@@ -24,9 +24,11 @@
 #ifndef system_cmds_common_h
 #define system_cmds_common_h
 
+#include <mach/mach.h>
+
 #define PROC_NAME_LEN 100
 #define BUFSTR_LEN 30
-
+#define VOUCHER_DETAIL_MAXLEN 1024
 
 /* common struct to hold all configurations, static and args based */
 struct prog_configs {
@@ -40,6 +42,23 @@ struct prog_configs {
 
 extern struct prog_configs lsmp_config;
 
+/* exception port information */
+struct exc_port_info {
+    mach_msg_type_number_t   count;
+    mach_port_t      ports[EXC_TYPES_COUNT];
+    exception_mask_t masks[EXC_TYPES_COUNT];
+    exception_behavior_t behaviors[EXC_TYPES_COUNT];
+    thread_state_flavor_t flavors[EXC_TYPES_COUNT];
+};
+
+/* private structure to hold thread specific information */
+struct my_per_thread_info {
+    mach_port_t thread;
+    uint32_t th_kobject;
+    uint64_t th_id;
+    char * voucher_detail;
+};
+
 /* private structure to wrap up per-task info */
 typedef struct my_per_task_info {
     task_t task;
@@ -52,6 +71,10 @@ typedef struct my_per_task_info {
     mach_msg_type_number_t treeCount;
     boolean_t valid; /* TRUE if all data is accurately collected */
     char processName[PROC_NAME_LEN];
+    struct exc_port_info exceptionInfo;
+    struct my_per_thread_info * threadInfos; /* dynamically allocated in collect_per_task_info */
+    unsigned int threadCount;
+    struct exc_port_info *threadExceptionInfos;  /* this is 2 dimensional array with threadCount X struct exc_port_info  of ports */
 } my_per_task_info_t;
 
 
@@ -110,8 +133,8 @@ typedef struct my_per_task_info {
   (flags & MACH_PORT_STATUS_FLAG_TASKPTR)		?"P":"-"
 
 
-void show_recipe_detail(mach_voucher_attr_recipe_t recipe);
-void show_voucher_detail(mach_port_t task, mach_port_name_t voucher);
+void show_recipe_detail(mach_voucher_attr_recipe_t recipe, char * voucher_outstr, uint32_t maxlen);
+char *copy_voucher_detail(mach_port_t task, mach_port_name_t voucher);
 
 /* mach port related functions */
 const char * kobject_name(natural_t kotype);
@@ -130,8 +153,9 @@ my_per_task_info_t * get_taskinfo_by_kobject(natural_t kobj);
 void get_exc_behavior_string(exception_behavior_t b, char *out_string, size_t len);
 void get_exc_mask_string(exception_mask_t m, char *out_string, size_t len);
 kern_return_t get_taskinfo_of_receiver_by_send_right(ipc_info_name_t *sendright, my_per_task_info_t **out_taskinfo, mach_port_name_t *out_recv_info);
+kern_return_t get_ipc_info_from_lsmp_spaceinfo(mach_port_t port_name, ipc_info_name_t *out_sendright);
 
 /* basic util functions */
-void print_hex_data(char *prefix, char *desc, void *addr, int len);
+void print_hex_data(char *outstr, size_t maxlen, char *prefix, char *desc, void *addr, int len);
 
 #endif

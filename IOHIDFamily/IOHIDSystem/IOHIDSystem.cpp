@@ -1229,7 +1229,8 @@ bool IOHIDSystem::handleTerminateNotificationGated(
         OSDynamicCast(IOHIDevice, service) ||
         OSDynamicCast(IOHIDEventService, service)))
     {
-        service->close(self);
+        //closed on termination message
+        //service->close(self);
         self->_privateData->senderIDDictionary->removeObject((const OSSymbol *)service);
     }
 
@@ -2520,10 +2521,16 @@ void IOHIDSystem::postEvent(int           what,
                        evg->eventFlags,
                        theClock);
 #endif
-        evg->LLETail = theTail->next;
+
+        OSCompareAndSwap(evg->LLETail , theTail->next, &evg->LLETail);  // this is just a barrier
+        //evg->LLETail = theTail->next;
         evg->LLELast = theLast->next;
-        if ( ! wereEvents ) // Events available, so wake event consumer
-            kickEventConsumer();
+      
+        if (tail == evg->LLEHead) {
+          kickEventConsumer();
+        }
+        //if ( ! wereEvents ) // Events available, so wake event consumer
+        //    kickEventConsumer();
     }
     else {
         /*

@@ -172,12 +172,16 @@ static int32_t _db_upgrade_from_version(authdb_connection_t dbconn, int32_t vers
 
 static void _printCFError(const char * errmsg, CFErrorRef err)
 {
-    CFStringRef errString = NULL;
-    errString = CFErrorCopyDescription(err);
-    char * tmp = _copy_cf_string(errString, NULL);
-    LOGV("%s, %s", errmsg, tmp);
-    free_safe(tmp);
-    CFReleaseSafe(errString);
+	if (err) {
+		CFStringRef errString = NULL;
+		errString = CFErrorCopyDescription(err);
+		char *tmp = _copy_cf_string(errString, NULL);
+		LOGV("%s, %s", errmsg, tmp);
+		free_safe(tmp);
+		CFReleaseSafe(errString);
+	} else {
+		LOGV("%s", errmsg);
+	}
 }
 
 static void _db_load_data(authdb_connection_t dbconn, auth_items_t config)
@@ -190,12 +194,13 @@ static void _db_load_data(authdb_connection_t dbconn, auth_items_t config)
     CFTypeRef value = NULL;
     CFAbsoluteTime ts = 0;
     CFAbsoluteTime old_ts = 0;
+	Boolean ok;
     
     authURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, CFSTR(AUTHDB_DATA), kCFURLPOSIXPathStyle, false);
     require_action(authURL != NULL, done, LOGE("authdb: file not found %s", AUTHDB_DATA));
     
-    CFURLCopyResourcePropertyForKey(authURL, kCFURLContentModificationDateKey, &value, &err);
-    require_action(err == NULL, done, _printCFError("authdb: failed to get modification date", err));
+	ok = CFURLCopyResourcePropertyForKey(authURL, kCFURLContentModificationDateKey, &value, &err);
+    require_action(ok && value != NULL, done, _printCFError("authdb: failed to get modification date", err));
     
     if (CFGetTypeID(value) == CFDateGetTypeID()) {
         ts = CFDateGetAbsoluteTime(value);

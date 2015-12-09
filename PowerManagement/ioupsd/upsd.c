@@ -47,6 +47,7 @@
 #include <IOKit/ps/IOPowerSources.h>
 #include <IOKit/ps/IOPowerSourcesPrivate.h>
 #include <IOKit/pwr_mgt/IOPM.h>
+#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #if UPS_DEBUG
@@ -88,6 +89,7 @@ typedef struct UPSData {
     CFRunLoopTimerRef       upsEventTimer;
     Boolean                 isBatteryCase;
     Boolean                 isAccessoryBattery;
+    Boolean                 hasACPower;
     io_object_t             batteryStateNotification;
     io_object_t             currentLimitNotification;
     io_object_t             requiredVoltageNotification;
@@ -115,6 +117,7 @@ static IOReturn CreatePowerManagerUPSEntry(UPSDataRef upsDataRef,
                                            CFDictionaryRef properties,
                                            CFSetRef capabilities);
 static Boolean SetupMIGServer();
+static int scheduleRTCWake(io_service_t chargerService, int deadlineSec);
 
 //---------------------------------------------------------------------------
 // Battery case helper functions
@@ -466,12 +469,10 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator) {
                     
                     if (usagePageRef) {
                         CFNumberGetValue(usagePageRef, kCFNumberIntType, &usagePage);
-                        CFRelease(usagePageRef);
                     }
                     
                     if (usageRef) {
                         CFNumberGetValue(usageRef, kCFNumberIntType, &usage);
-                        CFRelease(usageRef);
                     }
                     
                     if ((usagePage == kHIDPage_AppleVendor) && (usage == kHIDUsage_AppleVendor_AccessoryBattery)) {
@@ -479,6 +480,7 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator) {
                     }
                     else if ((usagePage == kHIDPage_BatterySystem) && (usage == kHIDUsage_BS_PrimaryBattery)) {
                         upsDataRef->isBatteryCase = true;
+                        upsDataRef->hasACPower = false;
                     }
                 }
                 
@@ -736,7 +738,7 @@ void ProcessUPSEvent(UPSDataRef upsDataRef, CFDictionaryRef event) {
                 }
             // Battery cases will indicate how much current we can draw from them
             } else if (CFEqual(keys[index], CFSTR(kIOPSAppleBatteryCaseAvailableCurrentKey)) &&
-                       upsDataRef->isBatteryCase) {
+                       upsDataRef->isBatteryCase && !upsDataRef->hasACPower) {
                 kern_return_t kr = BatteryCaseSetDeviceCurrentLimit(values[index]);
                 if (kr != KERN_SUCCESS) {
                     syslog(LOG_ERR, "Unable to set device current limit (Error: %s)\n", mach_error_string(kr));
@@ -917,7 +919,7 @@ void BatteryCaseHandleACStateChange(UPSDataRef upsDataRef, CFTypeRef powerState)
     io_connect_t accessoryManagerConnect;
     io_service_t chargerService;
     kern_return_t kr;
-    UInt32 currentLimit;
+    UInt32 currentLimit = 0;
     
     accessoryManagerService = IOAccessoryManagerGetServiceWithPrimaryPort(kIOAccessoryPortIDSerial);
     if (accessoryManagerService == IO_OBJECT_NULL) {
@@ -932,18 +934,44 @@ void BatteryCaseHandleACStateChange(UPSDataRef upsDataRef, CFTypeRef powerState)
     }
     
     if (acPresent) {
+        // When attaching power, need to disable current inflow until downstream
+        // current limits are negotiated with the battery case.
+        IOPMAssertionID disabledInflowAssertionID = kIOPMNullAssertionID;
+        IOPMAssertionCreateWithName(kIOPMInflowDisableAssertion,
+                                    kIOPMAssertionLevelOn,
+                                    CFSTR("com.apple.ioupsd.battery_case_disable_inflow"),
+                                    &disabledInflowAssertionID);
+        
         // Re-eneble USB and unmask charging
+        upsDataRef->hasACPower = true;
         kr = IOAccessoryManagerSetUSBPowerIgnore(accessoryManagerConnect, false);
         kr = IOAccessoryManagerRestoreUSBCurrentLimitBase(accessoryManagerConnect);
         kr = IOAccessoryManagerSetUSBCurrentOffset(accessoryManagerConnect, 0);
-        // 1 second delay to avoid sending an iLim of 0 or 100 mA as
-        // IOAccessoryManager does initial detect
-        usleep(1000000);
+        
+        // Wait until IOAccessoryManager reports a non-zero iLim before sending
+        // it to the battery case
+        int retries = 20; // 20 * 250ms -> 5 second timeout
+        while (currentLimit == 0 && retries-- > 0) {
+            usleep(250000); // sleep for 250ms for now...
+            kr = IOAccessoryManagerGetUSBCurrentLimitBase(accessoryManagerService, &currentLimit);
+            syslog(LOG_ERR, "Battery Case AC Present: iLim = %d mA", currentLimit);
+        }
+        
+        if (currentLimit != 0) {
+            syslog(LOG_INFO, "Initial downstream charger iLim: %d mA\n", currentLimit);
+        } else {
+            syslog(LOG_ERR, "Timedout waiting for AC charger's current limit\n");
+        }
+        
         // Send the battery case the power source's current limit
-        kr = IOAccessoryManagerGetUSBCurrentLimitBase(accessoryManagerService, &currentLimit);
         kr = BatteryCaseSendCommand(upsDataRef,
                                     CFSTR(kIOPSCommandSetCurrentLimitKey),
                                     currentLimit);
+        
+        // Once the iLim has been sent to the B244, we can let current inflow
+        // resume at the new non-zero iLim
+        IOPMAssertionRelease(disabledInflowAssertionID);
+        disabledInflowAssertionID = kIOPMNullAssertionID;
         
         // Set up notifications to send the battery case new current limits
         IOObjectRetain(accessoryManagerService);
@@ -963,9 +991,14 @@ void BatteryCaseHandleACStateChange(UPSDataRef upsDataRef, CFTypeRef powerState)
                                               BatteryCaseRequiredVoltageChangeCallback,
                                               upsDataRef,
                                               &(upsDataRef->requiredVoltageNotification));
+
+        // Schedule wake-up to ensure we complete enumeration and don't get stuck in sleep
+        kr = scheduleRTCWake(chargerService, 15);
+
     } else {
         // Disable USB and mask charging from the rest of the system
         kr = IOAccessoryManagerSetUSBPowerIgnore(accessoryManagerConnect, true);
+        upsDataRef->hasACPower = false;
         
         // Stop listening for changes in current limits, and revert to
         // default of drawing 1A from an untethered battery case
@@ -983,6 +1016,27 @@ void BatteryCaseHandleACStateChange(UPSDataRef upsDataRef, CFTypeRef powerState)
     IOServiceClose(accessoryManagerConnect);
 #endif
     // NOOP on OS X
+}
+
+int scheduleRTCWake(io_service_t chargerService, int deadlineSec)
+{
+    CFDictionaryRef  dict = NULL;
+    CFStringRef parameterNames[1];
+    CFTypeRef   parameterValues[1];
+    kern_return_t result=KERN_ABORTED;
+    parameterNames[0] = CFStringCreateWithCString( kCFAllocatorDefault, "RTCWakeImmediate", kCFStringEncodingUTF8 );
+    parameterValues[0] = CFNumberCreate( kCFAllocatorDefault, kCFNumberSInt32Type, &deadlineSec );
+    dict = CFDictionaryCreate( kCFAllocatorDefault,
+                              (const void **) &parameterNames[0],
+                              (const void **) &parameterValues[0],
+                              1,
+                              &kCFTypeDictionaryKeyCallBacks,
+                              &kCFTypeDictionaryValueCallBacks );
+    if (dict) {
+        result = IORegistryEntrySetCFProperties(chargerService, dict);
+        CFRelease(dict);
+    }
+    return result;
 }
 
 //---------------------------------------------------------------------------

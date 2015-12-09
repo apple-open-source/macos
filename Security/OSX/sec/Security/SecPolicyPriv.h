@@ -564,6 +564,16 @@ SecPolicyRef SecPolicyCreateTestAppleATVAppSigning(void)
 SecPolicyRef SecPolicyCreateApplePayIssuerEncryption(void)
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 
+
+/*!
+ @function SecPolicyCreateAppleATVVPNProfileSigning
+ @abstract Check for leaf marker OID 1.2.840.113635.100.6.43,
+ intermediate marker OID 1.2.840.113635.100.6.2.10,
+ chains to Apple Root CA, path length 3
+ */
+SecPolicyRef SecPolicyCreateAppleATVVPNProfileSigning(void)
+__OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+
 __END_DECLS
 
 #endif /* !_SECURITY_SECPOLICYPRIV_H_ */

@@ -30,6 +30,7 @@
 #include <net/if.h>
 #include <netinet/in.h>
 #include <network/sa_compare.h>
+#include <network/nat64.h>
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <net/if.h>
@@ -1022,6 +1023,122 @@ _gai_srv(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint
 	return result;
 }
 
+static si_list_t *
+_gai_nat64_synthesis(si_mod_t *si, const char *node, const char *serv, int numericserv,
+					 uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, const char *interface)
+{
+	if (NULL == node)
+	{
+		return NULL;
+	}
+
+	/* validate AI_NUMERICHOST */
+	if ((flags & AI_NUMERICHOST) != 0)
+	{
+		return NULL;
+	}
+
+	/* validate family */
+	if ((AF_UNSPEC != family) && (AF_INET6 != family))
+	{
+		return NULL;
+	}
+
+	/* validate that node is an IPv4 address */
+	struct in_addr a4;
+	if (1 != inet_pton(AF_INET, node, &a4))
+	{
+		return NULL;
+	}
+
+	/* validate that there is at least an IPv6 address configured */
+	uint32_t num_inet6 = 0;
+	if ((si_inet_config(NULL, &num_inet6) < 0) || (0 == num_inet6))
+	{
+		return NULL;
+	}
+
+	/* validate interface name and convert to index */
+	uint32_t ifindex = 0;
+	if (NULL != interface)
+	{
+		ifindex = if_nametoindex(interface);
+		if (0 == ifindex)
+		{
+			return NULL;
+		}
+	}
+
+	/* validate serv and convert to port */
+	uint16_t port = 0;
+	if (0 == numericserv)
+	{
+		if (_gai_serv_to_port(serv, proto, &port) != 0)
+		{
+			return NULL;
+		}
+		else
+		{
+			flags |= AI_NUMERICSERV;
+		}
+	}
+
+	/* query NAT64 prefixes */
+	nw_nat64_prefix_t *prefixes = NULL;
+	const int32_t num_prefixes = nw_nat64_copy_prefixes(&ifindex, &prefixes);
+	if ((num_prefixes <= 0) || (NULL == prefixes))
+	{
+		return NULL;
+	}
+
+	/* add every address to results */
+	si_list_t *out_list = NULL;
+	for (int32_t i = 0; i < num_prefixes; i++)
+	{
+		struct in6_addr a6;
+		if (!nw_nat64_synthesize_v6(&prefixes[i], &a4, &a6))
+		{
+			continue;
+		}
+		si_list_t *temp_list = si_addrinfo_list(si, flags, socktype, proto, NULL, &a6, port, (int)ifindex, NULL, NULL);
+		if (NULL == temp_list)
+		{
+			continue;
+		}
+		if (NULL != out_list)
+		{
+			out_list = si_list_concat(out_list, temp_list);
+			si_list_release(temp_list);
+		}
+		else
+		{
+			out_list = temp_list;
+		}
+	}
+
+	free(prefixes);
+
+	/* return to standard code path if no NAT64 addresses could be synthesized */
+	if (NULL == out_list)
+	{
+		return NULL;
+	}
+
+	/* add IPv4 addresses and IPv4-mapped IPv6 addresses if appropriate */
+	if (((AF_UNSPEC == family) && ((flags & AI_ADDRCONFIG) == 0)) ||
+		((AF_INET6 == family) && ((flags & AI_ALL) != 0) && ((flags & AI_V4MAPPED) != 0)))
+	{
+		si_list_t *list4 = si_addrinfo_list(si, flags, socktype, proto, &a4, NULL, port, (int)ifindex, NULL, NULL);
+		if (NULL != list4)
+		{
+			out_list = si_list_concat(out_list, list4);
+			si_list_release(list4);
+		}
+	}
+
+	return _gai_sort_list(out_list, flags);
+}
+
 si_list_t *
 si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, const char *interface, uint32_t *err)
 {
@@ -1099,6 +1216,12 @@ si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, u
 		return NULL;
 	}
 
+	/* replace AI_V4MAPPED_CFG with AI_V4MAPPED */
+	if ((flags & AI_V4MAPPED_CFG) != 0)
+	{
+		flags = (flags & ~AI_V4MAPPED_CFG) | AI_V4MAPPED;
+	}
+
 	/* check AI_V4MAPPED and AI_ALL */
 	if (family != AF_INET6)
 	{
@@ -1150,6 +1273,13 @@ si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, u
 		{
 			servptr = serv;
 		}
+	}
+
+	/* NAT64 IPv6 address synthesis support */
+	si_list_t *nat64_list = _gai_nat64_synthesis(si, node, serv, numericserv, family, socktype, proto, flags, interface);
+	if (NULL != nat64_list)
+	{
+		return nat64_list;
 	}
 
 	numerichost = _gai_numerichost(node, &family, flags, &a4, &a6, &scope);

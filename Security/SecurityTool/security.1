@@ -1232,6 +1232,7 @@ Import admin Trust Settings; default is user.
 .Op Fl r Ar rootCertFile
 .Op Fl p Ar policy
 .Op Fl k Ar keychain
+.Op Fl d Ar date
 .Op Fl n
 .Op Fl L
 .Op Fl l
@@ -1251,6 +1252,8 @@ Root certificate, in DER or PEM format. Can be specified more than once. If not 
 Specify verification policy (ssl, smime, codeSign, IPSec, iChat, basic, swUpdate, pkgSign, pkinitClient, pkinitServer, eap, appleID, macappstore, timestamping). Default is basic.
 .It Fl k Ar keychain
 Keychain to search for intermediate certs. Can be specified multiple times. Default is the current user's keychain search list.
+.It Fl d Ar date
+Date to set for verification. Specified in the format of YYYY-MM-DD-hh:mm:ss (time optional). e.g: 2016-04-25-15:59:59 for April 25, 2016 at 3:59:59 pm in GMT
 .It Fl n
 Avoid searching any keychains.
 .It Fl L

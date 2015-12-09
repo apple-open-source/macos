@@ -286,7 +286,7 @@ nss_cms_before_data(SecCmsDecoderRef p7dcx)
     cinfo->content.pointer = childp7dcx->content.pointer;
     
     /* start the child decoder */
-    childp7dcx->dcx = SEC_ASN1DecoderStart(poolp, childp7dcx->content.pointer, template, NULL);
+    childp7dcx->dcx = SEC_ASN1DecoderStart(poolp, childp7dcx->content.pointer, template, NULL, 0);
     if (childp7dcx->dcx == NULL)
 	goto loser;
 
@@ -616,7 +616,7 @@ SecCmsDecoderCreate(SecArenaPoolRef pool,
 	goto loser;
     }
 
-    p7dcx->dcx = SEC_ASN1DecoderStart(cmsg->poolp, cmsg, SecCmsMessageTemplate, NULL);
+    p7dcx->dcx = SEC_ASN1DecoderStart(cmsg->poolp, cmsg, SecCmsMessageTemplate, NULL, 0);
     if (p7dcx->dcx == NULL) {
 	PORT_Free (p7dcx);
 	SecCmsMessageDestroy(cmsg);

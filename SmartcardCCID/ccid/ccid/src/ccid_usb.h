@@ -18,7 +18,7 @@
 */
 
 /*
- * $Id: ccid_usb.h 5473 2011-01-04 09:52:26Z rousseau $
+ * $Id$
  */
 
 #ifndef __CCID_USB_H__

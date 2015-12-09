@@ -758,7 +758,6 @@ SSLDecodeSignedServerKeyExchange(tls_buffer message, tls_handshake_t ctx)
 	signedParams.data = message.data;
 	signedParams.length = charPtr - message.data;
 
-    tls_signature_and_hash_algorithm sigAlg;
 
     if (sslVersionIsLikeTls12(ctx)) {
         /* Parse the algorithm field added in TLS1.2 */
@@ -766,8 +765,8 @@ SSLDecodeSignedServerKeyExchange(tls_buffer message, tls_handshake_t ctx)
             sslErrorLog("signedServerKeyExchange: msg len error 499\n");
             return errSSLProtocol;
         }
-        sigAlg.hash = *charPtr++;
-        sigAlg.signature = *charPtr++;
+        ctx->kxSigAlg.hash = *charPtr++;
+        ctx->kxSigAlg.signature = *charPtr++;
     }
 
 	signatureLen = SSLDecodeInt(charPtr, 2);
@@ -780,7 +779,7 @@ SSLDecodeSignedServerKeyExchange(tls_buffer message, tls_handshake_t ctx)
 
     if (sslVersionIsLikeTls12(ctx))
     {
-        err = SSLVerifySignedServerKeyExchangeTls12(ctx, sigAlg, signedParams,
+        err = SSLVerifySignedServerKeyExchangeTls12(ctx, ctx->kxSigAlg, signedParams,
                                                     signature, signatureLen);
     } else {
         err = SSLVerifySignedServerKeyExchange(ctx, isRsa, signedParams,

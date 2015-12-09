@@ -250,12 +250,14 @@ typedef struct {
 #if defined(__LP64__)
 	uint32_t _pad;
 #endif
-	uint32_t m_tid[2]; // thread id of thread that has mutex locked, misaligned locks may span to first field of m_seq
-	uint32_t m_seq[3];
+	uint32_t m_tid[2]; // thread id of thread that has mutex locked
+	uint32_t m_seq[2]; // mutex sequence id
+	uint32_t m_mis[2]; // for misaligned locks m_tid/m_seq will span into here
 #if defined(__LP64__)
-	uint32_t _reserved;
+	uint32_t _reserved[4];
+#else
+	uint32_t _reserved[1];
 #endif
-	void *reserved2[2];
 } _pthread_mutex;
 
 
@@ -322,7 +324,11 @@ typedef struct {
 #endif
 } _pthread_rwlock;
 
+#include "pthread.h"
 #include "pthread_spis.h"
+
+_Static_assert(sizeof(_pthread_mutex) == sizeof(pthread_mutex_t),
+		"Incorrect _pthread_mutex structure size");
 
 // Internal references to pthread_self() use TSD slot 0 directly.
 inline static pthread_t __attribute__((__pure__))

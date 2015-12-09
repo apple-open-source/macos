@@ -36,3 +36,4 @@ SOSTransportMessageIDSRef SOSTransportMessageIDSCreate(SOSAccountRef account, CF
 
 HandleIDSMessageReason SOSTransportMessageIDSHandleMessage(SOSAccountRef account, CFDictionaryRef message, CFErrorRef *error);
 
+void SOSTransportMessageIDSGetIDSDeviceID(SOSAccountRef account);

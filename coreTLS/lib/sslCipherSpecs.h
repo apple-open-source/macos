@@ -57,7 +57,7 @@ void InitCipherSpecParams(tls_handshake_t ctx);
 int SelectNewCiphersuite(tls_handshake_t ctx);
 
 /*
- * Client side: Validate teh ciphersuite selected by the server.
+ * Client side: Validate the ciphersuite selected by the server.
  * This should be one of the ciphersuite requested by the client.
  */
 int ValidateSelectedCiphersuite(tls_handshake_t ctx);
@@ -68,6 +68,16 @@ int ValidateSelectedCiphersuite(tls_handshake_t ctx);
 bool tls_handshake_ciphersuite_is_supported(bool server, bool dtls, uint16_t ciphersuite);
 
 /* 
+ * Return true, if the given ciphersuite is allowed for a specific config
+ */
+bool tls_handshake_ciphersuite_is_allowed(tls_handshake_config_t config, uint16_t ciphersuite);
+
+/*
+ * Return true, if the given ciphersuite is valid for the current context
+ */
+bool tls_handshake_ciphersuite_is_valid(tls_handshake_t ctx, uint16_t ciphersuite);
+
+/*
  * Return true if the given ecdh curve is supported
  */
 bool tls_handshake_curve_is_supported(uint16_t curve);

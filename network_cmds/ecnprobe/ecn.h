@@ -44,3 +44,5 @@ void ECNTest (u_int32_t sourceIpAddress, u_int16_t sourcePort, u_int32_t targetI
 void ECNAckData (struct IPPacket *p);
 void DataPkt (char *filename, u_int8_t iptos, u_int8_t tcp_flags);
 void checkECN ();
+void ECNPathCheckTest(u_int32_t sourceIpAddress, u_int16_t surcePort,
+  u_int32_t targetIpAddress, u_int16_t targetPort, int mss);

@@ -25,7 +25,158 @@
 	<key>CFBundleVersion</key>
 	<string>$(IO_USB_MASS_STORAGE_CLASS_MODULE_VERSION)</string>
 	<key>IOKitPersonalities</key>
-	<dict/>
+	<dict>
+		<key>IOUSBMassStorageClass1</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOUSBMassStorageClass</string>
+			<key>IOClass</key>
+			<string>IOUSBMassStorageClass</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>Physical Interconnect</key>
+			<string>USB</string>
+			<key>Physical Interconnect Location</key>
+			<string>External</string>
+			<key>Read Time Out Duration</key>
+			<integer>30000</integer>
+			<key>Write Time Out Duration</key>
+			<integer>30000</integer>
+			<key>bInterfaceClass</key>
+			<integer>8</integer>
+			<key>bInterfaceSubClass</key>
+			<integer>1</integer>
+			<key>USBCompatibilityMatch</key>
+			<false/>
+		</dict>
+		<key>IOUSBMassStorageClass2</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOUSBMassStorageClass</string>
+			<key>IOClass</key>
+			<string>IOUSBMassStorageClass</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>Physical Interconnect</key>
+			<string>USB</string>
+			<key>Physical Interconnect Location</key>
+			<string>External</string>
+			<key>Read Time Out Duration</key>
+			<integer>30000</integer>
+			<key>Write Time Out Duration</key>
+			<integer>30000</integer>
+			<key>bInterfaceClass</key>
+			<integer>8</integer>
+			<key>bInterfaceSubClass</key>
+			<integer>2</integer>
+			<key>USBCompatibilityMatch</key>
+			<false/>
+		</dict>
+		<key>IOUSBMassStorageClass3</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOUSBMassStorageClass</string>
+			<key>IOClass</key>
+			<string>IOUSBMassStorageClass</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>Physical Interconnect</key>
+			<string>USB</string>
+			<key>Physical Interconnect Location</key>
+			<string>External</string>
+			<key>Read Time Out Duration</key>
+			<integer>30000</integer>
+			<key>Write Time Out Duration</key>
+			<integer>30000</integer>
+			<key>bInterfaceClass</key>
+			<integer>8</integer>
+			<key>bInterfaceSubClass</key>
+			<integer>3</integer>
+			<key>USBCompatibilityMatch</key>
+			<false/>
+		</dict>
+		<key>IOUSBMassStorageClass4</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOUSBMassStorageClass</string>
+			<key>IOClass</key>
+			<string>IOUSBMassStorageUFISubclass</string>
+			<key>IOMediaIcon</key>
+			<dict>
+				<key>CFBundleIdentifier</key>
+				<string>com.apple.iokit.IOSCSIArchitectureModelFamily</string>
+				<key>IOBundleResourceFile</key>
+				<string>Floppy.icns</string>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>Physical Interconnect</key>
+			<string>USB</string>
+			<key>Physical Interconnect Location</key>
+			<string>External</string>
+			<key>Read Time Out Duration</key>
+			<integer>30000</integer>
+			<key>SCSI Device Characteristics</key>
+			<dict>
+				<key>Manual Eject</key>
+				<string>true</string>
+			</dict>
+			<key>Write Time Out Duration</key>
+			<integer>30000</integer>
+			<key>bInterfaceClass</key>
+			<integer>8</integer>
+			<key>bInterfaceSubClass</key>
+			<integer>4</integer>
+			<key>USBCompatibilityMatch</key>
+			<false/>
+		</dict>
+		<key>IOUSBMassStorageClass5</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOUSBMassStorageClass</string>
+			<key>IOClass</key>
+			<string>IOUSBMassStorageClass</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>Physical Interconnect</key>
+			<string>USB</string>
+			<key>Physical Interconnect Location</key>
+			<string>External</string>
+			<key>Read Time Out Duration</key>
+			<integer>30000</integer>
+			<key>Write Time Out Duration</key>
+			<integer>30000</integer>
+			<key>bInterfaceClass</key>
+			<integer>8</integer>
+			<key>bInterfaceSubClass</key>
+			<integer>5</integer>
+			<key>USBCompatibilityMatch</key>
+			<false/>
+		</dict>
+		<key>IOUSBMassStorageClass6</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOUSBMassStorageClass</string>
+			<key>IOClass</key>
+			<string>IOUSBMassStorageClass</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>Physical Interconnect</key>
+			<string>USB</string>
+			<key>Physical Interconnect Location</key>
+			<string>External</string>
+			<key>Read Time Out Duration</key>
+			<integer>30000</integer>
+			<key>Write Time Out Duration</key>
+			<integer>30000</integer>
+			<key>bInterfaceClass</key>
+			<integer>8</integer>
+			<key>bInterfaceSubClass</key>
+			<integer>6</integer>
+			<key>USBCompatibilityMatch</key>
+			<false/>
+		</dict>
+	</dict>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0</string>
 	<key>OSBundleLibraries</key>

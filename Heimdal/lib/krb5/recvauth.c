@@ -38,7 +38,7 @@
  */
 
 static krb5_boolean
-match_exact(const void *data, const char *appl_version)
+match_exact(void *data, const char *appl_version)
 {
     return strcmp(data, appl_version) == 0;
 }
@@ -63,9 +63,8 @@ KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_recvauth_match_version(krb5_context context,
 			    krb5_auth_context *auth_context,
 			    krb5_pointer p_fd,
-			    krb5_boolean (*match_appl_version)(const void *,
-							       const char*),
-			    const void *match_data,
+			    krb5_boolean (*match_appl_version)(void *, const char*),
+			    void *match_data,
 			    krb5_principal server,
 			    int32_t flags,
 			    krb5_keytab keytab,

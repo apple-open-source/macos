@@ -54,7 +54,7 @@ typedef void *tls_handshake_ctx_t;
 
 typedef struct _tls_handshake_s *tls_handshake_t;
 
-/* Array of ciphersuites we support */
+/* Array of ciphersuites enabled by default */
 extern const unsigned CipherSuiteCount;
 extern const uint16_t KnownCipherSuites[];
 
@@ -87,6 +87,31 @@ typedef enum {
     tls_handshake_trust_cert_expired = 3,
     tls_handshake_trust_cert_invalid = 4,
 } tls_handshake_trust_t;
+
+/* common configurations */
+typedef enum {
+    /* No configuration - returned when custom ciphers or versions are set. */
+    tls_handshake_config_none = -1,
+    /* Default configuration - currently same as legacy */
+    tls_handshake_config_default = 0,
+    /* TLS v1.2 to SSLv3, with default + RC4 ciphersuites ciphersuites */
+    tls_handshake_config_legacy = 1,
+    /* TLS v1.2 to TLS v1.0, with default ciphersuites (no RC4) */
+    tls_handshake_config_standard = 2,
+    /* TLS v1.2 to TLS v1.0, with defaults ciphersuites + RC4 */
+    tls_handshake_config_RC4_fallback = 3,
+    /* TLS v1.0, with defaults ciphersuites + fallback SCSV */
+    tls_handshake_config_TLSv1_fallback = 4,
+    /* TLS v1.0, with defaults ciphersuites + RC4 + fallback SCSV */
+    tls_handshake_config_TLSv1_RC4_fallback = 5,
+    /* TLS v1.2, only PFS ciphersuites */
+    tls_handshake_config_ATSv1 = 6,
+    /* TLS v1.2, include non PFS ciphersuites */
+    tls_handshake_config_ATSv1_noPFS = 7,
+    /* TLS v1.2 to SSLv3, defaults + RC4 + DHE ciphersuites */
+    tls_handshake_config_legacy_DHE = 8,
+
+} tls_handshake_config_t;
 
 
 typedef struct tls_message {
@@ -382,6 +407,17 @@ tls_handshake_set_fallback(tls_handshake_t filter, bool enabled);
 /* Client only: get the fallback state */
 int
 tls_handshake_get_fallback(tls_handshake_t filter, bool *enabled);
+
+/* Set TLS user agent string, for diagnostic purposes */
+int
+tls_handshake_set_user_agent(tls_handshake_t filter, const char *user_agent);
+
+/* Set TLS config */
+int
+tls_handshake_set_config(tls_handshake_t filter, tls_handshake_config_t config);
+
+int
+tls_handshake_get_config(tls_handshake_t filter, tls_handshake_config_t *config);
 
 /* Get session attributes : */
 /*==========================*/

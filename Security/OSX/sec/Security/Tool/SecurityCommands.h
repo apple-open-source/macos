@@ -144,3 +144,18 @@ SECURITY_COMMAND("log", log_control,
                  "   -s scope_list   set log scopes to scope_list.\n"
                  "   -c scope_list   set log scopes to scope_list for all devices in circle.\n",
                  "control logging settings")
+
+SECURITY_COMMAND_IOS("verify-cert", verify_cert,
+                 "[options]\n"
+                 "   -c certFile     Certificate to verify. Can be specified multiple times.\n"
+                 "   -r rootCertFile Root Certificate. Can be specified multiple times.\n"
+                 "   -p policy       Verify policy (basic, ssl, smime, eap, IPSec, appleID,\n"
+                 "                                  codeSign, timestamp, revocation).\n"
+                 "   -d date         Set date and time to use when verifying certificate,\n"
+                 "                   provided in the form of YYYY-MM-DD-hh:mm:ss (time optional) in GMT.\n"
+                 "                   e.g: 2016-04-25-15:59:59 for April 25, 2016 at 3:59:59 pm in GMT\n"
+                 "   -L              Local certs only.\n"
+                 "   -n              Name of the host (ssl, IPSec, smime)\n"
+                 "   -q              Quiet.\n"
+                 "   -C              Set client to true. Otherwise, verify-cert defaults to server (ssl, IPSec, eap).\n",
+                 "Verify certificate(s).")

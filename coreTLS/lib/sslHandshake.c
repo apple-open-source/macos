@@ -28,6 +28,7 @@
 
 #include <tls_ciphersuites.h>
 #include "tls_handshake_priv.h"
+#include "tls_metrics.h"
 
 #include "sslHandshake.h"
 #include "sslMemory.h"
@@ -1169,6 +1170,9 @@ SSLAdvanceHandshake(SSLHandshakeType processed, tls_handshake_t ctx)
             }
             else {
                 SSLChangeHdskState(ctx, SSL_HdskStateClientReady);
+                if(!ctx->sessionMatch) {
+                    tls_metric_client_finished(ctx);
+                }
             }
             if (ctx->allowResumption && ((ctx->sessionID.data && !ctx->sessionTicket_announced) || ctx->sessionTicket.data)) {
                 SSLAddSessionData(ctx);

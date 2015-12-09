@@ -209,10 +209,6 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_20_sectrust_att"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
             argument = "si_21_sectrust_asr"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -442,6 +438,14 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "si_86_sectrust_eap_tls"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "si_87_sectrust_name_constraints"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "si_88_sectrust_vpnprofile"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument

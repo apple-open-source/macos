@@ -1,4 +1,4 @@
-# $Id: Makefile.am 6752 2013-09-16 18:27:04Z rousseau $
+# $Id$
 
 CCID_BUNDLE = $(bundle)
 CCID_LIB = libccid.$(DYN_LIB_EXT)

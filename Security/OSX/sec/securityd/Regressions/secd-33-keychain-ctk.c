@@ -592,6 +592,7 @@ static void test_key_generate_with_params(void) {
 
     SecKeyRef publicKey = NULL, privateKey = NULL;
     phase = 0;
+    diag("This will produce an internal assert - on purpose");
     is_status(SecKeyGeneratePair(params, &publicKey, &privateKey), errSecUserCanceled);
     is(phase, 2);
 

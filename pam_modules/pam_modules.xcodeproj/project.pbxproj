@@ -23,6 +23,7 @@
 				1CFF7DC11021165B0097ADA4 /* PBXTargetDependency */,
 				1CFF7DBF1021165B0097ADA4 /* PBXTargetDependency */,
 				1CFF7DBD1021165B0097ADA4 /* PBXTargetDependency */,
+				F6F8C6821B8F6F00002596AE /* PBXTargetDependency */,
 				1CFF7DB91021165B0097ADA4 /* PBXTargetDependency */,
 				7434C89F125544F9001D7F9E /* PBXTargetDependency */,
 				1CFF8088102119940097ADA4 /* PBXTargetDependency */,
@@ -110,6 +111,18 @@
 		7434CA761255560B001D7F9E /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
 		7434CA791255562B001D7F9E /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
 		EB27C0B5143CA4AA003F6770 /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
+		F60ABCB41BB40E4E006F85AD /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F60ABCB31BB40E4E006F85AD /* DirectoryService.framework */; };
+		F60ABD121BB441E1006F85AD /* attribute_matching.c in Sources */ = {isa = PBXBuildFile; fileRef = F60ABD101BB441E1006F85AD /* attribute_matching.c */; settings = {ASSET_TAGS = (); }; };
+		F60ABD581BB571CB006F85AD /* hash_matching.c in Sources */ = {isa = PBXBuildFile; fileRef = F60ABD561BB571CB006F85AD /* hash_matching.c */; settings = {ASSET_TAGS = (); }; };
+		F60ABD5E1BB572D7006F85AD /* scmatch_evaluation.c in Sources */ = {isa = PBXBuildFile; fileRef = F60ABD5C1BB572D7006F85AD /* scmatch_evaluation.c */; settings = {ASSET_TAGS = (); }; };
+		F60ABD601BB572D7006F85AD /* scmatch_evaluation.h in Headers */ = {isa = PBXBuildFile; fileRef = F60ABD5D1BB572D7006F85AD /* scmatch_evaluation.h */; settings = {ASSET_TAGS = (); }; };
+		F6C0B8E81B8DE6BC00892765 /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
+		F6C0B8EB1B8DE6BC00892765 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
+		F6C0B8EC1B8DE6BC00892765 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
+		F6C0B8ED1B8DE6BC00892765 /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
+		F6C0B8F31B8DE91500892765 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7E81102118100097ADA4 /* Security.framework */; };
+		F6DD1CAD1B8DFE0B00BA6BE0 /* pam_smartcard.c in Sources */ = {isa = PBXBuildFile; fileRef = F6DD1CAC1B8DFDAE00BA6BE0 /* pam_smartcard.c */; };
+		F6F8C6841B8F709E002596AE /* pam_smartcard.8 in man8 */ = {isa = PBXBuildFile; fileRef = F6F8C6831B8F708F002596AE /* pam_smartcard.8 */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -211,6 +224,13 @@
 			remoteGlobalIDString = 7434C8911255449C001D7F9E;
 			remoteInfo = ntlm;
 		};
+		F6F8C6811B8F6F00002596AE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F6C0B8E51B8DE6BC00892765;
+			remoteInfo = smartcard;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -220,6 +240,7 @@
 			dstPath = /usr/share/man/man8;
 			dstSubfolderSpec = 0;
 			files = (
+				F6F8C6841B8F709E002596AE /* pam_smartcard.8 in man8 */,
 				1C23731C10290C600055216A /* pam_env.8 in man8 */,
 				1C23731D10290C600055216A /* pam_group.8 in man8 */,
 				1C23731E10290C600055216A /* pam_krb5.8 in man8 */,
@@ -288,6 +309,21 @@
 		7434C8AB125545DA001D7F9E /* pam_ntlm.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_ntlm.8; path = modules/pam_ntlm/pam_ntlm.8; sourceTree = "<group>"; };
 		7434C97812554E6F001D7F9E /* Common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = Common.c; path = common/Common.c; sourceTree = "<group>"; };
 		7434C97912554E6F001D7F9E /* Common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Common.h; path = common/Common.h; sourceTree = "<group>"; };
+		F60ABCB31BB40E4E006F85AD /* DirectoryService.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DirectoryService.framework; path = ../../../System/Library/Frameworks/DirectoryService.framework; sourceTree = "<group>"; };
+		F60ABCBC1BB42251006F85AD /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		F60ABCC21BB4226C006F85AD /* OpenDirectory.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenDirectory.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/System/Library/Frameworks/OpenDirectory.framework; sourceTree = DEVELOPER_DIR; };
+		F60ABCC41BB42272006F85AD /* DirectoryService.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DirectoryService.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/System/Library/Frameworks/DirectoryService.framework; sourceTree = DEVELOPER_DIR; };
+		F60ABCC61BB423D4006F85AD /* libpam.2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libpam.2.dylib; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/usr/lib/libpam.2.dylib; sourceTree = DEVELOPER_DIR; };
+		F60ABCC91BB42406006F85AD /* SecurityInterface.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SecurityInterface.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/System/Library/Frameworks/SecurityInterface.framework; sourceTree = DEVELOPER_DIR; };
+		F60ABCCB1BB42411006F85AD /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
+		F60ABCCD1BB42432006F85AD /* ServerInformation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ServerInformation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/System/Library/PrivateFrameworks/ServerInformation.framework; sourceTree = DEVELOPER_DIR; };
+		F60ABD101BB441E1006F85AD /* attribute_matching.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = attribute_matching.c; path = modules/pam_smartcard/attribute_matching.c; sourceTree = "<group>"; };
+		F60ABD561BB571CB006F85AD /* hash_matching.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = hash_matching.c; path = modules/pam_smartcard/hash_matching.c; sourceTree = "<group>"; };
+		F60ABD5C1BB572D7006F85AD /* scmatch_evaluation.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = scmatch_evaluation.c; path = modules/pam_smartcard/scmatch_evaluation.c; sourceTree = "<group>"; };
+		F60ABD5D1BB572D7006F85AD /* scmatch_evaluation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = scmatch_evaluation.h; path = modules/pam_smartcard/scmatch_evaluation.h; sourceTree = "<group>"; };
+		F6C0B8F01B8DE6BC00892765 /* pam_smartcard.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_smartcard.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		F6DD1CAC1B8DFDAE00BA6BE0 /* pam_smartcard.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_smartcard.c; path = modules/pam_smartcard/pam_smartcard.c; sourceTree = "<group>"; };
+		F6F8C6831B8F708F002596AE /* pam_smartcard.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_smartcard.8; path = modules/pam_smartcard/pam_smartcard.8; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -401,15 +437,36 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F6C0B8EA1B8DE6BC00892765 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F60ABCB41BB40E4E006F85AD /* DirectoryService.framework in Frameworks */,
+				F6C0B8F31B8DE91500892765 /* Security.framework in Frameworks */,
+				F6C0B8EB1B8DE6BC00892765 /* CoreFoundation.framework in Frameworks */,
+				F6C0B8EC1B8DE6BC00892765 /* OpenDirectory.framework in Frameworks */,
+				F6C0B8ED1B8DE6BC00892765 /* libpam.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		08FB7794FE84155DC02AAC07 /* pam_modules */ = {
 			isa = PBXGroup;
 			children = (
+				F60ABCCD1BB42432006F85AD /* ServerInformation.framework */,
+				F60ABCCB1BB42411006F85AD /* Security.framework */,
+				F60ABCC91BB42406006F85AD /* SecurityInterface.framework */,
+				F60ABCC61BB423D4006F85AD /* libpam.2.dylib */,
+				F60ABCC41BB42272006F85AD /* DirectoryService.framework */,
+				F60ABCC21BB4226C006F85AD /* OpenDirectory.framework */,
+				F60ABCB31BB40E4E006F85AD /* DirectoryService.framework */,
+				F60ABCB21BB408E4006F85AD /* SmartcardRelated */,
 				1C47A8A9112CB89F00013ABE /* Common */,
 				08FB7795FE84155DC02AAC07 /* Modules */,
 				C6A0FF2B0290797F04C91782 /* Documentation */,
+				F60ABCBB1BB42251006F85AD /* PamTest */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 				1CFF7DDD102116DB0097ADA4 /* Linked */,
 			);
@@ -430,6 +487,7 @@
 				1C23732F10290CBB0055216A /* pam_rootok.c */,
 				1C23733010290CBB0055216A /* pam_sacl.c */,
 				1C23733110290CBB0055216A /* pam_self.c */,
+				F6DD1CAC1B8DFDAE00BA6BE0 /* pam_smartcard.c */,
 				1C23733310290CBB0055216A /* pam_uwtmp.c */,
 			);
 			name = Modules;
@@ -450,6 +508,7 @@
 				1CFF7D7D102114E10097ADA4 /* pam_self.so.2 */,
 				1CFF7D8D1021150B0097ADA4 /* pam_uwtmp.so.2 */,
 				7434C89C1255449C001D7F9E /* pam_ntlm.so.2 */,
+				F6C0B8F01B8DE6BC00892765 /* pam_smartcard.so.2 */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -495,9 +554,29 @@
 				1C23731710290C600055216A /* pam_rootok.8 */,
 				1C23731810290C600055216A /* pam_sacl.8 */,
 				1C23731910290C600055216A /* pam_self.8 */,
+				F6F8C6831B8F708F002596AE /* pam_smartcard.8 */,
 				1C23731B10290C600055216A /* pam_uwtmp.8 */,
 			);
 			name = Documentation;
+			sourceTree = "<group>";
+		};
+		F60ABCB21BB408E4006F85AD /* SmartcardRelated */ = {
+			isa = PBXGroup;
+			children = (
+				F60ABD101BB441E1006F85AD /* attribute_matching.c */,
+				F60ABD561BB571CB006F85AD /* hash_matching.c */,
+				F60ABD5C1BB572D7006F85AD /* scmatch_evaluation.c */,
+				F60ABD5D1BB572D7006F85AD /* scmatch_evaluation.h */,
+			);
+			name = SmartcardRelated;
+			sourceTree = "<group>";
+		};
+		F60ABCBB1BB42251006F85AD /* PamTest */ = {
+			isa = PBXGroup;
+			children = (
+				F60ABCBC1BB42251006F85AD /* main.m */,
+			);
+			path = PamTest;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -584,6 +663,14 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F6C0B8E61B8DE6BC00892765 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F60ABD601BB572D7006F85AD /* scmatch_evaluation.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -794,6 +881,23 @@
 			productReference = 7434C89C1255449C001D7F9E /* pam_ntlm.so.2 */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
+		F6C0B8E51B8DE6BC00892765 /* smartcard */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F6C0B8EE1B8DE6BC00892765 /* Build configuration list for PBXNativeTarget "smartcard" */;
+			buildPhases = (
+				F6C0B8E61B8DE6BC00892765 /* Headers */,
+				F6C0B8E71B8DE6BC00892765 /* Sources */,
+				F6C0B8EA1B8DE6BC00892765 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = smartcard;
+			productName = pam_env;
+			productReference = F6C0B8F01B8DE6BC00892765 /* pam_smartcard.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -827,6 +931,7 @@
 				1CFF7D66102114B50097ADA4 /* rootok */,
 				1CFF7D6E102114C60097ADA4 /* sacl */,
 				1CFF7D76102114E10097ADA4 /* self */,
+				F6C0B8E51B8DE6BC00892765 /* smartcard */,
 				1CFF7D861021150B0097ADA4 /* uwtmp */,
 				1CFF806D102119880097ADA4 /* Install Manpages */,
 				1CFF80BC10211AF10097ADA4 /* Cleanup */,
@@ -951,6 +1056,18 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F6C0B8E71B8DE6BC00892765 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F6DD1CAD1B8DFE0B00BA6BE0 /* pam_smartcard.c in Sources */,
+				F60ABD5E1BB572D7006F85AD /* scmatch_evaluation.c in Sources */,
+				F60ABD121BB441E1006F85AD /* attribute_matching.c in Sources */,
+				F60ABD581BB571CB006F85AD /* hash_matching.c in Sources */,
+				F6C0B8E81B8DE6BC00892765 /* Common.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -1023,6 +1140,11 @@
 			isa = PBXTargetDependency;
 			target = 7434C8911255449C001D7F9E /* ntlm */;
 			targetProxy = 7434C89E125544F9001D7F9E /* PBXContainerItemProxy */;
+		};
+		F6F8C6821B8F6F00002596AE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F6C0B8E51B8DE6BC00892765 /* smartcard */;
+			targetProxy = F6F8C6811B8F6F00002596AE /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1251,6 +1373,25 @@
 			};
 			name = Release;
 		};
+		F6C0B8EF1B8DE6BC00892765 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so.2;
+				EXECUTABLE_PREFIX = pam_;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
+				INSTALL_PATH = /usr/lib/pam;
+				PREBINDING = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1378,6 +1519,14 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7434C89B1255449C001D7F9E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F6C0B8EE1B8DE6BC00892765 /* Build configuration list for PBXNativeTarget "smartcard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F6C0B8EF1B8DE6BC00892765 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

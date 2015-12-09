@@ -128,14 +128,6 @@ static bool SOSBackupRingPeersInViews(CFSetRef peers, SOSRingRef ring) {
     return retval;
 }
 
-static bool CFSetIsSubset(CFSetRef little, CFSetRef big) {
-    __block bool retval = true;
-    CFSetForEach(little, ^(const void *value) {
-        if(!CFSetContainsValue(big, value)) retval = false;
-    });
-    return retval;
-}
-
 // Make sure that the ring includes me if I'm enabled for its view.
 static SOSConcordanceStatus SOSBackupRingEvaluateMyInclusion(SOSRingRef ring, SOSFullPeerInfoRef me) {
     bool shouldBeInRing = false;

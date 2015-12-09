@@ -1,14 +1,37 @@
 /*
  * Reads lexical config files and updates database.
  *
- * MUSCLE SmartCard Development ( http://www.linuxnet.com )
+ * MUSCLE SmartCard Development ( http://pcsclite.alioth.debian.org/pcsclite.html )
  *
  * Copyright (C) 2001-2003
- *  David Corcoran <corcoran@linuxnet.com>
+ *  David Corcoran <corcoran@musclecard.com>
  * Copyright (C) 2003-2010
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
- * $Id: tokenparser.l 6712 2013-08-05 19:11:47Z rousseau $
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+3. The name of the author may not be used to endorse or promote products
+   derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * $Id$
  */
 
 /**
@@ -19,7 +42,7 @@
 
 %{
 
-#include "config.h"
+#include <config.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -29,7 +52,6 @@
 #include "simclist.h"
 #include "debuglog.h"
 #include "parser.h"
-#include "strlcpycat.h"
 
 static void eval_key(char *pcToken, list_t *list_key);
 static void eval_value(char *pcToken, list_t *list_values);
@@ -74,7 +96,8 @@ static void eval_key(char *pcToken, list_t *list_key)
 	len++;	/* final NULL byte */
 
 	elt->key = malloc(len);
-	(void)strlcpy(elt->key, &pcToken[5], len);
+	memcpy(elt->key, &pcToken[5], len-1);
+	elt->key[len-1] = '\0';
 
 	r = list_init(&elt->values);
 	assert(r >= 0);
@@ -105,7 +128,8 @@ static void eval_value(char *pcToken, list_t *list_values)
 	value = malloc(len);
 	assert(value);
 
-	(void)strlcpy(value, &pcToken[8], len);
+	memcpy(value, &pcToken[8], len-1);
+	value[len-1] = '\0';
 
 	/* for all &amp; in the string */
 	amp = value;

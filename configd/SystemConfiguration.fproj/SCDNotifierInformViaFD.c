@@ -47,16 +47,15 @@
 
 Boolean
 SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
-				   int32_t		identifier,
-				   int			*fd)
+				    int32_t		identifier,
+				    int			*fd)
 {
-	size_t				n;
+	int				fildes[2]	= { -1, -1 };
+	fileport_t			fileport	= MACH_PORT_NULL;
+	int				ret;
 	int				sc_status;
-	int				sock;
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	kern_return_t			status;
-	char				tmpdir[PATH_MAX];
-	struct sockaddr_un		un;
 
 	if (store == NULL) {
 		/* sorry, you must provide a session */
@@ -76,53 +75,30 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 		return FALSE;
 	}
 
-	if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+	ret = pipe(fildes);
+	if (ret == -1) {
 		_SCErrorSet(errno);
-		SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
-		return FALSE;
+		SC_log(LOG_ERR, "pipe() failed: %s", strerror(errno));
+		goto fail;
 	}
 
-	/* establish a UNIX domain socket for server->client notification */
+	/*
+	 * send fildes[1], the sender's fd, to configd using a fileport and
+	 * return fildes[0] to the caller.
+	 */
 
-	n = confstr(_CS_DARWIN_USER_TEMP_DIR, tmpdir, sizeof(tmpdir));
-	if ((n <= 0) || (n >= sizeof(tmpdir))) {
-		(void) strlcpy(tmpdir, _PATH_TMP, sizeof(tmpdir));
-	}
-
-	bzero(&un, sizeof(un));
-	un.sun_family = AF_UNIX;
-	snprintf(un.sun_path,
-		 sizeof(un.sun_path)-1,
-		 "%s%s-%d-%d",
-		 tmpdir,
-		 "SCDynamicStoreNotifyFileDescriptor",
-		 getpid(),
-		 storePrivate->server);
-
-	/* ensure that the path does not already exist */
-	(void) unlink(un.sun_path);
-
-	if (bind(sock, (struct sockaddr *)&un, sizeof(un)) == -1) {
+	fileport = MACH_PORT_NULL;
+	ret = fileport_makeport(fildes[1], &fileport);
+	if (ret < 0) {
 		_SCErrorSet(errno);
-		SC_log(LOG_ERR, "bind() failed: %s", strerror(errno));
-		(void) unlink(un.sun_path);
-		(void) close(sock);
-		return FALSE;
-	}
-
-	if (listen(sock, 0) == -1) {
-		_SCErrorSet(errno);
-		SC_log(LOG_ERR, "listen() failed: %s", strerror(errno));
-		(void) unlink(un.sun_path);
-		(void) close(sock);
-		return FALSE;
+		SC_log(LOG_ERR, "fileport_makeport() failed: %s", strerror(errno));
+		goto fail;
 	}
 
     retry :
 
 	status = notifyviafd(storePrivate->server,
-			     un.sun_path,
-			     (mach_msg_type_number_t)strlen(un.sun_path),
+			     fileport,
 			     identifier,
 			     (int *)&sc_status);
 
@@ -135,29 +111,28 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 
 	if (status != KERN_SUCCESS) {
 		_SCErrorSet(status);
-		return FALSE;
+		goto fail;
 	}
-
-	(void) unlink(un.sun_path);
 
 	if (sc_status != kSCStatusOK) {
 		_SCErrorSet(sc_status);
-		SC_log(LOG_NOTICE, "SCDynamicStoreNotifyFileDescriptor server error: %s", SCErrorString(sc_status));
-		(void) close(sock);
-		return FALSE;
+		goto fail;
 	}
 
-	*fd = accept(sock, 0, 0);
-	if (*fd == -1) {
-		_SCErrorSet(errno);
-		SC_log(LOG_ERR, "accept() failed: %s", strerror(errno));
-		(void) close(sock);
-		return FALSE;
-	}
-	(void) close(sock);
+	/* the SCDynamicStore server now has a copy of the write side, close our reference */
+	(void) close(fildes[1]);
+
+	/* and keep the read side */
+	*fd = fildes[0];
 
 	/* set notifier active */
 	storePrivate->notifyStatus = Using_NotifierInformViaFD;
 
 	return TRUE;
+
+    fail :
+
+	if (fildes[0] != -1) close(fildes[0]);
+	if (fildes[1] != -1) close(fildes[1]);
+	return FALSE;
 }

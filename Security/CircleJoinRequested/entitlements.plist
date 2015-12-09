@@ -12,5 +12,9 @@
 	<true/>
 	<key>com.apple.securebackupd.access</key>
 	<true/>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>com.apple.ProtectedCloudStorage</string>
+	</array>
 </dict>
 </plist>

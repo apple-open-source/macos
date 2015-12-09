@@ -103,7 +103,8 @@ const SecAsn1Template NSS_P12_PtrToShroudedKeyBagTemplate[] = {
 static const SecAsn1Template * NSS_P12_CertBagChooser(
 	void *arg, 			// --> NSS_P12_CertBag
 	Boolean enc,
-	const char *buf,	// on decode, tag byte
+	const char *buf,
+	size_t len,
 	void *dest)			// --> NSS_P12_CertBag.bagValue
 {
 	NSS_P12_CertBag *bag = (NSS_P12_CertBag *)arg;
@@ -156,7 +157,8 @@ const SecAsn1Template NSS_P12_PtrToCertBagTemplate[] = {
 static const SecAsn1Template * NSS_P12_CrlBagChooser(
 	void *arg, 			// --> NSS_P12_CrlBag
 	Boolean enc,
-	const char *buf,	// on decode, tag byte
+	const char *buf,	// on decode, tag byte and length
+	size_t len,
 	void *dest)			// --> NSS_P12_CertBag.bagValue
 {
 	NSS_P12_CrlBag *bag = (NSS_P12_CrlBag *)arg;
@@ -212,7 +214,8 @@ const SecAsn1Template NSS_P12_PtrToCrlBagTemplate[] = {
 static const SecAsn1Template * NSS_P12_SafeBagChooser(
 	void *arg, 			// --> NSS_P12_SafeBag
 	Boolean enc,
-	const char *buf,	// on decode, tag byte
+	const char *buf,	// on decode, tag byte and length
+	size_t len,
 	void *dest)			// --> NSS_P12_SafeBag.bagValue
 {
 	NSS_P12_SafeBag *bag = (NSS_P12_SafeBag *)arg;

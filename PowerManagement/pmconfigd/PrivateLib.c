@@ -112,6 +112,9 @@ static CFMutableSetRef     physicalBatteriesSet = NULL;
 
 static IOPMBattery         **physicalBatteriesArray = NULL;
 
+static int sleepCntSinceBoot = 0;
+static int sleepCntSinceFailure = -1;
+
 __private_extern__ bool             isDisplayAsleep( );
 
 // Cached data for LowCapRatio
@@ -188,6 +191,7 @@ static PowerEventReasons     reasons = {
 
 
 static void mt2PublishWakeReason(CFStringRef wakeTypeStr, CFStringRef claimedWakeStr);
+static void logASLMessageHibernateStatistics(void);
 
 // dynamicStoreNotifyCallBack is defined in pmconfigd.c
 // is not defined in pmset! so we don't compile this code in pmset.
@@ -219,6 +223,61 @@ __private_extern__ dispatch_queue_t     _getPMDispatchQueue(void)
     }
 
     return pmQ;
+}
+
+static void initSleepCnt()
+{
+    int cnt = INT_MAX; // Init to a huge number in case of failure.
+#if !TARGET_OS_EMBEDDED
+    size_t msgCnt;
+    asl_object_t cq = NULL;
+    asl_object_t        msg, store, msgList = NULL;
+    const char *str = NULL;
+
+    if (sleepCntSinceFailure != -1) {
+        return;
+    }
+
+    store = open_pm_asl_store();
+    cq = asl_new(ASL_TYPE_QUERY);
+    if (cq == NULL) {
+        goto exit;
+    }
+
+    asl_set_query(cq, kPMASLDomainKey, kPMASLDomainHibernateStatistics, ASL_QUERY_OP_EQUAL);
+    msgList = asl_search(store, cq);
+
+    msgCnt = asl_count(msgList);
+    if (msgCnt <= 0) {
+        goto exit;
+    }
+
+    msg = asl_get_index(msgList, msgCnt-1);
+    if ((str = asl_get(msg, kPMASLSleepCntSinceFailure))) {
+        cnt = strtol(str, NULL, 0);
+    }
+
+exit:
+    if (cq) {
+        asl_release(cq);
+    }
+    if (store) {
+        asl_release(store);
+    }
+    if (msgList) {
+        asl_release(msgList);
+    }
+#endif
+    sleepCntSinceFailure = cnt;
+}
+
+__private_extern__ void incrementSleepCnt()
+{
+    sleepCntSinceBoot++;
+    if (sleepCntSinceFailure == -1) {
+        initSleepCnt();
+    }
+    sleepCntSinceFailure++;
 }
 
 __private_extern__ bool auditTokenHasEntitlement(
@@ -1138,7 +1197,6 @@ __private_extern__ void logASLMessageSleep(
     int   sleepType
 )
 {
-    static int              sleepCyclesCount = 0;
     aslmsg                  m;
     char                    uuidString[150];
     char                    source[10];
@@ -1179,11 +1237,6 @@ __private_extern__ void logASLMessageSleep(
     }
 
     if (success) {
-        // Value == Sleep Cycles Count
-        // Note: unknown on the failure case, so we won't publish the sleep count
-        // unless sig == success
-        snprintf(numbuf, 10, "%d", ++sleepCyclesCount);
-        asl_set(m, kPMASLValueKey, numbuf);
         asl_set(m, kPMASLDomainKey, kPMASLDomainPMSleep);
         if (getPowerState(&pwrSrc, &percentage)) {
             snprintf(numbuf, 10, "%d", percentage);
@@ -1193,6 +1246,7 @@ __private_extern__ void logASLMessageSleep(
     }
     else {
         asl_set(m, kPMASLDomainKey, kPMASLDomainSWFailure);
+        sleepCntSinceFailure = 0;
     }
 
     // UUID
@@ -1209,6 +1263,11 @@ __private_extern__ void logASLMessageSleep(
     asl_set(m, ASL_KEY_MSG, messageString);
     asl_send(NULL, m);
     asl_release(m);
+
+    if (!success) {
+        // Log stats to update sleepCntSinceFailure in asl
+        logASLMessageHibernateStatistics( );
+    }
 }
 
 /*****************************************************************************/
@@ -1280,6 +1339,8 @@ __private_extern__ void logASLMessageWake(
         snprintf(buf, sizeof(buf), "%s during wake", 
                  (sig) ? sig : "");
         success = false;
+
+        sleepCntSinceFailure = 0;
     }
     
     /* populate driver wake reasons */
@@ -1409,9 +1470,9 @@ __private_extern__ void logASLAppWakeReason(
 
 /*****************************************************************************/
 
-__private_extern__ void logASLMessageHibernateStatistics(void)
+static void logASLMessageHibernateStatistics(void)
 {
-    aslmsg                  m;
+    aslmsg                  m = NULL;
     CFDataRef               statsData = NULL;
     PMStatsStruct           *stats = NULL;
     uint64_t                readHIBImageMS = 0;
@@ -1423,6 +1484,24 @@ __private_extern__ void logASLMessageHibernateStatistics(void)
     int                     hibernateDelay = 0;
     char                    buf[100];
     char                    uuidString[150];
+
+    if (sleepCntSinceFailure == -1) {
+        initSleepCnt();
+    }
+    m = new_msg_pmset_log();
+
+    asl_set(m, kPMASLDomainKey, kPMASLDomainHibernateStatistics);
+
+    asl_set(m, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
+
+    if (_getUUIDString(uuidString, sizeof(uuidString))) {
+        asl_set(m, kPMASLUUIDKey, uuidString);
+    }
+
+    snprintf(buf, sizeof(buf), "%d", sleepCntSinceBoot);
+    asl_set(m, kPMASLSleepCntSinceBoot, buf);
+    snprintf(buf, sizeof(buf), "%d", sleepCntSinceFailure);
+    asl_set(m, kPMASLSleepCntSinceFailure, buf);
 
     hibernateModeNum = (CFNumberRef)_copyRootDomainProperty(CFSTR(kIOHibernateModeKey));
     if (!hibernateModeNum)
@@ -1450,16 +1529,6 @@ __private_extern__ void logASLMessageHibernateStatistics(void)
             goto exit;
     }
 
-    m = new_msg_pmset_log();
-
-    asl_set(m, kPMASLDomainKey, kPMASLDomainHibernateStatistics);
-
-    asl_set(m, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
-
-    if (_getUUIDString(uuidString, sizeof(uuidString))) {
-        asl_set(m, kPMASLUUIDKey, uuidString);
-    }
-
     snprintf(valuestring, sizeof(valuestring), "hibernatemode=%d", hibernateMode);
     asl_set(m, kPMASLSignatureKey, valuestring);
     // If readHibImageMS == zero, that means we woke from the contents of memory
@@ -1472,11 +1541,13 @@ __private_extern__ void logASLMessageHibernateStatistics(void)
     asl_set(m, kPMASLDelayKey, buf);
 
     snprintf(buf, sizeof(buf), "hibmode=%d standbydelay=%d", hibernateMode, hibernateDelay);
-
     asl_set(m, ASL_KEY_MSG, buf);
-    asl_send(NULL, m);
-    asl_release(m);
+
 exit:
+    if (m) {
+        asl_send(NULL, m);
+        asl_release(m);
+    }
     if(statsData)
         CFRelease(statsData);
     return;
@@ -2590,10 +2661,13 @@ void mt2RecordAppTimeouts(CFStringRef sleepReason, CFStringRef procName)
 
 
 #define kMT2DomainWakeReasons       "com.apple.iokit.wakereasons"
+#define kMT2DomainSleepWakeFailure  "com.apple.sleepwake.failure"
 #define kMT2DomainSleepFailure      "com.apple.sleep.failure"
 #define kMT2DomainWakeFailure       "com.apple.wake.failure"
-#define kMT2KeyFailType             "com.apple.message.signature"
+#define kMT2KeyFailPhase            "com.apple.message.signature"
 #define kMT2KeyPCI                  "com.apple.message.signature2"
+#define kMT2KeyFailType             "com.apple.message.signature3"
+#define kMT2KeySuccessCount         "com.apple.message.value"
 
 
 static void mt2PublishWakeReason(CFStringRef wakeTypeStr, CFStringRef claimedWakeStr)
@@ -2635,29 +2709,54 @@ static void mt2PublishWakeReason(CFStringRef wakeTypeStr, CFStringRef claimedWak
     asl_release(m);
 
 }
-
-void mt2PublishSleepFailure(const char *failType, const char *pci_string)
+void mt2PublishSleepFailure(const char *phase, const char *pci_string)
 {
     aslmsg m = asl_new(ASL_TYPE_MSG);
     asl_set(m, "com.apple.message.domain", kMT2DomainSleepFailure);
-    asl_set(m, kMT2KeyFailType, failType);
+    asl_set(m, kMT2KeyFailPhase, phase);
     asl_set(m, kMT2KeyPCI, pci_string);
     asl_set(m, "com.apple.message.summarize", "YES");
     asl_log(NULL, m, ASL_LEVEL_NOTICE, "");
     asl_release(m);
 }
 
-void mt2PublishWakeFailure(const char *failType, const char *pci_string)
+void mt2PublishWakeFailure(const char *phase, const char *pci_string)
 {
     aslmsg m = asl_new(ASL_TYPE_MSG);
     asl_set(m, "com.apple.message.domain", kMT2DomainWakeFailure);
-    asl_set(m, kMT2KeyFailType, failType);
+    asl_set(m, kMT2KeyFailPhase, phase);
     asl_set(m, kMT2KeyPCI, pci_string);
     asl_set(m, "com.apple.message.summarize", "YES");
     asl_log(NULL, m, ASL_LEVEL_NOTICE, "");
     asl_release(m);
 }
 
+
+void mt2PublishSleepWakeFailure(const char *failType, const char *phase, const char *pci_string)
+{
+    char buf[8];
+
+    if (sleepCntSinceFailure == -1) {
+        initSleepCnt();
+    }
+    aslmsg m = asl_new(ASL_TYPE_MSG);
+    asl_set(m, "com.apple.message.domain", kMT2DomainSleepWakeFailure);
+    asl_set(m, kMT2KeyFailType, failType);
+    asl_set(m, kMT2KeyFailPhase, phase);
+    asl_set(m, kMT2KeyPCI, pci_string);
+    snprintf(buf, sizeof(buf), "%d", sleepCntSinceFailure);
+    asl_set(m, kMT2KeySuccessCount, buf);
+    asl_set(m, "com.apple.message.summarize", "NO");
+    asl_log(NULL, m, ASL_LEVEL_NOTICE, "");
+    asl_release(m);
+
+    if (!strncmp(failType, kPMASLSleepFailureType, strlen(failType))) {
+        mt2PublishSleepFailure(phase, pci_string);
+    }
+    else if (!strncmp(failType, kPMASLWakeFailureType, strlen(failType))) {
+        mt2PublishWakeFailure(phase, pci_string);
+    } 
+}
 #endif      /* #endif for iOS */
 
 #pragma mark FDR

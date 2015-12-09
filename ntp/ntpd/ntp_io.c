@@ -3333,7 +3333,6 @@ input_handler(
 	l_fp *cts
 	)
 {
-    extern void trigger_timer();
 	int buflen;
 	int n;
 	int doing;
@@ -3461,7 +3460,6 @@ input_handler(
 		asyncio_reader = asyncio_reader->link;
 	}
 #endif /* HAS_ROUTING_SOCKET */
-	trigger_timer();
 	/*
 	 * Done everything from that select.
 	 */

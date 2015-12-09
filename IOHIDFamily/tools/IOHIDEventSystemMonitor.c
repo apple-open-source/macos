@@ -613,11 +613,21 @@ static void clientRecordsChangedCallback(void * target, IOHIDEventSystemClientRe
 
 static void runClient()
 {
-    IOHIDEventSystemClientRef   eventSystem = IOHIDEventSystemClientCreateWithType(kCFAllocatorDefault, __clientType, NULL);
+    IOHIDEventSystemClientRef   eventSystem = NULL;
     CFMutableArrayRef           multiple    = NULL;
     CFMutableDictionaryRef      matching    = NULL;
+    CFDictionaryRef             attribs     = NULL;
     uint32_t                    index       = 0;
-    
+    CFStringRef                 keys[]      = { CFSTR(kIOHIDEventSystemConnectionAttributeHighFrequency) };
+    CFTypeRef                   values[]    = { kCFBooleanTrue };
+    CFIndex                     keyCount    = sizeof(keys)/sizeof(keys[0]);
+
+    _Static_assert(sizeof(keys) / sizeof(keys[0]) == sizeof(values) / sizeof(values[0]), "need same number of keys and values");
+
+    attribs = CFDictionaryCreate(kCFAllocatorDefault, (const void **)keys, (const void **)values, keyCount, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    require_action(attribs, exit, printf("Unable to create attributes\n"));
+
+    eventSystem = IOHIDEventSystemClientCreateWithType(kCFAllocatorDefault, __clientType, attribs);
     require_action(eventSystem, exit, printf("Unable to create client"));
     
     IOHIDEventSystemClientScheduleWithRunLoop(eventSystem, CFRunLoopGetCurrent(), kCFRunLoopCommonModes);

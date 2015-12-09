@@ -163,8 +163,6 @@ struct SSLContext
     SSLBuffer			peerID;
     SSLBuffer			resumableSession;       /* We keep a copy for now - but eventually this should go away if we get refcounted SSLBuffers */
 
-    uint16_t            *validCipherSuites;		/* context's valid suites */
-    unsigned            numValidCipherSuites;	/* size of validCipherSuites */
 
 
     uint16_t            *ecdhCurves;

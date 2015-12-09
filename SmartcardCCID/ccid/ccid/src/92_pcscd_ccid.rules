@@ -1,6 +1,6 @@
 # udev rules for CCID devices
 
-# $Id: 92_pcscd_ccid.rules 6623 2013-05-07 09:11:26Z rousseau $
+# $Id$
 
 # Gemplus PCMCIA Card
 #SUBSYSTEMS=="pcmcia", DRIVERS=="serial_cs", ACTION=="add", ATTRS{prod_id1}=="Gemplus", ATTRS{prod_id2}=="SerialPort", ATTRS{prod_id3}=="GemPC Card", RUN+="/usr/sbin/pcscd --hotplug" 

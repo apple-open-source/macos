@@ -183,7 +183,6 @@ od_record_create(pam_handle_t *pamh, ODRecordRef *record, CFStringRef cfUser)
 		goto cleanup;
 	}
 
-	retval = PAM_SERVICE_ERR;
 	while (current_iterations <= kMaxIterationCount) {
 		CFIndex unreachable_count = 0;
 		CFArrayRef unreachable_nodes = ODNodeCopyUnreachableSubnodeNames(cfNode, NULL);
@@ -261,7 +260,7 @@ cleanup:
 
 	if (PAM_SUCCESS != retval) {
 		openpam_log(PAM_LOG_ERROR, "failed: %d", retval);
-		if (NULL != *record) {
+		if (record && NULL != *record) {
 			CFRelease(*record);
 			*record = NULL;
 		}
@@ -291,7 +290,7 @@ od_record_create_cstring(pam_handle_t *pamh, ODRecordRef *record, const char *us
 cleanup:
 	if (PAM_SUCCESS != retval) {
 		openpam_log(PAM_LOG_ERROR, "failed: %d", retval);
-		if (NULL != *record) {
+		if (record && NULL != *record) {
 			CFRelease(*record);
 		}
 	}

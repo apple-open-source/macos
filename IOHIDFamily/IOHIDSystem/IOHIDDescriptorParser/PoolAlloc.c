@@ -29,7 +29,7 @@ __private_extern__ void *PoolAllocateResident (vm_size_t size, unsigned char cle
 {
 	void *mem = IOMalloc(size);
 
-	if (clear) {
+	if ((mem != NULL) && clear) {
 		bzero(mem, size);
 	}
 

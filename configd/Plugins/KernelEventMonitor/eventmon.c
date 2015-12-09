@@ -59,6 +59,8 @@
 #include "ev_ipv4.h"
 #include "ev_ipv6.h"
 #include <notify.h>
+#include <sys/sysctl.h>
+#include <sys/kern_event.h>
 
 // from ip_fw2.c
 #define KEV_LOG_SUBCLASS	10
@@ -138,6 +140,16 @@ messages_post(void)
 				       S_messages);
 		S_messages_modified = FALSE;
 	}
+	return;
+}
+
+static void
+check_interface_link_status(const char * if_name)
+{
+	if (S_messages == NULL) {
+		return; /* we're not in early boot of system */
+	}
+	link_update_status_if_missing(if_name);
 	return;
 }
 
@@ -283,6 +295,10 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
 					SC_log(LOG_INFO, "Process IPv4 address change: %s: %d", (char *)ifr_name, ev_msg->event_code);
 					ipv4_interface_update(NULL, ifr_name);
+					if (ev_msg->event_code
+					    != KEV_INET_ADDR_DELETED) {
+						check_interface_link_status(ifr_name);
+					}
 					break;
 				}
 				case KEV_INET_ARPCOLLISION : {
@@ -371,6 +387,10 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 									&ev->ia_addr.sin6_addr,
 									ETHER_ADDR_LEN,
 									&ev->ia_mac);
+					}
+					if (ev_msg->event_code
+					    != KEV_INET6_ADDR_DELETED) {
+						check_interface_link_status(ifr_name);
 					}
 					break;
 
@@ -476,7 +496,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					SC_log(LOG_INFO, "Process interface link %s: %s",
 						 (ev_msg->event_code == KEV_DL_LINK_ON) ? "up" : "down",
 						 (char *)ifr_name);
-					link_update_status(ifr_name, FALSE);
+					link_update_status(ifr_name, FALSE, FALSE);
 					break;
 
 #ifdef  KEV_DL_LINK_QUALITY_METRIC_CHANGED
@@ -693,19 +713,43 @@ schedule_timer(void)
 	return;
 }
 
+static boolean_t
+kernel_events_lost(void)
+{
+	boolean_t		events_lost = FALSE;
+	struct kevtstat 	kevtstat;
+	size_t 			len = sizeof(kevtstat);
+	const char *		mibvar = "net.systm.kevt.stats";
+	static u_int64_t	old_kes_nomem;
+
+	if (sysctlbyname(mibvar, &kevtstat, &len, 0, 0) < 0) {
+		SC_log(LOG_NOTICE, "sysctl(%s) failed, %s",
+		       mibvar, strerror(errno));
+	}
+	else if (old_kes_nomem != kevtstat.kes_nomem) {
+		SC_log(LOG_NOTICE, "KernelEventMonitor: lost kernel event");
+		old_kes_nomem = kevtstat.kes_nomem;
+		events_lost = TRUE;
+	}
+	return (events_lost);
+}
+
 static void
 check_for_new_interfaces(void * context)
 {
 	static int	count;
-	char		msg[32];
 
 	count++;
-	snprintf(msg, sizeof(msg), "timeout %d (of %d)", count, MAX_TIMER_COUNT);
-	cache_open();
-	update_interfaces(msg, FALSE);
- 	cache_write(store);
-	cache_close();
-	messages_post();
+	if (kernel_events_lost()) {
+		char		msg[32];
+
+		snprintf(msg, sizeof(msg), "timeout %d (of %d)", count, MAX_TIMER_COUNT);
+		cache_open();
+		update_interfaces(msg, FALSE);
+		cache_write(store);
+		cache_close();
+		messages_post();
+	}
 
 	/* schedule the next timer, if needed */
 	if (count < MAX_TIMER_COUNT) {

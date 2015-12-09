@@ -19,6 +19,7 @@ my @macosx_versions = (
     "10.10.2",
     "10.10.3",
     "10.11",
+    "10.11.2",
 );
 
 my @ios_versions = (
@@ -44,10 +45,13 @@ my @ios_versions = (
     "8.3",
     "8.4",
     "9.0",
+    "9.1",
+    "9.2",
 );
 
 my @appletvos_versions = (
     "9.0",
+    "9.1",
 );
 
 my @watchos_versions = (

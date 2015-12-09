@@ -23,6 +23,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <mach/mach_time.h>
+#include <dispatch/dispatch.h>
 
 
 #include "BootCache.h"
@@ -1025,6 +1027,23 @@ BC_jettison(void)
 	return(0);
 }
 
+static mach_timebase_info_data_t MachTimebase(void) {
+	static mach_timebase_info_data_t info;
+	static dispatch_once_t onceToken;
+	dispatch_once(&onceToken, ^{
+		mach_timebase_info(&info);
+	});
+	return info;
+}
+
+static u_int64_t MachToNano(u_int64_t mach) {
+	mach_timebase_info_data_t info = MachTimebase();
+	if (info.numer == info.denom) {
+		return mach;
+	}
+	return mach * info.numer / info.denom;
+}
+
 int
 BC_print_statistics(char *fname, struct BC_statistics *ss)
 {
@@ -1266,6 +1285,8 @@ fprintf(fp, " hits failed               %-10u  %3.0f%%\n", ss->ss_hit_failure, (
 	/* history */
 fprintf(fp, "\n");
 fprintf(fp, "preload time               %d.%03ds\n", ss->ss_preload_time / 1000, ss->ss_preload_time % 1000);
+	uint64_t start_time_ns = MachToNano(ss->ss_start_time);
+fprintf(fp, "start time                 %llu.%03llus\n", start_time_ns / 1000000000, (start_time_ns % 1000000000) / 1000000);
 	if (ss->ss_history_time > 0 || ss->ss_history_entries == 0) {
 fprintf(fp, "history active time        %d.%03ds\n", ss->ss_history_time / 1000, ss->ss_history_time % 1000);
 		if (ss->ss_history_time > 0) {

@@ -31,6 +31,8 @@
 #include <Security/oidsalg.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <time.h>
 #include "trusted_cert_utils.h"
 
 /*
@@ -81,6 +83,9 @@ verify_cert(int argc, char * const *argv)
 	CFDataRef			cfActionData = NULL;
 	SecTrustResultType	resultType;
 	OSStatus			ocrtn;
+    struct tm time;
+    CFGregorianDate gregorianDate;
+    CFDateRef dateRef = NULL;
 
 	if(argc < 2) {
 		return 2; /* @@@ Return 2 triggers usage message. */
@@ -88,7 +93,7 @@ verify_cert(int argc, char * const *argv)
 	/* permit network cert fetch unless explicitly turned off with '-L' */
 	actionFlags |= CSSM_TP_ACTION_FETCH_CERT_FROM_NET;
 	optind = 1;
-	while ((arg = getopt(argc, argv, "c:r:p:k:e:s:Llnq")) != -1) {
+	while ((arg = getopt(argc, argv, "c:r:p:k:e:s:d:Llnq")) != -1) {
 		switch (arg) {
 			case 'c':
 				/* this can be specified multiple times */
@@ -150,6 +155,27 @@ verify_cert(int argc, char * const *argv)
 			case 'q':
 				quiet = true;
 				break;
+            case 'd':
+                memset(&time, 0, sizeof(struct tm));
+                if (strptime(optarg, "%Y-%m-%d-%H:%M:%S", &time) == NULL) {
+                    if (strptime(optarg, "%Y-%m-%d", &time) == NULL) {
+                        fprintf(stderr, "Date processing error\n");
+                        ourRtn = 2;
+                        goto errOut;
+                    }
+                }
+                
+                gregorianDate.second = time.tm_sec;
+                gregorianDate.minute = time.tm_min;
+                gregorianDate.hour = time.tm_hour;
+                gregorianDate.day = time.tm_mday;
+                gregorianDate.month = time.tm_mon + 1;
+                gregorianDate.year = time.tm_year + 1900;
+                
+                if (dateRef == NULL) {
+                    dateRef = CFDateCreate(NULL, CFGregorianDateGetAbsoluteTime(gregorianDate, NULL));
+                }
+                break;
 			default:
 				ourRtn = 2;
 				goto errOut;
@@ -266,6 +292,14 @@ verify_cert(int argc, char * const *argv)
 			goto errOut;
 		}
 	}
+    if(dateRef != NULL) {
+        ortn = SecTrustSetVerifyDate(trustRef, dateRef);
+        if(ortn) {
+            cssmPerror("SecTrustSetVerifyDate", ortn);
+            ourRtn = 1;
+            goto errOut;
+        }
+    }
 
 	/* GO */
 	ortn = SecTrustEvaluate(trustRef, &resultType);

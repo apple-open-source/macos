@@ -1397,7 +1397,7 @@ bool SOSEngineHandleMessage_locked(SOSEngineRef engine, CFStringRef peerID, SOSM
         // reflect that we actually have these objects if we didn't already.
 
         // Ensure any objects that we received and have locally already are actually in our local manifest
-        SOSEngineUpdateChanges_locked(engine, NULL, kSOSDataSourceTransactionDidCommit, kSOSDataSourceSOSTransaction, changes, error);
+        SOSEngineUpdateChanges_locked(engine, txn, kSOSDataSourceTransactionDidCommit, kSOSDataSourceSOSTransaction, changes, error);
     }
     CFReleaseSafe(changes);
 

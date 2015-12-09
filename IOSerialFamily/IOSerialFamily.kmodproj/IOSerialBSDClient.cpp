@@ -2286,7 +2286,7 @@ close(dev_t dev, int flags, int /* devtype */, struct proc * /* p */)
     
     if (!sp->fErrno) {
         (void) sessionExecuteEvent(sp, PD_E_FLOW_CONTROL, 0);
-        (void) sessionSetState(sp, -1U, PD_S_RX_ENABLE | PD_S_TX_ENABLE);
+        (void) sessionSetState(sp, 0, PD_S_RX_ENABLE | PD_S_TX_ENABLE);
         
         // Clear any outstanding line breaks
         rtn = sessionEnqueueEvent(sp, PD_RS232_E_LINE_BREAK, false, true);

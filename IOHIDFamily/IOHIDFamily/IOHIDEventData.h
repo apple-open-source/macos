@@ -474,14 +474,17 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
     size += sizeof(IOHIDSystemQueueElement);    \
 }
 
+#define kIOFixedNaN             ((IOFixed)0x80000000)
+#define IOFixedIsNaN            ((value) == kIOFixedNaN)
+
 #ifdef KERNEL
-    #define IOHIDEventValueFloat(value, isFixed)                (isFixed ? value : value>>16)
-    #define IOHIDEventValueFixed(value, isFixed)                (isFixed ? value : value<<16)
+    #define IOHIDEventValueFloat(value, isFixed)                (isFixed ? value : (((value) != kIOFixedNaN) ? (value)>>16 : (value)))
+    #define IOHIDEventValueFixed(value, isFixed)                (isFixed ? value : (((value) != kIOFixedNaN) ? (value)<<16 : (value)))
     #define IOHIDEventGetEventWithOptions(event, type, options) event->getEvent(type, options)
     #define GET_EVENTDATA(event)                                event->_data
 #else
-    #define IOHIDEventValueFloat(value, isFixed)                (isFixed ? value : value / 65536.0)
-    #define IOHIDEventValueFixed(value, isFixed)                (isFixed ? value : value * 65536)
+    #define IOHIDEventValueFloat(value, isFixed)                (isFixed ? value : (((value) != kIOFixedNaN) ? ((value) / 65536.0) : (NAN)))
+    #define IOHIDEventValueFixed(value, isFixed)                (isFixed ? value : (((value) != kIOFixedNaN) ? ((value) * 65536) : (kIOFixedNaN)))
     #define GET_EVENTDATA(event)                                event->eventData
 #endif
 

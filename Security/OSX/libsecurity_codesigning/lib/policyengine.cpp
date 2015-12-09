@@ -92,8 +92,7 @@ void PolicyEngine::evaluate(CFURLRef path, AuthorityType type, SecAssessmentFlag
 
     // perform the evaluation
     EvaluationTask *evaluationTask = evaluationManager->evaluationTask(this, path, type, flags, context, result);
-    evaluationManager->waitForCompletion(evaluationTask, flags, result);
-    evaluationManager->removeTask(evaluationTask);
+    evaluationManager->finalizeTask(evaluationTask, flags, result);
 
     // if rejected, reset the automatic rearm timer
     if (CFDictionaryGetValue(result, kSecAssessmentAssessmentVerdict) == kCFBooleanFalse)

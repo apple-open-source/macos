@@ -499,7 +499,7 @@ kcm_ccache_alloc(krb5_context context,
     }
     HEIMDAL_MUTEX_init(&p->mutex);
 
-    CCRandomCopyBytes(kCCRandomDefault, p->uuid, sizeof(p->uuid));
+    krb5_generate_random_block(p->uuid, sizeof(p->uuid));
 
     p->name = strdup(name);
     if (p->name == NULL) {
@@ -837,7 +837,7 @@ kcm_ccache_store_cred_internal(krb5_context context,
     if (uuid)
 	memcpy((*c)->uuid, uuid, sizeof((*c)->uuid));
     else
-	CCRandomCopyBytes(kCCRandomDefault, (*c)->uuid, sizeof((*c)->uuid));
+	krb5_generate_random_block((*c)->uuid, sizeof((*c)->uuid));
 
     if (copy) {
 	ret = krb5_copy_creds_contents(context, creds, &(*c)->cred);

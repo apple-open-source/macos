@@ -25,6 +25,8 @@
 #ifndef PowerManagement_CommonLib_h
 #define PowerManagement_CommonLib_h
 
+#include <asl.h>
+
 /*
  * Power Management's ASL keys
  */
@@ -38,6 +40,8 @@
 #define kPMASLTCPKeepAliveExpired           "tcpkeepaliveexpired"
 #define kPMASLPowerSourceKey                "powersource"
 #define kPMASLBatteryPercentageKey          "batterypercentage"
+#define kPMASLSleepCntSinceBoot             "sleepcntsinceboot"
+#define kPMASLSleepCntSinceFailure          "sleepcntsincefailure"
 
 #define kPMASLValueSupported                "supported"
 #define kPMASLValueExpired                  "expired"
@@ -62,11 +66,18 @@
 #define kPMASLSigPlatformDriverFailure      "Platform Driver Failure"
 #define kPMASLSigCpusFailure                "Cpus Failure"
 #define kPMASLSigPlatformFailure            "Platform Failure"
-#define kPMASLSigLoginwindowAuthFailure     "Loginwindow Authorization Failure"
+#define kPMASLSigLoginwindowFailure         "Loginwindow Failure"
 #define kPMASLSigResponseTimedOut           "Timed Out"
 #define kPMASLSigResponseCancel             "Cancelled"
 #define kPMASLSigResponseSlow               "Slow Response"
+#define kPMASLSigDarkWakeEnterFailure       "Darkwake Entry Failure"
+#define kPMASLSigDarkWakeExitFailure        "Darkwake Exit Failure"
 
+/*
+ * Failure Types
+ */
+#define kPMASLSleepFailureType              "Sleep"
+#define kPMASLWakeFailureType               "Wake"
 /*
  * SleepService Domains
  */
@@ -164,6 +175,7 @@
 #define kIOPMRootDomainWakeTypeKey              "Wake Type"
 #endif
 
+#define kPMASLStorePath                 "/var/log/powermanagement"
 extern long     physicalBatteriesCount;
 
 __private_extern__ io_registry_entry_t getRootDomain(void);
@@ -192,5 +204,6 @@ __private_extern__ IOReturn ActivatePMSettings(
 
 __private_extern__ CFCalendarRef        _gregorian(void);
 
+__private_extern__  asl_object_t open_pm_asl_store(void);
 
 #endif
