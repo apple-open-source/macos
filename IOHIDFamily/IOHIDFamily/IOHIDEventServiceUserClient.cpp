@@ -97,11 +97,11 @@ IOService * IOHIDEventServiceUserClient::getService( void )
 //==============================================================================
 IOReturn IOHIDEventServiceUserClient::clientClose( void )
 {
-   if (_client) {
-        task_deallocate(_client);
-        _client = 0;
-    }
-   
+//   if (_client) {
+//        task_deallocate(_client);
+//        _client = 0;
+//    }
+  
    if (_owner) {	
         _owner->close(this, _options);
     }
@@ -195,7 +195,7 @@ bool IOHIDEventServiceUserClient::initWithTask(task_t owningTask, void * securit
 
     _client = owningTask;
     
-    task_reference (_client);
+    //task_reference (_client);
     
     return true;
 }

@@ -170,7 +170,7 @@ add_lockdown_session(int fd)
 	dispatch_async(watch_queue, ^{
 		if (global.lockdown_session_count == 0) global.lockdown_session_fds = NULL;
 
-		global.lockdown_session_fds = reallocf(global.lockdown_session_fds, global.lockdown_session_count + 1 * sizeof(int));
+		global.lockdown_session_fds = reallocf(global.lockdown_session_fds, (global.lockdown_session_count + 1) * sizeof(int));
 
 		if (global.lockdown_session_fds == NULL)
 		{

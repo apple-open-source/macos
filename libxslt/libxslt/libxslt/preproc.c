@@ -2245,7 +2245,8 @@ xsltStylePreCompute(xsltStylesheetPtr style, xmlNodePtr inst) {
 	} else if (IS_XSLT_NAME(inst, "attribute")) {
 	    xmlNodePtr parent = inst->parent;
 
-	    if ((parent == NULL) || (parent->ns == NULL) ||
+	    if ((parent == NULL) ||
+	        (parent->type != XML_ELEMENT_NODE) || (parent->ns == NULL) ||
 		((parent->ns != inst->ns) &&
 		 (!xmlStrEqual(parent->ns->href, inst->ns->href))) ||
 		(!xmlStrEqual(parent->name, BAD_CAST "attribute-set"))) {

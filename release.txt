@@ -1,4 +1,4 @@
-# OS X 10.11.2
+# OS X 10.11.3
 AppleFileSystemDriver	21
 AppleRAID	5
 AppleUSBIrDA	145.2.4
@@ -27,7 +27,7 @@ IOFireWireIP	226.2
 IOFireWireSBP2	427
 IOFireWireSerialBusProtocolTransport	251.0.2
 IOGraphics	497
-IOHIDFamily	701.20.10
+IOHIDFamily	701.30.1
 IOKitTools	97
 IOKitUser	1179.20.6
 IONetworkingFamily	107
@@ -36,7 +36,7 @@ IOSCSIParallelFamily	300.0.2
 IOSerialFamily	84.20.1
 IOStorageFamily	191
 IOUSBMassStorageClass	400.0.2
-JavaScriptCore	7601.3.7
+JavaScriptCore	7601.4.2
 KerberosHelper	152
 Libc	1082.20.4
 Libinfo	477.20.1
@@ -60,11 +60,11 @@ SmartCardServices	55111
 SmartcardCCID	55008.20.1
 TimeZoneData	70
 UserNotification	29
-WTF	7601.3.4
-WebCore	7601.3.8
-WebInspectorUI	7601.3.5
-WebKit	7601.3.9
-WebKit2	7601.3.9
+WTF	7601.4.2
+WebCore	7601.4.4
+WebInspectorUI	7601.4.2
+WebKit	7601.4.4
+WebKit2	7601.4.4
 adv_cmds	163
 apache	798
 apache_mod_hfs_apple	15
@@ -78,7 +78,7 @@ basic_cmds	55
 bc	21
 bind9	45.101
 bless	105
-bmalloc	7601.3.4
+bmalloc	7601.4.2
 bootp	314.20.1
 bzip2	38
 cddafs	253.20.1
@@ -95,7 +95,7 @@ diskdev_cmds	582
 disklabel	6
 doc_cmds	51
 dtrace	168
-dyld	360.18
+dyld	360.19
 eap8021x	222.20.2
 efax	42
 emacs	94
@@ -138,7 +138,7 @@ libtelnet	13
 libunwind	35.3
 libutil	43
 libxml2	29.2
-libxslt	14
+libxslt	14.1
 llvmCore	3425.0.36
 lsof	53
 lukemftp	15
@@ -183,7 +183,7 @@ shell_cmds	187
 srm	7
 sudo	77
 swig	12
-syslog	322
+syslog	322.30.1
 system_cmds	671.10.3
 system_config	53.0.0.0.1
 tcl	107
@@ -198,7 +198,7 @@ uucp	11
 vim	55
 webdavfs	368
 xar	302
-xnu	3248.20.55
+xnu	3248.30.4
 zip	15
 zlib	61.20.1
 zsh	65
