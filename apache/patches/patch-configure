@@ -22,4 +22,83 @@
          ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},slotmem_shm"
        fi
        ;;
-
+--- configure.orig	2015-12-15 21:28:52.000000000 -0800
++++ configure	2015-12-17 20:46:11.000000000 -0800
+@@ -24802,7 +24802,7 @@
+ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+ 
+     if test "x$ac_cv_openssl" = "xyes"; then
+-      ap_openssl_libs="${ap_openssl_libs:--lssl -lcrypto} `$apr_config --libs`"
++      ap_openssl_libs="${ap_openssl_libs:--lssl.35 -lcrypto.35} `$apr_config --libs`"
+ 
+   if test "x$MOD_LDFLAGS" = "x"; then
+     test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$ap_openssl_libs\""
+--- configure.orig	2015-12-15 21:28:52.000000000 -0800
++++ configure	2015-12-15 21:29:14.000000000 -0800
+@@ -24885,7 +24885,7 @@
+ fi
+ done
+ 
+-      for ac_func in ENGINE_init ENGINE_load_builtin_engines RAND_egd
++      for ac_func in ENGINE_init ENGINE_load_builtin_engines
+ do :
+   as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
+ ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"
+--- configure.orig	2015-12-21 19:47:57.000000000 -0800
++++ configure	2015-12-21 20:05:12.000000000 -0800
+@@ -25388,10 +25388,10 @@
+ 
+ 
+   if test "x$LDFLAGS" = "x"; then
+-    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"-L$ap_openssl_base/lib\""
+-    LDFLAGS="-L$ap_openssl_base/lib"
++    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"-L/usr/lib\""
++    LDFLAGS="-L/usr/lib"
+   else
+-    apr_addto_bugger="-L$ap_openssl_base/lib"
++    apr_addto_bugger="-L/usr/lib"
+     for i in $apr_addto_bugger; do
+       apr_addto_duplicate="0"
+       for j in $LDFLAGS; do
+@@ -25409,10 +25409,10 @@
+ 
+ 
+   if test "x$MOD_LDFLAGS" = "x"; then
+-    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"-L$ap_openssl_base/lib\""
+-    MOD_LDFLAGS="-L$ap_openssl_base/lib"
++    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"-L/usr/lib\""
++    MOD_LDFLAGS="-L/usr/lib"
+   else
+-    apr_addto_bugger="-L$ap_openssl_base/lib"
++    apr_addto_bugger="-L/usr/lib"
+     for i in $apr_addto_bugger; do
+       apr_addto_duplicate="0"
+       for j in $MOD_LDFLAGS; do
+@@ -25431,10 +25431,10 @@
+       if test "x$ap_platform_runtime_link_flag" != "x"; then
+ 
+   if test "x$LDFLAGS" = "x"; then
+-    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$ap_platform_runtime_link_flag$ap_openssl_base/lib\""
+-    LDFLAGS="$ap_platform_runtime_link_flag$ap_openssl_base/lib"
++    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$ap_platform_runtime_link_flag/usr/lib\""
++    LDFLAGS="$ap_platform_runtime_link_flag/usr/lib"
+   else
+-    apr_addto_bugger="$ap_platform_runtime_link_flag$ap_openssl_base/lib"
++    apr_addto_bugger="$ap_platform_runtime_link_flag/usr/lib"
+     for i in $apr_addto_bugger; do
+       apr_addto_duplicate="0"
+       for j in $LDFLAGS; do
+@@ -25452,10 +25452,10 @@
+ 
+ 
+   if test "x$MOD_LDFLAGS" = "x"; then
+-    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$ap_platform_runtime_link_flag$ap_openssl_base/lib\""
+-    MOD_LDFLAGS="$ap_platform_runtime_link_flag$ap_openssl_base/lib"
++    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$ap_platform_runtime_link_flag/usr/lib\""
++    MOD_LDFLAGS="$ap_platform_runtime_link_flag/usr/lib"
+   else
+-    apr_addto_bugger="$ap_platform_runtime_link_flag$ap_openssl_base/lib"
++    apr_addto_bugger="$ap_platform_runtime_link_flag/usr/lib"
+     for i in $apr_addto_bugger; do
+       apr_addto_duplicate="0"
+       for j in $MOD_LDFLAGS; do

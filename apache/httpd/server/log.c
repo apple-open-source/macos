@@ -53,6 +53,7 @@
 #include "http_main.h"
 #include "util_time.h"
 #include "ap_mpm.h"
+#include "ap_listen.h"
 
 #if HAVE_GETTID
 #include <sys/syscall.h>
@@ -497,8 +498,8 @@ int ap_open_logs(apr_pool_t *pconf, apr_pool_t *p /* plog */,
              * as stdin. This in turn would prevent the piped logger from
              * exiting.
              */
-             apr_file_close(s_main->error_log);
-             s_main->error_log = stderr_log;
+            apr_file_close(s_main->error_log);
+            s_main->error_log = stderr_log;
         }
     }
     /* note that stderr may still need to be replaced with something
@@ -624,7 +625,7 @@ static int log_ctime(const ap_errorlog_info *info, const char *arg,
     int time_len = buflen;
     int option = AP_CTIME_OPTION_NONE;
 
-    while(arg && *arg) {
+    while (arg && *arg) {
         switch (*arg) {
             case 'u':   option |= AP_CTIME_OPTION_USEC;
                         break;
@@ -1534,6 +1535,15 @@ AP_DECLARE(void) ap_log_command_line(apr_pool_t *plog, server_rec *s)
     }
     ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, s, APLOGNO(00094)
                  "Command line: '%s'", result);
+}
+
+/* grab bag function to log commonly logged and shared info */
+AP_DECLARE(void) ap_log_mpm_common(server_rec *s)
+{
+    ap_log_error(APLOG_MARK, APLOG_DEBUG , 0, s, APLOGNO(02639)
+                 "Using SO_REUSEPORT: %s (%d)",
+                 ap_have_so_reuseport ? "yes" : "no",
+                 ap_num_listen_buckets);
 }
 
 AP_DECLARE(void) ap_remove_pid(apr_pool_t *p, const char *rel_fname)

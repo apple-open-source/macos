@@ -722,7 +722,7 @@ static void pptp_get_router_address_for_interface(void)
     CFIndex             i = 0;
     CFStringRef         serviceID = NULL;
 
-    if (interface == NULL || interface[0] == 0) {
+    if (interface[0] == 0) {
         goto done;
     }
 

@@ -60,7 +60,7 @@ public:
 	CodeSignatureAclSubject(const OSXVerifier &verifier)
 		: AclSubject(CSSM_ACL_SUBJECT_TYPE_CODE_SIGNATURE), OSXVerifier(verifier) { }
 	
-    bool validate(const AclValidationContext &baseCtx) const;
+    bool validates(const AclValidationContext &baseCtx) const;
     CssmList toList(Allocator &alloc) const;
     
     void exportBlob(Writer::Counter &pub, Writer::Counter &priv);

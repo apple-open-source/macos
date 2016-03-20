@@ -336,7 +336,7 @@ void SOSCoderReset(SOSCoderRef coder)
 
 CFDataRef SOSCoderCopyPendingResponse(SOSCoderRef coder)
 {
-    return CFRetainSafe(coder->pendingResponse);
+    return coder->pendingResponse ? CFDataCreateCopy(kCFAllocatorDefault, coder->pendingResponse) : NULL;
 }
 
 void SOSCoderConsumeResponse(SOSCoderRef coder)
@@ -466,9 +466,8 @@ SOSCoderStatus SOSCoderUnwrap(SOSCoderRef coder, CFDataRef codedMessage, CFMutab
 
         case kOTRDataPacket:
             if(!SecOTRSGetIsReadyForMessages(coder->sessRef)) {
-                CFStringAppend(action, CFSTR("not ready, resending DH packet"));
+                CFStringAppend(action, CFSTR("not ready for data; resending DH packet"));
 				SetCloudKeychainTraceValueForKey(kCloudKeychainNumberOfTimesSyncFailed, 1);
-                CFStringAppend(action, CFSTR("not ready for data; resending dh"));
                 result = SOSCoderResendDH(coder, error);
             } else {
                 if (coder->waitingForDataPacket) {

@@ -38,7 +38,7 @@
 #include <IOKit/ps/IOPSKeys.h>
 
 #include "IOUPSPrivate.h"
-#include "IOUPSPlugIn.h"
+#include <IOKit/ps/IOUPSPlugIn.h>
 
 // mig generated header
 #include "ioupspluginmig.h"

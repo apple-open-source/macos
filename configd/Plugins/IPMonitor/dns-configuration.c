@@ -1020,15 +1020,19 @@ add_service_specific_resolvers(CFMutableArrayRef resolvers, CFDictionaryRef serv
 			flags = 0;
 		}
 
-		flags |= DNS_RESOLVER_FLAGS_SERVICE_SPECIFIC | DNS_RESOLVER_FLAGS_REQUEST_ALL_RECORDS;
+		flags |= DNS_RESOLVER_FLAGS_REQUEST_ALL_RECORDS;
+
+		if (CFDictionaryContainsKey(new_resolver, kSCPropInterfaceName)) {
+			CFDictionarySetValue(new_resolver, DNS_CONFIGURATION_SCOPED_QUERY_KEY, kCFBooleanTrue);
+			CFDictionaryRemoveValue(new_resolver, kSCPropNetDNSServiceIdentifier);
+			flags |= DNS_RESOLVER_FLAGS_SCOPED;
+		} else {
+			flags |= DNS_RESOLVER_FLAGS_SERVICE_SPECIFIC;
+		}
 
 		flags_num = CFNumberCreate(NULL, kCFNumberSInt32Type, &flags);
 		CFDictionarySetValue(new_resolver, DNS_CONFIGURATION_FLAGS_KEY, flags_num);
 		CFRelease(flags_num);
-
-		if (CFDictionaryContainsKey(new_resolver, kSCPropInterfaceName)) {
-			CFDictionarySetValue(new_resolver, DNS_CONFIGURATION_SCOPED_QUERY_KEY, kCFBooleanTrue);
-		}
 
 		CFDictionaryRemoveValue(new_resolver, kSCPropNetDNSSupplementalMatchDomains);
 		CFDictionaryRemoveValue(new_resolver, kSCPropNetDNSSupplementalMatchOrders);

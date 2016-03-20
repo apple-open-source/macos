@@ -1612,7 +1612,7 @@ pfkey_open()
 {
 	int so;
 	int bufsiz = 0;	/* Max allowed by default */
-	const unsigned long newbufk = 1536;
+	const unsigned long newbufk = 2176;
 	unsigned long oldmax;
 	size_t	oldmaxsize = sizeof(oldmax);
 	unsigned long newmax = newbufk * (1024 + 128);

@@ -203,6 +203,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "si_17_item_system_bluetooth"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "si_20_sectrust_activation"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -424,6 +428,14 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "si_88_sectrust_vpnprofile"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "si_89_cms_hash_agility"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "si_91_sectrust_ast2"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument

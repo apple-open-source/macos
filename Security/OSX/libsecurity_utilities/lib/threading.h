@@ -197,7 +197,27 @@ public:
 private:
     unsigned int mCount;				// counter level
 };
- 
+
+//
+// A ReadWriteLock is a wrapper around a pthread_rwlock
+//
+class ReadWriteLock : public Mutex {
+public:
+    ReadWriteLock();
+    ~ReadWriteLock() { check(pthread_rwlock_destroy(&mLock)); }
+
+    // Takes the read lock
+    bool lock();
+    bool tryLock();
+    void unlock();
+
+    bool writeLock();
+    bool tryWriteLock();
+
+private:
+    pthread_rwlock_t mLock;
+};
+
 
 //
 // A guaranteed-unlocker stack-based class.
@@ -227,6 +247,31 @@ protected:
 	Lock &me;
 	bool mActive;
 };
+
+// Note: if you use the TryRead or TryWrite modes, you must check if you
+// actually have the lock before proceeding
+class StReadWriteLock {
+public:
+    enum Type {
+      Read,
+      TryRead,
+      Write,
+      TryWrite
+    };
+    StReadWriteLock(ReadWriteLock &lck, Type type) : mType(type), mIsLocked(false), mRWLock(lck)
+                       { lock(); }
+    ~StReadWriteLock() { if(mIsLocked) mRWLock.unlock(); }
+
+    bool lock();
+    void unlock();
+    bool isLocked();
+
+protected:
+    Type mType;
+    bool mIsLocked;
+    ReadWriteLock& mRWLock;
+};
+
 
 template <class TakeLock, class ReleaseLock,
 	void (TakeLock::*_lock)() = &TakeLock::lock,

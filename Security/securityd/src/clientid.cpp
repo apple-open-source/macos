@@ -26,6 +26,8 @@
 #include "clientid.h"
 #include "server.h"
 #include <Security/SecCodePriv.h>
+#include <Security/oidsattr.h>
+#include <Security/SecCertificatePriv.h>
 
 
 //
@@ -34,6 +36,7 @@
 // constructor.
 //
 ClientIdentification::ClientIdentification()
+	: mGotPartitionId(false)
 {
 }
 
@@ -132,6 +135,93 @@ ClientIdentification::GuestState *ClientIdentification::current() const
 
 
 //
+// Return the partition id ascribed to this client.
+// This is assigned to the whole client process - it is not per-guest.
+//
+std::string ClientIdentification::partitionId() const
+{
+	if (!mGotPartitionId) {
+		mClientPartitionId = partitionIdForProcess(processCode());
+		mGotPartitionId = true;
+	}
+	return mClientPartitionId;
+}
+
+
+static std::string hashString(CFDataRef data)
+{
+	CFIndex length = CFDataGetLength(data);
+	const unsigned char *hash = CFDataGetBytePtr(data);
+	char s[2 * length + 1];
+	for (CFIndex n = 0; n < length; n++)
+		sprintf(&s[2*n], "%2.2x", hash[n]);
+	return s;
+}
+
+
+std::string ClientIdentification::partitionIdForProcess(SecStaticCodeRef code)
+{
+	static CFStringRef const appleReq = CFSTR("anchor apple");
+	static CFStringRef const masReq = CFSTR("anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.9]");
+	static CFStringRef const developmentOrDevIDReq = CFSTR("anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] and certificate leaf[field.1.2.840.113635.100.6.1.13]"
+														   " or "
+														   "anchor apple generic and certificate leaf[subject.CN] = \"Mac Developer:\"* and certificate 1[field.1.2.840.113635.100.6.2.1]");
+	static SecRequirementRef apple;
+	static SecRequirementRef mas;
+	static SecRequirementRef developmentOrDevID;
+	static dispatch_once_t onceToken;
+	dispatch_once(&onceToken, ^{
+		if (noErr != SecRequirementCreateWithString(appleReq, kSecCSDefaultFlags, &apple)
+			|| noErr != SecRequirementCreateWithString(masReq, kSecCSDefaultFlags, &mas)
+			|| noErr != SecRequirementCreateWithString(developmentOrDevIDReq, kSecCSDefaultFlags, &developmentOrDevID))
+			abort();
+	});
+	
+	OSStatus rc;
+	switch (rc = SecStaticCodeCheckValidity(code, kSecCSBasicValidateOnly, apple)) {
+	case noErr:
+	case errSecCSReqFailed:
+		break;
+	case errSecCSUnsigned:
+		return "unsigned:";
+	default:
+		MacOSError::throwMe(rc);
+	}
+	CFRef<CFDictionaryRef> info;
+	if (OSStatus irc = SecCodeCopySigningInformation(code, kSecCSSigningInformation, &info.aref()))
+		MacOSError::throwMe(irc);
+	
+	if (rc == noErr) {
+		// for apple-signed code, take the team id if present, or make it canonical apple
+		if (CFStringRef teamidRef = CFStringRef(CFDictionaryGetValue(info, kSecCodeInfoTeamIdentifier)))
+			return "teamid:" + cfString(teamidRef);
+		else if (CFEqual(CFDictionaryGetValue(info, kSecCodeInfoIdentifier), CFSTR("com.apple.security")))
+			return "apple-tool:";	// take security(1) into a separate partition so it can't automatically peek into Apple's own
+		else
+			return "apple:";
+	} else if (noErr == SecStaticCodeCheckValidity(code, kSecCSBasicValidateOnly, mas)) {
+		// for MAS-signed code, we take the embedded team identifier (verified by Apple)
+		return "teamid:" + cfString(CFStringRef(CFDictionaryGetValue(info, kSecCodeInfoTeamIdentifier)));
+	} else if (noErr == SecStaticCodeCheckValidity(code, kSecCSBasicValidateOnly, developmentOrDevID)) {
+		// for developer-signed code, we take the team identifier from the signing certificate's OU field
+		CFRef<CFDictionaryRef> info;
+		if (noErr != (rc = SecCodeCopySigningInformation(code, kSecCSSigningInformation, &info.aref())))
+			MacOSError::throwMe(rc);
+		CFArrayRef certChain = CFArrayRef(CFDictionaryGetValue(info, kSecCodeInfoCertificates));
+		SecCertificateRef signingCert = SecCertificateRef(CFArrayGetValueAtIndex(certChain, 0));
+		CFRef<CFStringRef> ou;
+		SecCertificateCopySubjectComponent(signingCert, &CSSMOID_OrganizationalUnitName, &ou.aref());
+		return "teamid:" + cfString(ou);
+	} else {
+		// cannot positively classify this code, but it's signed
+		CFDataRef cdhashData = CFDataRef(CFDictionaryGetValue(info, kSecCodeInfoUnique));
+		assert(cdhashData);
+		return "cdhash:" + hashString(cdhashData);
+	}
+}
+
+
+//
 // Support for the legacy hash identification mechanism.
 // The legacy machinery deals exclusively in terms of processes.
 // It knows nothing about guests and their identities.
@@ -177,6 +267,20 @@ const bool ClientIdentification::checkAppleSigned() const
 		return guest->appleSigned;
 	} else
 		return false;
+}
+
+
+bool ClientIdentification::hasEntitlement(const char *name) const
+{
+	CFRef<CFDictionaryRef> info;
+	MacOSError::check(SecCodeCopySigningInformation(processCode(), kSecCSDefaultFlags, &info.aref()));
+	CFCopyRef<CFDictionaryRef> entitlements = (CFDictionaryRef)CFDictionaryGetValue(info, kSecCodeInfoEntitlementsDict);
+	if (entitlements && entitlements.is<CFDictionaryRef>()) {
+		CFTypeRef value = CFDictionaryGetValue(entitlements, CFTempString(name));
+		if (value && value != kCFBooleanFalse)
+			return true;		// have entitlement, it's not <false/> - bypass partition construction
+	}
+	return false;
 }
 
 

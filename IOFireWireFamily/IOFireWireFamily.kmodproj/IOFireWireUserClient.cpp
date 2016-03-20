@@ -3112,7 +3112,7 @@ IOFireWireUserClient::localConfigDirectory_addEntry_Buffer (
 		copyUserData( (IOVirtualAddress)buffer, (IOVirtualAddress)data->getBytesNoCopy(), kr_size ) ;
 		
 		OSString * desc = NULL ;
-		if ( descCString && (descLen < 1024) )
+		if ( descCString && (descLen < 1024) && (descLen > 0) )
 		{
 			char * cStr = new char[ descLen ];
 			if ( cStr )
@@ -3158,7 +3158,7 @@ IOFireWireUserClient::localConfigDirectory_addEntry_UInt32 (
 	}
 	
 	OSString * desc = NULL ;
-	if ( descCString && (descLen < 1024) )
+	if ( descCString && (descLen < 1024) && (descLen > 0) )
 	{
 		char * cStr = new char[ descLen ];
 		if ( cStr )
@@ -3201,7 +3201,7 @@ IOFireWireUserClient::localConfigDirectory_addEntry_FWAddr (
 	}
 
 	OSString * desc = NULL ;
-	if ( descCString && (descLen < 1024) )
+	if ( descCString && (descLen < 1024) && (descLen > 0) )
 	{
 		char * cStr = new char[ descLen ];
 		if ( cStr )
@@ -3267,7 +3267,7 @@ IOFireWireUserClient::localConfigDirectory_addEntry_UnitDir (
 		{
 			OSString * desc = NULL ;
 			
-			if ( descCString && (descLen < 1024) )
+			if ( descCString && (descLen < 1024) && (descLen > 0) )
 			{
 				char * cStr = new char[ descLen ];
 				if ( cStr )
@@ -3504,8 +3504,11 @@ IOFireWireUserClient::setAsyncRef_SkippedPacket(
 		me->setAsyncRef_SkippedPacket(asyncRef) ;
 	}
 	
-	me->release();
-	
+    if( me )
+    {
+        me->release();
+    }
+    
 	return result ;
 }
 
@@ -3549,8 +3552,11 @@ IOFireWireUserClient::setAsyncRef_Read(
 		me->setAsyncRef_Read(asyncRef) ;
 	}
 	
-	me->release();
-	
+    if( me )
+    {
+        me->release();
+    }
+    
 	return result ;
 }
 
@@ -5144,8 +5150,11 @@ IOFireWireUserClient::setAsyncStreamRef_SkippedPacket (
 		me->setAsyncStreamRef_SkippedPacket(asyncRef) ;
 	}
 	
-	me->release();
-	
+    if( me )
+    {
+        me->release();
+    }
+    
 	return result ;
 }
 

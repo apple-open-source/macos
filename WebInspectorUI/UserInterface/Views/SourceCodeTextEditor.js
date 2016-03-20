@@ -94,7 +94,7 @@ WebInspector.SourceCodeTextEditor = class SourceCodeTextEditor extends WebInspec
 
     shown()
     {
-        WebInspector.TextEditor.prototype.shown.call(this);
+        super.shown();
 
         if (WebInspector.showJavaScriptTypeInformationSetting.value) {
             if (this._typeTokenAnnotator)
@@ -111,7 +111,7 @@ WebInspector.SourceCodeTextEditor = class SourceCodeTextEditor extends WebInspec
 
     hidden()
     {
-        WebInspector.TextEditor.prototype.hidden.call(this);
+        super.hidden();
 
         this.tokenTrackingController.removeHighlightedRange();
 
@@ -152,7 +152,7 @@ WebInspector.SourceCodeTextEditor = class SourceCodeTextEditor extends WebInspec
         if (this._sourceCode instanceof WebInspector.SourceMapResource)
             return false;
 
-        return WebInspector.TextEditor.prototype.canBeFormatted.call(this);
+        return super.canBeFormatted();
     }
 
     canShowTypeAnnotations()
@@ -388,27 +388,30 @@ WebInspector.SourceCodeTextEditor = class SourceCodeTextEditor extends WebInspec
 
         // Automatically format the content if it looks minified and it can be formatted.
         console.assert(!this.formatted);
-        if (this.canBeFormatted()) {
-            var lastNewlineIndex = 0;
-            while (true) {
-                var nextNewlineIndex = content.indexOf("\n", lastNewlineIndex);
-                if (nextNewlineIndex === -1) {
-                    if (content.length - lastNewlineIndex > WebInspector.SourceCodeTextEditor.AutoFormatMinimumLineLength) {
-                        this.autoFormat = true;
-                        this._isProbablyMinified = true;
-                    }
-                    break;
-                }
+        if (this.canBeFormatted() && this._isLikelyMinified(content)) {
+            this.autoFormat = true;
+            this._isProbablyMinified = true;
+        }
+    }
 
-                if (nextNewlineIndex - lastNewlineIndex > WebInspector.SourceCodeTextEditor.AutoFormatMinimumLineLength) {
-                    this.autoFormat = true;
-                    this._isProbablyMinified = true;
-                    break;
-                }
+    _isLikelyMinified(content)
+    {
+        var whiteSpaceCount = 0;
+        var ratio = 0;
 
-                lastNewlineIndex = nextNewlineIndex + 1;
+        for (var i = 0, size = Math.min(5000, content.length); i < size; i++) {
+            var char = content[i];
+            if (char === " " || char === "\n" || char === "\t")
+                whiteSpaceCount++;
+
+            if (i >= 500) {
+                ratio = whiteSpaceCount / i;
+                if (ratio < 0.05)
+                    return true;
             }
         }
+
+        return ratio < 0.1;
     }
 
     _contentDidPopulate()
@@ -1023,11 +1026,13 @@ WebInspector.SourceCodeTextEditor = class SourceCodeTextEditor extends WebInspec
 
         // Single breakpoint.
         if (breakpoints.length === 1) {
-            var breakpoint = breakpoints[0];
+            WebInspector.breakpointPopoverController.appendContextMenuItems(contextMenu, breakpoints[0], event.target);
 
-            breakpoint.appendContextMenuItems(contextMenu, event.target);
-            contextMenu.appendSeparator();
-            contextMenu.appendItem(WebInspector.UIString("Reveal in Debugger Tab"), revealInSidebar);
+            if (!WebInspector.isShowingDebuggerTab()) {
+                contextMenu.appendSeparator();
+                contextMenu.appendItem(WebInspector.UIString("Reveal in Debugger Tab"), revealInSidebar);
+            }
+
             contextMenu.show();
             return;
         }
@@ -1298,9 +1303,10 @@ WebInspector.SourceCodeTextEditor = class SourceCodeTextEditor extends WebInspec
         return true;
     }
 
-    tokenTrackingControllerHighlightedRangeReleased(tokenTrackingController)
+    tokenTrackingControllerHighlightedRangeReleased(tokenTrackingController, forceHide)
     {
-        if (!this._mouseIsOverPopover)
+        forceHide = forceHide || false;
+        if (forceHide || !this._mouseIsOverPopover)
             this._dismissPopover();
     }
 
@@ -1590,6 +1596,7 @@ WebInspector.SourceCodeTextEditor = class SourceCodeTextEditor extends WebInspec
     {
         this.createColorMarkers(range);
         this.createGradientMarkers(range);
+        this.createCubicBezierMarkers(range);
 
         this._updateTokenTrackingControllerState();
     }
@@ -1599,7 +1606,7 @@ WebInspector.SourceCodeTextEditor = class SourceCodeTextEditor extends WebInspec
         // Look for the outermost editable marker.
         var editableMarker;
         for (var marker of markers) {
-            if (!marker.range || (marker.type !== WebInspector.TextMarker.Type.Color && marker.type !== WebInspector.TextMarker.Type.Gradient))
+            if (!marker.range || (marker.type !== WebInspector.TextMarker.Type.Color && marker.type !== WebInspector.TextMarker.Type.Gradient && marker.type !== WebInspector.TextMarker.Type.CubicBezier))
                 continue;
 
             if (!editableMarker || (marker.range.startLine < editableMarker.range.startLine || (marker.range.startLine === editableMarker.range.startLine && marker.range.startColumn < editableMarker.range.startColumn)))
@@ -1719,6 +1726,7 @@ WebInspector.SourceCodeTextEditor = class SourceCodeTextEditor extends WebInspec
 
     _makeTypeTokenAnnotator()
     {
+        // COMPATIBILITY (iOS 8): Runtime.getRuntimeTypesForVariablesAtOffsets did not exist yet.
         if (!RuntimeAgent.getRuntimeTypesForVariablesAtOffsets)
             return;
 
@@ -1731,6 +1739,7 @@ WebInspector.SourceCodeTextEditor = class SourceCodeTextEditor extends WebInspec
 
     _makeBasicBlockAnnotator()
     {
+        // COMPATIBILITY (iOS 8): Runtime.getBasicBlocks did not exist yet.
         if (!RuntimeAgent.getBasicBlocks)
             return;
 
@@ -1790,7 +1799,6 @@ WebInspector.SourceCodeTextEditor.HoveredExpressionHighlightStyleClassName = "ho
 WebInspector.SourceCodeTextEditor.DurationToMouseOverTokenToMakeHoveredToken = 500;
 WebInspector.SourceCodeTextEditor.DurationToMouseOutOfHoveredTokenToRelease = 1000;
 WebInspector.SourceCodeTextEditor.DurationToUpdateTypeTokensAfterScrolling = 100;
-WebInspector.SourceCodeTextEditor.AutoFormatMinimumLineLength = 500;
 WebInspector.SourceCodeTextEditor.WidgetContainsMultipleIssuesSymbol = Symbol("source-code-widget-contains-multiple-issues");
 
 WebInspector.SourceCodeTextEditor.Event = {

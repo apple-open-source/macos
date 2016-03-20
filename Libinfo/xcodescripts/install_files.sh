@@ -29,6 +29,7 @@ InstallHeaders /usr/local/include \
 	lookup.subproj/thread_data.h
 
 InstallHeaders /usr/local/include \
+	lookup.subproj/libinfo_muser.h \
 	lookup.subproj/netdb_async.h \
 	membership.subproj/membershipPriv.h
 

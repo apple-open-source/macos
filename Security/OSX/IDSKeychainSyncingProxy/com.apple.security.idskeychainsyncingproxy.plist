@@ -19,6 +19,8 @@
 	<string>com.apple.security.idskeychainsyncingproxy</string>
 	<key>EnvironmentVariables</key>
 	<dict>
+		<key>DEBUGSCOPE</key>
+		<string>all</string>
 		<key>WAIT4DEBUGGER</key>
 		<string>NO</string>
 	</dict>

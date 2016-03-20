@@ -46,12 +46,21 @@
 #include <security_cdsa_utilities/acl_preauth.h>
 #include <security_cdsa_utilities/acl_prompted.h>
 #include <security_cdsa_utilities/acl_threshold.h>
+#include "acl_partition.h"
 
 using namespace SecurityServer;
 
 
 class Connection;
 class Database;
+class Process;
+class SecurityServerEnvironment;
+
+
+//
+// Interesting entitlements
+//
+static const char migrationEntitlement[] = "com.apple.private.security.allow-migration";
 
 
 //
@@ -80,9 +89,20 @@ public:
 	// a helper to (try to) add an ACL to a "standard form" item ACL
 	static bool addToStandardACL(const AclValidationContext &context, AclSubject *subject);
 	static bool looksLikeLegacyDotMac(const AclValidationContext &context);
+	
+	bool createClientPartitionID(Process& process);
+	bool addClientPartitionID(Process& process);
+	
+	// implicit partitioning support
+	PartitionAclSubject* findPartitionSubject();
+	CFDictionaryRef createPartitionPayload();
 
 	// aclSequence is taken to serialize ACL validations to pick up mutual changes
 	Mutex aclSequence;
+	
+private:
+	void validatePartition(SecurityServerEnvironment& env, bool prompt);
+	bool extendPartition(SecurityServerEnvironment& env);
 };
 
 

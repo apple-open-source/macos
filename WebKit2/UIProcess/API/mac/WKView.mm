@@ -42,6 +42,7 @@
 #import "EditorState.h"
 #import "LayerTreeContext.h"
 #import "Logging.h"
+#import "NativeWebGestureEvent.h"
 #import "NativeWebKeyboardEvent.h"
 #import "NativeWebMouseEvent.h"
 #import "NativeWebWheelEvent.h"
@@ -287,6 +288,9 @@ struct WKViewInterpretKeyEventsParameters {
 #if WK_API_ENABLED
     _WKThumbnailView *_thumbnailView;
 #endif
+
+    Vector<RetainPtr<id <NSObject, NSCopying>>> _activeTouchIdentities;
+    RetainPtr<NSArray> _lastTouches;
 }
 
 @end
@@ -3256,6 +3260,60 @@ static void* keyValueObservingContext = &keyValueObservingContext;
     }
 }
 
+- (Vector<NSTouch *>)_touchesOrderedByAge
+{
+    Vector<NSTouch *> touches;
+
+    for (auto& touchIdentity : _data->_activeTouchIdentities) {
+        for (NSTouch *touch in _data->_lastTouches.get()) {
+            if (![touch.identity isEqual:touchIdentity.get()])
+                continue;
+            touches.append(touch);
+            break;
+        }
+    }
+
+    return touches;
+}
+
+- (void)touchesBeganWithEvent:(NSEvent *)event
+{
+    _data->_lastTouches = [event touchesMatchingPhase:NSTouchPhaseAny inView:self].allObjects;
+    for (NSTouch *touch in [event touchesMatchingPhase:NSTouchPhaseBegan inView:self])
+        _data->_activeTouchIdentities.append(touch.identity);
+}
+
+- (void)touchesMovedWithEvent:(NSEvent *)event
+{
+    _data->_lastTouches = [event touchesMatchingPhase:NSTouchPhaseAny inView:self].allObjects;
+}
+
+- (void)touchesEndedWithEvent:(NSEvent *)event
+{
+    _data->_lastTouches = [event touchesMatchingPhase:NSTouchPhaseAny inView:self].allObjects;
+    for (NSTouch *touch in [event touchesMatchingPhase:NSTouchPhaseEnded inView:self]) {
+        for (size_t i = 0; i < _data->_activeTouchIdentities.size(); i++) {
+            if ([_data->_activeTouchIdentities[i] isEqual:touch.identity]) {
+                _data->_activeTouchIdentities.remove(i);
+                break;
+            }
+        }
+    }
+}
+
+- (void)touchesCancelledWithEvent:(NSEvent *)event
+{
+    _data->_lastTouches = [event touchesMatchingPhase:NSTouchPhaseAny inView:self].allObjects;
+    for (NSTouch *touch in [event touchesMatchingPhase:NSTouchPhaseCancelled inView:self]) {
+        for (size_t i = 0; i < _data->_activeTouchIdentities.size(); i++) {
+            if ([_data->_activeTouchIdentities[i] isEqual:touch.identity]) {
+                _data->_activeTouchIdentities.remove(i);
+                break;
+            }
+        }
+    }
+}
+
 - (void)_setTextIndicator:(TextIndicator&)textIndicator
 {
     [self _setTextIndicator:textIndicator withLifetime:TextIndicatorLifetime::Permanent];
@@ -3744,7 +3802,7 @@ static NSString *pathWithUniqueFilenameForPath(NSString *path)
     [self addTrackingArea:trackingArea];
 }
 
-- (instancetype)initWithFrame:(NSRect)frame processPool:(WebProcessPool&)processPool configuration:(WebPageConfiguration)webPageConfiguration webView:(WKWebView *)webView
+- (instancetype)initWithFrame:(NSRect)frame processPool:(WebProcessPool&)processPool configuration:(Ref<API::PageConfiguration>&&)configuration webView:(WKWebView *)webView
 {
     self = [super initWithFrame:frame];
     if (!self)
@@ -3766,7 +3824,7 @@ static NSString *pathWithUniqueFilenameForPath(NSString *path)
     [self addTrackingArea:_data->_primaryTrackingArea.get()];
 
     _data->_pageClient = std::make_unique<PageClientImpl>(self, webView);
-    _data->_page = processPool.createWebPage(*_data->_pageClient, WTF::move(webPageConfiguration));
+    _data->_page = processPool.createWebPage(*_data->_pageClient, WTF::move(configuration));
     _data->_page->setAddsVisitedLinks(processPool.historyClient().addsVisitedLinks());
 
     _data->_page->setIntrinsicDeviceScaleFactor([self _intrinsicDeviceScaleFactor]);
@@ -3792,6 +3850,7 @@ static NSString *pathWithUniqueFilenameForPath(NSString *path)
     [self _registerDraggedTypes];
 
     self.wantsLayer = YES;
+    self.acceptsTouchEvents = YES;
 
     // Explicitly set the layer contents placement so AppKit will make sure that our layer has masksToBounds set to YES.
     self.layerContentsPlacement = NSViewLayerContentsPlacementTopLeft;
@@ -3994,19 +4053,20 @@ static NSString *pathWithUniqueFilenameForPath(NSString *path)
 
 - (id)initWithFrame:(NSRect)frame contextRef:(WKContextRef)contextRef pageGroupRef:(WKPageGroupRef)pageGroupRef relatedToPage:(WKPageRef)relatedPage
 {
-    WebPageConfiguration webPageConfiguration;
-    webPageConfiguration.pageGroup = toImpl(pageGroupRef);
-    webPageConfiguration.relatedPage = toImpl(relatedPage);
+    auto configuration = API::PageConfiguration::create();
+    configuration->setProcessPool(toImpl(contextRef));
+    configuration->setPageGroup(toImpl(pageGroupRef));
+    configuration->setRelatedPage(toImpl(relatedPage));
 
-    return [self initWithFrame:frame processPool:*toImpl(contextRef) configuration:webPageConfiguration webView:nil];
+    return [self initWithFrame:frame processPool:*toImpl(contextRef) configuration:WTF::move(configuration) webView:nil];
 }
 
-- (id)initWithFrame:(NSRect)frame configurationRef:(WKPageConfigurationRef)configuration
+- (id)initWithFrame:(NSRect)frame configurationRef:(WKPageConfigurationRef)configurationRef
 {
-    auto& processPool = *toImpl(configuration)->processPool();
-    auto webPageConfiguration = toImpl(configuration)->webPageConfiguration();
+    Ref<API::PageConfiguration> configuration = *toImpl(configurationRef);
+    auto& processPool = *configuration->processPool();
 
-    return [self initWithFrame:frame processPool:processPool configuration:webPageConfiguration webView:nil];
+    return [self initWithFrame:frame processPool:processPool configuration:WTF::move(configuration) webView:nil];
 }
 
 - (BOOL)wantsUpdateLayer
@@ -4543,6 +4603,10 @@ static NSString *pathWithUniqueFilenameForPath(NSString *path)
 - (void)magnifyWithEvent:(NSEvent *)event
 {
     if (!_data->_allowsMagnification) {
+#if ENABLE(MAC_GESTURE_EVENTS)
+        NativeWebGestureEvent webEvent = NativeWebGestureEvent(event, self, [self _touchesOrderedByAge]);
+        _data->_page->handleGestureEvent(webEvent);
+#endif
         [super magnifyWithEvent:event];
         return;
     }
@@ -4551,10 +4615,33 @@ static NSString *pathWithUniqueFilenameForPath(NSString *path)
 
     [self _ensureGestureController];
 
-    _data->_gestureController->handleMagnificationGesture(event.magnification, [self convertPoint:event.locationInWindow fromView:nil]);
+#if ENABLE(MAC_GESTURE_EVENTS)
+    if (_data->_gestureController->hasActiveMagnificationGesture()) {
+        _data->_gestureController->handleMagnificationGestureEvent(event, [self convertPoint:event.locationInWindow fromView:nil]);
+        return;
+    }
 
-    if (event.phase == NSEventPhaseEnded || event.phase == NSEventPhaseCancelled)
-        _data->_gestureController->endMagnificationGesture();
+    NativeWebGestureEvent webEvent = NativeWebGestureEvent(event, self, [self _touchesOrderedByAge]);
+    _data->_page->handleGestureEvent(webEvent);
+#else
+    _data->_gestureController->handleMagnificationGestureEvent(event, [self convertPoint:event.locationInWindow fromView:nil]);
+#endif
+}
+
+#if ENABLE(MAC_GESTURE_EVENTS)
+- (void)rotateWithEvent:(NSEvent *)event
+{
+    NativeWebGestureEvent webEvent = NativeWebGestureEvent(event, self, [self _touchesOrderedByAge]);
+    _data->_page->handleGestureEvent(webEvent);
+}
+#endif
+
+- (void)_gestureEventWasNotHandledByWebCore:(NSEvent *)event
+{
+#if ENABLE(MAC_GESTURE_EVENTS)
+    if (_data->_allowsMagnification && _data->_gestureController)
+        _data->_gestureController->gestureEventWasNotHandledByWebCore(event, [self convertPoint:event.locationInWindow fromView:nil]);
+#endif
 }
 
 - (void)smartMagnifyWithEvent:(NSEvent *)event

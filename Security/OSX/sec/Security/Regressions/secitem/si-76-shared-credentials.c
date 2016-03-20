@@ -164,6 +164,9 @@ int si_76_shared_credentials(int argc, char *const *argv)
 #if !TARGET_OS_WATCH
 		plan_tests(12);
 		tests();
+#else
+		plan_tests(1);
+		ok_status(0);
 #endif
 		return 0;
 }

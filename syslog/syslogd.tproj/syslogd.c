@@ -50,6 +50,8 @@
 #include <utmpx.h>
 #include <vproc_priv.h>
 #include <asl_private.h>
+#include <pwd.h>
+
 #if !TARGET_OS_IPHONE
 #include <quarantine.h>
 #endif
@@ -490,9 +492,18 @@ main(int argc, const char *argv[])
 	 * guilty of this in the past, creating them with owner root.
 	 */
 
-	asl_secure_chown_chmod_dir("/private/var/mobile/Library/Logs", 501, 501, 0755);
-	asl_secure_chown_chmod_dir("/private/var/mobile/Library/Logs/CrashReporter", 501, 501, 0755);
-	asl_secure_chown_chmod_dir("/private/var/mobile/Library/Logs/CrashReporter/DiagnosticLogs", 501, 501, 0755);
+	uid_t __mUserUID = 501;
+	gid_t __mUserGID = 501;
+	struct passwd * pw = getpwnam("mobile");
+
+	if (pw) {
+		__mUserUID = pw->pw_uid;
+		__mUserGID = pw->pw_gid;
+	}
+
+	asl_secure_chown_chmod_dir("/private/var/mobile/Library/Logs", __mUserUID, __mUserGID, 0755);
+	asl_secure_chown_chmod_dir("/private/var/mobile/Library/Logs/CrashReporter", __mUserUID, __mUserGID, 0755);
+	asl_secure_chown_chmod_dir("/private/var/mobile/Library/Logs/CrashReporter/DiagnosticLogs", __mUserUID, __mUserGID, 0755);
 #endif
 
 	/* Set I/O policy */

@@ -56,7 +56,7 @@ public:
 //
 class ProcessAclSubject : public AclSubject {
 public:
-    bool validate(const AclValidationContext &baseCtx) const;
+    bool validates(const AclValidationContext &baseCtx) const;
     CssmList toList(Allocator &alloc) const;
 
     ProcessAclSubject(const AclProcessSubjectSelector &selector)

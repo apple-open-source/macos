@@ -43,7 +43,7 @@
     width: 13px;
     height: 13px;
 
-    background-image: -webkit-canvas(navigation-sidebar-panel-disclosure-triangle-closed-normal);
+    background-image: url(../Images/DisclosureTriangles.svg#closed-normal);
     background-size: 13px 13px;
     background-repeat: no-repeat;
     background-position: center;
@@ -56,7 +56,7 @@
 }
 
 .object-tree.expanded > :matches(.title, .object-preview)::before {
-    background-image: -webkit-canvas(navigation-sidebar-panel-disclosure-triangle-open-normal);
+    background-image: url(../Images/DisclosureTriangles.svg#open-normal);
 }
 
 .object-tree.properties-only > :matches(.title, .object-preview) {
@@ -116,9 +116,9 @@
 }
 
 .object-tree-outline li .empty-message {
-    color: rgb(60%, 60%, 60%);
+    color: hsl(0, 0%, 60%);
     margin-left: 15px;
-    font-family: -webkit-system-font, sans-serif;
+    font-family: -apple-system, sans-serif;
     font-size: 12px;
 }
 

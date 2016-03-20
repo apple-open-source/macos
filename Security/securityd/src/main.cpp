@@ -58,6 +58,7 @@
 #include <security_cdsa_utilities/acl_comment.h>
 #include <security_cdsa_utilities/acl_preauth.h>
 #include "acl_keychain.h"
+#include "acl_partition.h"
 
 
 //
@@ -235,11 +236,12 @@ int main(int argc, char *argv[])
     new ProtectedPasswordAclSubject::Maker();
     new PromptedAclSubject::Maker();
 	new ThresholdAclSubject::Maker();
-    new CommentAclSubject::Maker();
+	new CommentAclSubject::Maker();
  	new ProcessAclSubject::Maker();
 	new CodeSignatureAclSubject::Maker();
-    new KeychainPromptAclSubject::Maker(keychainAclDefault);
-    new PreAuthorizationAcls::OriginMaker();
+	new KeychainPromptAclSubject::Maker(keychainAclDefault);
+	new PartitionAclSubject::Maker();
+	new PreAuthorizationAcls::OriginMaker();
     new PreAuthorizationAcls::SourceMaker();
 
     // establish the code equivalents database

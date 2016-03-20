@@ -36,6 +36,7 @@
 #include "StorageManager.h"
 #include <Security/SecKeychainItemPriv.h>
 #include <SecBase.h>
+#include <Security/SecBasePriv.h>
 
 using namespace KeychainCore;
 using namespace CssmClient;
@@ -58,7 +59,9 @@ KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, SecIt
 	mSearchList(searchList),
 	mCurrent(mSearchList.begin()),
 	mAllFailed(true),
-	mMutex(Mutex::recursive)
+    mDeleteInvalidRecords(false),
+	mMutex(Mutex::recursive),
+    mKeychainReadLock(NULL)
 {
     recordType(Schema::recordTypeFor(itemClass));
 
@@ -113,7 +116,9 @@ KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, const
 	mSearchList(searchList),
 	mCurrent(mSearchList.begin()),
 	mAllFailed(true),
-	mMutex(Mutex::recursive)
+    mDeleteInvalidRecords(false),
+	mMutex(Mutex::recursive),
+    mKeychainReadLock(NULL)
 {
 	if (!attrList) // No additional selectionPredicates: we are done
 		return;
@@ -167,6 +172,9 @@ KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, const
 
 KCCursorImpl::~KCCursorImpl() throw()
 {
+    if(mKeychainReadLock) {
+        delete mKeychainReadLock;
+    }
 }
 
 //static ModuleNexus<Mutex> gActivationMutex;
@@ -179,118 +187,190 @@ KCCursorImpl::next(Item &item)
 	DbUniqueRecord uniqueId;
 	OSStatus status = 0;
 
+    // if this is true, we should perform newKeychain() on mCurrent before
+    // taking any locks. Starts false because mDbCursor isn't anything yet, and
+    // so the while loop will run newKeychain for us.
+    bool isNewKeychain = false;
+
 	for (;;)
 	{
-		while (!mDbCursor)
-		{
-			if (mCurrent == mSearchList.end())
-			{
-				// If we got always failed when calling mDbCursor->next return the error from
-				// the last call to mDbCursor->next now
-				if (mAllFailed && status)
-					CssmError::throwMe(status);
-				
-				// No more keychains to search so we are done.
-				return false;
-			}
-			
-			try
-			{
-                // StLock<Mutex> _(gActivationMutex()); // force serialization of cursor creation
-                Keychain &kc = *mCurrent;
-                Mutex* mutex = kc->getKeychainMutex();
-                StLock<Mutex> _(*mutex);
-				(*mCurrent)->database()->activate();
-				mDbCursor = DbCursor((*mCurrent)->database(), *this);
-			}
-			catch(const CommonError &err)
-			{
-				++mCurrent;
-			}
-		}
-
-        Keychain &kc = *mCurrent;
-        Mutex* mutex = kc->getKeychainMutex();
-        StLock<Mutex> _(*mutex);
-        
-		bool gotRecord;
-		try
-		{
-			// Clear out existing attributes first!
-			// (the previous iteration may have left attributes from a different schema)
-			dbAttributes.clear();
-
-			gotRecord = mDbCursor->next(&dbAttributes, NULL, uniqueId);
-			mAllFailed = false;
-		}
-		catch(const CommonError &err)
-		{
-			// Catch the last error we get and move on to the next keychain
-			// This error will be returned when we reach the end of our keychain list
-			// iff all calls to KCCursorImpl::next failed
-			status = err.osStatus();
-			gotRecord = false;
-            dbAttributes.invalidate();
-		}
-		catch(...)
-		{
-			// Catch all other errors
-			status = errSecItemNotFound;
-			gotRecord = false;
-		}
-
-		// If we did not get a record from the current keychain or the current
-		// keychain did not exist skip to the next keychain in the list.
-		if (!gotRecord)
-		{
-			++mCurrent;
-			mDbCursor = DbCursor();
-			continue;
-		}
-
-        // If doing a search for all records, skip the db blob added by the CSPDL
-        if (dbAttributes.recordType() == CSSM_DL_DB_RECORD_METADATA &&
-            mDbCursor->recordType() == CSSM_DL_DB_RECORD_ANY)
-                continue;
-        
-        // Filter out group keys at this layer
-        if (dbAttributes.recordType() == CSSM_DL_DB_RECORD_SYMMETRIC_KEY)
+        Item tempItem = NULL;
         {
-			bool groupKey = false;
-			try
-			{
-				// fetch the key label attribute, if it exists
-				dbAttributes.add(KeySchema::Label);
-				Db db((*mCurrent)->database());
-				CSSM_RETURN getattr_result = CSSM_DL_DataGetFromUniqueRecordId(db->handle(), uniqueId, &dbAttributes, NULL);
-				if (getattr_result == CSSM_OK)
-				{
-					CssmDbAttributeData *label = dbAttributes.find(KeySchema::Label);
-					CssmData attrData;
-					if (label)
-						attrData = *label;
-					if (attrData.length() > 4 && !memcmp(attrData.data(), "ssgp", 4))
-						groupKey = true;
-				}
-                else
-                {
-                    dbAttributes.invalidate();
-                }
-			}
-			catch (...) {}
+            if(isNewKeychain) {
+                newKeychain(mCurrent);
+                isNewKeychain = false;
+            }
 
-			if (groupKey)
-				continue;
+            while (!mDbCursor)
+            {
+                // Do the newKeychain dance before we check our done status
+                newKeychain(mCurrent);
+
+                if (mCurrent == mSearchList.end())
+                {
+                    // If we got always failed when calling mDbCursor->next return the error from
+                    // the last call to mDbCursor->next now
+                    if (mAllFailed && status)
+                        CssmError::throwMe(status);
+
+                    // No more keychains to search so we are done.
+                    return false;
+                }
+
+                try
+                {
+                    // StLock<Mutex> _(gActivationMutex()); // force serialization of cursor creation
+                    Keychain &kc = *mCurrent;
+                    Mutex* mutex = kc->getKeychainMutex();
+                    StLock<Mutex> _(*mutex);
+                    (*mCurrent)->database()->activate();
+                    mDbCursor = DbCursor((*mCurrent)->database(), *this);
+                }
+                catch(const CommonError &err)
+                {
+                    ++mCurrent;
+                }
+            }
+
+            Keychain &kc = *mCurrent;
+            Mutex* mutex = kc->getKeychainMutex();
+            StLock<Mutex> _(*mutex);
+
+            bool gotRecord;
+            try
+            {
+                // Clear out existing attributes first!
+                // (the previous iteration may have left attributes from a different schema)
+                dbAttributes.clear();
+
+                gotRecord = mDbCursor->next(&dbAttributes, NULL, uniqueId);
+                mAllFailed = false;
+            }
+            catch(const CommonError &err)
+            {
+                // Catch the last error we get and move on to the next keychain
+                // This error will be returned when we reach the end of our keychain list
+                // iff all calls to KCCursorImpl::next failed
+                status = err.osStatus();
+                gotRecord = false;
+                dbAttributes.invalidate();
+            }
+            catch(...)
+            {
+                // Catch all other errors
+                status = errSecItemNotFound;
+                gotRecord = false;
+            }
+
+            // If we did not get a record from the current keychain or the current
+            // keychain did not exist skip to the next keychain in the list.
+            if (!gotRecord)
+            {
+                ++mCurrent;
+                mDbCursor = DbCursor();
+                // we'd like to call newKeychain(mCurrent) here, but to avoid deadlock
+                // we need to drop the current keychain's mutex first. Use this silly
+                // hack to void the stack Mutex object.
+                isNewKeychain = true;
+                continue;
+            }
+
+            // If doing a search for all records, skip the db blob added by the CSPDL
+            if (dbAttributes.recordType() == CSSM_DL_DB_RECORD_METADATA &&
+                    mDbCursor->recordType() == CSSM_DL_DB_RECORD_ANY)
+                continue;
+
+            // Filter out group keys at this layer
+            if (dbAttributes.recordType() == CSSM_DL_DB_RECORD_SYMMETRIC_KEY)
+            {
+                bool groupKey = false;
+                try
+                {
+                    // fetch the key label attribute, if it exists
+                    dbAttributes.add(KeySchema::Label);
+                    Db db((*mCurrent)->database());
+                    CSSM_RETURN getattr_result = CSSM_DL_DataGetFromUniqueRecordId(db->handle(), uniqueId, &dbAttributes, NULL);
+                    if (getattr_result == CSSM_OK)
+                    {
+                        CssmDbAttributeData *label = dbAttributes.find(KeySchema::Label);
+                        CssmData attrData;
+                        if (label)
+                            attrData = *label;
+                        if (attrData.length() > 4 && !memcmp(attrData.data(), "ssgp", 4))
+                            groupKey = true;
+                    }
+                    else
+                    {
+                        dbAttributes.invalidate();
+                    }
+                }
+                catch (...) {}
+
+                if (groupKey)
+                    continue;
+            }
+
+            // Create the Item
+            // Go though Keychain since item might already exist.
+            // This might throw a CSSMERR_DL_RECORD_NOT_FOUND or be otherwise invalid. If we're supposed to delete these items, delete them...
+            try {
+                tempItem = (*mCurrent)->item(dbAttributes.recordType(), uniqueId);
+            } catch(CssmError cssme) {
+                if (mDeleteInvalidRecords) {
+                    // This is an invalid record for some reason; delete it and restart the loop
+                    const char* errStr = cssmErrorString(cssme.error);
+                    secdebugfunc("integrity", "deleting corrupt record because: %d %s", (int) cssme.error, errStr);
+
+                    deleteInvalidRecord(uniqueId);
+                    // if deleteInvalidRecord doesn't throw, we want to restart the loop
+                    continue;
+                } else {
+                    throw;
+                }
+            }
         }
+        // release the Keychain lock before checking item integrity to avoid deadlock
+
+        try {
+            // If the Item's attribute hash does not match, skip the item
+            if(!tempItem->checkIntegrity()) {
+                secdebugfunc("integrity", "item has no integrity, skipping");
+                continue;
+            }
+        } catch(CssmError cssme) {
+            if (mDeleteInvalidRecords) {
+                // This is an invalid record for some reason; delete it and restart the loop
+                const char* errStr = cssmErrorString(cssme.error);
+                secdebugfunc("integrity", "deleting corrupt record because: %d %s", (int) cssme.error, errStr);
+
+                deleteInvalidRecord(uniqueId);
+                // if deleteInvalidRecord doesn't throw, we want to restart the loop
+                continue;
+            } else {
+                throw;
+            }
+        }
+
+		item = tempItem;
 
 		break;
 	}
 
-	// Go though Keychain since item might already exist.
-    Keychain &kc = *mCurrent;
-    StLock<Mutex> _mutexLocker(*kc->getKeychainMutex());
-	item = (*mCurrent)->item(dbAttributes.recordType(), uniqueId);
+	// If we reach here, we've found an item
 	return true;
+}
+
+void KCCursorImpl::deleteInvalidRecord(DbUniqueRecord& uniqueId) {
+    // This might throw a RECORD_NOT_FOUND. Handle that, because we don't care if we're trying to delete the item.
+    try {
+        uniqueId->deleteRecord();
+    } catch(CssmError delcssme) {
+        if (delcssme.osStatus() == CSSMERR_DL_RECORD_NOT_FOUND) {
+            secdebugfunc("integrity", "couldn't delete nonexistent record (this is okay)");
+        } else {
+            throw;
+        }
+    }
 }
 
 
@@ -304,5 +384,24 @@ bool KCCursorImpl::mayDelete()
     else
     {
         return true;
+    }
+}
+
+void KCCursorImpl::setDeleteInvalidRecords(bool deleteRecord) {
+    mDeleteInvalidRecords = deleteRecord;
+}
+
+void KCCursorImpl::newKeychain(StorageManager::KeychainList::iterator kcIter) {
+    // Always lose the last keychain's lock
+    if(mKeychainReadLock) {
+        delete mKeychainReadLock;
+        mKeychainReadLock = NULL;
+    }
+
+    if(kcIter != mSearchList.end()) {
+        (*kcIter)->performKeychainUpgradeIfNeeded();
+
+        // Grab a read lock on the keychain
+        mKeychainReadLock = new StReadWriteLock(*((*kcIter)->getKeychainReadWriteLock()), StReadWriteLock::Read);
     }
 }

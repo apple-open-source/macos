@@ -108,6 +108,7 @@ public:
 
 	const linkedit_data_command *findCodeSignature() const;
 	const linkedit_data_command *findLibraryDependencies() const;
+	const version_min_command *findMinVersion() const;
 	
 	size_t signingOffset() const;	// starting offset of CS section, or 0 if none
 	size_t signingLength() const;	// length of CS section, or 0 if none

@@ -19,6 +19,7 @@ _CMSEncoderSetEncapsulatedContentTypeOID
 _CMSEncoderSetEncoder
 _CMSEncoderAddSignedAttributes
 _CMSEncoderSetSigningTime
+_CMSEncoderSetAppleCodesigningHashAgility
 _CMSEncoderSetCertificateChainMode
 _CMSEncoderGetCertificateChainMode
 _CMSEncoderUpdateContent
@@ -46,5 +47,6 @@ _CMSDecoderCopySignerTimestampWithPolicy
 _CMSDecoderCopySignerTimestampCertificates
 _CMSEncoderCopySignerTimestamp
 _CMSEncoderCopySignerTimestampWithPolicy
+_CMSDecoderCopySignerAppleCodesigningHashAgility
 
 

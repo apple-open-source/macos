@@ -85,7 +85,7 @@ struct AclState {
 //
 class OriginAclSubject : public AclSubject {
 public:
-    bool validate(const AclValidationContext &ctx) const;
+    bool validates(const AclValidationContext &ctx) const;
     CssmList toList(Allocator &alloc) const;
     
     OriginAclSubject(AclAuthorization auth);
@@ -108,7 +108,7 @@ private:
 //
 class SourceAclSubject : public AclSubject {
 public:
-	bool validate(const AclValidationContext &ctx) const;
+	bool validates(const AclValidationContext &ctx) const;
 	CssmList toList(Allocator &alloc) const;
 	
 	SourceAclSubject(AclSubject *subSubject,

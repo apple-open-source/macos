@@ -48,7 +48,7 @@ callback(const char *fmt, va_list ap)
     [self runTests:self];
 }
 
-- (NSUInteger)supportedInterfaceOrientations
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations
 {
     return UIInterfaceOrientationMaskPortrait;
 }

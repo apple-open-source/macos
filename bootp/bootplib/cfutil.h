@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -103,5 +103,8 @@ my_CFEqual(CFTypeRef val1, CFTypeRef val2);
 
 CFArrayRef
 my_CFStringArrayCreate(const char * * strings, CFIndex strings_count);
+
+CFStringRef
+my_CFUUIDStringCreate(CFAllocatorRef alloc);
 
 #endif /* _S_CFUTIL_H */

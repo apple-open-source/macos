@@ -75,7 +75,9 @@ void SOSTestDeviceDestroyEngine(CFMutableDictionaryRef testDevices) {
     CFArrayForEach(deviceIDs, ^(const void *value) {
         CFStringRef sourceID = (CFStringRef)value;
         SOSTestDeviceRef source = (SOSTestDeviceRef)CFDictionaryGetValue(testDevices, sourceID);
-        SOSEngineClearCache(SOSDataSourceGetSharedEngine(source->ds, NULL));
+        SOSEngineRef engine = SOSDataSourceGetSharedEngine(source->ds, NULL);
+        SOSEngineClearCache(engine);
+        SOSEngineDispose(engine);
     });
 }
 

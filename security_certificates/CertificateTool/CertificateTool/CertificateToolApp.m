@@ -73,9 +73,9 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 
 
 		_certRootsData = nil;
-		_blacked_listed_keys = nil;
+		_blocked_keys = nil;
         _gray_listed_keys = nil;
- 
+
         _allow_list_data = [NSMutableDictionary dictionary];
         _EVRootsData = [NSMutableDictionary dictionary];
 		_derData = nil;
@@ -131,7 +131,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
                     [self usage];
                     return nil;
                 }
- 
+
                 _allowlist_directory = [[NSString stringWithUTF8String:argv[iCnt + 1]] stringByExpandingTildeInPath];
                 iCnt++;
             }
@@ -240,7 +240,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 				return nil;
         	}
 		}
- 
+
 		if (nil == _allowlist_directory)
 		{
 			_allowlist_directory = [self checkPath:@"certificates/allowlist" basePath:_top_level_directory isDirectory:YES];
@@ -478,7 +478,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 /* --------------------------------------------------------------------------
  * Assemble allowlist from root certificates and associated allowed leaves.
  * Leaves are stored in a directory named with the auth key ID of the root.
- * The resulting plist is a dictionary: 
+ * The resulting plist is a dictionary:
  *	key: auth Key ID of the root
  *	value: array of SHA256 hashes of leaf certificates
  -------------------------------------------------------------------------- */
@@ -589,33 +589,39 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 	_certRootsData = [[PSCertData alloc] initWithCertificates:pscerts_roots.certs];
 
 
-    // From the black and gray listed certs create an array of the keys.
+    // From the blocked and gray listed certs create an array of the keys.
 	NSMutableArray* gray_certs = [NSMutableArray array];
     certFlags = isGrayListed | hasFullCert;
     flags = [NSNumber numberWithUnsignedLong:certFlags];
     PSCerts* pscerts_gray = [[PSCerts alloc] initWithCertFilePath:self.distrusted_directory withFlags:flags];
     [gray_certs addObjectsFromArray:pscerts_gray.certs];
 
-    _gray_listed_keys = [NSMutableArray array];
-    for (PSCert* aCert in gray_certs)
+	_gray_listed_keys = [NSMutableArray array];
+	for (PSCert* aCert in gray_certs)
 	{
-		[_gray_listed_keys addObject:aCert.public_key_hash];
+		NSData *pkh = aCert.public_key_hash;
+		if (pkh && ![_gray_listed_keys containsObject:pkh]) {
+			[_gray_listed_keys addObject:pkh];
+		}
 	}
 
-    NSMutableArray* black_certs = [NSMutableArray array];
-    certFlags = isBlackListed | hasFullCert;
+    NSMutableArray* blocked_certs = [NSMutableArray array];
+    certFlags = isBlocked | hasFullCert;
     flags = [NSNumber numberWithUnsignedLong:certFlags];
-    PSCerts* pscerts_black = [[PSCerts alloc] initWithCertFilePath:self.revoked_directory withFlags:flags];
-    [black_certs addObjectsFromArray:pscerts_black.certs];
+    PSCerts* pscerts_blocked = [[PSCerts alloc] initWithCertFilePath:self.revoked_directory withFlags:flags];
+    [blocked_certs addObjectsFromArray:pscerts_blocked.certs];
 
-	_blacked_listed_keys = [NSMutableArray array];
-	for (PSCert* aCert in black_certs)
+	_blocked_keys = [NSMutableArray array];
+	for (PSCert* aCert in blocked_certs)
 	{
-		[_blacked_listed_keys addObject:aCert.public_key_hash];
+		NSData *pkh = aCert.public_key_hash;
+		if (pkh && ![_blocked_keys containsObject:pkh]) {
+			[_blocked_keys addObject:pkh];
+		}
 	}
 
 /*
-	On iOS the intermediate certs are not used
+    On iOS the intermediate certs are not used
     certFlags = hasFullCert;
     flags = [NSNumber numberWithUnsignedLong:certFlags];
     pscerts = [[PSCerts alloc] initWithCertFilePath:self.certs_directory withFlags:flags];
@@ -685,7 +691,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
                                                                                    error:&error];
 		if (nil != error)
 		{
-			NSLog(@"Error converting out the gray listed keys into data: error %@", error);
+			NSLog(@"Error converting the gray listed keys into data: error %@", error);
 			return result;
 		}
 
@@ -698,21 +704,21 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 
     }
 
-	if (nil != _blacked_listed_keys)
+	if (nil != _blocked_keys)
 	{
-		NSData* blacklist_roots_data = [NSPropertyListSerialization dataWithPropertyList:_blacked_listed_keys
+		NSData* blocked_roots_data = [NSPropertyListSerialization dataWithPropertyList:_blocked_keys
 	                            format:NSPropertyListBinaryFormat_v1_0 /*NSPropertyListXMLFormat_v1_0*/ options:0
 	                            error:&error];
 		if (nil != error)
 		{
-			NSLog(@"Error converting out the blacked listed keys into data: error %@", error);
+			NSLog(@"Error converting the blocked list into data: error %@", error);
 			return result;
 		}
 
 		path_str = [self.output_directory stringByAppendingPathComponent:@"Blocked.plist"];
-		if (![blacklist_roots_data writeToFile:path_str options:0 error:&error])
+		if (![blocked_roots_data writeToFile:path_str options:0 error:&error])
 		{
-			NSLog(@"Error writing out the BlackListKeys.plist data: error %@", error);
+			NSLog(@"Error writing out the Blocked.plist data: error %@", error);
 			return result;
 		}
 	}
@@ -724,7 +730,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 			error:&error];
 		if (nil != error)
 		{
-			NSLog(@"Error converting out the allow list into data: error %@", error);
+			NSLog(@"Error converting the allow list into data: error %@", error);
 			return result;
 		}
 

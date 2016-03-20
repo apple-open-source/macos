@@ -56,10 +56,13 @@ public:
 	// Public globals
 	StorageManager storageManager;
 
+    bool integrityProtection() { return mIntegrityProtection; }
+
 private:
 
 	// Other "globals"
 	bool mUI;
+    bool mIntegrityProtection;
 	CssmClient::AclFactory mACLFactory;
 };
 

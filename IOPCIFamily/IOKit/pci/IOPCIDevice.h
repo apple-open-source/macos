@@ -166,7 +166,10 @@ enum
     kPCIPMCSPowerStateD1                = 0x0001,
     kPCIPMCSPowerStateD0                = 0x0000,
     
-    kPCIPMCSDefaultEnableBits           = (~(IOOptionBits)0)
+    kPCIPMCSDefaultEnableBits           = (~(IOOptionBits)0),
+
+	kPCIPMCSPMEDisableInS3              = 0x00010000
+#define IOPCIPMCSPMEDISABLEINS3_DEFINED	1
 };
 
 union IOPCIAddressSpace {

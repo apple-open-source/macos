@@ -845,7 +845,7 @@ tls_listen_fn(void *cookie, socket_t so)
 
 
 /* Dispatch vector for TCPLogger IPv4 socket functions */
-static struct sflt_filter tls_sflt_filter_ip4 = {
+static const struct sflt_filter tls_sflt_filter_ip4 = {
 	TLS_HANDLE_IP4,         /* sflt_handle - use a registered creator type - <http://developer.apple.com/datatype/> */
 	SFLT_PROG,			/* sf_flags */
 	MYBUNDLEID,				/* sf_name - cannot be nil else param err results */

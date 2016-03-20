@@ -55,13 +55,10 @@
  
  # Language settings
  #Include @rel_sysconfdir@/extra/httpd-languages.conf
-@@ -422,6 +427,9 @@
+@@ -422,6 +424,9 @@
  SSLRandomSeed startup builtin
  SSLRandomSeed connect builtin
  </IfModule>
 +
 +Include @rel_sysconfdir@/other/*.conf
 +
- #
- # uncomment out the below to deal with user agents that deliberately
- # violate open standards by misusing DNT (DNT *must* be a specific

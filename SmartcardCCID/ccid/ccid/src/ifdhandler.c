@@ -458,6 +458,9 @@ EXTERNAL RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag,
 
 					if ((GEMALTOPROXDU == readerID) || (GEMALTOPROXSU == readerID))
 						*Value = 2;
+
+					if (FEITIANR502DUAL == readerID)
+						*Value = 3;
 				}
 #endif
 				DEBUG_INFO2("Reader supports %d slot(s)", *Value);

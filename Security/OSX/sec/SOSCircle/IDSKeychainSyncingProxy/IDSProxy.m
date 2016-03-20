@@ -410,8 +410,8 @@ fail:
     IDSMessagePriority priority = IDSMessagePriorityHigh;
     IDSDevice *device = nil;
     BOOL encryptionOff = YES;
-    
-    NSDictionary *options = [ NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithBool:encryptionOff], IDSSendMessageOptionForceEncryptionOffKey, nil ];
+    NSError *localError = nil;
+    NSDictionary *options = @{IDSSendMessageOptionForceEncryptionOffKey : [NSNumber numberWithBool:encryptionOff] };
     
     require_action_quiet(_service, fail, errorMessage = @"Could not send message: IDS delegate uninitialized, can't use IDS to send this message"; code = kSecIDSErrorNotRegistered);
     
@@ -427,11 +427,12 @@ fail:
             [destinations addObject: IDSCopyIDForDevice(device)];
         }
     }
+
     require_action_quiet([destinations count] != 0, fail, errorMessage = @"Could not send message: IDS device ID for peer does not match any devices within an IDS Account"; code = kSecIDSErrorCouldNotFindMatchingAuthToken);
     
-    result = [_service sendMessage:data toDestinations:destinations priority:priority options:options identifier:&identifier error:error ] ;
+    result = [_service sendMessage:data toDestinations:destinations priority:priority options:options identifier:&identifier error:&localError ] ;
     
-    require_action_quiet(*error == nil, fail, errorMessage = @"Had an error sending IDS message"; code = kSecIDSErrorFailedToSend);
+    require_action_quiet(localError == nil, fail, errorMessage = @"Had an error sending IDS message"; code = kSecIDSErrorFailedToSend);
     
     secdebug("IDS Transport", "IDSKeychainSyncingProxy sent this message over IDS: %@", data);
     
@@ -443,7 +444,9 @@ fail:
         *error = [NSError errorWithDomain:@"com.apple.security.ids.error" code:code userInfo:userInfo];
         secerror("%@", *error);
     }
-    
+    if(localError != nil)
+        secerror("%@", localError);
+
     return false;
 }
 
@@ -528,14 +531,20 @@ fail:
     secdebug("IDS Transport", "IDSKeychainSyncingProxy handling this message sent over IDS%@", message);
     NSString *dataKey = [ NSString stringWithUTF8String: kMessageKeyIDSDataMessage ];
     NSString *deviceIDKey = [ NSString stringWithUTF8String: kMessageKeyDeviceID ];
+    NSString *peerIDKey = [ NSString stringWithUTF8String: kMessageKeyPeerID ];
     NSString *ID = nil;
     uint32_t operationType;
     bool hadError = false;
     CFStringRef errorMessage = NULL;
     __block NSString* operation = nil;
+    __block NSString* myPeerID = @"";
     NSString *messageString = nil;
     __block NSData *messageData = nil;
-    
+    __block NSString *messageAsString = nil;
+    __block BOOL operationIsString = false;
+    __block BOOL messageStringIsString = false;
+    __block BOOL messageDataIsData = false;
+
     NSArray *devices = [_service devices];
     for(NSUInteger i = 0; i < [ devices count ]; i++){
         IDSDevice *device = devices[i];
@@ -544,15 +553,34 @@ fail:
             break;
         }
     }
+
     require_action_quiet(ID, fail, hadError = true; errorMessage = CFSTR("require the sender's device ID"));
-    require_action_quiet([message count] == 1, fail, hadError = true; errorMessage = CFSTR("message contained too many objects"););
+    require_action_quiet([message count] == 1, fail, hadError = true; errorMessage = CFSTR("message contained too many objects"));
     
     [message enumerateKeysAndObjectsUsingBlock: ^(id key, id obj, BOOL *stop){
         operation = (NSString*)key;
-        messageData = (NSData*)obj;
+        operationIsString = (CFGetTypeID((__bridge CFTypeRef)(operation)) == CFStringGetTypeID());
+
+        if(CFGetTypeID((__bridge CFTypeRef)(obj)) == CFDataGetTypeID()){
+            messageDataIsData = true;
+            messageData = (NSData*)obj;
+        }
+        else if(CFGetTypeID((__bridge CFTypeRef)(obj)) == CFStringGetTypeID()){
+            messageStringIsString = true;
+            messageAsString = (NSString*)obj;
+        }
     }];
     
+    require_action_quiet(operationIsString, fail, hadError = true; errorMessage = CFSTR("unexpected opeartion type"););
+
+       if(messageData)
+           require_action_quiet(messageDataIsData, fail, hadError = true; errorMessage = CFSTR("unexpected message type"););
+       else if(messageAsString)
+           require_action_quiet(messageStringIsString, fail, hadError = true; errorMessage = CFSTR("unexpected message type"););
+                         
     operationType = [operation intValue];
+    if(operationType == 0)
+        myPeerID = operation;
     
     switch(operationType){
         case kIDSPeerAvailabilityDone:
@@ -594,7 +622,7 @@ fail:
         }
         default:
         {
-            NSDictionary *messageAndFromID = @{dataKey : messageData, deviceIDKey: ID};
+            NSDictionary *messageAndFromID = @{dataKey : messageData, deviceIDKey: ID, peerIDKey: myPeerID};
             if(_isLocked){
                 //hang on to the message and set the retry deadline
                 [_unhandledMessageBuffer setObject: messageAndFromID forKey: fromID];
@@ -653,4 +681,5 @@ fail:
 }
 
 @end
+
 

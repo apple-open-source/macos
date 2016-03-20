@@ -408,6 +408,18 @@ SecKeychainGetPath(SecKeychainRef keychainRef, UInt32 *ioPathLength, char *pathN
 	END_SECAPI
 }
 
+OSStatus
+SecKeychainGetKeychainVersion(SecKeychainRef keychainRef, UInt32* version)
+{
+    BEGIN_SECAPI
+
+    RequiredParam(version);
+
+    *version = Keychain::optional(keychainRef)->database()->dbBlobVersion();
+
+    END_SECAPI
+}
+
 
 // @@@ Deprecated
 UInt16

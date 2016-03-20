@@ -38,7 +38,7 @@ die "We've reached more than 1024 CSS properties, please make sure to update CSS
 my %namesHash;
 my @duplicates = ();
 
-my $numPredefinedProperties = 1;
+my $numPredefinedProperties = 2;
 my @names = ();
 my %nameIsInherited;
 my %propertiesWithStyleBuilderOptions;
@@ -236,6 +236,7 @@ String getJSPropertyName(CSSPropertyID id)
 
 static const bool isInheritedPropertyTable[numCSSProperties + $numPredefinedProperties] = {
     false, // CSSPropertyInvalid
+    true, // CSSPropertyCustom
 EOF
 
 foreach my $name (@names) {
@@ -283,6 +284,7 @@ namespace WebCore {
 
 enum CSSPropertyID : uint16_t {
     CSSPropertyInvalid = 0,
+    CSSPropertyCustom = 1,
 EOF
 
 my $first = $numPredefinedProperties;
@@ -313,7 +315,7 @@ WTF::String getJSPropertyName(CSSPropertyID);
 
 inline CSSPropertyID convertToCSSPropertyID(int value)
 {
-    ASSERT((value >= firstCSSProperty && value <= lastCSSProperty) || value == CSSPropertyInvalid);
+    ASSERT((value >= firstCSSProperty && value <= lastCSSProperty) || value == CSSPropertyInvalid || value == CSSPropertyCustom);
     return static_cast<CSSPropertyID>(value);
 }
 
@@ -872,6 +874,7 @@ void StyleBuilder::applyProperty(CSSPropertyID property, StyleResolver& styleRes
 {
     switch (property) {
     case CSSPropertyInvalid:
+    case CSSPropertyCustom:
         break;
 EOF
 
@@ -957,9 +960,19 @@ foreach my $name (@names) {
   print SHORTHANDS_CPP "{\n";
   print SHORTHANDS_CPP "    static const CSSPropertyID " . $lowercaseId . "Properties[] = {\n";
   foreach (@longhands) {
-    die "Unknown CSS property used in Longhands: " . $nameToId{$_} if !exists($nameToId{$_});
-    push(@{$longhandToShorthands{$_}}, $name);
-    print SHORTHANDS_CPP "        CSSProperty" . $nameToId{$_} . ",\n";
+    if ($_ eq "all") {
+        foreach my $propname (@names) {
+            next if (exists $propertiesWithStyleBuilderOptions{$propname}{"Longhands"});
+            next if ($propname eq "direction" || $propname eq "unicode-bidi");
+            die "Unknown CSS property used in all shorthand: " . $nameToId{$propname} if !exists($nameToId{$propname});
+            push(@{$longhandToShorthands{$propname}}, $name);
+            print SHORTHANDS_CPP "        CSSProperty" . $nameToId{$propname} . ",\n";
+        }
+    } else {
+        die "Unknown CSS property used in Longhands: " . $nameToId{$_} if !exists($nameToId{$_});
+        push(@{$longhandToShorthands{$_}}, $name);
+        print SHORTHANDS_CPP "        CSSProperty" . $nameToId{$_} . ",\n";
+    }
   }
   print SHORTHANDS_CPP "    };\n";
   print SHORTHANDS_CPP "    return StylePropertyShorthand(CSSProperty" . $nameToId{$name} . ", " . $lowercaseId . "Properties);\n";

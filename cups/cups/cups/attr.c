@@ -1,22 +1,16 @@
 /*
- * "$Id: attr.c 11093 2013-07-03 20:48:42Z msweet $"
+ * "$Id: attr.c 12992 2015-11-19 15:19:00Z msweet $"
  *
- *   PPD model-specific attribute routines for CUPS.
+ * PPD model-specific attribute routines for CUPS.
  *
- *   Copyright 2007-2012 by Apple Inc.
- *   Copyright 1997-2006 by Easy Software Products.
+ * Copyright 2007-2015 by Apple Inc.
+ * Copyright 1997-2006 by Easy Software Products.
  *
- *   These coded instructions, statements, and computer programs are the
- *   property of Apple Inc. and are protected by Federal copyright
- *   law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- *   which should have been included with this file.  If this file is
- *   file is missing or damaged, see the license at "http://www.cups.org/".
- *
- * Contents:
- *
- *   ppdFindAttr()               - Find the first matching attribute.
- *   ppdFindNextAttr()           - Find the next matching attribute.
- *   _ppdNormalizeMakeAndModel() - Normalize a product/make-and-model string.
+ * These coded instructions, statements, and computer programs are the
+ * property of Apple Inc. and are protected by Federal copyright
+ * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
+ * which should have been included with this file.  If this file is
+ * file is missing or damaged, see the license at "http://www.cups.org/".
  */
 
 /*
@@ -229,14 +223,6 @@ _ppdNormalizeMakeAndModel(
 
     snprintf(buffer, bufsize, "Canon %s", make_and_model);
   }
-  else if (!_cups_strncasecmp(make_and_model, "primera", 7))
-  {
-   /*
-    * Fargo...
-    */
-
-    snprintf(buffer, bufsize, "Fargo %s", make_and_model);
-  }
   else if (!_cups_strncasecmp(make_and_model, "designjet", 9) ||
            !_cups_strncasecmp(make_and_model, "deskjet", 7))
   {
@@ -331,5 +317,5 @@ _ppdNormalizeMakeAndModel(
 
 
 /*
- * End of "$Id: attr.c 11093 2013-07-03 20:48:42Z msweet $".
+ * End of "$Id: attr.c 12992 2015-11-19 15:19:00Z msweet $".
  */

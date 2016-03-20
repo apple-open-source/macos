@@ -242,7 +242,6 @@ int
 tls_handshake_set_session_ticket_enabled(tls_handshake_t filter, bool enabled);
 
 /* Allow session renegotiation */
-/* NOTE: ONLY FOR TEST, THIS IS INSECURE RENEGOTIATION */
 int
 tls_handshake_set_renegotiation(tls_handshake_t filter, bool allow);
 

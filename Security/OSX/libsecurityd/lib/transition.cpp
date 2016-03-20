@@ -275,6 +275,15 @@ DbHandle ClientSession::recodeDbForSync(DbHandle dbToClone,
 	return newDb;
 }
 
+DbHandle ClientSession::recodeDbToVersion(uint32 newVersion, DbHandle srcDb)
+{
+    DbHandle newDb;
+
+    IPC(ucsp_client_recodeDbToVersion(UCSP_ARGS, newVersion, srcDb, &newDb));
+
+    return newDb;
+}
+
 DbHandle ClientSession::authenticateDbsForSync(const CssmData &dbHandleArray,
 											   const CssmData &agentData)
 {

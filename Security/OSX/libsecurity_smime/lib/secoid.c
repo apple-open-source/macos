@@ -159,10 +159,11 @@
 #define MICROSOFT_OID 0x2b, 0x6, 0x1, 0x4, 0x1, 0x82, 0x37
 
 /* ECDSA OIDs from X9.62 */
-#define ANSI_X9_62						0x2A, 0x86, 0x48, 0xCE, 0x3D
-#define ANSI_X9_62_FIELD_TYPE			ANSI_X9_62, 1
-#define ANSI_X9_62_PUBKEY_TYPE			ANSI_X9_62, 2
-#define ANSI_X9_62_SIG_TYPE				ANSI_X9_62, 4
+#define ANSI_X9_62                      0x2A, 0x86, 0x48, 0xCE, 0x3D
+#define ANSI_X9_62_FIELD_TYPE           ANSI_X9_62, 1
+#define ANSI_X9_62_PUBKEY_TYPE          ANSI_X9_62, 2
+#define ANSI_X9_62_SIG_TYPE             ANSI_X9_62, 4
+#define ECDSA_WITH_SHA2                 ANSI_X9_62_SIG_TYPE, 3
 
 /* X9.63 schemes */
 #define ANSI_X9_63						0x2B, 0x81, 0x05, 0x10, 0x86, 0x48, 0x3F
@@ -170,6 +171,12 @@
 
 /* ECDH curves */
 #define CERTICOM_ELL_CURVE				0x2B, 0x81, 0x04, 0x00
+
+/* Apple OID sapce */
+/* 1.2.840.113635 */
+#define APPLE_OID                       0x2A, 0x86, 0x48, 0x86, 0xF7, 0x63
+#define APPLE_DATA_SECURITY             APPLE_OID, 0x64
+#define APPLE_CMS_ATTRIBUTES            APPLE_DATA_SECURITY, 0x9
 
 #define CONST_OID static const unsigned char
 
@@ -446,8 +453,12 @@ CONST_OID aes256_KEY_WRAP[]			= { AES, 45 };
 CONST_OID sha256[]                              = { SHAXXX, 1 };
 CONST_OID sha384[]                              = { SHAXXX, 2 };
 CONST_OID sha512[]                              = { SHAXXX, 3 };
+CONST_OID sha224[]                              = { SHAXXX, 4 };
 
 CONST_OID ecdsaWithSHA1[]			= { ANSI_X9_62_SIG_TYPE, 1 };
+CONST_OID ecdsaWithSHA256[]			= { ECDSA_WITH_SHA2, 2 };
+CONST_OID ecdsaWithSHA384[]			= { ECDSA_WITH_SHA2, 3 };
+CONST_OID ecdsaWithSHA512[]			= { ECDSA_WITH_SHA2, 4 };
 CONST_OID ecPublicKey[]				= { ANSI_X9_62_PUBKEY_TYPE, 1 };
 /* This OID doesn't appear in a CMS msg */
 CONST_OID ecdsaSig[]				= { ANSI_X9_62_SIG_TYPE };
@@ -462,6 +473,9 @@ CONST_OID dhSinglePassStdDHsha1kdf[]		= {ANSI_X9_63_SCHEME, 2 };
 CONST_OID dhSinglePassCofactorDHsha1kdf[]	= {ANSI_X9_63_SCHEME, 3 };
 CONST_OID mqvSinglePassSha1kdf[]			= {ANSI_X9_63_SCHEME, 4 };
 
+/* Apple Hash Agility */
+CONST_OID appleHashAgility[]                = {APPLE_CMS_ATTRIBUTES, 1};
+
 /* a special case: always associated with a caller-specified OID */
 CONST_OID noOid[]				= { 0 };
 
@@ -473,7 +487,7 @@ CONST_OID noOid[]				= { 0 };
 #endif
 
 /*
- * NOTE: the order of these entries must mach the SECOidTag enum in secoidt.h!
+ * NOTE: the order of these entries must match the SECOidTag enum in secoidt.h!
  */
 const static SECOidData oids[] = {
     { { 0, NULL }, SEC_OID_UNKNOWN,
@@ -1065,6 +1079,7 @@ const static SECOidData oids[] = {
 	"Microsoft S/MIME Encryption Key Preference",
 	CSSM_ALGID_NONE, INVALID_CERT_EXTENSION ),
 
+    OD( sha224, SEC_OID_SHA224, "SHA-224", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
     OD( sha256, SEC_OID_SHA256, "SHA-256", CSSM_ALGID_SHA256, INVALID_CERT_EXTENSION),
     OD( sha384, SEC_OID_SHA384, "SHA-384", CSSM_ALGID_SHA384, INVALID_CERT_EXTENSION),
     OD( sha512, SEC_OID_SHA512, "SHA-512", CSSM_ALGID_SHA512, INVALID_CERT_EXTENSION),
@@ -1120,6 +1135,22 @@ const static SECOidData oids[] = {
     OD( smimeSigningCertificate, SEC_OID_PKCS9_SIGNING_CERTIFICATE,
 	"id-aa-signing-certificate", CSSM_ALGID_NONE,
 	INVALID_CERT_EXTENSION ),
+
+    /* ECDSA with SHA2 */
+    OD( ecdsaWithSHA256, SEC_OID_ECDSA_WITH_SHA256,
+	"ECDSA With SHA-256", CSSM_ALGID_SHA256WithECDSA,
+	INVALID_CERT_EXTENSION ),
+    OD( ecdsaWithSHA384, SEC_OID_ECDSA_WITH_SHA384,
+	"ECDSA With SHA-384", CSSM_ALGID_SHA384WithECDSA,
+	INVALID_CERT_EXTENSION ),
+    OD( ecdsaWithSHA512, SEC_OID_ECDSA_WITH_SHA512,
+	"ECDSA With SHA-512", CSSM_ALGID_SHA512WithECDSA,
+	INVALID_CERT_EXTENSION ),
+
+    /* Apple Hash Agility */
+    OD( appleHashAgility, SEC_OID_APPLE_HASH_AGILITY,
+       "appleCodesigningHashAgilityAttribute", CSSM_ALGID_NONE,
+       INVALID_CERT_EXTENSION),
 
 };
 

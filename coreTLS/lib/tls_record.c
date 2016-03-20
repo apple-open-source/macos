@@ -32,66 +32,37 @@ SSLDisposeCipherSuite(CipherContext *cipher, tls_record_t ctx)
 		}
 	}
 
-	/* per-record hash/hmac context */
-	ctx->sslTslCalls->freeMac(cipher);
-
-    return 0;
-}
-
-
-
-/* common for sslv3 and tlsv1, except for the computeMac callout */
-int SSLVerifyMac(uint8_t type,
-                 tls_buffer *data,
-                 uint8_t *compareMAC,
-                 tls_record_t ctx)
-{
-	int        err;
-    uint8_t           macData[SSL_MAX_DIGEST_LEN];
-    tls_buffer       secret, mac;
-
-    secret.data = ctx->readCipher.macSecret;
-    secret.length = ctx->readCipher.macRef->hash->digestSize;
-    mac.data = macData;
-    mac.length = ctx->readCipher.macRef->hash->digestSize;
-
-    if ((err = ctx->sslTslCalls->computeMac(type,
-                                            *data,
-                                            mac,
-                                            &ctx->readCipher,
-                                            ctx->readCipher.sequenceNum,
-                                            ctx)) != 0)
-        return err;
-
-    if ((memcmp(mac.data, compareMAC, mac.length)) != 0) {
-		sslErrorLog("SSLVerifyMac: Mac verify failure\n");
-        return errSSLRecordProtocol;
-    }
     return 0;
 }
 
 #include <tls_ciphersuites.h>
 #include "symCipher.h"
+#include <corecrypto/ccdigest.h>
+#include <corecrypto/ccmd5.h>
+#include <corecrypto/ccsha1.h>
+#include <corecrypto/ccsha2.h>
 
-static const HashHmacReference *sslCipherSuiteGetHashHmacReference(uint16_t selectedCipher)
+static const struct ccdigest_info null_di = {0,};
+
+static const struct ccdigest_info *sslCipherSuiteGetDigestInfo(uint16_t selectedCipher)
 {
     HMAC_Algs alg = sslCipherSuiteGetMacAlgorithm(selectedCipher);
 
     switch (alg) {
         case HA_Null:
-            return &HashHmacNull;
+            return &null_di;
         case HA_MD5:
-            return &HashHmacMD5;
+            return ccmd5_di();
         case HA_SHA1:
-            return &HashHmacSHA1;
+            return ccsha1_di();
         case HA_SHA256:
-            return &HashHmacSHA256;
+            return ccsha256_di();
         case HA_SHA384:
-            return &HashHmacSHA384;
+            return ccsha384_di();
         default:
             sslErrorLog("Invalid hashAlgorithm %d", alg);
             check(0);
-            return &HashHmacNull;
+            return NULL;
     }
 }
 
@@ -132,15 +103,6 @@ static const SSLSymmetricCipher *sslCipherSuiteGetSymmetricCipher(uint16_t selec
     }
 }
 
-static void InitCipherSpec(tls_record_t ctx, uint16_t selectedCipher)
-{
-    SSLRecordCipherSpec *dst = &ctx->selectedCipherSpec;
-
-    ctx->selectedCipher = selectedCipher;
-    dst->cipher = sslCipherSuiteGetSymmetricCipher(selectedCipher);
-    dst->macAlgorithm = sslCipherSuiteGetHashHmacReference(selectedCipher);
-};
-
 static size_t
 tls_record_encrypted_size_1(tls_record_t ctx,
                                    size_t decrypted_size)
@@ -160,7 +122,7 @@ tls_record_encrypted_size_1(tls_record_t ctx,
 
     switch (cipherType) {
         case blockCipherType:
-            payloadSize += ctx->writeCipher.macRef->hash->digestSize;
+            payloadSize += ctx->writeCipher.di->output_size;
             padding = blockSize - (payloadSize % blockSize) - 1;
             payloadSize += padding + 1;
             /* TLS 1.1, TLS1.2 and DTLS 1.0 have an extra block for IV */
@@ -169,7 +131,7 @@ tls_record_encrypted_size_1(tls_record_t ctx,
             }
             break;
         case streamCipherType:
-            payloadSize += ctx->writeCipher.macRef->hash->digestSize;
+            payloadSize += ctx->writeCipher.di->output_size;
             break;
         case aeadCipherType:
             /* AES_GCM doesn't need padding. */
@@ -254,14 +216,14 @@ tls_record_decrypted_size(tls_record_t ctx,
     switch (cipherType) {
         case blockCipherType:
             overheadSize += 1; // at least one byte padding (padding size).
-            overheadSize += ctx->readCipher.macRef->hash->digestSize;
+            overheadSize += ctx->readCipher.di->output_size;
             /* TLS 1.1, TLS1.2 and DTLS 1.0 have an extra block for IV */
             if(ctx->negProtocolVersion >= tls_protocol_version_TLS_1_1) {
                 overheadSize += blockSize;
             }
             break;
         case streamCipherType:
-            overheadSize += ctx->readCipher.macRef->hash->digestSize;
+            overheadSize += ctx->readCipher.di->output_size;
             break;
         case aeadCipherType:
             /* AES_GCM doesn't need padding. */
@@ -289,7 +251,7 @@ tls_record_encrypt_1(tls_record_t ctx,
 {
     int err;
     int             padding = 0, i;
-    tls_buffer       payload, mac;
+    tls_buffer       payload;
     uint8_t         *charPtr;
     uint16_t        payloadSize,blockSize = 0;
 
@@ -373,17 +335,14 @@ tls_record_encrypt_1(tls_record_t ctx,
 
     /* MAC the data */
     if (cipherType != aeadCipherType) {
-        /* MAC immediately follows data */
-        mac.data = charPtr;
-        mac.length = ctx->writeCipher.macRef->hash->digestSize;
-        if (mac.length > 0)     /* Optimize away null case */
+        if (ctx->writeCipher.di->output_size > 0)     /* Optimize away null case */
         {
-            if ((err = ctx->sslTslCalls->computeMac(contentType,
-                                                    payload,
-                                                    mac,
-                                                    &ctx->writeCipher,
-                                                    ctx->writeCipher.sequenceNum,
-                                                    ctx)) != 0)
+            if ((err = SSLComputeMac(contentType,
+                                     &payload,
+                                     0,
+                                     charPtr,
+                                     &ctx->writeCipher,
+                                     ctx->negProtocolVersion)) != 0)
                 goto fail;
         }
     }
@@ -407,7 +366,7 @@ tls_record_encrypt_1(tls_record_t ctx,
             /* Fill in the padding bytes & padding length field with the
              * padding value; the protocol only requires the last byte,
              * but filling them all in avoids leaking data */
-            padding = blockSize - ((input.length+ctx->writeCipher.macRef->hash->digestSize) % blockSize) - 1;
+            padding = blockSize - ((input.length+ctx->writeCipher.di->output_size) % blockSize) - 1;
             for (i = 1; i <= padding + 1; ++i)
                 payload.data[payload.length - i] = padding;
             /* DROPTRHOUGH */
@@ -582,8 +541,7 @@ tls_record_decrypt(tls_record_t ctx,
      * Decrypt the payload & check the MAC, modifying the length of the
      * buffer to indicate the amount of plaintext data after adjusting
      * for the block size and removing the MAC */
-    if ((err = ctx->sslTslCalls->decryptRecord(ct,
-                                               &cipherFragment, ctx)) != 0)
+    if ((err = SSLDecryptRecord(ct, &cipherFragment, ctx)) != 0)
         return err;
 
 
@@ -669,11 +627,12 @@ tls_record_init_pending_ciphers(tls_record_t ctx,
     uint8_t         *keyDataProgress, *keyPtr, *ivPtr;
     CipherContext   *serverPending, *clientPending;
 
-    InitCipherSpec(ctx, selectedCipher);
-    ctx->readPending.macRef = ctx->selectedCipherSpec.macAlgorithm;
-    ctx->writePending.macRef = ctx->selectedCipherSpec.macAlgorithm;
-    ctx->readPending.symCipher = ctx->selectedCipherSpec.cipher;
-    ctx->writePending.symCipher = ctx->selectedCipherSpec.cipher;
+
+    ctx->selectedCipher = selectedCipher;
+    ctx->readPending.di = sslCipherSuiteGetDigestInfo(selectedCipher);
+    ctx->writePending.di = sslCipherSuiteGetDigestInfo(selectedCipher);
+    ctx->readPending.symCipher = sslCipherSuiteGetSymmetricCipher(selectedCipher);
+    ctx->writePending.symCipher = sslCipherSuiteGetSymmetricCipher(selectedCipher);
     /* This need to be reinitialized because the whole thing is zeroed sometimes */
     ctx->readPending.encrypting = 0;
     ctx->writePending.encrypting = 1;
@@ -699,57 +658,46 @@ tls_record_init_pending_ciphers(tls_record_t ctx,
     }
 
     /* Check the size of the 'key' buffer - <rdar://problem/11204357> */
-    if (ctx->selectedCipherSpec.cipher->params->cipherType != aeadCipherType) {
-        if(key.length != ctx->selectedCipherSpec.macAlgorithm->hash->digestSize*2
-                    + ctx->selectedCipherSpec.cipher->params->keySize*2
-                    + ctx->selectedCipherSpec.cipher->params->ivSize*2)
+    if (ctx->readPending.symCipher->params->cipherType != aeadCipherType) {
+        if(key.length != ctx->readPending.di->output_size*2
+                    + ctx->readPending.symCipher->params->keySize*2
+                    + ctx->readPending.symCipher->params->ivSize*2)
         {
             return errSSLRecordInternal;
         }
     } else {
-        if(key.length != ctx->selectedCipherSpec.cipher->params->keySize*2
-           + ctx->selectedCipherSpec.cipher->params->ivSize*2)
+        if(key.length != ctx->readPending.symCipher->params->keySize*2
+           + ctx->readPending.symCipher->params->ivSize*2)
         {
             return errSSLRecordInternal;
         }
     }
 
     keyDataProgress = key.data;
-    if (ctx->selectedCipherSpec.cipher->params->cipherType != aeadCipherType) {
-        memcpy(clientPending->macSecret, keyDataProgress,
-               ctx->selectedCipherSpec.macAlgorithm->hash->digestSize);
-        keyDataProgress += ctx->selectedCipherSpec.macAlgorithm->hash->digestSize;
-        memcpy(serverPending->macSecret, keyDataProgress,
-               ctx->selectedCipherSpec.macAlgorithm->hash->digestSize);
-        keyDataProgress += ctx->selectedCipherSpec.macAlgorithm->hash->digestSize;
-
-        /* init the reusable-per-record MAC contexts */
-        err = ctx->sslTslCalls->initMac(clientPending);
-        if(err) {
-            goto fail;
-        }
-        err = ctx->sslTslCalls->initMac(serverPending);
-        if(err) {
-            goto fail;
-        }
+    if (ctx->readPending.symCipher->params->cipherType != aeadCipherType) {
+        memcpy(clientPending->macSecret, keyDataProgress, ctx->readPending.di->output_size);
+        keyDataProgress += ctx->readPending.di->output_size;
+        memcpy(serverPending->macSecret, keyDataProgress, ctx->readPending.di->output_size);
+        keyDataProgress += ctx->readPending.di->output_size;
     }
+
     keyPtr = keyDataProgress;
-    keyDataProgress += ctx->selectedCipherSpec.cipher->params->keySize;
+    keyDataProgress += ctx->readPending.symCipher->params->keySize;
     /* Skip server write key to get to IV */
-    ivPtr = keyDataProgress + ctx->selectedCipherSpec.cipher->params->keySize;
-    if ((err = ctx->selectedCipherSpec.cipher->c.cipher.initialize(clientPending->symCipher->params, clientPending->encrypting, keyPtr, ivPtr, ctx->rng,
+    ivPtr = keyDataProgress + ctx->readPending.symCipher->params->keySize;
+    if ((err = ctx->readPending.symCipher->c.cipher.initialize(clientPending->symCipher->params, clientPending->encrypting, keyPtr, ivPtr, ctx->rng,
                                                                    &clientPending->cipherCtx)) != 0)
         goto fail;
     keyPtr = keyDataProgress;
-    keyDataProgress += ctx->selectedCipherSpec.cipher->params->keySize;
+    keyDataProgress += ctx->readPending.symCipher->params->keySize;
     /* Skip client write IV to get to server write IV */
-    if (ctx->selectedCipherSpec.cipher->params->cipherType == aeadCipherType) {
+    if (ctx->readPending.symCipher->params->cipherType == aeadCipherType) {
         /* We only need the 4-byte implicit IV for GCM */
-        ivPtr = keyDataProgress + ctx->selectedCipherSpec.cipher->params->ivSize - TLS_AES_GCM_EXPLICIT_IV_SIZE;
+        ivPtr = keyDataProgress + ctx->readPending.symCipher->params->ivSize - TLS_AES_GCM_EXPLICIT_IV_SIZE;
     } else {
-        ivPtr = keyDataProgress + ctx->selectedCipherSpec.cipher->params->ivSize;
+        ivPtr = keyDataProgress + ctx->readPending.symCipher->params->ivSize;
     }
-    if ((err = ctx->selectedCipherSpec.cipher->c.cipher.initialize(serverPending->symCipher->params, serverPending->encrypting, keyPtr, ivPtr, ctx->rng,
+    if ((err = ctx->readPending.symCipher->c.cipher.initialize(serverPending->symCipher->params, serverPending->encrypting, keyPtr, ivPtr, ctx->rng,
                                                                    &serverPending->cipherCtx)) != 0)
         goto fail;
 
@@ -770,19 +718,16 @@ tls_record_set_protocol_version(tls_record_t ctx,
 {
     switch(protocolVersion) {
         case tls_protocol_version_SSL_3:
-            ctx->sslTslCalls = &Ssl3RecordCallouts;
-            break;
         case tls_protocol_version_TLS_1_0:
         case tls_protocol_version_TLS_1_1:
         case tls_protocol_version_DTLS_1_0:
         case tls_protocol_version_TLS_1_2:
-            ctx->sslTslCalls = &Tls1RecordCallouts;
+            ctx->negProtocolVersion = protocolVersion;
             break;
         case tls_protocol_version_Undertermined:
         default:
             return errSSLRecordNegotiation;
     }
-    ctx->negProtocolVersion = protocolVersion;
 
     return 0;
 }
@@ -801,15 +746,11 @@ tls_record_create(bool dtls, struct ccrng_state *rng)
     memset(ctx, 0, sizeof(struct _tls_record_s));
 
     ctx->negProtocolVersion = tls_protocol_version_Undertermined;
-
-    ctx->sslTslCalls = &Ssl3RecordCallouts;
-
-    InitCipherSpec(ctx, TLS_NULL_WITH_NULL_NULL);
-
-    ctx->writeCipher.macRef    = ctx->selectedCipherSpec.macAlgorithm;
-    ctx->readCipher.macRef     = ctx->selectedCipherSpec.macAlgorithm;
-    ctx->readCipher.symCipher  = ctx->selectedCipherSpec.cipher;
-    ctx->writeCipher.symCipher = ctx->selectedCipherSpec.cipher;
+    ctx->selectedCipher = TLS_NULL_WITH_NULL_NULL;
+    ctx->writeCipher.di = sslCipherSuiteGetDigestInfo(ctx->selectedCipher);
+    ctx->readCipher.di  = sslCipherSuiteGetDigestInfo(ctx->selectedCipher);
+    ctx->readCipher.symCipher  = sslCipherSuiteGetSymmetricCipher(ctx->selectedCipher);
+    ctx->writeCipher.symCipher = sslCipherSuiteGetSymmetricCipher(ctx->selectedCipher);
     ctx->readCipher.encrypting = 0;
     ctx->writeCipher.encrypting = 1;
 

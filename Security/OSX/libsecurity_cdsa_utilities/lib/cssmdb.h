@@ -33,7 +33,7 @@
 #include <security_cdsa_utilities/cssmdata.h>
 #include <security_cdsa_utilities/cssmpods.h>
 #include <security_cdsa_utilities/cssmalloc.h>
-#include <security_cdsa_utilities/walkers.h>
+#include <security_cdsa_utilities/cssmwalkers.h>
 #include <security_cdsa_utilities/cssmdbname.h>
 
 
@@ -518,12 +518,16 @@ public:
 	CssmDbAttributeData &add(const CSSM_DB_ATTRIBUTE_INFO &info);
 	CssmDbAttributeData &add(const CSSM_DB_ATTRIBUTE_INFO &info, const CssmPolyData &value);
 
+    // Take the attributes from the object, and overlay them onto this one
+    void updateWith(const CssmAutoDbRecordAttributeData* newValues);
+
 	// So clients can pass this as the allocator argument to add()
 	operator Allocator &() const { return mValueAllocator; }
+
+    CssmDbAttributeData* findAttribute (const CSSM_DB_ATTRIBUTE_INFO &info);
 private:
 	Allocator &mValueAllocator;
-	
-	CssmDbAttributeData* findAttribute (const CSSM_DB_ATTRIBUTE_INFO &info);
+
 	CssmDbAttributeData& getAttributeReference (const CSSM_DB_ATTRIBUTE_INFO &info);
 };
 

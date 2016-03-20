@@ -308,6 +308,10 @@
 		728BAE25167F7FDA004193C6 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728BAE23167F7FCC004193C6 /* Security.framework */; };
 		728BAE26167F7FE7004193C6 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728BAE23167F7FCC004193C6 /* Security.framework */; };
 		72C4F073176F6276009AF331 /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0CFB025B0AB0FC75003AC039 /* ApplicationServices.framework */; };
+		72CC97BD1BD9744F00E931C7 /* libDiagnosticMessagesClient.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CC97BC1BD9744F00E931C7 /* libDiagnosticMessagesClient.dylib */; };
+		72CC97BE1BD9749800E931C7 /* libDiagnosticMessagesClient.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CC97BC1BD9744F00E931C7 /* libDiagnosticMessagesClient.dylib */; };
+		72CC97BF1BD974BA00E931C7 /* libDiagnosticMessagesClient.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CC97BC1BD9744F00E931C7 /* libDiagnosticMessagesClient.dylib */; };
+		72CC97C01BD974CF00E931C7 /* libDiagnosticMessagesClient.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CC97BC1BD9744F00E931C7 /* libDiagnosticMessagesClient.dylib */; };
 		72D8225A170F850300F16618 /* logkextloadsd_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D82259170F850300F16618 /* logkextloadsd_main.c */; };
 		72D8225C170F850300F16618 /* logkextloadsd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72D8225B170F850300F16618 /* logkextloadsd.8 */; };
 		72E0A41E192ACE8B0013C30C /* security.c in Sources */ = {isa = PBXBuildFile; fileRef = 728BAE1E167F7C97004193C6 /* security.c */; };
@@ -823,6 +827,7 @@
 		728BAE1E167F7C97004193C6 /* security.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = security.c; sourceTree = "<group>"; };
 		728BAE22167F7CD0004193C6 /* security.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = security.h; sourceTree = "<group>"; };
 		728BAE23167F7FCC004193C6 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
+		72CC97BC1BD9744F00E931C7 /* libDiagnosticMessagesClient.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libDiagnosticMessagesClient.dylib; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/usr/lib/libDiagnosticMessagesClient.dylib; sourceTree = DEVELOPER_DIR; };
 		72CEFE13170F871E00A7EAC3 /* com.apple.logkextloadsd.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.logkextloadsd.plist; sourceTree = "<group>"; };
 		72D82257170F850200F16618 /* logkextloadsd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = logkextloadsd; sourceTree = BUILT_PRODUCTS_DIR; };
 		72D82259170F850300F16618 /* logkextloadsd_main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = logkextloadsd_main.c; sourceTree = SOURCE_ROOT; };
@@ -846,6 +851,7 @@
 				001FD3D11175A82300792793 /* libCoreStorage.dylib in Frameworks */,
 				4B5563471267821C009908A3 /* libcsfde.dylib in Frameworks */,
 				7273481918E34DC1001DDD28 /* libFastCompression.a in Frameworks */,
+				72CC97BD1BD9744F00E931C7 /* libDiagnosticMessagesClient.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -867,6 +873,7 @@
 				0022F3C311758B6300EE4798 /* libCoreStorage.dylib in Frameworks */,
 				24D2EF6D1222FF8800073FFB /* libCrashReporterClient.a in Frameworks */,
 				245CC4080DDD767D002E3E22 /* libz.dylib in Frameworks */,
+				72CC97BE1BD9749800E931C7 /* libDiagnosticMessagesClient.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -958,6 +965,7 @@
 				72E0A41F192AD0B80013C30C /* Security.framework in Frameworks */,
 				24C4E6C40DD3EC9900A70AB5 /* CoreFoundation.framework in Frameworks */,
 				24C4E6C50DD3EC9900A70AB5 /* IOKit.framework in Frameworks */,
+				72CC97BF1BD974BA00E931C7 /* libDiagnosticMessagesClient.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -985,6 +993,7 @@
 				728BAE26167F7FE7004193C6 /* Security.framework in Frameworks */,
 				24FD2FDB0DC1454E0065A35B /* CoreFoundation.framework in Frameworks */,
 				24FD30230DC145530065A35B /* IOKit.framework in Frameworks */,
+				72CC97C01BD974CF00E931C7 /* libDiagnosticMessagesClient.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1117,6 +1126,7 @@
 		1492D16C01E53C3C02CA2A87 = {
 			isa = PBXGroup;
 			children = (
+				72CC97BC1BD9744F00E931C7 /* libDiagnosticMessagesClient.dylib */,
 				24C462410DBE942B00E11943 /* shared source */,
 				1485151D03F1F3B302CA28EB /* libBootRoot */,
 				24057CE3124966740023CEF4 /* kcgen */,

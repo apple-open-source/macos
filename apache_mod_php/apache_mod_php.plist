@@ -4,13 +4,13 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2015-10-15</string>
+		<string>2016-1-10</string>
 		<key>OpenSourceLicense</key>
 		<string>PHP</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>apache_mod_php.txt</string>
 		<key>OpenSourceSHA256</key>
-		<string>e7332a713cecdd1cb44a1b1336739885c9789f633f0f51236b25e48ab03c3b29</string>
+		<string>fb4a382b9a9dceb749b7ef047d8251320bc8d371c843714e5b4f4b70d61ba277</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Support for building on Mac OS X</string>
@@ -20,12 +20,10 @@
 		</array>
 		<key>OpenSourceProject</key>
 		<string>php</string>
-		<key>OpenSourceModificationsSHA256</key>
-		<string>a2f911df24de3c3c63fd28aa3459d5fbf886782bfa2b24b4f69da0f712b6069c</string>
 		<key>OpenSourceURL</key>
 		<string>http://php.net/downloads.php</string>
 		<key>OpenSourceVersion</key>
-		<string>5.5.30</string>
+		<string>5.5.31</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.php.net/</string>
 	</dict>
@@ -71,21 +69,21 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2015-02-24</string>
+		<string>2016-1-10</string>
 		<key>OpenSourceLicense</key>
 		<string>libpng</string>
 		<key>OpenSourceMD5</key>
-		<string>1a4ad377919ab15b54f6cb6a3ae2622d</string>
+		<string>53166795d924950988a5513d3e605333</string>
 		<key>OpenSourceModifications</key>
 		<array/>
 		<key>OpenSourceProject</key> 
 		<string>libpng</string> 
 		<key>OpenSourceSHA1</key> 
-		<string>50f3b31d013a31e2cac70db177094f6a7618b8be</string> 
+		<string>0b3712365571199ef7864177faa0f6e9f4d946ab</string> 
 		<key>OpenSourceURL</key> 
-		<string>http://sourceforge.net/projects/libpng/files/libpng16/1.6.16/libpng-1.6.16.tar.gz</string> 
+		<string>http://sourceforge.net/projects/libpng/files/libpng16/1.6.20/libpng-1.6.20.tar.gz</string> 
 		<key>OpenSourceVersion</key> 
-		<string>1.6.16</string> 
+		<string>1.6.20</string> 
 		<key>OpenSourceWebsiteURL</key> 
 		<string>http://www.libpng.org/</string> 
 	</dict>

@@ -4,9 +4,11 @@
 #include <CoreFoundation/CFArray.h>
 #include <OpenDirectory/OpenDirectory.h>
 
-SecKeychainRef copyAttributeMatchedKeychain(ODRecordRef odRecord, CFArrayRef certificates);
-SecKeychainRef copyHashMatchedKeychain(ODRecordRef odRecord, CFArrayRef certificates);
-SecKeychainRef copySmartCardKeychainForUser(ODRecordRef odRecord, const char* username);
+SecKeychainRef copyAttributeMatchedKeychain(ODRecordRef odRecord, CFArrayRef identities, SecIdentityRef* returnedIdentity);
+SecKeychainRef copyHashMatchedKeychain(ODRecordRef odRecord, CFArrayRef identities, SecIdentityRef* returnedIdentity);
+SecKeychainRef copySmartCardKeychainForUser(ODRecordRef odRecord, const char* username, SecIdentityRef* copiedIdentity);
+OSStatus verifySmartCardSigning(SecKeyRef publicKey, SecKeyRef privateKey);
+OSStatus validateCertificate(SecCertificateRef certificate, SecKeychainRef keychain);
 
 #define CFReleaseSafe(CF) { CFTypeRef _cf = (CF); if (_cf) CFRelease(_cf); }
 #define CFReleaseNull(CF) { CFTypeRef _cf = (CF); \

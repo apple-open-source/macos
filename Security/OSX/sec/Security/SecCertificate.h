@@ -83,6 +83,7 @@ CFDataRef SecCertificateCopyData(SecCertificateRef certificate)
 	@result A CFStringRef which the caller should CFRelease() once it's no
     longer needed.
 */
+__nullable
 CFStringRef SecCertificateCopySubjectSummary(SecCertificateRef certificate)
     __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
 

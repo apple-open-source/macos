@@ -46,6 +46,7 @@ public:
 	TempDatabase(Process &proc);
 
 	const char *dbName() const;
+    uint32 dbVersion();
 	bool transient() const;
 	
 	RefPointer<Key> makeKey(const CssmKey &newKey, uint32 moreAttributes,

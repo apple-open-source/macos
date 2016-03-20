@@ -3667,6 +3667,7 @@ ipsecdoi_setid1(iph1)
 	vchar_t *ret = NULL;
 	struct ipsecdoi_id_b id_b;
 	vchar_t *ident = NULL;
+	struct sockaddr_in v4_address;
 	struct sockaddr_storage *ipid = NULL;
 
 	/* init */
@@ -3747,6 +3748,19 @@ ipsecdoi_setid1(iph1)
 
 		if (ipid == NULL)
 			ipid = iph1->local;
+
+		{
+			if (ipid->ss_family == AF_INET6 &&
+				iph1->nat64_prefix.length) {
+				memset(&v4_address, 0, sizeof(v4_address));
+				v4_address.sin_len = sizeof(struct sockaddr_in);
+				v4_address.sin_family = AF_INET;
+				v4_address.sin_port = ((struct sockaddr_in6 *)ipid)->sin6_port;
+				v4_address.sin_addr.s_addr = 0;
+
+				ipid = ALIGNED_CAST(struct sockaddr_storage *)&v4_address;
+			}
+		}
 
 		/* use IP address */
 		switch (ipid->ss_family) {
@@ -3976,8 +3990,22 @@ ipsecdoi_setid2(iph2)
 		return -1;
 	}
 
-	iph2->id = ipsecdoi_sockaddr2id(&sp->spidx.src,
-					sp->spidx.prefs, sp->spidx.ul_proto);
+	struct sockaddr_in local_v4_address;
+	struct sockaddr_storage *srcaddr = &sp->spidx.src;
+	u_int8_t prefs = sp->spidx.prefs;
+	if (sp->spidx.dst.ss_family == AF_INET6 &&
+		iph2->nat64_prefix.length) {
+		memset(&local_v4_address, 0, sizeof(local_v4_address));
+		local_v4_address.sin_len = sizeof(struct sockaddr_in);
+		local_v4_address.sin_family = AF_INET;
+		local_v4_address.sin_port = ((struct sockaddr_in6 *)&sp->spidx.src)->sin6_port;
+		local_v4_address.sin_addr.s_addr = 0;
+
+		srcaddr = ALIGNED_CAST(struct sockaddr_storage *)&local_v4_address;
+		prefs = 32;
+	}
+	iph2->id = ipsecdoi_sockaddr2id(srcaddr,
+					prefs, sp->spidx.ul_proto);
 	if (iph2->id == NULL) {
 		plog(ASL_LEVEL_ERR, 
 			"failed to get ID for %s\n",
@@ -4000,8 +4028,22 @@ ipsecdoi_setid2(iph2)
 			 s_ipsecdoi_ident((ALIGNED_CAST(struct ipsecdoi_id_b *)iph2->id->v)->type));
 
 	/* remote side */
-	iph2->id_p = ipsecdoi_sockaddr2id(&sp->spidx.dst,
-				sp->spidx.prefd, sp->spidx.ul_proto);
+	struct sockaddr_in v4_address;
+	struct sockaddr_storage *dstaddr = &sp->spidx.dst;
+	u_int8_t prefd = sp->spidx.prefd;
+	if (sp->spidx.dst.ss_family == AF_INET6 &&
+		iph2->nat64_prefix.length) {
+		memset(&v4_address, 0, sizeof(v4_address));
+		v4_address.sin_len = sizeof(struct sockaddr_in);
+		v4_address.sin_family = AF_INET;
+		v4_address.sin_port = ((struct sockaddr_in6 *)&sp->spidx.dst)->sin6_port;
+		nw_nat64_extract_v4(&iph2->nat64_prefix, &((struct sockaddr_in6 *)&sp->spidx.dst)->sin6_addr, &v4_address.sin_addr);
+
+		dstaddr = ALIGNED_CAST(struct sockaddr_storage *)&v4_address;
+		prefd = 32;
+	}
+	iph2->id_p = ipsecdoi_sockaddr2id(dstaddr,
+									  prefd, sp->spidx.ul_proto);
 	if (iph2->id_p == NULL) {
 		plog(ASL_LEVEL_ERR, 
 			"failed to get ID for %s\n",
@@ -4009,7 +4051,7 @@ ipsecdoi_setid2(iph2)
 		VPTRINIT(iph2->id);
 		return -1;
 	}
-	plogdump(ASL_LEVEL_DEBUG, iph2->id->v, iph2->id->l, "use remote ID type %s\n",
+	plogdump(ASL_LEVEL_DEBUG, iph2->id_p->v, iph2->id_p->l, "use remote ID type %s\n",
 			 s_ipsecdoi_ident((ALIGNED_CAST(struct ipsecdoi_id_b *)iph2->id_p->v)->type));
 
 	return 0;

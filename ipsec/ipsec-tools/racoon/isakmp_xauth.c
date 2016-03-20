@@ -816,9 +816,9 @@ isakmp_xauth_set(iph1, attr)
 									CONSTSTR("Xauth Failed (status not ok)"));
 			plog(ASL_LEVEL_ERR, 
 			    "Xauth authentication failed\n");
-				
+
 			vpncontrol_notify_ike_failed(VPNCTL_NTYPE_AUTHENTICATION_FAILED, FROM_LOCAL,
-				((struct sockaddr_in*)iph1->remote)->sin_addr.s_addr, 0, NULL);
+				iph1_get_remote_v4_address(iph1), 0, NULL);
 
 			iph1->mode_cfg->flags |= ISAKMP_CFG_DELETE_PH1;
 

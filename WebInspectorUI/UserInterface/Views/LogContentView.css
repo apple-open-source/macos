@@ -68,7 +68,7 @@
 
     word-wrap: break-word;
 
-    font-family: -webkit-system-font, sans-serif;
+    font-family: -apple-system, sans-serif;
     font-size: 12px;
 
     min-height: 100%;
@@ -81,7 +81,7 @@
 }
 
 .console-item {
-    border-top: 1px solid rgb(240, 240, 240);
+    border-top: 1px solid hsl(0, 0%, 94%);
 }
 
 .console-error-level:not(.filtered-out, .filtered-out-by-search),
@@ -144,7 +144,7 @@
 
 .console-group-title::before {
     content: "";
-    background-image: -webkit-canvas(disclosure-triangle-small-open-normal);
+    background-image: url(../Images/DisclosureTriangles.svg#open-normal);
     background-size: 13px 13px;
     top: 4px;
     left: 4px;
@@ -153,7 +153,7 @@
 }
 
 .console-group.collapsed .console-group-title::before {
-    background-image: -webkit-canvas(disclosure-triangle-small-closed-normal);
+    background-image: url(../Images/DisclosureTriangles.svg#closed-normal);
 }
 
 .console-group.collapsed > .console-group-messages {
@@ -165,16 +165,16 @@
 }
 
 .console-session + .console-session {
-    border-top: 3px dashed rgb(240, 240, 240);
+    border-top: 3px dashed hsl(0, 0%, 94%);
 }
 
 .console-messages a {
-    color: rgb(33%, 33%, 33%);
+    color: hsl(0, 0%, 32%);
     cursor: pointer;
 }
 
 .console-messages a:hover {
-    color: rgb(15%, 15%, 15%);
+    color: hsl(0, 0%, 14%);
 }
 
 .console-messages .data-grid {
@@ -185,33 +185,24 @@
     display: none;
 }
 
-.search-bar.log-search-bar > input[type="search"] {
-    width: 150px;
-    border: 1px solid rgba(0, 0, 0, 0.35);
-    padding-left: 4px;
-}
-
 .search-in-progress .console-item.filtered-out-by-search {
     display: none;
 }
 
 .search-in-progress .console-item:not(.filtered-out-by-search) .highlighted {
     color: black;
-    background-color: rgba(235, 215, 38, 0.2);
-    border-bottom: 1px solid rgb(237, 202, 71);
+    background-color: hsla(53, 83%, 53%, 0.2);
+    border-bottom: 1px solid hsl(47, 82%, 60%);
 }
 
 .search-in-progress .console-item:not(.filtered-out-by-search) .highlighted.selected {
-    background-color: rgba(235, 215, 38, 0.75);
+    background-color: hsla(53, 83%, 53%, 0.75);
 }
 
-/* @media reader currently blocked by: http://webkit.org/b/118096 */
-@media reader {
-    .console-user-command::before,
-    .console-messages:focus .console-item.selected .console-user-command::before,
-    .console-user-command-result.console-log-level::before,
-    .console-messages:focus .console-item.selected .console-user-command-result.console-log-level::before {
-        /* accessible label alternative for icon indicating console input/output/warning/error, etc. */
-        content: attr(data-labelprefix);
-    }
+.console-user-command::before,
+.console-messages:focus .console-item.selected .console-user-command::before,
+.console-user-command-result.console-log-level::before,
+.console-messages:focus .console-item.selected .console-user-command-result.console-log-level::before {
+        /* Accessible label alternative for icon indicating console input/output/warning/error, etc. */
+        alt: attr(data-labelprefix);
 }

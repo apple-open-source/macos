@@ -115,6 +115,9 @@ OSStatus SecKeychainSystemKeychainCheckWouldDeadlock()
 OSStatus SecKeychainStoreUnlockKey(SecKeychainRef userKeychainRef, SecKeychainRef systemKeychainRef, CFStringRef username, CFStringRef password)
     __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_NA);
 
+OSStatus SecKeychainGetKeychainVersion(SecKeychainRef keychain, UInt32* version)
+    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_NA);
+
 /*!
  @function SecKeychainMDSInstall
  Set up MDS.

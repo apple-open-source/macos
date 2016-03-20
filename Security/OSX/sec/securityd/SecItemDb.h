@@ -29,6 +29,7 @@
 #define _SECURITYD_SECITEMDB_H_
 
 #include <securityd/SecDbQuery.h>
+#include "securityd_client.h"
 
 __BEGIN_DECLS
 
@@ -111,12 +112,23 @@ enum SecItemFilter {
     kSecBackupableItemFilter,
 };
 
-CF_RETURNS_RETAINED CFDictionaryRef SecServerExportKeychainPlist(SecDbConnectionRef dbt,
-                                                                        keybag_handle_t src_keybag, keybag_handle_t dest_keybag,
-                                                                        enum SecItemFilter filter, CFErrorRef *error);
+CFDictionaryRef SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
+                                           SecurityClient *client,
+                                           keybag_handle_t src_keybag,
+                                           keybag_handle_t dest_keybag,
+                                           enum SecItemFilter filter,
+                                           CFErrorRef *error);
 bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt,
-                                           keybag_handle_t src_keybag, keybag_handle_t dest_keybag,
-                                           CFDictionaryRef keychain, enum SecItemFilter filter, CFErrorRef *error);
+                                    SecurityClient *client,
+                                    keybag_handle_t src_keybag,
+                                    keybag_handle_t dest_keybag,
+                                    CFDictionaryRef keychain,
+                                    enum SecItemFilter filter,
+                                    CFErrorRef *error);
+
+#if TARGET_OS_IPHONE
+bool SecServerDeleteAllForUser(SecDbConnectionRef dbt, CFDataRef musrView, CFErrorRef *error);
+#endif
 
 bool kc_transaction(SecDbConnectionRef dbt, CFErrorRef *error, bool(^perform)());
 bool s3dl_copy_matching(SecDbConnectionRef dbt, Query *q, CFTypeRef *result,
@@ -128,7 +140,7 @@ bool s3dl_query_delete(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGroups
 const SecDbAttr *SecDbAttrWithKey(const SecDbClass *c, CFTypeRef key, CFErrorRef *error);
 
 bool s3dl_dbt_keys_current(SecDbConnectionRef dbt, uint32_t current_generation, CFErrorRef *error);
-bool s3dl_dbt_update_keys(SecDbConnectionRef dbt, CFErrorRef *error);
+bool s3dl_dbt_update_keys(SecDbConnectionRef dbt, SecurityClient *client, CFErrorRef *error);
         
 __END_DECLS
 

@@ -593,6 +593,11 @@ bool TextTrack::isMainProgramContent() const
     return kind() == captionsKeyword();
 }
 
+bool TextTrack::containsOnlyForcedSubtitles() const
+{
+    return kind() == forcedKeyword();
+}
+
 #if ENABLE(MEDIA_SOURCE)
 void TextTrack::setLanguage(const AtomicString& language)
 {

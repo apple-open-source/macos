@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Project</key>
+	<string>Security</string>
+	<key>TestSpecificLogs</key>
+	<array>
+		<string>/var/log/system.log</string>
+		<string>/var/log/module/com.apple.securityd/.*</string>
+		<string>/var/mobile/Library/Logs/CrashReporter/DiagnosticLogs/.*security.log.*</string>
+	</array>
+	<key>Tests</key>
+	<array>
+		<dict>
+			<key>TestName</key>
+			<string>BackupNegativeTest</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secbackupntest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>si_13_item_system</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Applications/SecurityTests.app/SecurityTests</string>
+				<string>-1</string>
+				<string>si_13_item_system</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

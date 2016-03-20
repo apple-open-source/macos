@@ -110,7 +110,7 @@ public:
 	size_t operator () (const char *s) { align(); return totalSoFar += strlen(s) + 1; }
 	
 	void countedData(const void *, size_t length)
-	{ insert(sizeof(length)); insert(length); }
+	{ insert(sizeof(uint32_t)); insert(length); }
 	
 	template <class Data>
 	void countedData(const Data &data)
@@ -118,6 +118,28 @@ public:
 
 private:
 	size_t totalSoFar;	// total size counted so far
+};
+
+
+// A variant of Writer which returns offsets from the start of the buffer from the operator() functions.
+class OffsetWriter : Writer {
+public:
+    OffsetWriter() { }
+    OffsetWriter(void *base) : Writer(base), basePos(base) { }
+    void operator = (void *base) { basePos = base; Writer::operator = (base); }
+
+    template <class T>
+    T *operator () (const T &obj)
+    { return Writer::operator() (obj) - basePos; }
+
+    void *operator () (const void *addr, size_t size)
+    { return reinterpret_cast<void *>(uintptr_t(Writer::operator() (addr, size)) - uintptr_t(basePos)); }
+
+    char *operator () (const char *s)
+    { return (char *)(*this)(s, strlen(s) + 1); }
+
+private:
+    void *basePos;          // base address
 };
 
 

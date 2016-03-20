@@ -137,6 +137,9 @@ public:
         ProcessPoolConfiguration,
         PluginSiteDataManager,
         Preferences,
+        RunJavaScriptAlertResultListener,
+        RunJavaScriptConfirmResultListener,
+        RunJavaScriptPromptResultListener,
         Session,
         TextChecker,
         UserContentController,
@@ -148,6 +151,7 @@ public:
         VisitedLinkProvider,
         WebsiteDataRecord,
         WebsiteDataStore,
+        WindowFeatures,
 
 #if ENABLE(MEDIA_SESSION)
         MediaSessionMetadata,

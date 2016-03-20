@@ -33,7 +33,9 @@
 #include "CSSFontFaceSource.h"
 #include "CSSFontFaceSrcValue.h"
 #include "CSSFontFamily.h"
+#include "CSSFontFeatureValue.h"
 #include "CSSPrimitiveValue.h"
+#include "CSSPrimitiveValueMappings.h"
 #include "CSSPropertyNames.h"
 #include "CSSSegmentedFontFace.h"
 #include "CSSUnicodeRangeValue.h"
@@ -43,6 +45,7 @@
 #include "Document.h"
 #include "Font.h"
 #include "FontCache.h"
+#include "FontVariantBuilder.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "SVGFontFaceElement.h"
@@ -91,6 +94,13 @@ void CSSFontSelector::addFontFaceRule(const StyleRuleFontFace* fontFaceRule, boo
     RefPtr<CSSValue> fontFamily = style.getPropertyCSSValue(CSSPropertyFontFamily);
     RefPtr<CSSValue> src = style.getPropertyCSSValue(CSSPropertySrc);
     RefPtr<CSSValue> unicodeRange = style.getPropertyCSSValue(CSSPropertyUnicodeRange);
+    RefPtr<CSSValue> featureSettings = style.getPropertyCSSValue(CSSPropertyFontFeatureSettings); 
+    RefPtr<CSSValue> variantLigatures = style.getPropertyCSSValue(CSSPropertyFontVariantLigatures);
+    RefPtr<CSSValue> variantPosition = style.getPropertyCSSValue(CSSPropertyFontVariantPosition);
+    RefPtr<CSSValue> variantCaps = style.getPropertyCSSValue(CSSPropertyFontVariantCaps);
+    RefPtr<CSSValue> variantNumeric = style.getPropertyCSSValue(CSSPropertyFontVariantNumeric);
+    RefPtr<CSSValue> variantAlternates = style.getPropertyCSSValue(CSSPropertyFontVariantAlternates);
+    RefPtr<CSSValue> variantEastAsian = style.getPropertyCSSValue(CSSPropertyFontVariantEastAsian);
     if (!is<CSSValueList>(fontFamily.get()) || !is<CSSValueList>(src.get()) || (unicodeRange && !is<CSSValueList>(*unicodeRange)))
         return;
 
@@ -164,35 +174,6 @@ void CSSFontSelector::addFontFaceRule(const StyleRuleFontFace* fontFaceRule, boo
     } else
         traitsMask |= FontWeight400Mask;
 
-    if (RefPtr<CSSValue> fontVariant = style.getPropertyCSSValue(CSSPropertyFontVariant)) {
-        // font-variant descriptor can be a value list.
-        if (fontVariant->isPrimitiveValue()) {
-            RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
-            list->append(fontVariant.releaseNonNull());
-            fontVariant = list.releaseNonNull();
-        } else if (!is<CSSValueList>(*fontVariant))
-            return;
-
-        CSSValueList& variantList = downcast<CSSValueList>(*fontVariant);
-        unsigned numVariants = variantList.length();
-        if (!numVariants)
-            return;
-
-        for (unsigned i = 0; i < numVariants; ++i) {
-            switch (downcast<CSSPrimitiveValue>(variantList.itemWithoutBoundsCheck(i))->getValueID()) {
-                case CSSValueNormal:
-                    traitsMask |= FontVariantNormalMask;
-                    break;
-                case CSSValueSmallCaps:
-                    traitsMask |= FontVariantSmallCapsMask;
-                    break;
-                default:
-                    break;
-            }
-        }
-    } else
-        traitsMask |= FontVariantMask;
-
     // Each item in the src property's list is a single CSSFontFaceSource. Put them all into a CSSFontFace.
     RefPtr<CSSFontFace> fontFace;
 
@@ -255,6 +236,31 @@ void CSSFontSelector::addFontFaceRule(const StyleRuleFontFace* fontFaceRule, boo
             fontFace->addRange(range.from(), range.to());
         }
     }
+
+    if (featureSettings) {
+        for (auto& item : downcast<CSSValueList>(*featureSettings)) {
+            auto& feature = downcast<CSSFontFeatureValue>(item.get());
+            fontFace->insertFeature(FontFeature(feature.tag(), feature.value()));
+        }
+    }
+
+    if (variantLigatures)
+        applyValueFontVariantLigatures(*fontFace, *variantLigatures);
+
+    if (variantPosition && is<CSSPrimitiveValue>(*variantPosition))
+        fontFace->setVariantPosition(downcast<CSSPrimitiveValue>(*variantPosition));
+
+    if (variantCaps && is<CSSPrimitiveValue>(*variantCaps))
+        fontFace->setVariantCaps(downcast<CSSPrimitiveValue>(*variantCaps));
+
+    if (variantNumeric)
+        applyValueFontVariantNumeric(*fontFace, *variantNumeric);
+
+    if (variantAlternates && is<CSSPrimitiveValue>(*variantAlternates))
+        fontFace->setVariantAlternates(downcast<CSSPrimitiveValue>(*variantAlternates));
+
+    if (variantEastAsian)
+        applyValueFontVariantEastAsian(*fontFace, *variantEastAsian);
 
     // Hash under every single family name.
     for (auto& item : familyList) {
@@ -383,22 +389,6 @@ static inline bool compareFontFaces(CSSFontFace* first, CSSFontFace* second)
     FontTraitsMask firstTraitsMask = first->traitsMask();
     FontTraitsMask secondTraitsMask = second->traitsMask();
 
-    bool firstHasDesiredVariant = firstTraitsMask & desiredTraitsMaskForComparison & FontVariantMask;
-    bool secondHasDesiredVariant = secondTraitsMask & desiredTraitsMaskForComparison & FontVariantMask;
-
-    if (firstHasDesiredVariant != secondHasDesiredVariant)
-        return firstHasDesiredVariant;
-
-    // We need to check font-variant css property for CSS2.1 compatibility.
-    if ((desiredTraitsMaskForComparison & FontVariantSmallCapsMask) && !first->isLocalFallback() && !second->isLocalFallback()) {
-        // Prefer a font that has indicated that it can only support small-caps to a font that claims to support
-        // all variants.  The specialized font is more likely to be true small-caps and not require synthesis.
-        bool firstRequiresSmallCaps = (firstTraitsMask & FontVariantSmallCapsMask) && !(firstTraitsMask & FontVariantNormalMask);
-        bool secondRequiresSmallCaps = (secondTraitsMask & FontVariantSmallCapsMask) && !(secondTraitsMask & FontVariantNormalMask);
-        if (firstRequiresSmallCaps != secondRequiresSmallCaps)
-            return firstRequiresSmallCaps;
-    }
-
     bool firstHasDesiredStyle = firstTraitsMask & desiredTraitsMaskForComparison & FontStyleMask;
     bool secondHasDesiredStyle = secondTraitsMask & desiredTraitsMaskForComparison & FontStyleMask;
 
@@ -497,14 +487,6 @@ CSSSegmentedFontFace* CSSFontSelector::getFontFace(const FontDescription& fontDe
             unsigned candidateTraitsMask = candidate->traitsMask();
             if ((traitsMask & FontStyleNormalMask) && !(candidateTraitsMask & FontStyleNormalMask))
                 continue;
-            if ((traitsMask & FontVariantNormalMask) && !(candidateTraitsMask & FontVariantNormalMask))
-                continue;
-#if ENABLE(SVG_FONTS)
-            // For SVG Fonts that specify that they only support the "normal" variant, we will assume they are incapable
-            // of small-caps synthesis and just ignore the font face as a candidate.
-            if (candidate->hasSVGFontFaceSource() && (traitsMask & FontVariantSmallCapsMask) && !(candidateTraitsMask & FontVariantSmallCapsMask))
-                continue;
-#endif
             candidateFontFaces.append(candidate);
         }
 
@@ -514,8 +496,6 @@ CSSSegmentedFontFace* CSSFontSelector::getFontFace(const FontDescription& fontDe
                 CSSFontFace* candidate = familyLocallyInstalledFontFaces->at(i).get();
                 unsigned candidateTraitsMask = candidate->traitsMask();
                 if ((traitsMask & FontStyleNormalMask) && !(candidateTraitsMask & FontStyleNormalMask))
-                    continue;
-                if ((traitsMask & FontVariantNormalMask) && !(candidateTraitsMask & FontVariantNormalMask))
                     continue;
                 candidateFontFaces.append(candidate);
             }

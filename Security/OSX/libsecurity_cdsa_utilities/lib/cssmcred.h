@@ -97,7 +97,10 @@ public:
 	// pass-throughs to our SampleGroup
 	uint32 size() const { return samples().size(); }
 	CssmSample &operator [] (uint32 ix) const { return samples()[ix]; }
-    
+
+    // Do these access credentials allow you to pop ui?
+    bool authorizesUI() const;
+
 public:
     static const AccessCredentials &null;	// all null credential
 	

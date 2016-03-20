@@ -1428,6 +1428,13 @@ See remaining rules for examples.
 				<string>authenticate-admin-30</string>
 			</array>
 		</dict>
+		<key>com.apple.security.syntheticinput</key>
+		<dict>
+		    <key>class</key>
+		    <string>rule</string>
+		    <key>rule</key>
+		    <string>authenticate-session-owner</string>
+		</dict>		
 	</dict>
 	<key>rules</key>
 	<dict>

@@ -65,6 +65,9 @@ size_t der_sizeof_BackupSliceKeyBag(SOSBackupSliceKeyBagRef BackupSliceKeyBag, C
 uint8_t* der_encode_BackupSliceKeyBag(SOSBackupSliceKeyBagRef BackupSliceKeyBag, CFErrorRef *error,
                             const uint8_t *der, uint8_t *der_end);
 
+bskb_keybag_handle_t SOSBSKBLoadLocked(SOSBackupSliceKeyBagRef backupSliceKeyBag,
+                                       CFErrorRef *error);
+
 bskb_keybag_handle_t SOSBSKBLoadAndUnlockWithPeerIDAndSecret(SOSBackupSliceKeyBagRef backupSliceKeyBag,
                                                              CFStringRef peerID, CFDataRef peerSecret,
                                                              CFErrorRef *error);

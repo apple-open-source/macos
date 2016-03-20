@@ -36,7 +36,7 @@
 // a feature of "the" process (defined by the environment), and take no
 // samples whatsoever.
 //
-bool CodeSignatureAclSubject::validate(const AclValidationContext &context) const
+bool CodeSignatureAclSubject::validates(const AclValidationContext &context) const
 {
 	// a suitable environment is required for a match
     if (Environment *env = context.environment<Environment>())

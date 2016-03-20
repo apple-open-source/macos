@@ -212,9 +212,12 @@ bool IOHIDEventServiceUserClient::start( IOService * provider )
         return false;
         
     _owner = OSDynamicCast(IOHIDEventService, provider);
-    if ( !_owner )
+    if ( !_owner ) {
         return false;
-    
+    }
+  
+    _owner->retain();
+  
     object = provider->copyProperty(kIOHIDEventServiceQueueSize);
     if ( OSDynamicCast(OSNumber, object) ) {
         queueSize = ((OSNumber*)object)->unsigned32BitValue();
@@ -238,7 +241,7 @@ bool IOHIDEventServiceUserClient::start( IOService * provider )
 
 void IOHIDEventServiceUserClient::stop( IOService * provider )
 {
-    _owner = NULL;
+    //_owner = NULL;
     super::stop(provider);
 }
 
@@ -296,9 +299,9 @@ IOReturn IOHIDEventServiceUserClient::_close(
 IOReturn IOHIDEventServiceUserClient::close()
 {
     _queue->setState(false);
-    if (_owner)
-    _owner->close(this, _options);
-
+    if (_owner) {
+      _owner->close(this, _options);
+    }
     return kIOReturnSuccess;
 }
 
@@ -399,6 +402,7 @@ void IOHIDEventServiceUserClient::free()
     }
 
     if (_owner) {
+        _owner->release();
         _owner = NULL;
     }
     

@@ -1,6 +1,6 @@
 /*
 *****************************************************************************************
-* Copyright (C) 2014-2015 Apple Inc. All Rights Reserved.
+* Copyright (C) 2014-2016 Apple Inc. All Rights Reserved.
 *****************************************************************************************
 */
 
@@ -173,12 +173,28 @@ ualoc_getLanguagesForRegion(const char *regionID, double minimumFraction,
 }
 
 static const char * forceParent[] = {
+    "en_150",  "en_GB",  // en for Europe
     "en_AU",   "en_GB",
-    "en_BD",   "en_GB", // en for Bangladesh
-    "en_HK",   "en_GB", // en for Hong Kong
+    "en_BD",   "en_GB",  // en for Bangladesh
+    "en_BE",   "en_150", // en for Belgium goes to en for Europe
+    "en_DG",   "en_GB",
+    "en_FK",   "en_GB",
+    "en_GG",   "en_GB",
+    "en_GI",   "en_GB",
+    "en_HK",   "en_GB",  // en for Hong Kong
+    "en_IE",   "en_GB",
+    "en_IM",   "en_GB",
     "en_IN",   "en_GB",
-    "en_MY",   "en_GB", // en for Malaysia
-    "en_PK",   "en_GB", // en for Pakistan
+    "en_IO",   "en_GB",
+    "en_JE",   "en_GB",
+    "en_MO",   "en_GB",
+    "en_MT",   "en_GB",
+    "en_MY",   "en_GB",  // en for Malaysia
+    "en_NZ",   "en_GB",
+    "en_PK",   "en_GB",  // en for Pakistan
+    "en_SG",   "en_GB",
+    "en_SH",   "en_GB",
+    "en_VG",   "en_GB",
     "zh",      "zh_CN",
     "zh_CN",   "root",
     "zh_Hant", "zh_TW",
@@ -295,6 +311,7 @@ static const char * appleAliasMap[][2] = {
     { "italian",    "it"      },    // T1, still in use
     { "japanese",   "ja"      },    // T0, still in use
     { "korean",     "ko"      },    // T1
+    { "no_NO",      "nb_NO"   },    // special
     { "norwegian",  "nb"      },    // T2
     { "polish",     "pl"      },    // T2
     { "portuguese", "pt"      },    // T2
@@ -315,39 +332,54 @@ static const char * appleParentMap[][2] = {
     { "en_AU",      "en_GB"   },    // Apple custom parent
     { "en_BA",      "en_150"  },    // Apple locale addition
     { "en_BD",      "en_GB"   },    // Apple custom parent
+    { "en_BE",      "en_150"  },    // Apple custom parent
     { "en_CH",      "en_150"  },    // Apple locale addition
     { "en_CY",      "en_150"  },    // Apple locale addition
     { "en_CZ",      "en_150"  },    // Apple locale addition
     { "en_DE",      "en_150"  },    // Apple locale addition
+    { "en_DG",      "en_GB"   },
     { "en_DK",      "en_150"  },    // Apple locale addition
     { "en_EE",      "en_150"  },    // Apple locale addition
     { "en_ES",      "en_150"  },    // Apple locale addition
     { "en_FI",      "en_150"  },    // Apple locale addition
+    { "en_FK",      "en_GB"   },
     { "en_FR",      "en_150"  },    // Apple locale addition
+    { "en_GG",      "en_GB"   },
+    { "en_GI",      "en_GB"   },
     { "en_GR",      "en_150"  },    // Apple locale addition
     { "en_HK",      "en_GB"   },    // Apple custom parent
     { "en_HR",      "en_150"  },    // Apple locale addition
     { "en_HU",      "en_150"  },    // Apple locale addition
+    { "en_IE",      "en_GB"   },
     { "en_IL",      "en_001"  },    // Apple locale addition
+    { "en_IM",      "en_GB"   },
     { "en_IN",      "en_GB"   },    // Apple custom parent
+    { "en_IO",      "en_GB"   },
     { "en_IS",      "en_150"  },    // Apple locale addition
     { "en_IT",      "en_150"  },    // Apple locale addition
+    { "en_JE",      "en_GB"   },
     { "en_LT",      "en_150"  },    // Apple locale addition
     { "en_LU",      "en_150"  },    // Apple locale addition
     { "en_LV",      "en_150"  },    // Apple locale addition
     { "en_ME",      "en_150"  },    // Apple locale addition
+    { "en_MO",      "en_GB"   },
+    { "en_MT",      "en_GB"   },
     { "en_MY",      "en_GB"   },    // Apple custom parent
     { "en_NL",      "en_150"  },    // Apple locale addition
     { "en_NO",      "en_150"  },    // Apple locale addition
+    { "en_NZ",      "en_GB"   },
     { "en_PK",      "en_GB"   },    // Apple custom parent
     { "en_PL",      "en_150"  },    // Apple locale addition
     { "en_PT",      "en_150"  },    // Apple locale addition
     { "en_RO",      "en_150"  },    // Apple locale addition
     { "en_RU",      "en_150"  },    // Apple locale addition
     { "en_SE",      "en_150"  },    // Apple locale addition
+    { "en_SG",      "en_GB"   },
+    { "en_SH",      "en_GB"   },
     { "en_SI",      "en_150"  },    // Apple locale addition
     { "en_SK",      "en_150"  },    // Apple locale addition
     { "en_TR",      "en_150"  },    // Apple locale addition
+    { "en_VG",      "en_GB"   },
 };
 enum { kAppleParentMapCount = sizeof(appleParentMap)/sizeof(appleParentMap[0]) };
 

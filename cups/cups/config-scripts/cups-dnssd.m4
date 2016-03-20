@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-dnssd.m4 11468 2013-12-18 20:31:42Z msweet $"
+dnl "$Id: cups-dnssd.m4 12992 2015-11-19 15:19:00Z msweet $"
 dnl
 dnl   DNS Service Discovery (aka Bonjour) stuff for CUPS.
 dnl
-dnl   Copyright 2007-2012 by Apple Inc.
+dnl   Copyright 2007-2015 by Apple Inc.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
 dnl   property of Apple Inc. and are protected by Federal copyright
@@ -26,7 +26,7 @@ DNSSD_BACKEND=""
 IPPFIND_BIN=""
 IPPFIND_MAN=""
 
-if test "x$PKGCONFIG" != x -a x$enable_avahi != xno; then
+if test "x$PKGCONFIG" != x -a x$enable_avahi != xno -a x$uname != xDarwin; then
 	AC_MSG_CHECKING(for Avahi)
 	if $PKGCONFIG --exists avahi-client; then
 		AC_MSG_RESULT(yes)
@@ -82,5 +82,5 @@ AC_SUBST(IPPFIND_BIN)
 AC_SUBST(IPPFIND_MAN)
 
 dnl
-dnl End of "$Id: cups-dnssd.m4 11468 2013-12-18 20:31:42Z msweet $".
+dnl End of "$Id: cups-dnssd.m4 12992 2015-11-19 15:19:00Z msweet $".
 dnl

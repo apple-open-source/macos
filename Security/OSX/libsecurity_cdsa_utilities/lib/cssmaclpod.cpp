@@ -71,10 +71,15 @@ void AuthorizationGroup::destroy(Allocator &alloc)
 {
 	alloc.free(AuthTags);
 }
-
+	
 bool AuthorizationGroup::contains(CSSM_ACL_AUTHORIZATION_TAG tag) const
 {
 	return find(AuthTags, &AuthTags[NumberOfAuthTags], tag) != &AuthTags[NumberOfAuthTags];
+}
+
+bool AuthorizationGroup::containsOnly(CSSM_ACL_AUTHORIZATION_TAG tag) const
+{
+	return count() == 1 && (*this)[0] == tag;
 }
 
 

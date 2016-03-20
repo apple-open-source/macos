@@ -184,6 +184,12 @@ void InspectorInstrumentation::didInvalidateStyleAttrImpl(InstrumentingAgents& i
         domDebuggerAgent->didInvalidateStyleAttr(node);
 }
 
+void InspectorInstrumentation::documentDetachedImpl(InstrumentingAgents& instrumentingAgents, Document& document)
+{
+    if (InspectorCSSAgent* cssAgent = instrumentingAgents.inspectorCSSAgent())
+        cssAgent->documentDetached(document);
+}
+
 void InspectorInstrumentation::frameWindowDiscardedImpl(InstrumentingAgents& instrumentingAgents, DOMWindow* window)
 {
     if (WebConsoleAgent* consoleAgent = instrumentingAgents.webConsoleAgent())
@@ -196,6 +202,12 @@ void InspectorInstrumentation::mediaQueryResultChangedImpl(InstrumentingAgents& 
         cssAgent->mediaQueryResultChanged();
 }
 
+void InspectorInstrumentation::activeStyleSheetsUpdatedImpl(InstrumentingAgents& instrumentingAgents, Document& document)
+{
+    if (InspectorCSSAgent* cssAgent = instrumentingAgents.inspectorCSSAgent())
+        cssAgent->activeStyleSheetsUpdated(document);
+}
+
 void InspectorInstrumentation::didPushShadowRootImpl(InstrumentingAgents& instrumentingAgents, Element& host, ShadowRoot& root)
 {
     if (InspectorDOMAgent* domAgent = instrumentingAgents.inspectorDOMAgent())
@@ -206,6 +218,20 @@ void InspectorInstrumentation::willPopShadowRootImpl(InstrumentingAgents& instru
 {
     if (InspectorDOMAgent* domAgent = instrumentingAgents.inspectorDOMAgent())
         domAgent->willPopShadowRoot(host, root);
+}
+
+void InspectorInstrumentation::pseudoElementCreatedImpl(InstrumentingAgents& instrumentingAgents, PseudoElement& pseudoElement)
+{
+    if (InspectorDOMAgent* domAgent = instrumentingAgents.inspectorDOMAgent())
+        domAgent->pseudoElementCreated(pseudoElement);
+}
+
+void InspectorInstrumentation::pseudoElementDestroyedImpl(InstrumentingAgents& instrumentingAgents, PseudoElement& pseudoElement)
+{
+    if (InspectorDOMAgent* domAgent = instrumentingAgents.inspectorDOMAgent())
+        domAgent->pseudoElementDestroyed(pseudoElement);
+    if (InspectorLayerTreeAgent* layerTreeAgent = instrumentingAgents.inspectorLayerTreeAgent())
+        layerTreeAgent->pseudoElementDestroyed(pseudoElement);
 }
 
 void InspectorInstrumentation::didCreateNamedFlowImpl(InstrumentingAgents& instrumentingAgents, Document* document, WebKitNamedFlow& namedFlow)
@@ -704,9 +730,6 @@ void InspectorInstrumentation::didReceiveScriptResponseImpl(InstrumentingAgents&
 
 void InspectorInstrumentation::domContentLoadedEventFiredImpl(InstrumentingAgents& instrumentingAgents, Frame& frame)
 {
-    if (InspectorTimelineAgent* timelineAgent = instrumentingAgents.inspectorTimelineAgent())
-        timelineAgent->didMarkDOMContentEvent(frame);
-
     if (!frame.isMainFrame())
         return;
 
@@ -719,13 +742,7 @@ void InspectorInstrumentation::domContentLoadedEventFiredImpl(InstrumentingAgent
 
 void InspectorInstrumentation::loadEventFiredImpl(InstrumentingAgents& instrumentingAgents, Frame* frame)
 {
-    if (!frame)
-        return;
-
-    if (InspectorTimelineAgent* timelineAgent = instrumentingAgents.inspectorTimelineAgent())
-        timelineAgent->didMarkLoadEvent(*frame);
-
-    if (!frame->isMainFrame())
+    if (!frame || !frame->isMainFrame())
         return;
 
     if (InspectorPageAgent* pageAgent = instrumentingAgents.inspectorPageAgent())
@@ -859,22 +876,6 @@ void InspectorInstrumentation::willDestroyCachedResourceImpl(CachedResource& cac
         if (InspectorResourceAgent* inspectorResourceAgent = instrumentingAgent->inspectorResourceAgent())
             inspectorResourceAgent->willDestroyCachedResource(cachedResource);
     }
-}
-
-InspectorInstrumentationCookie InspectorInstrumentation::willWriteHTMLImpl(InstrumentingAgents& instrumentingAgents, unsigned startLine, Frame* frame)
-{
-    int timelineAgentId = 0;
-    if (InspectorTimelineAgent* timelineAgent = instrumentingAgents.inspectorTimelineAgent()) {
-        timelineAgent->willWriteHTML(startLine, frame);
-        timelineAgentId = timelineAgent->id();
-    }
-    return InspectorInstrumentationCookie(instrumentingAgents, timelineAgentId);
-}
-
-void InspectorInstrumentation::didWriteHTMLImpl(const InspectorInstrumentationCookie& cookie, unsigned endLine)
-{
-    if (InspectorTimelineAgent* timelineAgent = retrieveTimelineAgent(cookie))
-        timelineAgent->didWriteHTML(endLine);
 }
 
 // JavaScriptCore InspectorDebuggerAgent should know Console MessageTypes.
@@ -1285,12 +1286,6 @@ void InspectorInstrumentation::renderLayerDestroyedImpl(InstrumentingAgents& ins
 {
     if (InspectorLayerTreeAgent* layerTreeAgent = instrumentingAgents.inspectorLayerTreeAgent())
         layerTreeAgent->renderLayerDestroyed(renderLayer);
-}
-
-void InspectorInstrumentation::pseudoElementDestroyedImpl(InstrumentingAgents& instrumentingAgents, PseudoElement& pseudoElement)
-{
-    if (InspectorLayerTreeAgent* layerTreeAgent = instrumentingAgents.inspectorLayerTreeAgent())
-        layerTreeAgent->pseudoElementDestroyed(pseudoElement);
 }
 
 } // namespace WebCore

@@ -37,7 +37,8 @@ typedef struct
 {
     size_t                sessionIDLen;
     uint8_t               sessionID[32];
-    tls_protocol_version  protocolVersion;
+    tls_protocol_version  negProtocolVersion;    /* negotiated version */
+    tls_protocol_version  reqProtocolVersion;    /* version requested by client */
     uint16_t              cipherSuite;
 	uint16_t			  padding;          /* so remainder is word aligned */
     uint8_t               masterSecret[48];
@@ -90,7 +91,8 @@ SSLAddSessionData(const tls_handshake_t ctx)
         session->sessionIDLen = ctx->sessionID.length;
         memcpy(session->sessionID, ctx->sessionID.data, session->sessionIDLen);
     }
-    session->protocolVersion = ctx->negProtocolVersion;
+    session->negProtocolVersion = ctx->negProtocolVersion;
+    session->reqProtocolVersion = ctx->clientReqProtocol;
     session->cipherSuite = ctx->selectedCipher;
     memcpy(session->masterSecret, ctx->masterSecret, 48);
     session->certCount = certCount;
@@ -188,7 +190,7 @@ int SSLServerValidateSessionData(const tls_buffer sessionData, tls_handshake_t c
         then the server will fallback to a full handshake. We could accept to resume the session with
         the cached version, but we prefer to negotiate the best possible version instead.
      */
-    require(session->protocolVersion == ctx->negProtocolVersion, out);
+    require(session->negProtocolVersion == ctx->negProtocolVersion, out);
 
     /*
         We also check that the session cipherSuite is in the list of enabled ciphersuites,
@@ -216,10 +218,16 @@ int SSLClientValidateSessionDataBefore(const tls_buffer sessionData, tls_handsha
     ResumableSession *session = (ResumableSession *)sessionData.data;
 
     /*
+        If the current requested version is higher than the session one,
+        we do not re-use this session (see: rdar://23329369)
+     */
+    require(ctx->maxProtocolVersion <= session->reqProtocolVersion, out);
+
+    /*
         Make sure that the session version is within our enabled versions.
      */
-    require(session->protocolVersion <= ctx->maxProtocolVersion, out);
-    require(session->protocolVersion >= ctx->minProtocolVersion, out);
+    require(session->negProtocolVersion <= ctx->maxProtocolVersion, out);
+    require(session->negProtocolVersion >= ctx->minProtocolVersion, out);
 
     /*
         Make sure that the session ciphersuite is within our enabled ciphers
@@ -240,7 +248,7 @@ int SSLClientValidateSessionDataAfter(const tls_buffer sessionData, tls_handshak
     ResumableSession *session = (ResumableSession *)sessionData.data;
 
     /* Make sure that the session version and server version match. */
-    require(session->protocolVersion == ctx->negProtocolVersion, out);
+    require(session->negProtocolVersion == ctx->negProtocolVersion, out);
     /* Make sure that the session ciphersuite and server ciphersuite match. */
     require(session->cipherSuite == ctx->selectedCipher, out);
 
@@ -272,7 +280,7 @@ SSLInstallSessionFromData(const tls_buffer sessionData, tls_handshake_t ctx)
      * selectedCipher and negProtocolVersion should already be validated.
      */
     assert(ctx->selectedCipher == session->cipherSuite);
-    assert(ctx->negProtocolVersion == session->protocolVersion);
+    assert(ctx->negProtocolVersion == session->negProtocolVersion);
 
     memcpy(ctx->masterSecret, session->masterSecret, 48);
 

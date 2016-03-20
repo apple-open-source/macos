@@ -59,7 +59,8 @@ typedef enum {
     kSecDbTombAttr,
     kSecDbUTombAttr,
     kSecDbAccessAttr,
-    kSecDbAccessControlAttr
+    kSecDbAccessControlAttr,
+    kSecDbUUIDAttr,
 } SecDbAttrKind;
 
 enum {
@@ -77,6 +78,8 @@ enum {
     kSecDbDefaultEmptyFlag  = (1 << 11),    // default attr value is ""
     kSecDbNotNullFlag       = (1 << 12),    // attr value can't be null
     kSecDbInAuthenticatedDataFlag = (1 << 13), // attr is in authenticated data
+    kSecDbSyncPrimaryKeyV0  = (1 << 14),
+    kSecDbSyncPrimaryKeyV2  = (1 << 15),
 };
 
 #define SecVersionDbFlag(v) ((v & 0xFF) << 8)
@@ -174,6 +177,7 @@ bool SecDbItemSetValueWithName(SecDbItemRef item, CFStringRef name, CFTypeRef va
 
 sqlite3_int64 SecDbItemGetRowId(SecDbItemRef item, CFErrorRef *error);
 bool SecDbItemSetRowId(SecDbItemRef item, sqlite3_int64 rowid, CFErrorRef *error);
+bool SecDbItemClearRowId(SecDbItemRef item, CFErrorRef *error);
 
 bool SecDbItemIsSyncableOrCorrupted(SecDbItemRef item);
 bool SecDbItemIsSyncable(SecDbItemRef item);
@@ -238,6 +242,7 @@ CFTypeRef copyBlob(CFTypeRef obj);
 CFDataRef copySHA1(CFTypeRef obj);
 CFTypeRef copyNumber(CFTypeRef obj);
 CFDateRef copyDate(CFTypeRef obj);
+CFTypeRef copyUUID(CFTypeRef obj);
 
 // MARK: cFErrorPropagate which handles errSecAuthNeeded
 static inline

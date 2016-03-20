@@ -952,6 +952,9 @@ si_module_static_search(void)
 		{
 			"default", // CATEGORY_DEFAULT
 			"cache",
+#ifdef MUSER_AVAILABLE
+			"muser",
+#endif
 #ifdef DS_AVAILABLE
 			"ds",
 #endif

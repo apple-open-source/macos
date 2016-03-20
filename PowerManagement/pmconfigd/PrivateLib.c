@@ -190,7 +190,6 @@ static PowerEventReasons     reasons = {
             NULL);
 
 
-static void mt2PublishWakeReason(CFStringRef wakeTypeStr, CFStringRef claimedWakeStr);
 static void logASLMessageHibernateStatistics(void);
 
 // dynamicStoreNotifyCallBack is defined in pmconfigd.c
@@ -480,10 +479,14 @@ __private_extern__ void _updateWakeReason
     reasons.claimedWake = claimedReasonFromEventsArray(reasons.claimedWakeEventsArray);
     if (reasons.claimedWake) {
         reasons.interpretedWake = reasons.claimedWake;
-        mt2PublishWakeReason(reasons.platformWakeType, reasons.claimedWake);
+#if !TARGET_OS_EMBEDDED
+        mt2PublishSleepWakeInfo(reasons.platformWakeType, reasons.claimedWake, true);
+#endif
     } else {
         reasons.interpretedWake = reasons.platformWakeType;
-        mt2PublishWakeReason(reasons.platformWakeType, reasons.platformWakeType);
+#if !TARGET_OS_EMBEDDED
+        mt2PublishSleepWakeInfo(reasons.platformWakeType, reasons.platformWakeType, true);
+#endif
     }
 
     getPlatformWakeReason(wakeReason, wakeType);
@@ -540,44 +543,38 @@ const char * getSleepTypeString(void)
     const char      *string = NULL;
 #if !TARGET_OS_EMBEDDED
     io_service_t    rootDomain = getRootDomain();
-    bool            isHibWake = false;
     CFNumberRef     sleepTypeNum;
-    uint32_t        hibState;
 
     sleepTypeNum = IORegistryEntryCreateCFProperty(
                         rootDomain,
                         CFSTR(kIOPMSystemSleepTypeKey),
                         kCFAllocatorDefault, 0);
 
-    if (_getHibernateState(&hibState) &&
-        (hibState & kIOHibernateStateWakingFromHibernate))
-    {
-        isHibWake = true;
-    }
-
     if (isA_CFNumber(sleepTypeNum))
     {
         int sleepType = kIOPMSleepTypeInvalid;
 
         CFNumberGetValue(sleepTypeNum, kCFNumberIntType, &sleepType);
-        if (isHibWake)
+        switch (sleepType)
         {
-            // Hibernation types
-            switch (sleepType)
-            {
-                case kIOPMSleepTypeSafeSleep:
-                    string = "Safe Sleep";
-                    break;
-                case kIOPMSleepTypeHibernate:
-                    string = "Hibernate";
-                    break;
-                case kIOPMSleepTypeStandby:
-                    string = "Standby";
-                    break;
-                case kIOPMSleepTypePowerOff:
-                    string = "AutoPowerOff";
-                    break;
-            }
+            case kIOPMSleepTypeNormalSleep:
+                string = "Normal Sleep";
+                break;
+            case kIOPMSleepTypeSafeSleep:
+                string = "Safe Sleep";
+                break;
+            case kIOPMSleepTypeHibernate:
+                string = "Hibernate";
+                break;
+            case kIOPMSleepTypeStandby:
+                string = "Standby";
+                break;
+            case kIOPMSleepTypePowerOff:
+                string = "AutoPowerOff";
+                break;
+            case kIOPMSleepTypeDeepIdle:
+                string = "Deep Idle";
+                break;
         }
     }
     if (sleepTypeNum)
@@ -2156,7 +2153,6 @@ void mt2PublishReports(void) {};
 void mt2PublishSleepFailure(const char *failType, const char *pci_string) {};
 void mt2PublishWakeFailure(const char *failType, const char *pci_string) {};
 void mt2RecordAppTimeouts(CFStringRef sleepReason, CFStringRef procName) {};
-static void mt2PublishWakeReason(CFStringRef wakeTypeStr, CFStringRef claimedWakeStr) {};
 #else
 
 /*
@@ -2660,7 +2656,7 @@ void mt2RecordAppTimeouts(CFStringRef sleepReason, CFStringRef procName)
 }
 
 
-#define kMT2DomainWakeReasons       "com.apple.iokit.wakereasons"
+#define kMT2DomainSleepWakeInfo     "com.apple.sleepwake.type"
 #define kMT2DomainSleepWakeFailure  "com.apple.sleepwake.failure"
 #define kMT2DomainSleepFailure      "com.apple.sleep.failure"
 #define kMT2DomainWakeFailure       "com.apple.wake.failure"
@@ -2668,42 +2664,54 @@ void mt2RecordAppTimeouts(CFStringRef sleepReason, CFStringRef procName)
 #define kMT2KeyPCI                  "com.apple.message.signature2"
 #define kMT2KeyFailType             "com.apple.message.signature3"
 #define kMT2KeySuccessCount         "com.apple.message.value"
+#define kMT2KeyResult               "com.apple.message.result"
+#define kMT2ValResultPass           "pass"
+#define kMT2ValResultFail           "fail"
+#define kMT2ValUnknown              "Unknown"
 
 
-static void mt2PublishWakeReason(CFStringRef wakeTypeStr, CFStringRef claimedWakeStr)
+void mt2PublishSleepWakeInfo(CFStringRef wakeTypeStr, CFStringRef claimedWakeStr, bool success)
 {
     char wakeType[64];
     char claimedWake[64];
-    tcpKeepAliveStates_et state = getTCPKeepAliveState(NULL, 0);
-    
-
-    if (!isA_CFString(wakeTypeStr)
-        || !CFStringGetCString(wakeTypeStr, wakeType, sizeof(wakeType), kCFStringEncodingUTF8))
-    {
-        return;
-    }
-
-    if (!isA_CFString(claimedWakeStr)
-        || !CFStringGetCString(claimedWakeStr, claimedWake, sizeof(claimedWake), kCFStringEncodingUTF8))
-    {
-        return;
-    }
+    char sleepReason[64];
+    const char *sleepTypeString;
     
     aslmsg m = asl_new(ASL_TYPE_MSG);
-    asl_set(m, "com.apple.message.domain", kMT2DomainWakeReasons);
-
-    asl_set(m, "com.apple.message.signature", wakeType);
-    if (state == kNotSupported) {
-        asl_set(m, "com.apple.message.signature2", "unsupported");
+    asl_set(m, "com.apple.message.domain", kMT2DomainSleepWakeInfo);
+    
+    if ((sleepTypeString = getSleepTypeString())) {
+        asl_set(m, "com.apple.message.signature", sleepTypeString);
+    } else {
+        asl_set(m, "com.apple.message.signature", kMT2ValUnknown);
     }
-    else if (state == kActive) {
-        asl_set(m, "com.apple.message.signature2", "active");
+    
+    if (CFStringGetCString(_getSleepReason(), sleepReason, sizeof(sleepReason), kCFStringEncodingUTF8)) {
+        asl_set(m, "com.apple.message.signature2", sleepReason);
+    } else {
+        asl_set(m, "com.apple.message.signature2", kMT2ValUnknown);
     }
-    else {
-        asl_set(m, "com.apple.message.signature2", "inactive");
+    
+    if (isA_CFString(wakeTypeStr) &&
+        CFStringGetCString(wakeTypeStr, wakeType, sizeof(wakeType), kCFStringEncodingUTF8)) {
+        asl_set(m, "com.apple.message.signature3", wakeType);
+    } else {
+        asl_set(m, "com.apple.message.signature3", kMT2ValUnknown);
     }
-    asl_set(m, "com.apple.message.signature3", claimedWake);
-
+    
+    if (isA_CFString(claimedWakeStr) &&
+        CFStringGetCString(claimedWakeStr, claimedWake, sizeof(claimedWake), kCFStringEncodingUTF8)) {
+        asl_set(m, "com.apple.message.signature4", claimedWake);
+    } else {
+        asl_set(m, "com.apple.message.signature4", kMT2ValUnknown);
+    }
+    
+    if (success) {
+        asl_set(m, kMT2KeyResult, kMT2ValResultPass);
+    } else {
+        asl_set(m, kMT2KeyResult, kMT2ValResultFail);
+    }
+    
     asl_set(m, "com.apple.message.summarize", "YES");
     asl_log(NULL, m, ASL_LEVEL_NOTICE, "");
     asl_release(m);
@@ -3200,6 +3208,158 @@ static IOReturn  populateAcidData(uint64_t acBits, CFMutableDictionaryRef acDict
 
 #endif
 
+#if !TARGET_OS_EMBEDDED
+static uint32_t makeKey(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
+    return (a << 24 | ('0' + b) << 16 | c << 8 | d);
+}
+
+/* rdar://23925883 - Machines that have Ace interface require a special
+ * polling mechanism in order to read adapter info from the SMC.
+ */
+static CFMutableDictionaryRef getSMCAdapterInfo(uint8_t port, CFDictionaryRef oldACDict)
+{
+    bool readFromSMC = false;
+    int32_t current, nominalV, minV, maxV, watts;
+    char  str[33];
+    uint8_t readKeyLen;
+    CFMutableDictionaryRef acDict = NULL;
+    IOReturn ret;
+    
+    current = nominalV = minV =  maxV = watts = 0;
+    readKeyLen = sizeof(current);
+    
+    ret = _smcReadKey(makeKey('D', port, 'I', 'R'), (void *)&current, &readKeyLen, true);
+    if ((ret != kIOReturnSuccess) || (current == 0)) {
+        
+        asl_log(0,0,ASL_LEVEL_ERR, "Failed to read current rating(0x%x)\n", ret);
+        return NULL;
+    }
+    _smcReadKey(makeKey('D', port, 'V', 'R'), (void *)&nominalV, &readKeyLen, true);
+    if ((ret != kIOReturnSuccess) || (nominalV == 0)) {
+        
+        asl_log(0,0,ASL_LEVEL_ERR, "Failed to read nominal Voltage rating(0x%x)\n", ret);
+        return NULL;
+    }
+    
+    do {
+        int32_t prevCurrent, prevNominalV;
+        CFNumberRef prevCurrentRef = NULL;
+        CFNumberRef prevNominalVRef = NULL;
+        
+        if (!isA_CFDictionary(oldACDict)) {
+            readFromSMC = true;
+            break;
+        }
+        
+        
+        prevCurrentRef = CFDictionaryGetValue(oldACDict, CFSTR(kIOPSPowerAdapterCurrentKey));
+        if ((!isA_CFNumber(prevCurrentRef)) ||
+            (!CFNumberGetValue(prevCurrentRef, kCFNumberIntType, &prevCurrent)) ||
+            (current != prevCurrent)
+            ) {
+            readFromSMC = true;
+            break;
+        }
+        
+        prevNominalVRef = CFDictionaryGetValue(oldACDict, CFSTR(kIOPSVoltageKey));
+        if ((!isA_CFNumber(prevCurrentRef)) ||
+            (!CFNumberGetValue(prevNominalVRef, kCFNumberIntType, &prevNominalV)) ||
+            (nominalV != prevNominalV)
+            ) {
+            readFromSMC = true;
+            break;
+        }
+        
+        if (
+            (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterSerialStringKey))) ||
+            (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterIDKey))) ||
+            (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterManufacturerIDKey))) ||
+            (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterFirmwareVersionKey))) ||
+            (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterHardwareVersionKey))) ||
+            (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterNameKey)))
+            ) {
+            readFromSMC = true;
+            break;
+        }
+        
+    } while (0);
+    
+    if (!readFromSMC)
+        return NULL;
+    
+    acDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+            &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (!acDict) {
+        return NULL;
+    }
+    stuffInt32(acDict, CFSTR(kIOPSPowerAdapterCurrentKey), current);
+    
+    _smcReadKey(makeKey('D', port, 'V', 'M'), (void *)&minV, &readKeyLen, true);
+    _smcReadKey(makeKey('D', port, 'V', 'X'), (void *)&maxV, &readKeyLen, true);
+    if ((nominalV == minV) && (maxV != 0)) {
+        watts = (current * maxV)/(1000*1000);
+        stuffInt32(acDict, CFSTR(kIOPSVoltageKey), maxV);
+    }
+    else if (nominalV != 0) {
+        watts = (current * nominalV)/(1000*1000);
+        stuffInt32(acDict, CFSTR(kIOPSVoltageKey), nominalV);
+    }
+    
+    if (watts) {
+        stuffInt32(acDict, CFSTR(kIOPSPowerAdapterWattsKey), watts);
+    }
+    
+    
+    readKeyLen = sizeof(str);
+    bzero(str, sizeof(str));
+    ret = _smcReadKey(makeKey('D', port, 'i', 's'), (void *)&str, &readKeyLen, false);
+    if ((ret == kIOReturnSuccess) && (str[0] != 0))  {
+        stuffString(acDict, CFSTR(kIOPSPowerAdapterSerialStringKey), str);
+    }
+    
+    readKeyLen = sizeof(str);
+    bzero(str, sizeof(str));
+    ret = _smcReadKey(makeKey('D', port, 'i', 'f'), (void *)&str, &readKeyLen, false);
+    if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
+        stuffString(acDict, CFSTR(kIOPSPowerAdapterFirmwareVersionKey), str);
+    }
+    
+    readKeyLen = sizeof(str);
+    bzero(str, sizeof(str));
+    ret = _smcReadKey(makeKey('D', port, 'i', 'h'), (void *)&str, &readKeyLen, false);
+    if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
+        stuffString(acDict, CFSTR(kIOPSPowerAdapterHardwareVersionKey), str);
+    }
+    
+    readKeyLen = sizeof(str);
+    bzero(str, sizeof(str));
+    ret = _smcReadKey(makeKey('D', port, 'i', 'i'), (void *)&str, &readKeyLen, false);
+    if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
+        uint32_t id = 0;
+        id = strtol(str, 0, 0);
+        if (id != 0) {
+            stuffInt32(acDict, CFSTR(kIOPSPowerAdapterIDKey), id);
+        }
+        
+    }
+    
+    readKeyLen = sizeof(str);
+    bzero(str, sizeof(str));
+    ret = _smcReadKey(makeKey('D', port, 'i', 'm'), (void *)&str, &readKeyLen, false);
+    if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
+        stuffString(acDict, CFSTR(kIOPSPowerAdapterManufacturerIDKey), str);
+    }
+    
+    readKeyLen = sizeof(str);
+    bzero(str, sizeof(str));
+    ret = _smcReadKey(makeKey('D', port, 'i', 'n'), (void *)&str, &readKeyLen, false);
+    if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
+        stuffString(acDict, CFSTR(kIOPSPowerAdapterNameKey), str);
+    }
+    
+    return acDict;
+}
+#endif
 
 /************************************************************************/
 __private_extern__ CFDictionaryRef _copyACAdapterInfo(CFDictionaryRef oldACDict)
@@ -3212,161 +3372,41 @@ __private_extern__ CFDictionaryRef _copyACAdapterInfo(CFDictionaryRef oldACDict)
     uint64_t acBits;
     uint8_t readKeyLen;
     CFMutableDictionaryRef          acDict = NULL;
+    uint8_t numPorts;
 
     if (supportsACID && oldACDict) {
         /* No need to re-read the data on ACID supported systems */
         return NULL;
     }
-
-    readKeyLen = sizeof(acBits);
-    ret =  _smcReadKey('ACID', (void *)&acBits, &readKeyLen, false);
+    
+    // Some machines may have ACID and AC-N keys, so check AC-N first
+    readKeyLen = sizeof(numPorts);
+    ret =  _smcReadKey('AC-N', (void *)&numPorts, &readKeyLen, false);
     if (ret == kIOReturnSuccess) {
-        supportsACID = true;
-        acDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
-                &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-        if (!acDict) {
-            return NULL;
-        }
-        populateAcidData(acBits, acDict);
-    }
-    else if (ret == kIOReturnNotFound) {
         supportsACID = false;
-
-        bool readFromSMC = false;
-        int32_t current, nominalV, minV, maxV, watts;
-        char  str[33];
-
-        current = nominalV = minV =  maxV = watts = 0;
-        readKeyLen = sizeof(current);
-        ret = _smcReadKey('D0IR', (void *)&current, &readKeyLen, true);
-        if ((ret != kIOReturnSuccess) || (current == 0)) {
-
-            asl_log(0,0,ASL_LEVEL_ERR, "Failed to read current rating(0x%x)\n", ret);
-            return NULL;
+        uint8_t acWinner;
+        
+        ret =  _smcReadKey('AC-W', (void *)&acWinner, &readKeyLen, false);
+        if (ret == kIOReturnSuccess && acWinner > 0) {
+            // Get the winning adapter's dictionary
+            acDict = getSMCAdapterInfo(acWinner, oldACDict);
         }
-        _smcReadKey('D0VR', (void *)&nominalV, &readKeyLen, true);
-        if ((ret != kIOReturnSuccess) || (nominalV == 0)) {
-
-            asl_log(0,0,ASL_LEVEL_ERR, "Failed to read nominal Voltage rating(0x%x)\n", ret);
-            return NULL;
-        }
-
-        do {
-            int32_t prevCurrent, prevNominalV;
-            CFNumberRef prevCurrentRef = NULL;
-            CFNumberRef prevNominalVRef = NULL;
-
-            if (!isA_CFDictionary(oldACDict)) {
-                readFromSMC = true;
-                break;
+    } else if (ret == kIOReturnNotFound) {
+        readKeyLen = sizeof(acBits);
+        ret =  _smcReadKey('ACID', (void *)&acBits, &readKeyLen, false);
+        
+        if (ret == kIOReturnSuccess) {
+            supportsACID = true;
+            acDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                    &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+            if (!acDict) {
+                return NULL;
             }
-
-
-            prevCurrentRef = CFDictionaryGetValue(oldACDict, CFSTR(kIOPSPowerAdapterCurrentKey));
-            if ((!isA_CFNumber(prevCurrentRef)) ||
-                (!CFNumberGetValue(prevCurrentRef, kCFNumberIntType, &prevCurrent)) ||
-                 (current != prevCurrent)
-               ) {
-                readFromSMC = true;
-                break;
-            }
-
-            prevNominalVRef = CFDictionaryGetValue(oldACDict, CFSTR(kIOPSVoltageKey));
-            if ((!isA_CFNumber(prevCurrentRef)) ||
-                (!CFNumberGetValue(prevNominalVRef, kCFNumberIntType, &prevNominalV)) ||
-                 (nominalV != prevNominalV)
-               ) {
-                readFromSMC = true;
-                break;
-            }
-
-            if (
-                (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterSerialStringKey))) ||
-                (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterIDKey))) ||
-                (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterManufacturerIDKey))) ||
-                (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterFirmwareVersionKey))) ||
-                (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterHardwareVersionKey))) ||
-                (!CFDictionaryContainsKey(oldACDict, CFSTR(kIOPSPowerAdapterNameKey)))
-               ) {
-                readFromSMC = true;
-                break;
-            }
-
-        } while (0);
-
-        if (!readFromSMC) 
-            return NULL;
-
-        acDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
-                &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-        if (!acDict) {
-            return NULL;
+            populateAcidData(acBits, acDict);
+        } else if (ret == kIOReturnNotFound) {
+            // Handle machines that do not support Ace or ACID
+            acDict = getSMCAdapterInfo(0, oldACDict);
         }
-        stuffInt32(acDict, CFSTR(kIOPSPowerAdapterCurrentKey), current);
-
-        _smcReadKey('D0VM', (void *)&minV, &readKeyLen, true);
-        _smcReadKey('D0VX', (void *)&maxV, &readKeyLen, true);
-        if ((nominalV == minV) && (maxV != 0)) {
-            watts = (current * maxV)/(1000*1000);
-            stuffInt32(acDict, CFSTR(kIOPSVoltageKey), maxV);
-        }
-        else if (nominalV != 0) {
-            watts = (current * nominalV)/(1000*1000);
-            stuffInt32(acDict, CFSTR(kIOPSVoltageKey), nominalV);
-        }
-
-        if (watts) {
-            stuffInt32(acDict, CFSTR(kIOPSPowerAdapterWattsKey), watts);
-        }
-
-
-        readKeyLen = sizeof(str);
-        bzero(str, sizeof(str));
-        ret = _smcReadKey('D0is', (void *)&str, &readKeyLen, false);
-        if ((ret == kIOReturnSuccess) && (str[0] != 0))  {
-            stuffString(acDict, CFSTR(kIOPSPowerAdapterSerialStringKey), str);
-        }
-
-        readKeyLen = sizeof(str);
-        bzero(str, sizeof(str));
-        ret = _smcReadKey('D0if', (void *)&str, &readKeyLen, false);
-        if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
-            stuffString(acDict, CFSTR(kIOPSPowerAdapterFirmwareVersionKey), str);
-        }
-
-        readKeyLen = sizeof(str);
-        bzero(str, sizeof(str));
-        ret = _smcReadKey('D0ih', (void *)&str, &readKeyLen, false);
-        if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
-            stuffString(acDict, CFSTR(kIOPSPowerAdapterHardwareVersionKey), str);
-        }
-
-        readKeyLen = sizeof(str);
-        bzero(str, sizeof(str));
-        ret = _smcReadKey('D0ii', (void *)&str, &readKeyLen, false);
-        if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
-            uint32_t id = 0;
-            id = strtol(str, 0, 0);
-            if (id != 0) {
-                stuffInt32(acDict, CFSTR(kIOPSPowerAdapterIDKey), id);
-            }
-
-        }
-
-        readKeyLen = sizeof(str);
-        bzero(str, sizeof(str));
-        ret = _smcReadKey('D0im', (void *)&str, &readKeyLen, false);
-        if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
-            stuffString(acDict, CFSTR(kIOPSPowerAdapterManufacturerIDKey), str);
-        }
-
-        readKeyLen = sizeof(str);
-        bzero(str, sizeof(str));
-        ret = _smcReadKey('D0in', (void *)&str, &readKeyLen, false);
-        if ((ret == kIOReturnSuccess) && (str[0] != 0)) {
-            stuffString(acDict, CFSTR(kIOPSPowerAdapterNameKey), str);
-        }
-
     }
     return acDict;
 
@@ -3586,7 +3626,7 @@ static IOReturn callSMCFunction(
         kIOMasterPortDefault,
         IOServiceMatching("AppleSMC"));
     if (IO_OBJECT_NULL == smc) {
-        return kIOReturnNotFound;
+        return kIOReturnError;
     }
 
     result = IOServiceOpen(smc, mach_task_self(), 1, &_SMCConnect);

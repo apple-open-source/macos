@@ -182,6 +182,11 @@
 #include <openssl/srp.h>
 #endif
 
+/* ALPN Protocol Negotiation */
+#if defined(TLSEXT_TYPE_application_layer_protocol_negotiation)
+#define HAVE_TLS_ALPN
+#endif
+
 #endif /* !defined(OPENSSL_NO_TLSEXT) && defined(SSL_set_tlsext_host_name) */
 
 /* mod_ssl headers */
@@ -292,16 +297,27 @@ typedef int ssl_opt_t;
  * Define the SSL Protocol options
  */
 #define SSL_PROTOCOL_NONE  (0)
-#define SSL_PROTOCOL_SSLV2 (1<<0)
+#ifndef OPENSSL_NO_SSL3
 #define SSL_PROTOCOL_SSLV3 (1<<1)
+#endif
 #define SSL_PROTOCOL_TLSV1 (1<<2)
+#ifndef OPENSSL_NO_SSL3
+#define SSL_PROTOCOL_BASIC (SSL_PROTOCOL_SSLV3|SSL_PROTOCOL_TLSV1)
+#else
+#define SSL_PROTOCOL_BASIC (SSL_PROTOCOL_TLSV1)
+#endif
 #ifdef HAVE_TLSV1_X
 #define SSL_PROTOCOL_TLSV1_1 (1<<3)
 #define SSL_PROTOCOL_TLSV1_2 (1<<4)
-#define SSL_PROTOCOL_ALL   (SSL_PROTOCOL_SSLV3|SSL_PROTOCOL_TLSV1| \
+#define SSL_PROTOCOL_ALL   (SSL_PROTOCOL_BASIC| \
                             SSL_PROTOCOL_TLSV1_1|SSL_PROTOCOL_TLSV1_2)
 #else
-#define SSL_PROTOCOL_ALL   (SSL_PROTOCOL_SSLV3|SSL_PROTOCOL_TLSV1)
+#define SSL_PROTOCOL_ALL   (SSL_PROTOCOL_BASIC)
+#endif
+#ifndef OPENSSL_NO_SSL3
+#define SSL_PROTOCOL_DEFAULT (SSL_PROTOCOL_ALL & ~SSL_PROTOCOL_SSLV3)
+#else
+#define SSL_PROTOCOL_DEFAULT (SSL_PROTOCOL_ALL)
 #endif
 typedef int ssl_proto_t;
 
@@ -426,6 +442,7 @@ typedef struct {
     int disabled;
     enum {
         NON_SSL_OK = 0,        /* is SSL request, or error handling completed */
+        NON_SSL_SEND_REQLINE,  /* Need to send the fake request line */
         NON_SSL_SEND_HDR_SEP,  /* Need to send the header separator */
         NON_SSL_SET_ERROR_MSG  /* Need to set the error message */
     } non_ssl_request;
@@ -444,6 +461,8 @@ typedef struct {
     } reneg_state;
 
     server_rec *server;
+    
+    const char *cipher_suite; /* cipher suite used in last reneg */
 } SSLConnRec;
 
 /* BIG FAT WARNING: SSLModConfigRec has unusual memory lifetime: it is
@@ -798,6 +817,12 @@ int         ssl_callback_SessionTicket(SSL *, unsigned char *, unsigned char *,
                                        EVP_CIPHER_CTX *, HMAC_CTX *, int);
 #endif
 
+#ifdef HAVE_TLS_ALPN
+int ssl_callback_alpn_select(SSL *ssl, const unsigned char **out,
+                             unsigned char *outlen, const unsigned char *in,
+                             unsigned int inlen, void *arg);
+#endif
+
 /**  Session Cache Support  */
 apr_status_t ssl_scache_init(server_rec *, apr_pool_t *);
 void         ssl_scache_status_register(apr_pool_t *p);
@@ -855,6 +880,8 @@ char        *ssl_util_readfilter(server_rec *, apr_pool_t *, const char *,
 BOOL         ssl_util_path_check(ssl_pathcheck_t, const char *, apr_pool_t *);
 void         ssl_util_thread_setup(apr_pool_t *);
 int          ssl_init_ssl_connection(conn_rec *c, request_rec *r);
+
+BOOL         ssl_util_vhost_matches(const char *servername, server_rec *s);
 
 /**  Pass Phrase Support  */
 apr_status_t ssl_load_encrypted_pkey(server_rec *, apr_pool_t *, int,

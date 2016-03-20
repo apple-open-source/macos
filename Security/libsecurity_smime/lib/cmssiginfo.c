@@ -59,6 +59,7 @@
 #include <Security/SecKeyPriv.h>
 #include <utilities/SecCFWrappers.h>
 #include <CoreFoundation/CFTimeZone.h>
+#include <Security/SecBasePriv.h>
 
 
 #define HIDIGIT(v) (((v) / 10) + '0')    
@@ -822,6 +823,44 @@ SecCmsSignerInfoGetSigningTime(SecCmsSignerInfoRef sinfo, CFAbsoluteTime *stime)
     return SECSuccess;
 }
 
+/*!
+     @function
+     @abstract Return the data in the signed Codesigning Hash Agility attribute.
+     @param sinfo SignerInfo data for this signer, pointer to a CFDataRef for attribute value
+     @discussion Returns a CFDataRef containing the value of the attribute
+     @result A return value of errSecInternal is an error trying to look up the oid.
+             A status value of success with null result data indicates the attribute was not present.
+ */
+OSStatus
+SecCmsSignerInfoGetAppleCodesigningHashAgility(SecCmsSignerInfoRef sinfo, CFDataRef *sdata)
+{
+    SecCmsAttribute *attr;
+    SecAsn1Item *value;
+
+    if (sinfo == NULL || sdata == NULL)
+        return errSecParam;
+
+    *sdata = NULL;
+
+    if (sinfo->hashAgilityAttrValue != NULL) {
+        *sdata = sinfo->hashAgilityAttrValue;	/* cached copy */
+        return SECSuccess;
+    }
+
+    attr = SecCmsAttributeArrayFindAttrByOidTag(sinfo->authAttr, SEC_OID_APPLE_HASH_AGILITY, PR_TRUE);
+
+    /* attribute not found */
+    if (attr == NULL || (value = SecCmsAttributeGetValue(attr)) == NULL)
+        return SECSuccess;
+
+    sinfo->hashAgilityAttrValue = CFDataCreate(NULL, value->Data, value->Length);	/* make cached copy */
+    if (sinfo->hashAgilityAttrValue) {
+        *sdata = sinfo->hashAgilityAttrValue;
+        return SECSuccess;
+    }
+    return errSecAllocate;
+}
+
 /*
  * Return the signing cert of a CMS signerInfo.
  *
@@ -1203,6 +1242,54 @@ SecCmsSignerInfoAddCounterSignature(SecCmsSignerInfoRef signerinfo,
 {
     /* XXXX TBD XXXX */
     return SECFailure;
+}
+
+/*!
+     @function
+     @abstract Add the Apple Codesigning Hash Agility attribute to the authenticated (i.e. signed) attributes of "signerinfo".
+     @discussion This is expected to be included in outgoing signed Apple code signatures.
+ */
+OSStatus
+SecCmsSignerInfoAddAppleCodesigningHashAgility(SecCmsSignerInfoRef signerinfo, CFDataRef attrValue)
+{
+    SecCmsAttribute *attr;
+    PLArenaPool *poolp = signerinfo->signedData->contentInfo.cmsg->poolp;
+    void *mark = PORT_ArenaMark(poolp);
+    OSStatus status = SECFailure;
+
+    /* The value is required for this attribute. */
+    if (!attrValue) {
+        status = errSecParam;
+        goto loser;
+    }
+
+    /*
+     * SecCmsAttributeCreate makes a copy of the data in value, so
+     * we don't need to copy into the CSSM_DATA struct.
+     */
+    SecAsn1Item value;
+    value.Length = CFDataGetLength(attrValue);
+    value.Data = (uint8_t *)CFDataGetBytePtr(attrValue);
+
+    if ((attr = SecCmsAttributeCreate(poolp,
+                                      SEC_OID_APPLE_HASH_AGILITY,
+                                      &value,
+                                      PR_FALSE)) == NULL) {
+        status = errSecAllocate;
+        goto loser;
+    }
+
+    if (SecCmsSignerInfoAddAuthAttr(signerinfo, attr) != SECSuccess) {
+        status = errSecInternal;
+        goto loser;
+    }
+
+    PORT_ArenaUnmark(poolp, mark);
+    return SECSuccess;
+
+loser:
+    PORT_ArenaRelease(poolp, mark);
+    return status;
 }
 
 /*

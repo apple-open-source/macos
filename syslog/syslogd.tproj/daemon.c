@@ -927,12 +927,28 @@ void
 process_message(asl_msg_t *msg, uint32_t source)
 {
 	int64_t msize = 0;
+	static bool wq_draining = false;
 	bool is_control = false;
 	asl_msg_t *x;
 
 	if (msg == NULL) return;
 
 	is_control = asl_check_option(msg, ASL_OPT_CONTROL) != 0;
+
+	if ((!is_control) && wq_draining)
+	{
+		if (global.memory_size >= (global.memory_max / 2))
+		{
+			asldebug("Work queue draining: dropped message.\n");
+			asl_msg_release(msg);
+			return;
+		}
+		else
+		{
+			asldebug("Work queue re-enabled at 1/2 max.  size %lld  max %lld\n", global.memory_size, global.memory_max);
+			wq_draining = false;
+		}
+	}
 
 	__block vproc_transaction_t vt = vproc_transaction_begin(NULL);
 
@@ -941,12 +957,13 @@ process_message(asl_msg_t *msg, uint32_t source)
 	if ((global.memory_size + msize) >= global.memory_max)
 	{
 		char str[256];
+
+		wq_draining = true;
 		asl_msg_release(msg);
 
-		asldebug("Work queue memory limit - dropped message.  msize %lld  size %lld  max %lld\n", msize, global.memory_size + msize, global.memory_max);
-		snprintf(str, sizeof(str), "[Sender syslogd] [Level 2] [PID %u] [Message Received message size %lld overflows work queue limit %lld - dropping message] [UID 0] [UID 0] [Facility syslog]", global.pid, msize, global.memory_max);
+		asldebug("Work queue disabled.  msize %lld  size %lld  max %lld\n", msize, global.memory_size + msize, global.memory_max);
+		snprintf(str, sizeof(str), "[Sender syslogd] [Level 2] [PID %u] [Message Internal memory size limit %lld exceeded - dropping messages] [UID 0] [UID 0] [Facility syslog]", global.pid, global.memory_max);
 		msg = asl_msg_from_string(str);
-		for (x = msg; x != NULL; x = x->next) msize += x->mem_size;
 	}
 
 	OSAtomicAdd64(msize, &global.memory_size);

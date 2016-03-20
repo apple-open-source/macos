@@ -349,8 +349,8 @@ static inline CFMutableDataRef CFDataCreateMutableFromOTRDATA(CFAllocatorRef all
     CFDataAppendBytes(result, *bytesPtr, (CFIndex)sizeInStream);
     
     *bytesPtr += sizeInStream;
-    *sizePtr += sizeInStream;
-    
+    *sizePtr -= sizeInStream;
+
 exit:
     return result;
 }

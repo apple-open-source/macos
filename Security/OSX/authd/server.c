@@ -601,11 +601,12 @@ authorization_copy_rights(connection_t conn, xpc_object_t message, xpc_object_t 
     auth_token_t auth = NULL;
     status = _process_find_copy_auth_token_from_xpc(proc, message, &auth);
     require_noerr(status, done);
+    require_noerr_action_quiet(status, done, LOGE("copy_rights: no auth token"));
     
     status = _server_authorize(conn, auth, flags, rights, environment, &engine);
-    require_noerr(status, done);
-    
-    //reply
+	require_noerr_action_quiet(status, done, LOGE("copy_rights: _server_authorize failed"));
+
+	//reply
     xpc_object_t outItems = auth_rights_export_xpc(engine_get_granted_rights(engine));
     xpc_dictionary_set_value(reply, AUTH_XPC_OUT_ITEMS, outItems);
     xpc_release_safe(outItems);

@@ -43,7 +43,7 @@ namespace Security {
 class AnyAclSubject : public AclSubject {
 public:
     AnyAclSubject() : AclSubject(CSSM_ACL_SUBJECT_TYPE_ANY) { }
-	bool validate(const AclValidationContext &ctx) const;
+	bool validates(const AclValidationContext &ctx) const;
 	CssmList toList(Allocator &alloc) const;
 
 	class Maker : public AclSubject::Maker {

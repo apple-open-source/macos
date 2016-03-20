@@ -102,7 +102,7 @@ class IOHIDStackShotUserClient : public IOUserClient
 
 private:
 
-    IOHIDSystem *	owner;
+    IOHIDSystem     *owner;
     task_t          client;
     
 public:
@@ -129,10 +129,10 @@ class IOHIDEventSystemUserClient : public IOUserClient
 
 private:
     IOHIDSystem *               owner;
-    task_t                      client;
+    //task_t                      client;
     IOHIDEventServiceQueue *    kernelQueue;
-    OSSet *						userQueues;
-
+    OSSet *                     userQueues;
+    IOCommandGate *             commandGate;
 	static void initialize(void);
 	static UInt32 createIDForDataQueue(IODataQueue * eventQueue);
 	static void removeIDForDataQueue(IODataQueue * eventQueue);
@@ -147,7 +147,9 @@ public:
 
     virtual IOExternalMethod * getTargetAndMethodForIndex(IOService ** targetP, UInt32 index );
     virtual IOReturn createEventQueue(void*,void*,void*,void*,void*,void*);
+    virtual IOReturn createEventQueueGated(void*p1,void*p2,void*p3, void*);
     virtual IOReturn destroyEventQueue(void*,void*,void*,void*,void*,void*);
+    virtual IOReturn destroyEventQueueGated(void*,void*,void*,void*);
     virtual IOReturn tickle(void*,void*,void*,void*,void*,void*);
 
     virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, UInt32 refCon );
@@ -156,7 +158,7 @@ public:
     virtual IOService * getService( void );
 
     virtual bool start( IOService * provider );
-
+    virtual void stop ( IOService * provider );
 };
 
 

@@ -221,6 +221,7 @@
 <li><a href="mod/mod_headers.html">Apache 模块 mod_headers</a></li>
 <li><a href="mod/mod_heartbeat.html">Apache 模块 mod_heartbeat</a></li>
 <li><a href="mod/mod_heartmonitor.html">Apache 模块 mod_heartmonitor</a></li>
+<li><a href="mod/mod_http2.html">Apache 模块 mod_http2</a></li>
 <li><a href="mod/mod_ident.html">Apache 模块 mod_ident</a></li>
 <li><a href="mod/mod_imagemap.html">Apache 模块 mod_imagemap</a></li>
 <li><a href="mod/mod_include.html">Apache 模块 mod_include</a></li>

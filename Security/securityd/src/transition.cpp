@@ -546,6 +546,26 @@ kern_return_t ucsp_server_recodeDbForSync(UCSP_ARGS, DbHandle dbToClone,
 	END_IPC(DL)
 }
 
+kern_return_t ucsp_server_recodeDbToVersion(UCSP_ARGS, uint32 newVersion, DbHandle srcDb, DbHandle *newDb)
+{
+    BEGIN_IPC(recodeDbToVersion)
+    RefPointer<KeychainDatabase> srcKC = Server::keychain(srcDb);
+
+    // You can only recode an unlocked keychain, so let's make sure.
+    srcKC->unlockDb();
+
+    // Currently, there's no way to ask KeychainDatabase to become a new version.
+    // So, let's just hope they're asking for the right version, and throw an error if they didn't.
+    KeychainDatabase* newKC = new KeychainDatabase(*srcKC, connection.process());
+    if(newKC->blob()->version() != newVersion) {
+        CssmError::throwMe(CSSM_ERRCODE_INCOMPATIBLE_VERSION);
+    }
+
+    *newDb = newKC->handle();
+
+    END_IPC(DL)
+}
+
 kern_return_t ucsp_server_authenticateDbsForSync(UCSP_ARGS, DATA_IN(dbHandleArray),
 	DATA_IN(agentData), DbHandle* authenticatedDBHandle)
 {
@@ -563,7 +583,7 @@ kern_return_t ucsp_server_authenticateDbsForSync(UCSP_ARGS, DATA_IN(dbHandleArra
 	int index;
 	for (index=0; index < ipcDbHandleArrayCount; index++)
 	{
-		*currIPCDbHandleArrayPtr = *dbHandleArrayPtr; 
+		*currIPCDbHandleArrayPtr = *dbHandleArrayPtr;
 		Server::keychain(*currIPCDbHandleArrayPtr)->lockDb(); // lock this db if it was unlocked in the past (user could have deleted the kc, resetLogin, etc.)
 		currIPCDbHandleArrayPtr++;
 		dbHandleArrayPtr++;
@@ -1119,7 +1139,10 @@ kern_return_t ucsp_server_getAcl(UCSP_ARGS, AclKind kind, KeyHandle key,
 	BEGIN_IPC(getAcl)
 	uint32 count;
 	AclEntryInfo *aclList;
-	Server::aclBearer(kind, key).getAcl(haveTag ? tag : NULL, count, aclList);
+
+    AclSource& aclRef = Server::aclBearer(kind, key);
+    secdebug("SecAccess", "getting the ACL for handle %d [%d] (%p)", key, (uint32_t) kind, &aclRef);
+    aclRef.getAcl(haveTag ? tag : NULL, count, aclList);
 
 	CSSM_ACL_ENTRY_INFO_ARRAY aclsArray = { count, aclList };
 	void *acls_data; u_int acls_length;
@@ -1151,7 +1174,10 @@ kern_return_t ucsp_server_changeAcl(UCSP_ARGS, AclKind kind, KeyHandle key,
 	CopyOutAccessCredentials creds(cred, credLength);
 	CopyOutAclEntryInput entryacl(acl, aclLength);
 
-	Server::aclBearer(kind, key).changeAcl(AclEdit(mode, handle, entryacl), creds);
+    AclSource& aclRef = Server::aclBearer(kind, key);
+    secdebug("SecAccess", "changing the ACL for handle %d [%d] (%p)", key, (uint32_t) kind, &aclRef);
+    aclRef.changeAcl(AclEdit(mode, handle, entryacl), creds);
+
 	END_IPC(CSP)
 }
 

@@ -194,6 +194,57 @@ void CountingMutex::finishExit()
     unlock();
 }
 
+//
+// ReadWriteLock implementation
+//
+ReadWriteLock::ReadWriteLock() {
+    check(pthread_rwlock_init(&mLock, NULL));
+}
+
+bool ReadWriteLock::lock() {
+    check(pthread_rwlock_rdlock(&mLock));
+    return true;
+}
+
+bool ReadWriteLock::tryLock() {
+    return (pthread_rwlock_tryrdlock(&mLock) == 0);
+}
+
+bool ReadWriteLock::writeLock() {
+    check(pthread_rwlock_wrlock(&mLock));
+    return true;
+}
+
+bool ReadWriteLock::tryWriteLock() {
+    return (pthread_rwlock_trywrlock(&mLock) == 0);
+}
+
+void ReadWriteLock::unlock() {
+    check(pthread_rwlock_unlock(&mLock));
+}
+
+//
+// StReadWriteLock implementation
+//
+bool StReadWriteLock::lock() {
+    switch(mType) {
+        case Read:     mIsLocked = mRWLock.lock(); break;
+        case TryRead:  mIsLocked = mRWLock.tryLock(); break;
+        case Write:    mIsLocked = mRWLock.writeLock(); break;
+        case TryWrite: mIsLocked = mRWLock.tryWriteLock(); break;
+    }
+    return mIsLocked;
+}
+
+void StReadWriteLock::unlock() {
+    mRWLock.unlock();
+    mIsLocked = false;
+}
+
+bool StReadWriteLock::isLocked() {
+    return mIsLocked;
+}
+
 
 
 //

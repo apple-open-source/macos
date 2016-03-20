@@ -100,6 +100,14 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "secd_20_keychain_upgrade"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_21_transmogrify"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "secd_30_keychain_upgrade"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -229,6 +237,10 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "sc_140_hsa2"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_154_engine_backoff"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument

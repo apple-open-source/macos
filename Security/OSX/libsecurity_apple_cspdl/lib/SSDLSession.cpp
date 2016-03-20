@@ -1312,6 +1312,31 @@ SSDLSession::PassThrough(CSSM_DB_HANDLE inDbHandle,
 			doConvertRecordIdentifier (db, inInputParams, outOutputParams);
 			break;
 		}
+        case CSSM_APPLECSPDL_DB_GET_BLOB_VERSION:
+        {
+            *((uint32*) *outOutputParams) = db->dbBlobVersion();
+            break;
+        }
+        case CSSM_APPLECSPDL_DB_RECODE_TO_BLOB_VERSION:
+        {
+            *((uint32*) *outOutputParams) = db->recodeDbToVersion(*((uint32*) inInputParams));
+            break;
+        }
+        case CSSM_APPLECSPDL_DB_TAKE_FILE_LOCK:
+        {
+            db->takeFileLock();
+            break;
+        }
+        case CSSM_APPLECSPDL_DB_RELEASE_FILE_LOCK:
+        {
+            db->releaseFileLock(*((bool*) inInputParams));
+            break;
+        }
+        case CSSM_APPLECSPDL_DB_MAKE_BACKUP:
+        {
+            db->makeBackup();
+            break;
+        }
 		default:
 		{
 			CSSM_RETURN result = CSSM_DL_PassThrough(db->handle(), inPassThroughId, inInputParams, outOutputParams);

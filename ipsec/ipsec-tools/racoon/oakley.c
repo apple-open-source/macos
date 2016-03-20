@@ -1626,19 +1626,14 @@ oakley_vpncontrol_notify_ike_failed_if_mycert_invalid (phase1_handle_t *iph1, in
 	int premature = oakley_find_status_in_certchain(iph1->cert, CERT_STATUS_PREMATURE);
 	int expired = oakley_find_status_in_certchain(iph1->cert, CERT_STATUS_EXPIRED);
 	if (premature || expired) {
-		u_int32_t address;
 		u_int32_t fail_reason;
 
-		if (iph1->remote->ss_family == AF_INET)
-			address = ((struct sockaddr_in *)(iph1->remote))->sin_addr.s_addr;
-		else
-			address = 0;
 		if (premature) {
 			fail_reason = VPNCTL_NTYPE_LOCAL_CERT_PREMATURE;
 		} else {
 			fail_reason = VPNCTL_NTYPE_LOCAL_CERT_EXPIRED;
 		}
-		vpncontrol_notify_ike_failed(fail_reason, notify_initiator, address, 0, NULL);
+		vpncontrol_notify_ike_failed(fail_reason, notify_initiator, iph1_get_remote_v4_address(iph1), 0, NULL);
 		return -1;
 	}
 #endif /* TARGET_OS_EMBEDDED */

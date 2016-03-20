@@ -411,7 +411,7 @@ static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef det
             out, status = errSecAuthFailed);
     }
     
-    #if 0
+#if 0
     if (nsigners > 1)
         trustrefs = CFArrayCreateMutable(kCFAllocatorDefault, nsigners, &kCFTypeArrayCallBacks);
         

@@ -99,6 +99,8 @@ public:
 	void setAccess(AclBearer &target, bool update = false);
 	void setAccess(AclBearer &target, Maker &maker);
 
+    void editAccess(AclBearer &target, bool update, const AccessCredentials *cred);
+
 	template <class Container>
 	void findAclsForRight(AclAuthorization right, Container &cont)
 	{
@@ -107,6 +109,20 @@ public:
 			if (it->second->authorizes(right))
 				cont.push_back(it->second);
 	}
+
+    // findAclsForRight may return ACLs that have an empty authorization list (and thus "authorize everything")
+    // or CSSM_ACL_AUTHORIZATION_ANY, but sometimes you need positive confirmation of a right.
+    template <class Container>
+    void findSpecificAclsForRight(AclAuthorization right, Container &cont)
+    {
+        cont.clear();
+        for (Map::const_iterator it = mAcls.begin(); it != mAcls.end(); it++)
+            if (it->second->authorizesSpecifically(right))
+                cont.push_back(it->second);
+    }
+
+    // Remove all acl entries that refer to this right.
+    void removeAclsForRight(AclAuthorization right);
 	
 	std::string promptDescription() const;	// from any one of the ACLs contained
 	
@@ -121,8 +137,7 @@ protected:
 		const AclAuthorizationSet &freeRights = AclAuthorizationSet());
     void compile(const CSSM_ACL_OWNER_PROTOTYPE &owner,
         uint32 aclCount, const CSSM_ACL_ENTRY_INFO *acls);
-	
-	void editAccess(AclBearer &target, bool update, const AccessCredentials *cred);
+
 
 private:
 	static const CSSM_ACL_HANDLE ownerHandle = ACL::ownerHandle;

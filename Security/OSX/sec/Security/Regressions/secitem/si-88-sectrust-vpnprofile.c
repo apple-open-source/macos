@@ -50,14 +50,18 @@ static void tests(void)
     const void *v_certs[] = { cert0, cert1 };
     CFArrayRef certs = CFArrayCreate(NULL, v_certs, sizeof(v_certs)/sizeof(*v_certs), &kCFTypeArrayCallBacks);
     CFArrayRef anchor_certs = CFArrayCreate(NULL, (const void**)&rootcert, 1, &kCFTypeArrayCallBacks);
+
+    /* Set explicit verify date: 15 Dec 2015 */
+    CFDateRef date = NULL;
+    isnt(date = CFDateCreate(NULL, 471907305.0), NULL, "Create verify date");
     
     /* Create AppleTV VPN profile signing policy instance. */
     isnt(policy = SecPolicyCreateAppleATVVPNProfileSigning(), NULL, "create policy");
     
     /* Create trust reference. */
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "create trust");
-    
     ok_status(SecTrustSetAnchorCertificates(trust, anchor_certs), "set anchor");
+    ok_status(SecTrustSetVerifyDate(trust, date), "set date");
     
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
     is_status(trustResult, kSecTrustResultUnspecified, "trustResult is kSecTrustResultUnspecified");
@@ -80,6 +84,7 @@ static void tests(void)
     
     isnt(policy = SecPolicyCreateAppleATVVPNProfileSigning(), NULL, "create policy");
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "create trust");
+    ok_status(SecTrustSetVerifyDate(trust, date), "set date");
 
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
     is_status(trustResult, kSecTrustResultRecoverableTrustFailure, "trustResult is kSecTrustResultRecoverableTrustFailure");
@@ -89,6 +94,9 @@ static void tests(void)
     CFReleaseSafe(certs);
     CFReleaseSafe(cert3);
     CFReleaseSafe(cert2);
+    CFReleaseSafe(anchor_certs);
+    CFReleaseSafe(rootcert);
+    CFReleaseSafe(date);
 }
 
 
@@ -97,7 +105,7 @@ int si_88_sectrust_vpnprofile(int argc, char *const *argv);
 
 int si_88_sectrust_vpnprofile(int argc, char *const *argv)
 {
-    plan_tests(15);
+    plan_tests(18);
     
     tests();
     

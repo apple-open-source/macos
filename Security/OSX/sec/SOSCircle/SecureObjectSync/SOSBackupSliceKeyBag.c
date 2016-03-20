@@ -121,6 +121,9 @@ fail:
 size_t der_sizeof_BackupSliceKeyBag(SOSBackupSliceKeyBagRef BackupSliceKeyBag, CFErrorRef *error) {
     size_t result = 0;
 
+    require_quiet(SecRequirementError(BackupSliceKeyBag != NULL, error, CFSTR("Null BackupSliceKeyBag")), fail);
+    require_quiet(SecRequirementError(BackupSliceKeyBag->aks_bag != NULL, error, CFSTR("null aks_bag in BackupSliceKeyBag")), fail);
+
     size_t bag_size = der_sizeof_data(BackupSliceKeyBag->aks_bag, error);
     require_quiet(bag_size, fail);
 
@@ -350,6 +353,40 @@ CFDataRef SOSBSKBCopyAKSBag(SOSBackupSliceKeyBagRef backupSliceKeyBag, CFErrorRe
 
 CFSetRef SOSBSKBGetPeers(SOSBackupSliceKeyBagRef backupSliceKeyBag){
     return backupSliceKeyBag->peers;
+}
+
+bskb_keybag_handle_t SOSBSKBLoadLocked(SOSBackupSliceKeyBagRef backupSliceKeyBag,
+                                       CFErrorRef *error)
+{
+#if !TARGET_HAS_KEYSTORE
+    return bad_keybag_handle;
+#else
+    keybag_handle_t result = bad_keybag_handle;
+    keybag_handle_t bag_handle = bad_keybag_handle;
+
+    require_quiet(SecRequirementError(backupSliceKeyBag->aks_bag, error,
+                                      CFSTR("No aks bag to load")), exit);
+    require_quiet(SecRequirementError(CFDataGetLength(backupSliceKeyBag->aks_bag) < INT_MAX, error,
+                                      CFSTR("No aks bag to load")), exit);
+
+    kern_return_t aks_result;
+    aks_result = aks_load_bag(CFDataGetBytePtr(backupSliceKeyBag->aks_bag),
+                              (int) CFDataGetLength(backupSliceKeyBag->aks_bag),
+                              &bag_handle);
+    require_quiet(SecKernError(aks_result, error,
+                               CFSTR("aks_load_bag failed: %d"), aks_result), exit);
+
+    result = bag_handle;
+    bag_handle = bad_keybag_handle;
+
+exit:
+    if (bag_handle != bad_keybag_handle) {
+        (void) aks_unload_bag(bag_handle);
+    }
+
+    return result;
+#endif
+
 }
 
 static keybag_handle_t SOSBSKBLoadAndUnlockBagWithSecret(SOSBackupSliceKeyBagRef backupSliceKeyBag,

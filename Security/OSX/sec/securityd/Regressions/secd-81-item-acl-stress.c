@@ -32,7 +32,6 @@
 #include <MobileKeyBag/MobileKeyBag.h>
 #endif
 
-void kc_dbhandle_reset(void);
 #endif
 
 enum ItemAttrType {
@@ -48,7 +47,7 @@ enum ItemAttrType {
 
 extern void LASetErrorCodeBlock(CFErrorRef (^newCreateErrorBlock)(void));
 
-#if USE_KEYSTORE
+#if LA_CONTEXT_IMPLEMENTED
 static keybag_handle_t test_keybag;
 static const char *passcode = "password";
 
@@ -148,7 +147,7 @@ static void ItemForEachPKAttr(CFMutableDictionaryRef item, void(^each)(CFStringR
     }
 }
 
-#if USE_KEYSTORE
+#if LA_CONTEXT_IMPLEMENTED
 CF_RETURNS_RETAINED
 static CFErrorRef createCFError(CFStringRef message, CFIndex code)
 {
@@ -211,7 +210,7 @@ static void tests(bool isPasscodeSet)
         return (CFErrorRef)NULL;
     };
 
-#if USE_KEYSTORE
+#if LA_CONTEXT_IMPLEMENTED
     CFErrorRef (^errorNotInteractiveBlock)(void)  = ^ {
         return createCFError(CFSTR(""), kLAErrorNotInteractive);
     };
@@ -239,18 +238,16 @@ static void tests(bool isPasscodeSet)
             LASetErrorCodeBlock(okBlock);
             CFDictionarySetValue(item, kSecAttrAccessControl, aclRef);
             CFDictionarySetValue(item, kSecAttrSynchronizable, kCFBooleanFalse);
-#if USE_KEYSTORE
+#if LA_CONTEXT_IMPLEMENTED
             ok_status(SecItemAdd(item, NULL), "add local ");
             ok_status(SecItemCopyMatching(item, NULL), "find local");
             ok_status(SecItemDelete(item), "delete local");
             is_status(SecItemCopyMatching(item, NULL), errSecItemNotFound, "do not find after delete local");
-#endif
             CFDictionarySetValue(item, kSecAttrSynchronizable, kCFBooleanTrue);
             is_status(SecItemAdd(item, NULL), errSecParam, "add sync");
             is_status(SecItemCopyMatching(item, NULL), errSecItemNotFound, "do not find sync");
             CFDictionarySetValue(item, kSecAttrSynchronizable, kCFBooleanFalse);
 
-#if USE_KEYSTORE
             if(isPasscodeSet) {
                 SecAccessControlRef aclWithUIRef = SecAccessControlCreateWithFlags(kCFAllocatorDefault, protectionClass, kSecAccessControlUserPresence, NULL);
                 ok(aclWithUIRef, "Create SecAccessControlRef which require UI interaction");
@@ -339,7 +336,7 @@ static void tests(bool isPasscodeSet)
 
 int secd_81_item_acl_stress(int argc, char *const *argv)
 {
-#if USE_KEYSTORE
+#if LA_CONTEXT_IMPLEMENTED
     secd_test_setup_temp_keychain(__FUNCTION__, ^{
         keybag_state_t state;
         int passcode_len=(int)strlen(passcode);
@@ -355,11 +352,11 @@ int secd_81_item_acl_stress(int argc, char *const *argv)
     bool isPasscodeSet = false;
 #endif
     
-    plan_tests(isPasscodeSet?776:196);
+    plan_tests(isPasscodeSet?776:140);
 
     tests(isPasscodeSet);
 
-#if USE_KEYSTORE
+#if LA_CONTEXT_IMPLEMENTED
     SecItemServerResetKeychainKeybag();
 #endif
 

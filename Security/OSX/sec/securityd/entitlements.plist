@@ -18,5 +18,7 @@
 	<true/>
 	<key>com.apple.private.network.socket-delegate</key>
 	<true/>
+	<key>com.apple.mkb.usersession.info</key>
+	<true/>
 </dict>
 </plist>

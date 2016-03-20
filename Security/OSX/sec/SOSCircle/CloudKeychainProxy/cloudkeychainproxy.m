@@ -275,7 +275,11 @@ static bool operation_put_dictionary(xpc_object_t event)
     CFTypeRef cfvalue = _CFXPCCreateCFObjectFromXPCObject(xvalue);
     if (cfvalue && (CFGetTypeID(cfvalue)==CFDictionaryGetTypeID()))
     {
-        [[UbiqitousKVSProxy sharedKVSProxy] setObjectsFromDictionary:(__bridge NSDictionary *)cfvalue];
+        [[UbiqitousKVSProxy sharedKVSProxy] recordWriteToKVS:(__bridge NSDictionary *)cfvalue];
+        NSDictionary *safeValues = [[UbiqitousKVSProxy sharedKVSProxy] recordHaltedValuesAndReturnValuesToSafelyWrite:(__bridge NSDictionary *)cfvalue];
+        if([safeValues count] !=0){
+            [[UbiqitousKVSProxy sharedKVSProxy] setObjectsFromDictionary:safeValues];
+        }
         CFReleaseSafe(cfvalue);
         return true;
     }

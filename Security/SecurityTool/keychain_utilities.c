@@ -199,6 +199,24 @@ loser:
 	return result;
 }
 
+int
+print_keychain_version(FILE* stream, SecKeychainRef keychain)
+{
+    int result = 0;
+    UInt32 version;
+    OSStatus status = SecKeychainGetKeychainVersion(keychain, &version);
+    if(status) {
+        sec_perror("SecKeychainGetKeychainVersion", status);
+        result = 1;
+        goto loser;
+    }
+
+    fprintf(stream, "%d", version);
+
+loser:
+    return result;
+}
+
 static void
 print_cfdata(FILE *stream, CFDataRef data)
 {
@@ -208,7 +226,7 @@ print_cfdata(FILE *stream, CFDataRef data)
 		fprintf(stream, "<NULL>");
 }
 
-static void
+void
 print_cfstring(FILE *stream, CFStringRef string)
 {
 	if (!string)
@@ -277,6 +295,7 @@ print_access(FILE *stream, SecAccessRef access, Boolean interactive)
 
 		fprintf(stream, "    entry %lu:\n        authorizations (%lu):", aclix,
 			(unsigned long)tagCount);
+        bool printPartitionIDList = false;
 		for (tagix = 0; tagix < tagCount; ++tagix)
 		{
 			CSSM_ACL_AUTHORIZATION_TAG tag = tags[tagix];
@@ -345,6 +364,13 @@ print_access(FILE *stream, SecAccessRef access, Boolean interactive)
 			case CSSM_ACL_AUTHORIZATION_CHANGE_OWNER:
 				fputs(" change_owner", stream);
 				break;
+            case CSSM_ACL_AUTHORIZATION_INTEGRITY:
+                fputs(" integrity", stream);
+                break;
+            case CSSM_ACL_AUTHORIZATION_PARTITION_ID:
+                fputs(" partition_id", stream);
+                printPartitionIDList = true;
+                break;
 			default:
 				fprintf(stream, " tag=%lu", (unsigned long)tag);
 				break;
@@ -365,7 +391,12 @@ print_access(FILE *stream, SecAccessRef access, Boolean interactive)
 			fputs("        don't-require-password\n", stream);
 
 		fputs("        description: ", stream);
-		print_cfstring(stream, description);
+        // special case for Partition IDs
+        if(printPartitionIDList) {
+            print_partition_id_list(stream, description);
+        } else {
+            print_cfstring(stream, description);
+        }
 		fputc('\n', stream);
 
 		if (applicationList)
@@ -467,6 +498,11 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 	fputc('\n', stream);
 	if (result)
 		goto loser;
+    fputs("version: ", stream);
+    result = print_keychain_version(stream, keychain);
+    fputc('\n', stream);
+    if (result)
+        goto loser;
 
 	/* First find out the item class. */
 	status = SecKeychainItemCopyAttributesAndData(item, NULL, &itemClass, NULL, NULL, NULL);
@@ -812,6 +848,48 @@ fromHex(const char *hexDigits, CSSM_DATA *data)
 	}
 }
 
+CFDataRef
+cfFromHex(CFStringRef hex) {
+    // behavior is undefined if you pass in a non-hex string. Don't do that.
+    char* chex;
+    size_t len;
+
+    GetCStringFromCFString(hex, &chex, &len);
+    if(len == 0) {
+        return NULL;
+    }
+
+    size_t bytes = len/2;
+    CFMutableDataRef bin = CFDataCreateMutable(kCFAllocatorDefault, bytes);
+    CFDataIncreaseLength(bin, bytes);
+
+    if(!bin || CFDataGetLength(bin) != bytes) {
+        safe_CFRelease(bin);
+        return NULL;
+    }
+
+    UInt8* data = CFDataGetMutableBytePtr(bin);
+    for(size_t i = 0; i < bytes; i++) {
+        data[i] = (uint8)(hexValue(chex[2*i]) << 4 | hexValue(chex[2*i+1]));
+    }
+
+    return bin;
+}
+
+CFStringRef cfToHex(CFDataRef bin) {
+    size_t len = CFDataGetLength(bin) * 2;
+    CFMutableStringRef str = CFStringCreateMutable(NULL, len);
+
+    static const char* digits[] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"};
+
+    const uint8_t* data = CFDataGetBytePtr(bin);
+    for (size_t i = 0; i < CFDataGetLength(bin); i++) {
+        CFStringAppendCString(str, digits[data[i] >> 4], 1);
+        CFStringAppendCString(str, digits[data[i] & 0xf], 1);
+    }
+    return str;
+}
+
 void
 safe_CFRelease(void *cfTypeRefPtr)
 {
@@ -820,6 +898,79 @@ safe_CFRelease(void *cfTypeRefPtr)
 		CFRelease(*obj);
 		*obj = NULL;
 	}
+}
+
+
+void
+GetCStringFromCFString(CFStringRef cfstring, char** cstr, size_t* len) {
+    CFIndex strLen = CFStringGetLength(cfstring);
+    CFIndex bufLen = 1 + CFStringGetMaximumSizeForEncoding(strLen, kCFStringEncodingUTF8);
+    *cstr = (char *)malloc(bufLen);
+    if (!CFStringGetCString(cfstring, *cstr, bufLen-1, kCFStringEncodingUTF8)) {
+        (*cstr)[0]=0;
+    }
+    // Handle non-8-bit characters.
+    *len = strnlen(*cstr, strLen);
+}
+
+CFDictionaryRef makeCFDictionaryFromData(CFDataRef data)
+{
+    if (data) {
+        CFPropertyListRef plist = CFPropertyListCreateFromXMLData(NULL, data, kCFPropertyListImmutable, NULL);
+        if (plist && CFGetTypeID(plist) != CFDictionaryGetTypeID()) {
+            safe_CFRelease(&plist);
+            return NULL;
+        }
+        return (CFDictionaryRef) plist;
+    } else {
+        return NULL;
+    }
+}
+
+void print_partition_id_list(FILE* stream, CFStringRef description) {
+    CFDataRef binary = NULL;
+    CFDictionaryRef partitionList = NULL;
+    CFArrayRef partitionIDs = NULL;
+
+    if(!description) {
+        goto error;
+    }
+    binary = cfFromHex(description);
+    if(!binary) {
+        goto error;
+    }
+    partitionList = makeCFDictionaryFromData(binary);
+    if(!partitionList) {
+        goto error;
+    }
+
+    partitionIDs = CFDictionaryGetValue(partitionList, CFSTR("Partitions"));
+    if(!partitionIDs) {
+        goto error;
+    }
+
+    for(size_t i = 0; i < CFArrayGetCount(partitionIDs); i++) {
+        CFStringRef s = CFArrayGetValueAtIndex(partitionIDs, i);
+        if(!s) {
+            goto error;
+        }
+
+        if(i != 0) {
+            fprintf(stream, ", ");
+        }
+        print_cfstring(stream, s);
+    }
+
+    goto cleanup;
+error:
+    fprintf(stream, "invalid partition ID: ");
+    print_cfstring(stream, description);
+cleanup:
+    // don't release partitionIDs; it's an element of partitionList
+    safe_CFRelease(&binary);
+    safe_CFRelease(&partitionList);
+
+    return;
 }
 
 /*
@@ -958,4 +1109,15 @@ print_buffer_pem(FILE *stream, const char *headerString, UInt32 length, const vo
 	free(buf);
 	if (headerString)
 		fprintf(stream, "-----END %s-----\n", headerString);
+}
+
+char*
+prompt_password(const char* keychainName) {
+    const char *fmt = "password to unlock %s: ";
+    const char *name = keychainName ? keychainName : "default";
+    char *prompt = malloc(strlen(fmt) + strlen(name));
+    sprintf(prompt, fmt, name);
+    char *password = getpass(prompt);
+    free(prompt);
+    return password;
 }

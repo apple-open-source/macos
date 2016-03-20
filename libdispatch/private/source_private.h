@@ -200,6 +200,9 @@ enum {
  *
  * @constant DISPATCH_VFS_VERYLOWDISK
  * File system has *very* little disk space left.
+ *
+ * @constant DISPATCH_VFS_QUOTA
+ * We hit a user quota (quotactl) for this filesystem.
  */
 enum {
 	DISPATCH_VFS_NOTRESP = 0x0001,
@@ -212,6 +215,7 @@ enum {
 	DISPATCH_VFS_NOTRESPLOCK = 0x0080,
 	DISPATCH_VFS_UPDATE = 0x0100,
 	DISPATCH_VFS_VERYLOWDISK = 0x0200,
+	DISPATCH_VFS_QUOTA = 0x1000,
 };
 
 /*!

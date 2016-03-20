@@ -5,7 +5,7 @@
 # Set RC_CFLAGS to build multiple architectures.
 
 PNGNAME = libpng
-PNGVERSORIG = 1.6.2
+PNGVERSORIG = 1.6.20
 PNGVERS = $(PNGVERSORIG)-nocontrib
 PNGNAMEVERS = $(PNGNAME)-$(PNGVERS)
 PNGNAMEVERSORIG = $(PNGNAME)-$(PNGVERSORIG)
@@ -28,8 +28,11 @@ $(PNGDIR)/darwin:
 	mkdir darwin && \
 	cd darwin && \
 	CFLAGS='$(RC_CFLAGS)' LDFLAGS='$(RC_CFLAGS)' ../configure --disable-dependency-tracking --disable-shared --enable-static --prefix=$(TMPPREFIX) && \
-	make && \
-	make install
+	make libpng16.la && \
+	make install-nodist_pkgincludeHEADERS pkgincludedir="$(TMPPREFIX)/include" && \
+	make install-pkgincludeHEADERS pkgincludedir="$(TMPPREFIX)/include" && \
+	make install-libLTLIBRARIES && \
+	cp "$(TMPPREFIX)/lib/libpng16.a" "$(TMPPREFIX)/lib/libpng.a"
 
 afterinstallsrc:
 	gnutar xozf $(PNGNAMEVERSORIG).tar.gz

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,81 +23,55 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.ActivateButtonNavigationItem = function(identifier, defaultToolTip, activatedToolTip, image, imageWidth, imageHeight, suppressEmboss, role)
+WebInspector.ActivateButtonNavigationItem = class ActivateButtonNavigationItem extends WebInspector.ButtonNavigationItem
 {
-    WebInspector.ButtonNavigationItem.call(this, identifier, defaultToolTip, image, imageWidth, imageHeight, suppressEmboss, role);
+    constructor(identifier, defaultToolTip, activatedToolTip, image, imageWidth, imageHeight, role)
+    {
+        super(identifier, defaultToolTip, image, imageWidth, imageHeight, role);
 
-    this._defaultToolTip = defaultToolTip;
-    this._activatedToolTip = activatedToolTip || defaultToolTip;
-    this._role = role;
-};
-
-WebInspector.ActivateButtonNavigationItem.StyleClassName = "activate";
-WebInspector.ActivateButtonNavigationItem.ActivatedStyleClassName = "activated";
-
-WebInspector.ActivateButtonNavigationItem.prototype = {
-    constructor: WebInspector.ActivateButtonNavigationItem,
+        this._defaultToolTip = defaultToolTip;
+        this._activatedToolTip = activatedToolTip || defaultToolTip;
+        this._role = role;
+    }
 
     // Public
 
     get defaultToolTip()
     {
         return this._defaultToolTip;
-    },
+    }
 
     get activatedToolTip()
     {
         return this._activatedToolTip;
-    },
+    }
 
     get activated()
     {
         return this.element.classList.contains(WebInspector.ActivateButtonNavigationItem.ActivatedStyleClassName);
-    },
+    }
 
     set activated(flag)
     {
+        this.element.classList.toggle(WebInspector.ActivateButtonNavigationItem.ActivatedStyleClassName, flag);
+
         if (flag) {
             this.toolTip = this._activatedToolTip;
-            this.element.classList.add(WebInspector.ActivateButtonNavigationItem.ActivatedStyleClassName);
             if (this._role === "tab")
                 this.element.setAttribute("aria-selected", "true");
         } else {
             this.toolTip = this._defaultToolTip;
-            this.element.classList.remove(WebInspector.ActivateButtonNavigationItem.ActivatedStyleClassName);
             if (this._role === "tab")
                 this.element.removeAttribute("aria-selected");
         }
-    },
+    }
 
-    generateStyleText: function(parentSelector)
+    // Protected
+
+    get additionalClassNames()
     {
-        var classNames = this._classNames.join(".");
-
-        if (this._suppressEmboss)
-            var styleText = parentSelector + " ." + classNames + " > .glyph { width: " +  this._imageWidth + "px; height: " + this._imageHeight + "px; }\n";
-        else {
-            var activatedClassName = "." + WebInspector.ActivateButtonNavigationItem.ActivatedStyleClassName;
-
-            // Default state.
-            var styleText = parentSelector + " ." + classNames + " > .glyph { background-image: -webkit-canvas(" + this._canvasIdentifier(WebInspector.ButtonNavigationItem.States.Normal) + "); background-size: " +  this._imageWidth + "px " + this._imageHeight + "px; }\n";
-
-            // Pressed state.
-            styleText += parentSelector + " ." + classNames + ":not(.disabled):active > .glyph { background-image: -webkit-canvas(" + this._canvasIdentifier(WebInspector.ButtonNavigationItem.States.Active) + "); }\n";
-
-            // Activated state.
-            styleText += parentSelector + " ." + classNames + activatedClassName + ":not(.disabled) > .glyph { background-image: -webkit-canvas(" + this._canvasIdentifier(WebInspector.ButtonNavigationItem.States.Focus) + "); }\n";
-
-            // Activated and pressed state.
-            styleText += parentSelector + " ." + classNames + activatedClassName + ":not(.disabled):active > .glyph { background-image: -webkit-canvas(" + this._canvasIdentifier(WebInspector.ButtonNavigationItem.States.ActiveFocus) + "); }\n";
-        }
-
-        return styleText;
-    },
-
-    // Private
-
-    _additionalClassNames: [WebInspector.ActivateButtonNavigationItem.StyleClassName, WebInspector.ButtonNavigationItem.StyleClassName]
+        return ["activate", "button"];
+    }
 };
 
-WebInspector.ActivateButtonNavigationItem.prototype.__proto__ = WebInspector.ButtonNavigationItem.prototype;
+WebInspector.ActivateButtonNavigationItem.ActivatedStyleClassName = "activated";

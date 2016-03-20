@@ -112,6 +112,7 @@ public:
 	const DbIdentifier &identifier() const {return mIdentifier; }
 	const DLDbIdentifier &dlDbIdent() const { return identifier(); }
 	const char *dbName() const { return dlDbIdent().dbName(); }
+    uint32 dbVersion() { return DatabaseCryptoCore::mBlobVersion; }
     bool isLoginKeychain() const { return mLoginKeychain; }
 	
 	DbBlob *encode(KeychainDatabase &db);
@@ -165,6 +166,9 @@ public:
 	
 	// keychain synchronization recode to a specfic blob:
 	KeychainDatabase(KeychainDatabase &src, Process &proc, DbHandle dbToClone);
+
+    // Copy another database, but with new secrets
+    KeychainDatabase(KeychainDatabase &src, Process &proc);
 	virtual ~KeychainDatabase();
 
 	KeychainDbCommon &common() const;
@@ -184,6 +188,7 @@ public:
 	DbBlob *blob();
 	
     void authenticate(CSSM_DB_ACCESS_TYPE mode, const AccessCredentials *cred);
+    bool checkCredentials(const AccessCredentials* creds);
     void changePassphrase(const AccessCredentials *cred);
 	RefPointer<Key> extractMasterKey(Database &db, const AccessCredentials *cred,
 		const AclEntryPrototype *owner, uint32 usage, uint32 attrs);

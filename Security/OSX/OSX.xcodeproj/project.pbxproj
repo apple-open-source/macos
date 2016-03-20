@@ -574,6 +574,7 @@
 		CDF91EC91AAE022600E88CF7 /* com.apple.private.alloy.keychainsync.plist in Resources */ = {isa = PBXBuildFile; fileRef = CDF91EC81AAE022600E88CF7 /* com.apple.private.alloy.keychainsync.plist */; };
 		CDF91EF51AAE028F00E88CF7 /* com.apple.private.alloy.keychainsync.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = CDF91EC81AAE022600E88CF7 /* com.apple.private.alloy.keychainsync.plist */; };
 		D41685841B3A288F001FB54E /* oids.h in Headers */ = {isa = PBXBuildFile; fileRef = D41685831B3A288F001FB54E /* oids.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		D4CBC1451BE981F600C5795E /* libsecurity_cms_regressions.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D4CBC1281BE981DE00C5795E /* libsecurity_cms_regressions.a */; };
 		D4DDD3D01BE3EC0300E8AE2D /* libDiagnosticMessagesClient.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D4DDD3A71BE3EB4200E8AE2D /* libDiagnosticMessagesClient.dylib */; };
 		E76079D61951FDAF00F69731 /* liblogging.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E76079D51951FDA800F69731 /* liblogging.a */; };
 		E778BFBC17176DDE00302C14 /* security.exp-in in Sources */ = {isa = PBXBuildFile; fileRef = 182BB562146F4C73000BF1F3 /* security.exp-in */; };
@@ -582,6 +583,11 @@
 		EB22F3FB18A26BE40016A8EC /* bc-10-knife-on-bread.c in Sources */ = {isa = PBXBuildFile; fileRef = EB22F3F518A26BA50016A8EC /* bc-10-knife-on-bread.c */; };
 		EB5D733B1B0CB0FF009CAA47 /* SOSPeerInfo.h in Old SOS header location */ = {isa = PBXBuildFile; fileRef = 4CB86AED167A6FF300F46643 /* SOSPeerInfo.h */; };
 		EB5D733C1B0CB109009CAA47 /* SOSTypes.h in Old SOS header location */ = {isa = PBXBuildFile; fileRef = 52F8DE4B1AF2EB6600A2C271 /* SOSTypes.h */; };
+		EBC1B8E31BE9708300E6ACA6 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBC1B8E21BE9708300E6ACA6 /* Foundation.framework */; };
+		EBF2D7141C1E0AF7006AB6FF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBF2D7131C1E0AF7006AB6FF /* Foundation.framework */; };
+		EBF2D7631C1E2B58006AB6FF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBF2D7131C1E0AF7006AB6FF /* Foundation.framework */; };
+		EBF2D7641C1E3AB2006AB6FF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBF2D7131C1E0AF7006AB6FF /* Foundation.framework */; };
+		EBF2E29D1BEC8D9200626DE4 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBF2E29C1BEC8D9200626DE4 /* IOKit.framework */; };
 		F93C493E1AB8FF670047E01A /* ckcdiagnose.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = F93C493D1AB8FF670047E01A /* ckcdiagnose.sh */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -1902,6 +1908,20 @@
 			remoteGlobalIDString = 52200F8714F2B87F00F7F6E7;
 			remoteInfo = XPCTimeStampingService;
 		};
+		D4CBC1191BE981DE00C5795E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1879B64B146DE750007E536C /* libsecurity_cms.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = D4C3345B1BE2A2B100D8C1EF;
+			remoteInfo = libsecurity_cms_regressions;
+		};
+		D4CBC1271BE981DE00C5795E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1879B64B146DE750007E536C /* libsecurity_cms.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = D4C3345C1BE2A2B100D8C1EF;
+			remoteInfo = libsecurity_cms_regressions;
+		};
 		E7421C7D1ADC8E0D005FC1C0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 0C6D77DE15C8C06500BB4405 /* tlsnke.xcodeproj */;
@@ -2641,7 +2661,13 @@
 		EB22F3F618A26BA50016A8EC /* breadcrumb_regressions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = breadcrumb_regressions.h; path = Breadcrumb/breadcrumb_regressions.h; sourceTree = "<group>"; };
 		EB22F3F718A26BA50016A8EC /* SecBreadcrumb.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = SecBreadcrumb.c; path = Breadcrumb/SecBreadcrumb.c; sourceTree = "<group>"; };
 		EB22F3F818A26BA50016A8EC /* SecBreadcrumb.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecBreadcrumb.h; path = Breadcrumb/SecBreadcrumb.h; sourceTree = "<group>"; };
+		EB93FF531BE088F600978606 /* secbackupntest.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = secbackupntest.m; path = secbackupntest/secbackupntest.m; sourceTree = "<group>"; };
+		EB93FF541BE088FC00978606 /* Security.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Security.plist; sourceTree = "<group>"; };
+		EB93FF8D1BE08DE600978606 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.Internal.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
+		EBC1B8E21BE9708300E6ACA6 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.Internal.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		EBD8B52718A55668004A650F /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = README; path = Breadcrumb/README; sourceTree = "<group>"; };
+		EBF2D7131C1E0AF7006AB6FF /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		EBF2E29C1BEC8D9200626DE4 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
 		F93C493D1AB8FF670047E01A /* ckcdiagnose.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = ckcdiagnose.sh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -2650,6 +2676,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EBF2D7641C1E3AB2006AB6FF /* Foundation.framework in Frameworks */,
+				D4CBC1451BE981F600C5795E /* libsecurity_cms_regressions.a in Frameworks */,
 				18CD682717272EBC005345FB /* libaks.a in Frameworks */,
 				0CCEBDB416C2D026001BD7F6 /* libregressions.a in Frameworks */,
 				52669053169D181900ED8231 /* Security.framework in Frameworks */,
@@ -2665,6 +2693,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EBF2D7141C1E0AF7006AB6FF /* Foundation.framework in Frameworks */,
 				5E7AF49B1ACD64E600005140 /* libACM.a in Frameworks */,
 				5E605AFC1AB859B70049FA14 /* libcoreauthd_test_client.a in Frameworks */,
 				44D78BB91A0A615800B63C6C /* libaks_acl.a in Frameworks */,
@@ -2841,6 +2870,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EBC1B8E31BE9708300E6ACA6 /* Foundation.framework in Frameworks */,
 				44D78BB71A0A613900B63C6C /* libaks_acl.a in Frameworks */,
 				52CD052316A0E24900218387 /* Security.framework in Frameworks */,
 				432800841B4CE731002E8525 /* libaks.a in Frameworks */,
@@ -2883,6 +2913,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EBF2D7631C1E2B58006AB6FF /* Foundation.framework in Frameworks */,
 				5EF7C2521B00EB0A00E5E99C /* libaks.a in Frameworks */,
 				5EF7C2511B00EAF100E5E99C /* libcoreauthd_client.a in Frameworks */,
 				5EF7C2501B00EA7A00E5E99C /* libACM.a in Frameworks */,
@@ -2905,6 +2936,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EBF2E29D1BEC8D9200626DE4 /* IOKit.framework in Frameworks */,
 				43C3B0D41AFD569600786702 /* Security.framework in Frameworks */,
 				43C3B3311AFD5E1100786702 /* CoreFoundation.framework in Frameworks */,
 			);
@@ -3074,6 +3106,7 @@
 				37AB39101A44A88000B56E04 /* gk_reset_check */,
 				CD63ACE11A8061FA001B5671 /* IDSKeychainSyncingProxy */,
 				5EF7C20B1B00E25400E5E99C /* secacltests */,
+				EB93FF2A1BE0889E00978606 /* RegressionTests */,
 				1807384D146D0D4E00F05C24 /* Frameworks */,
 				1807384C146D0D4E00F05C24 /* Products */,
 			);
@@ -3108,7 +3141,11 @@
 		1807384D146D0D4E00F05C24 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				EBF2D7131C1E0AF7006AB6FF /* Foundation.framework */,
 				D4DDD3A71BE3EB4200E8AE2D /* libDiagnosticMessagesClient.dylib */,
+				EBF2E29C1BEC8D9200626DE4 /* IOKit.framework */,
+				EBC1B8E21BE9708300E6ACA6 /* Foundation.framework */,
+				EB93FF8D1BE08DE600978606 /* IOKit.framework */,
 				4C97761D17BEB23E0002BFE4 /* AOSAccounts.framework */,
 				4C328D2F1778EC4F0015EED1 /* AOSUI.framework */,
 				4C5DD46B17A5F67300696A79 /* AppleSystemInfo.framework */,
@@ -3677,6 +3714,7 @@
 			isa = PBXGroup;
 			children = (
 				1879B654146DE750007E536C /* libsecurity_cms.a */,
+				D4CBC1281BE981DE00C5795E /* libsecurity_cms_regressions.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -4103,6 +4141,24 @@
 			name = Breadcrumb;
 			sourceTree = "<group>";
 		};
+		EB93FF2A1BE0889E00978606 /* RegressionTests */ = {
+			isa = PBXGroup;
+			children = (
+				EB93FF541BE088FC00978606 /* Security.plist */,
+				EB93FF521BE088E000978606 /* secbackupntest */,
+			);
+			name = RegressionTests;
+			path = ../RegressionTests;
+			sourceTree = "<group>";
+		};
+		EB93FF521BE088E000978606 /* secbackupntest */ = {
+			isa = PBXGroup;
+			children = (
+				EB93FF531BE088F600978606 /* secbackupntest.m */,
+			);
+			name = secbackupntest;
+			sourceTree = "<group>";
+		};
 		F93C493C1AB8FF670047E01A /* ckcdiagnose */ = {
 			isa = PBXGroup;
 			children = (
@@ -4305,6 +4361,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				D4CBC11A1BE981DE00C5795E /* PBXTargetDependency */,
 				0C6C632E15D19D2900BC68CD /* PBXTargetDependency */,
 				ACB6173F18B5232700EBEDD7 /* PBXTargetDependency */,
 				0CBD50C716C3260D00713B6C /* PBXTargetDependency */,
@@ -5462,6 +5519,13 @@
 			remoteRef = CD63AD0B1A8061FA001B5671 /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
+		D4CBC1281BE981DE00C5795E /* libsecurity_cms_regressions.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libsecurity_cms_regressions.a;
+			remoteRef = D4CBC1271BE981DE00C5795E /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
 		E7421C7E1ADC8E0D005FC1C0 /* tlsnke.kext */ = {
 			isa = PBXReferenceProxy;
 			fileType = wrapper.cfbundle;
@@ -6371,6 +6435,11 @@
 			isa = PBXTargetDependency;
 			name = XPCTimeStampingService;
 			targetProxy = D4A2FC7D1BC89D5200BF6E56 /* PBXContainerItemProxy */;
+		};
+		D4CBC11A1BE981DE00C5795E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = libsecurity_cms_regressions;
+			targetProxy = D4CBC1191BE981DE00C5795E /* PBXContainerItemProxy */;
 		};
 		E76079FA1951FDF600F69731 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;

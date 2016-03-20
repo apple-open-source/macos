@@ -58,6 +58,7 @@ typedef void (^SOSAccountCircleMembershipChangeBlock)(SOSCircleRef new_circle,
                                                       CFSetRef added_peers, CFSetRef removed_peers,
                                                       CFSetRef added_applicants, CFSetRef removed_applicants);
 typedef void (^SOSAccountSyncablePeersBlock)(CFArrayRef trustedPeers, CFArrayRef addedPeers, CFArrayRef removedPeers);
+typedef bool (^SOSAccountWaitForInitialSyncBlock)(SOSAccountRef account);
 
 SOSAccountRef SOSAccountCreate(CFAllocatorRef allocator,
                                CFDictionaryRef gestalt,
@@ -222,6 +223,8 @@ bool SOSAccountStartNewBackup(SOSAccountRef account, CFStringRef viewName, CFErr
 bool SOSAccountSetBackupPublicKey(SOSAccountRef account, CFDataRef backupKey, CFErrorRef *error);
 bool SOSAccountRemoveBackupPublickey(SOSAccountRef account, CFErrorRef *error);
 bool SOSAccountSetBSKBagForAllSlices(SOSAccountRef account, CFDataRef backupSlice, bool setupV0Only, CFErrorRef *error);
+
+SOSBackupSliceKeyBagRef SOSAccountBackupSliceKeyBagForView(SOSAccountRef account, CFStringRef viewName, CFErrorRef* error);
 
 //
 // MARK: Private functions

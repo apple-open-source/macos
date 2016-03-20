@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,64 +23,45 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.ContentViewContainer = function(element)
+WebInspector.ContentViewContainer = class ContentViewContainer extends WebInspector.View
 {
-    // FIXME: Convert this to a WebInspector.Object subclass, and call super().
-    // WebInspector.Object.call(this);
+    constructor()
+    {
+        super();
 
-    this._element = element || document.createElement("div");
-    this._element.classList.add("content-view-container");
+        this.element.classList.add("content-view-container");
 
-    this._backForwardList = [];
-    this._currentIndex = -1;
-};
-
-WebInspector.ContentViewContainer.Event = {
-    CurrentContentViewDidChange: "content-view-container-current-content-view-did-change"
-};
-
-WebInspector.ContentViewContainer.prototype = {
-    constructor: WebInspector.ContentViewContainer,
+        this._backForwardList = [];
+        this._currentIndex = -1;
+    }
 
     // Public
-
-    get element()
-    {
-        return this._element;
-    },
 
     get currentIndex()
     {
         return this._currentIndex;
-    },
+    }
 
     get backForwardList()
     {
         return this._backForwardList;
-    },
+    }
 
     get currentContentView()
     {
         if (this._currentIndex < 0 || this._currentIndex > this._backForwardList.length - 1)
             return null;
         return this._backForwardList[this._currentIndex].contentView;
-    },
+    }
 
     get currentBackForwardEntry()
     {
         if (this._currentIndex < 0 || this._currentIndex > this._backForwardList.length - 1)
             return null;
         return this._backForwardList[this._currentIndex];
-    },
+    }
 
-    updateLayout: function()
-    {
-        var currentContentView = this.currentContentView;
-        if (currentContentView)
-            currentContentView.updateLayout();
-    },
-
-    contentViewForRepresentedObject: function(representedObject, onlyExisting, extraArguments)
+    contentViewForRepresentedObject(representedObject, onlyExisting, extraArguments)
     {
         console.assert(representedObject);
         if (!representedObject)
@@ -106,7 +87,7 @@ WebInspector.ContentViewContainer.prototype = {
             return null;
 
         // No existing content view found, make a new one.
-        contentView = new WebInspector.ContentView(representedObject, extraArguments);
+        contentView = WebInspector.ContentView.createFromRepresentedObject(representedObject, extraArguments);
 
         console.assert(contentView, "Unknown representedObject", representedObject);
         if (!contentView)
@@ -123,9 +104,9 @@ WebInspector.ContentViewContainer.prototype = {
         representedObject.__contentViews.push(contentView);
 
         return contentView;
-    },
+    }
 
-    showContentViewForRepresentedObject: function(representedObject, extraArguments)
+    showContentViewForRepresentedObject(representedObject, extraArguments)
     {
         var contentView = this.contentViewForRepresentedObject(representedObject, false, extraArguments);
         if (!contentView)
@@ -134,9 +115,9 @@ WebInspector.ContentViewContainer.prototype = {
         this.showContentView(contentView);
 
         return contentView;
-    },
+    }
 
-    showContentView: function(contentView, cookie)
+    showContentView(contentView, cookie)
     {
         console.assert(contentView instanceof WebInspector.ContentView);
         if (!(contentView instanceof WebInspector.ContentView))
@@ -152,7 +133,7 @@ WebInspector.ContentViewContainer.prototype = {
         var provisionalEntry = new WebInspector.BackForwardEntry(contentView, cookie);
         // Don't do anything if we would have added an identical back/forward list entry.
         if (currentEntry && currentEntry.contentView === contentView && Object.shallowEqual(provisionalEntry.cookie, currentEntry.cookie)) {
-            const shouldCallShown = false;
+            var shouldCallShown = false;
             currentEntry.prepareToShow(shouldCallShown);
             return currentEntry.contentView;
         }
@@ -186,9 +167,9 @@ WebInspector.ContentViewContainer.prototype = {
         this.showBackForwardEntryForIndex(newIndex);
 
         return contentView;
-    },
+    }
 
-    showBackForwardEntryForIndex: function(index)
+    showBackForwardEntryForIndex(index)
     {
         console.assert(index >= 0 && index <= this._backForwardList.length - 1);
         if (index < 0 || index > this._backForwardList.length - 1)
@@ -212,9 +193,9 @@ WebInspector.ContentViewContainer.prototype = {
             this._showEntry(currentEntry, false);
 
         this.dispatchEventToListeners(WebInspector.ContentViewContainer.Event.CurrentContentViewDidChange);
-    },
+    }
 
-    replaceContentView: function(oldContentView, newContentView)
+    replaceContentView(oldContentView, newContentView)
     {
         console.assert(oldContentView instanceof WebInspector.ContentView);
         if (!(oldContentView instanceof WebInspector.ContentView))
@@ -244,8 +225,10 @@ WebInspector.ContentViewContainer.prototype = {
 
         // Replace all occurrences of oldContentView with newContentView in the back/forward list.
         for (var i = 0; i < this._backForwardList.length; ++i) {
-            if (this._backForwardList[i].contentView === oldContentView)
-                this._backForwardList[i].contentView = newContentView;
+            if (this._backForwardList[i].contentView === oldContentView) {
+                var currentCookie = this._backForwardList[i].cookie;
+                this._backForwardList[i] = new WebInspector.BackForwardEntry(newContentView, currentCookie);
+            }
         }
 
         // Re-show the current entry, because its content view instance was replaced.
@@ -253,9 +236,9 @@ WebInspector.ContentViewContainer.prototype = {
             this._showEntry(this.currentBackForwardEntry, true);
             this.dispatchEventToListeners(WebInspector.ContentViewContainer.Event.CurrentContentViewDidChange);
         }
-    },
+    }
 
-    closeAllContentViewsOfPrototype: function(constructor)
+    closeAllContentViewsOfPrototype(constructor)
     {
         if (!this._backForwardList.length) {
             console.assert(this._currentIndex === -1);
@@ -309,9 +292,9 @@ WebInspector.ContentViewContainer.prototype = {
             this._showEntry(currentEntry, true);
             this.dispatchEventToListeners(WebInspector.ContentViewContainer.Event.CurrentContentViewDidChange);
         }
-    },
+    }
 
-    closeContentView: function(contentViewToClose)
+    closeContentView(contentViewToClose)
     {
         if (!this._backForwardList.length) {
             console.assert(this._currentIndex === -1);
@@ -365,9 +348,9 @@ WebInspector.ContentViewContainer.prototype = {
             this._showEntry(currentEntry, true);
             this.dispatchEventToListeners(WebInspector.ContentViewContainer.Event.CurrentContentViewDidChange);
         }
-    },
+    }
 
-    closeAllContentViews: function()
+    closeAllContentViews()
     {
         if (!this._backForwardList.length) {
             console.assert(this._currentIndex === -1);
@@ -388,65 +371,53 @@ WebInspector.ContentViewContainer.prototype = {
         this._currentIndex = -1;
 
         this.dispatchEventToListeners(WebInspector.ContentViewContainer.Event.CurrentContentViewDidChange);
-    },
+    }
 
-    canGoBack: function()
+    canGoBack()
     {
         return this._currentIndex > 0;
-    },
+    }
 
-    canGoForward: function()
+    canGoForward()
     {
         return this._currentIndex < this._backForwardList.length - 1;
-    },
+    }
 
-    goBack: function()
+    goBack()
     {
         if (!this.canGoBack())
             return;
         this.showBackForwardEntryForIndex(this._currentIndex - 1);
-    },
+    }
 
-    goForward: function()
+    goForward()
     {
         if (!this.canGoForward())
             return;
         this.showBackForwardEntryForIndex(this._currentIndex + 1);
-    },
+    }
 
-    shown: function()
+    shown()
     {
         var currentEntry = this.currentBackForwardEntry;
         if (!currentEntry)
             return;
 
         this._showEntry(currentEntry, true);
-    },
+    }
 
-    hidden: function()
+    hidden()
     {
         var currentEntry = this.currentBackForwardEntry;
         if (!currentEntry)
             return;
 
         this._hideEntry(currentEntry);
-    },
+    }
 
     // Private
 
-    _addContentViewElement: function(contentView)
-    {
-        if (contentView.element.parentNode !== this._element)
-            this._element.appendChild(contentView.element);
-    },
-
-    _removeContentViewElement: function(contentView)
-    {
-        if (contentView.element.parentNode)
-            contentView.element.parentNode.removeChild(contentView.element);
-    },
-
-    _disassociateFromContentView: function(contentView)
+    _disassociateFromContentView(contentView)
     {
         console.assert(!contentView.visible);
 
@@ -460,23 +431,28 @@ WebInspector.ContentViewContainer.prototype = {
             representedObject.__contentViews.remove(contentView);
 
         contentView.closed();
-    },
+    }
 
-    _showEntry: function(entry, shouldCallShown)
+    _showEntry(entry, shouldCallShown)
     {
         console.assert(entry instanceof WebInspector.BackForwardEntry);
 
-        this._addContentViewElement(entry.contentView);
-        entry.prepareToShow(shouldCallShown);
-    },
+        if (!this.subviews.includes(entry.contentView))
+            this.addSubview(entry.contentView)
 
-    _hideEntry: function(entry)
+        entry.prepareToShow(shouldCallShown);
+    }
+
+    _hideEntry(entry)
     {
         console.assert(entry instanceof WebInspector.BackForwardEntry);
 
         entry.prepareToHide();
-        this._removeContentViewElement(entry.contentView);
+        if (this.subviews.includes(entry.contentView))
+            this.removeSubview(entry.contentView)
     }
 };
 
-WebInspector.ContentViewContainer.prototype.__proto__ = WebInspector.Object.prototype;
+WebInspector.ContentViewContainer.Event = {
+    CurrentContentViewDidChange: "content-view-container-current-content-view-did-change"
+};

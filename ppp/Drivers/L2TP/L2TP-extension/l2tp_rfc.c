@@ -1148,7 +1148,13 @@ int l2tp_rfc_compare_address(struct sockaddr* addr1, struct sockaddr* addr2)
             if (bcmp(&((struct sockaddr_in*)(void*)addr1)->sin_addr.s_addr, &((struct sockaddr_in*)(void*)addr2)->sin_addr.s_addr, sizeof(struct in_addr)))
                 return 1;
             return 0;
-        default:
+		case AF_INET6:
+			if (bcmp(&((struct sockaddr_in6*)(void*)addr1)->sin6_port, &((struct sockaddr_in6*)(void*)addr2)->sin6_port, sizeof(u_int16_t)))
+				return 1;
+			if (bcmp(&((struct sockaddr_in6*)(void*)addr1)->sin6_addr, &((struct sockaddr_in6*)(void*)addr2)->sin6_addr, sizeof(struct in6_addr)))
+				return 1;
+			return 0;
+		default:
             return 1;
     }
 }

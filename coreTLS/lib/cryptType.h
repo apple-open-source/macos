@@ -30,8 +30,8 @@
 
 // #include <Security/CipherSuite.h>
 #include "tls_hmac.h"
-#include "tls_hashhmac.h"
 #include "symCipher.h"
+#include <corecrypto/ccdigest.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,11 +43,9 @@ extern "C" {
  */
 typedef struct CipherContext
 {
-    const HashHmacReference   	*macRef;			/* HMAC (TLS) or digest (SSL) */
+    const struct ccdigest_info  *di;
     const SSLSymmetricCipher  	*symCipher;
 
-    /* this is a context which is reused once per record */
-    HashHmacContext				macCtx;
     /*
      * Crypto context (eg: for CommonCrypto-based symmetric ciphers, this will be a CCCryptorRef)
      */

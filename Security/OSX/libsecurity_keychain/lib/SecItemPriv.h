@@ -277,11 +277,13 @@ extern const CFStringRef kSecAttrCanSignRecover;
 extern const CFStringRef kSecAttrCanVerifyRecover;
 extern const CFStringRef kSecAttrTombstone;
 extern const CFStringRef kSecAttrNoLegacy
-    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_NA);
+    __OSX_AVAILABLE(10.11) __IOS_AVAILABLE(9.3) __TVOS_AVAILABLE(9.3) __WATCHOS_AVAILABLE(2.3);
 extern const CFStringRef kSecAttrSyncViewHint
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 extern const CFStringRef kSecAttrTokenID
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+extern const CFStringRef kSecAttrMultiUser
+    __OSX_AVAILABLE(10.11.5) __IOS_AVAILABLE(9.3) __TVOS_AVAILABLE(9.3) __WATCHOS_AVAILABLE(2.3);
 
 /*  View Hint Constants */
 
@@ -329,10 +331,6 @@ extern const CFStringRef kSecUseTombstones
     __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 extern const CFStringRef kSecUseCredentialReference
     __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
-#if defined(MULTIPLE_KEYCHAINS)
-extern const CFStringRef kSecUseKeychain;
-extern const CFStringRef kSecUseKeychainList;
-#endif /* !defined(MULTIPLE_KEYCHAINS) */
 
 
 /*!
@@ -380,7 +378,7 @@ OSStatus _SecKeychainRestoreSyncable(CFDataRef keybag, CFDataRef password, CFDic
    Requires caller to have the kSecEntitlementKeychainSyncUpdates entitlement. */
 CFArrayRef _SecKeychainSyncUpdateMessage(CFDictionaryRef updates, CFErrorRef *error);
 
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
+#if !TARGET_OS_IPHONE
 CFDataRef _SecItemGetPersistentReference(CFTypeRef raw_item);
 #endif
 
@@ -389,6 +387,10 @@ CFDataRef _SecItemGetPersistentReference(CFTypeRef raw_item);
 OSStatus SecErrorGetOSStatus(CFErrorRef error);
 
 bool _SecKeychainRollKeys(bool force, CFErrorRef *error);
+
+CFDictionaryRef _SecSecuritydCopyWhoAmI(CFErrorRef *error);
+bool _SecSyncBubbleTransfer(CFArrayRef services, CFErrorRef *error);
+bool _SecSystemKeychainTransfer(CFErrorRef *error);
 
 __END_DECLS
 

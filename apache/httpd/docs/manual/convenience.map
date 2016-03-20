@@ -240,6 +240,21 @@ forensiclog	mod/mod_log_forensic.html#forensiclog
 gprofdir	mod/core.html#gprofdir
 gracefulshutdowntimeout	mod/mpm_common.html#gracefulshutdowntimeout
 group	mod/mod_unixd.html#group
+h2direct	mod/mod_http2.html#h2direct
+h2maxsessionstreams	mod/mod_http2.html#h2maxsessionstreams
+h2maxworkeridleseconds	mod/mod_http2.html#h2maxworkeridleseconds
+h2maxworkers	mod/mod_http2.html#h2maxworkers
+h2minworkers	mod/mod_http2.html#h2minworkers
+h2moderntlsonly	mod/mod_http2.html#h2moderntlsonly
+h2push	mod/mod_http2.html#h2push
+h2pushpriority	mod/mod_http2.html#h2pushpriority
+h2serializeheaders	mod/mod_http2.html#h2serializeheaders
+h2sessionextrafiles	mod/mod_http2.html#h2sessionextrafiles
+h2streammaxmemsize	mod/mod_http2.html#h2streammaxmemsize
+h2tlscooldownsecs	mod/mod_http2.html#h2tlscooldownsecs
+h2tlswarmupsize	mod/mod_http2.html#h2tlswarmupsize
+h2upgrade	mod/mod_http2.html#h2upgrade
+h2windowsize	mod/mod_http2.html#h2windowsize
 header	mod/mod_headers.html#header
 headername	mod/mod_autoindex.html#headername
 heartbeataddress	mod/mod_heartbeat.html#heartbeataddress
@@ -304,6 +319,7 @@ limitrequestline	mod/core.html#limitrequestline
 limitxmlrequestbody	mod/core.html#limitxmlrequestbody
 listen	mod/mpm_common.html#listen
 listenbacklog	mod/mpm_common.html#listenbacklog
+listencoresbucketsratio	mod/mpm_common.html#listencoresbucketsratio
 loadfile	mod/mod_so.html#loadfile
 loadmodule	mod/mod_so.html#loadmodule
 location	mod/core.html#location
@@ -343,6 +359,7 @@ maxrequestworkers	mod/mpm_common.html#maxrequestworkers
 maxspareservers	mod/prefork.html#maxspareservers
 maxsparethreads	mod/mpm_common.html#maxsparethreads
 maxthreads	mod/mpm_netware.html#maxthreads
+memcacheconnttl	mod/mod_socache_memcache.html#memcacheconnttl
 mergetrailers	mod/core.html#mergetrailers
 metadir	mod/mod_cern_meta.html#metadir
 metafiles	mod/mod_cern_meta.html#metafiles
@@ -367,6 +384,8 @@ pidfile	mod/mpm_common.html#pidfile
 privilegesmode	mod/mod_privileges.html#privilegesmode
 protocol	mod/core.html#protocol
 protocolecho	mod/mod_echo.html#protocolecho
+protocols	mod/core.html#protocols
+protocolshonororder	mod/core.html#protocolshonororder
 proxy	mod/mod_proxy.html#proxy
 proxyaddheaders	mod/mod_proxy.html#proxyaddheaders
 proxybadheader	mod/mod_proxy.html#proxybadheader
@@ -413,6 +432,7 @@ proxysourceaddress	mod/mod_proxy.html#proxysourceaddress
 proxystatus	mod/mod_proxy.html#proxystatus
 proxytimeout	mod/mod_proxy.html#proxytimeout
 proxyvia	mod/mod_proxy.html#proxyvia
+qualifyredirecturl	mod/core.html#qualifyredirecturl
 readmename	mod/mod_autoindex.html#readmename
 receivebuffersize	mod/mpm_common.html#receivebuffersize
 redirect	mod/mod_alias.html#redirect
@@ -576,6 +596,7 @@ sslverifydepth	mod/mod_ssl.html#sslverifydepth
 startservers	mod/mpm_common.html#startservers
 startthreads	mod/mpm_common.html#startthreads
 substitute	mod/mod_substitute.html#substitute
+substituteinheritbefore	mod/mod_substitute.html#substituteinheritbefore
 substitutemaxlinelength	mod/mod_substitute.html#substitutemaxlinelength
 suexec	mod/mod_unixd.html#suexec
 suexecusergroup	mod/mod_suexec.html#suexecusergroup

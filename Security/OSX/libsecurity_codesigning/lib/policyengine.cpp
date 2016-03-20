@@ -100,12 +100,11 @@ void PolicyEngine::evaluate(CFURLRef path, AuthorityType type, SecAssessmentFlag
 }
 
 
-static std::string createWhitelistScreen(char type, SHA1 &hash)
+static std::string createWhitelistScreen(char type, const Byte *digest, size_t length)
 {
-	SHA1::Digest digest;
-	hash.finish(digest);
-	char buffer[2*SHA1::digestLength + 2] = { type };
-	for (size_t n = 0; n < SHA1::digestLength; n++)
+	char buffer[2*length + 2];
+	buffer[0] = type;
+	for (size_t n = 0; n < length; n++)
 		sprintf(buffer + 1 + 2*n, "%02.2x", digest[n]);
 	return buffer;
 }
@@ -235,13 +234,24 @@ bool PolicyEngine::temporarySigning(SecStaticCodeRef code, AuthorityType type, C
 		if (CFRef<CFDataRef> info = rep->component(cdInfoSlot)) {
 			SHA1 hash;
 			hash.update(CFDataGetBytePtr(info), CFDataGetLength(info));
-			screen = createWhitelistScreen('I', hash);
+			SHA1::Digest digest;
+			hash.finish(digest);
+			screen = createWhitelistScreen('I', digest, sizeof(digest));
+		} else if (CFRef<CFDataRef> repSpecific = rep->component(cdRepSpecificSlot)) {
+			// got invented after SHA-1 deprecation, so we'll use SHA256, which is the new default
+			CCHashInstance hash(kCCDigestSHA256);
+			hash.update(CFDataGetBytePtr(repSpecific), CFDataGetLength(repSpecific));
+			Byte digest[256/8];
+			hash.finish(digest);
+			screen = createWhitelistScreen('R', digest, sizeof(digest));
 		} else if (rep->mainExecutableImage()) {
 			screen = "N";
 		} else {
 			SHA1 hash;
 			hashFileData(rep->mainExecutablePath().c_str(), &hash);
-			screen = createWhitelistScreen('M', hash);
+			SHA1::Digest digest;
+			hash.finish(digest);
+			screen = createWhitelistScreen('M', digest, sizeof(digest));
 		}
 		SQLite::Statement query(*this,
 			"SELECT flags FROM authority "
@@ -260,7 +270,8 @@ bool PolicyEngine::temporarySigning(SecStaticCodeRef code, AuthorityType type, C
 	try {
 		// ad-hoc sign the code and attach the signature
 		CFRef<CFDataRef> signature = CFDataCreateMutable(NULL, 0);
-		CFTemp<CFDictionaryRef> arguments("{%O=%O, %O=#N}", kSecCodeSignerDetached, signature.get(), kSecCodeSignerIdentity);
+		CFTemp<CFMutableDictionaryRef> arguments("{%O=%O, %O=#N, %O=%d}", kSecCodeSignerDetached, signature.get(), kSecCodeSignerIdentity,
+			kSecCodeSignerDigestAlgorithm, (matchFlags & kAuthorityFlagWhitelistSHA256) ? kSecCodeSignatureHashSHA256 : kSecCodeSignatureHashSHA1);
 		CFRef<SecCodeSignerRef> signer;
 		MacOSError::check(SecCodeSignerCreate(arguments, (matchFlags & kAuthorityFlagWhitelistV2) ? kSecCSSignOpaque : kSecCSSignV1, &signer.aref()));
 		MacOSError::check(SecCodeSignerAddSignature(signer, code, kSecCSDefaultFlags));
@@ -365,7 +376,10 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 	}));
 	
 	// go for it!
-	switch (rc = SecStaticCodeCheckValidity(code, validationFlags | kSecCSCheckNestedCode | kSecCSRestrictSymlinks | kSecCSReportProgress, NULL)) {
+	SecCSFlags topFlags = validationFlags | kSecCSCheckNestedCode | kSecCSRestrictSymlinks | kSecCSReportProgress;
+	if (type == kAuthorityExecute)
+		topFlags |= kSecCSRestrictToAppLike;
+	switch (rc = SecStaticCodeCheckValidity(code, topFlags, NULL)) {
 	case errSecSuccess:		// continue below
 		break;
 	case errSecCSUnsigned:
@@ -385,6 +399,7 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 	case errSecCSUnsealedAppRoot:
 	case errSecCSUnsealedFrameworkRoot:
 	case errSecCSInvalidSymlink:
+	case errSecCSNotAppLike:
 	{
 		// consult the whitelist
 		bool allow = false;
@@ -604,7 +619,7 @@ void PolicyEngine::evaluateDocOpen(CFURLRef path, SecAssessmentFlags flags, CFDi
 				addAuthority(flags, result, "Prior Assessment");
 			} else if (!overrideAssessment(flags)) {		// no need to do more work if we're off
 				try {
-					evaluateCode(path, kAuthorityExecute, flags, context, result, false);
+					evaluateCode(path, kAuthorityOpenDoc, flags, context, result, true);
 				} catch (...) {
 					// some documents can't be code signed, so this may be quite benign
 				}
@@ -715,7 +730,7 @@ CFDictionaryRef PolicyEngine::add(CFTypeRef inTarget, AuthorityType type, SecAss
 	bool allow = true;
 	double expires = never;
 	string remarks;
-	SQLite::uint64 dbFlags = kAuthorityFlagWhitelistV2;
+	SQLite::uint64 dbFlags = kAuthorityFlagWhitelistV2 | kAuthorityFlagWhitelistSHA256;
 	
 	if (CFNumberRef pri = ctx.get<CFNumberRef>(kSecAssessmentUpdateKeyPriority))
 		CFNumberGetValue(pri, kCFNumberDoubleType, &priority);
@@ -1036,7 +1051,7 @@ void PolicyEngine::normalizeTarget(CFRef<CFTypeRef> &target, AuthorityType type,
 			}
 			break;
 		case errSecCSUnsigned:
-			if (signUnsigned && temporarySigning(code, type, path, kAuthorityFlagWhitelistV2)) {	// ad-hoc signed the code temporarily
+			if (signUnsigned && temporarySigning(code, type, path, kAuthorityFlagWhitelistV2 | kAuthorityFlagWhitelistSHA256)) {	// ad-hoc sign the code temporarily
 				MacOSError::check(SecCodeCopyDesignatedRequirement(code, kSecCSDefaultFlags, (SecRequirementRef *)&target.aref()));
 				CFRef<CFDictionaryRef> info;
 				MacOSError::check(SecCodeCopySigningInformation(code, kSecCSInternalInformation, &info.aref()));

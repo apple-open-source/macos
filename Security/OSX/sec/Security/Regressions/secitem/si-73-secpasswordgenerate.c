@@ -867,14 +867,14 @@ static void tests(void)
     password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
     ok(password == NULL);
     ok(error != NULL);
-
+    
     error = NULL;
     CFRelease(wrongCount);
     CFRelease(passwordRequirements);
     CFRelease(minRef);
     CFRelease(maxRef);
     CFRelease(allowedCharacters);
-
+    
     password = CFSTR("Apple1?");
     isnt(true, SecPasswordIsPasswordWeak(password));
     CFRelease(password);
@@ -1018,12 +1018,15 @@ static void tests(void)
     is(true, SecPasswordIsPasswordWeak2(true, CFSTR("666666")));
     is(true, SecPasswordIsPasswordWeak2(true, CFSTR("123456")));
     is(false, SecPasswordIsPasswordWeak2(true, CFSTR("666166")));
-    
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("525252")));
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("525252")));
+    is(true, SecPasswordIsPasswordWeak2(false, CFSTR("52525")));
+
 }
 
 int si_73_secpasswordgenerate(int argc, char *const *argv)
 {
-	plan_tests(305);
+	plan_tests(308);
 	tests();
     
 	return 0;

@@ -434,7 +434,7 @@ static void secd_perform_with_data_in_file(const char* test_prefix, void(^with)(
     if(do_before_reset)
         do_before_reset();
 
-    kc_dbhandle_reset();
+    SecKeychainDbReset(NULL);
 
     CFReleaseNull(tmp_dir);
     CFReleaseNull(keychain_dir);

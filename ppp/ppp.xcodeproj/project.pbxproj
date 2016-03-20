@@ -5967,6 +5967,7 @@
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPTP;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -6009,6 +6010,7 @@
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPTP;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -6048,6 +6050,7 @@
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPTP;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -6089,6 +6092,7 @@
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = L2TP;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -6130,7 +6134,7 @@
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
-				SDKROOT = iphoneos4.3.internal;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -6169,7 +6173,7 @@
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
-				SDKROOT = iphoneos4.0.internal;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -6222,6 +6226,7 @@
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPPController;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -6270,6 +6275,7 @@
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPController;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -6315,6 +6321,7 @@
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPController;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -6346,6 +6353,7 @@
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = ppp;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -6375,6 +6383,7 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ppp;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -6397,6 +6406,7 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ppp;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -6540,6 +6550,7 @@
 				PRODUCT_NAME = pppd;
 				PROVISIONING_PROFILE = "";
 				REZ_EXECUTABLE = YES;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS = "-x";
 				WARNING_CFLAGS = (
@@ -6601,6 +6612,7 @@
 				PRODUCT_NAME = pppd;
 				PROVISIONING_PROFILE = "";
 				REZ_EXECUTABLE = YES;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS = "-x";
 				WARNING_CFLAGS = (
@@ -6659,6 +6671,7 @@
 				PRODUCT_NAME = pppd;
 				PROVISIONING_PROFILE = "";
 				REZ_EXECUTABLE = YES;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS = "-x";
 				WARNING_CFLAGS = (
@@ -6806,6 +6819,7 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = pppd;
 				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS = "-x";
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
@@ -6870,6 +6884,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = pppd;
 				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS = "-x";
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
@@ -6931,6 +6946,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = pppd;
 				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS = "-x";
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
@@ -8678,6 +8694,7 @@
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = L2TP;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
@@ -8719,6 +8736,7 @@
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
@@ -8757,6 +8775,7 @@
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
@@ -9838,6 +9857,7 @@
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPP;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -9877,6 +9897,7 @@
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPP;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -9913,6 +9934,7 @@
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPP;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -9954,6 +9976,7 @@
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = L2TP;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = NO;
 				WARNING_CFLAGS = (
@@ -9992,6 +10015,7 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = NO;
 				WARNING_CFLAGS = (
@@ -10027,6 +10051,7 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = NO;
 				WARNING_CFLAGS = (
@@ -10067,6 +10092,7 @@
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPTP;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = NO;
 				WARNING_CFLAGS = (
@@ -10104,6 +10130,7 @@
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPTP;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = NO;
 				WARNING_CFLAGS = (
@@ -10138,6 +10165,7 @@
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPTP;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = NO;
 				WARNING_CFLAGS = (
@@ -10177,6 +10205,7 @@
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPPDialogs;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -10210,6 +10239,7 @@
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPDialogs;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -10239,6 +10269,7 @@
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPDialogs;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				SYMROOT = build;
 				WARNING_CFLAGS = (
@@ -10473,6 +10504,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = sbslauncher;
 				PROVISIONING_PROFILE = "";
+				SDKROOT = iphoneos.internal;
 			};
 			name = Development;
 		};
@@ -10498,6 +10530,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = sbslauncher;
 				PROVISIONING_PROFILE = "";
+				SDKROOT = iphoneos.internal;
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -10521,6 +10554,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = sbslauncher;
 				PROVISIONING_PROFILE = "";
+				SDKROOT = iphoneos.internal;
 			};
 			name = Default;
 		};

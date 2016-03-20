@@ -65,8 +65,48 @@
         delete state._linkTokenize;
         delete state._linkQuoteCharacter;
         delete state._linkBaseStyle;
+        delete state._srcSetTokenizeState;
 
         return style;
+    }
+
+    function tokenizeSrcSetString(stream, state)
+    {
+        console.assert(state._linkQuoteCharacter !== undefined);
+
+        if (state._srcSetTokenizeState === "link") {
+            // Eat the string until a space, comma, or ending quote.
+            // If this is unquoted, then eat until whitespace or common parse errors.
+            if (state._linkQuoteCharacter)
+                stream.eatWhile(new RegExp("[^\\s," + state._linkQuoteCharacter + "]"));
+            else
+                stream.eatWhile(/[^\s,\u00a0=<>\"\']/);
+        } else {
+            // Eat the string until a comma, or ending quote.
+            // If this is unquoted, then eat until whitespace or common parse errors.
+            stream.eatSpace();
+            if (state._linkQuoteCharacter)
+                stream.eatWhile(new RegExp("[^," + state._linkQuoteCharacter + "]"));
+            else
+                stream.eatWhile(/[^\s\u00a0=<>\"\']/);
+            stream.eatWhile(/[\s,]/);
+        }
+
+        // If the stream isn't at the end of line and we found the end quote
+        // change _linkTokenize to parse the end of the link next. Otherwise
+        // _linkTokenize will stay as-is to parse more of the srcset.
+        if (stream.eol() || (!state._linkQuoteCharacter || stream.peek() === state._linkQuoteCharacter))
+            state._linkTokenize = tokenizeEndOfLinkString;
+
+        // Link portion.
+        if (state._srcSetTokenizeState === "link") {
+            state._srcSetTokenizeState = "descriptor";
+            return "link";
+        }
+
+        // Descriptor portion.
+        state._srcSetTokenizeState = "link";
+        return state._linkBaseStyle;
     }
 
     function extendedXMLToken(stream, state)
@@ -84,10 +124,14 @@
             // Look for "href" or "src" attributes. If found then we should
             // expect a string later that should get the "link" style instead.
             var text = stream.current().toLowerCase();
-            if (text === "href" || text === "src")
+            if (text === "src" || /\bhref\b/.test(text))
                 state._expectLink = true;
-            else
+            else if (text === "srcset")
+                state._expectSrcSet = true;
+            else {
                 delete state._expectLink;
+                delete state._expectSrcSet;
+            }
         } else if (state._expectLink && style === "string") {
             var current = stream.current();
 
@@ -113,11 +157,38 @@
                 if (state._linkQuoteCharacter)
                     stream.eat(state._linkQuoteCharacter);
             }
+        } else if (state._expectSrcSet && style === "string") {
+            var current = stream.current();
+
+            // Unless current token is empty quotes, consume quote character
+            // and tokenize link next.
+            if (current !== "\"\"" && current !== "''") {
+                delete state._expectSrcSet;
+
+                // This is a link, so setup the state to process it next.
+                state._srcSetTokenizeState = "link";
+                state._linkTokenize = tokenizeSrcSetString;
+                state._linkBaseStyle = style;
+
+                // The attribute may or may not be quoted.
+                var quote = current[0];
+
+                state._linkQuoteCharacter = quote === "'" || quote === "\"" ? quote : null;
+
+                // Rewind the stream to the start of this token.
+                stream.pos = startPosition;
+
+                // Eat the open quote of the string so the string style
+                // will be used for the quote character.
+                if (state._linkQuoteCharacter)
+                    stream.eat(state._linkQuoteCharacter);
+            }
         } else if (style) {
             // We don't expect other tokens between attribute and string since
             // spaces and the equal character are not tokenized. So if we get
             // another token before a string then we stop expecting a link.
             delete state._expectLink;
+            delete state._expectSrcSet;
         }
 
         return style && (style + " m-" + this.name);
@@ -182,7 +253,7 @@
 
     function extendedCSSToken(stream, state)
     {
-        var hexColorRegex = /#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g;
+        var hexColorRegex = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b/g;
 
         if (state._urlTokenize) {
             // Call the link tokenizer instead.
@@ -496,140 +567,6 @@
         return lineRects;
     });
 
-    CodeMirror.defineExtension("createColorMarkers", function(range, callback) {
-        var createdMarkers = [];
-
-        var start = range instanceof WebInspector.TextRange ? range.startLine : 0;
-        var end = range instanceof WebInspector.TextRange ? range.endLine + 1 : this.lineCount();
-
-        // Matches rgba(0, 0, 0, 0.5), rgb(0, 0, 0), hsl(), hsla(), #fff, #ffffff, white
-        var colorRegex = /((?:rgb|hsl)a?\([^)]+\)|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|\b\w+\b(?![-.]))/g;
-
-        for (var lineNumber = start; lineNumber < end; ++lineNumber) {
-            var lineContent = this.getLine(lineNumber);
-            var match = colorRegex.exec(lineContent);
-            while (match) {
-
-                // Act as a negative look-behind and disallow the color from being prefixing with certain characters.
-                if (match.index > 0 && /[-.\"\']/.test(lineContent[match.index - 1])) {
-                    match = colorRegex.exec(lineContent);
-                    continue;
-                }
-
-                var from = {line: lineNumber, ch: match.index};
-                var to = {line: lineNumber, ch: match.index + match[0].length};
-
-                var foundColorMarker = false;
-                var markers = this.findMarksAt(to);
-                for (var j = 0; j < markers.length; ++j) {
-                    if (WebInspector.TextMarker.textMarkerForCodeMirrorTextMarker(markers[j]).type === WebInspector.TextMarker.Type.Color) {
-                        foundColorMarker = true;
-                        break;
-                    }
-                }
-
-                if (foundColorMarker) {
-                    match = colorRegex.exec(lineContent);
-                    continue;
-                }
-
-                // We're not interested if the color value is not inside a keyword.
-                var tokenType = this.getTokenTypeAt(from);
-                if (tokenType && !tokenType.includes("keyword")) {
-                    match = colorRegex.exec(lineContent);
-                    continue;
-                }
-
-                var colorString = match[0];
-                var color = WebInspector.Color.fromString(colorString);
-                if (!color) {
-                    match = colorRegex.exec(lineContent);
-                    continue;
-                }
-
-                var marker = this.markText(from, to);
-                marker = new WebInspector.TextMarker(marker, WebInspector.TextMarker.Type.Color);
-
-                createdMarkers.push(marker);
-
-                if (callback)
-                    callback(marker, color, colorString);
-
-                match = colorRegex.exec(lineContent);
-            }
-        }
-
-        return createdMarkers;
-    });
-
-    CodeMirror.defineExtension("createGradientMarkers", function(range, callback) {
-        var createdMarkers = [];
-
-        var start = range instanceof WebInspector.TextRange ? range.startLine : 0;
-        var end = range instanceof WebInspector.TextRange ? range.endLine + 1 : this.lineCount();
-
-        var gradientRegex = /(repeating-)?(linear|radial)-gradient\s*\(\s*/g;
-
-        for (var lineNumber = start; lineNumber < end; ++lineNumber) {
-            var lineContent = this.getLine(lineNumber);
-            var match = gradientRegex.exec(lineContent);
-            while (match) {
-                var startLine = lineNumber;
-                var startChar = match.index;
-                var endChar = match.index + match[0].length;
-
-                var openParentheses = 0;
-                var c = null;
-                while (c = lineContent[endChar]) {
-                    if (c === "(")
-                        openParentheses++;
-                    if (c === ")")
-                        openParentheses--;
-
-                    if (openParentheses === -1) {
-                        endChar++;
-                        break;
-                    }
-
-                    endChar++;
-                    if (endChar >= lineContent.length) {
-                        lineNumber++;
-                        endChar = 0;
-                        lineContent = this.getLine(lineNumber);
-                        if (!lineContent)
-                            break;
-                    }
-                }
-
-                if (openParentheses !== -1) {
-                    match = gradientRegex.exec(lineContent);
-                    continue;
-                }
-
-                var from = {line: startLine, ch: startChar};
-                var to = {line: lineNumber, ch: endChar};
-
-                var gradientString = this.getRange(from, to);
-                var gradient = WebInspector.Gradient.fromString(gradientString);
-                if (!gradient) {
-                    match = gradientRegex.exec(lineContent);
-                    continue;
-                }
-
-                var marker = new WebInspector.TextMarker(this.markText(from, to), WebInspector.TextMarker.Type.Gradient);
-
-                createdMarkers.push(marker);
-
-                if (callback)
-                    callback(marker, gradient, gradientString);
-
-                match = gradientRegex.exec(lineContent);
-            }
-        }
-
-        return createdMarkers;
-    });
-
     function ignoreKey(codeMirror)
     {
         // Do nothing to ignore the key.
@@ -686,3 +623,30 @@ WebInspector.compareCodeMirrorPositions = function(a, b)
     var bColumn = "ch" in b ? b.ch : Number.MAX_VALUE;
     return aColumn - bColumn;
 };
+
+WebInspector.walkTokens = function(cm, mode, initialPosition, callback)
+{
+    var state = CodeMirror.copyState(mode, cm.getTokenAt(initialPosition).state);
+    var lineCount = cm.lineCount();
+
+    var abort = false;
+    for (lineNumber = initialPosition.line; !abort && lineNumber < lineCount; ++lineNumber) {
+        var line = cm.getLine(lineNumber);
+        var stream = new CodeMirror.StringStream(line);
+        if (lineNumber === initialPosition.line)
+            stream.start = stream.pos = initialPosition.ch;
+
+        while (!stream.eol()) {
+            var innerMode = CodeMirror.innerMode(mode, state);
+            var tokenType = mode.token(stream, state);
+            if (!callback(tokenType, stream.current())) {
+                abort = true;
+                break;
+            }
+            stream.start = stream.pos;
+        }
+    }
+
+    if (!abort)
+        callback(null);
+}

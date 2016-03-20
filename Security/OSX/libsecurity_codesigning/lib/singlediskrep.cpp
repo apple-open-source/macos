@@ -115,10 +115,12 @@ string SingleDiskRep::recommendedIdentifier(const SigningContext &)
 //
 // Paranoid validation
 //
-void SingleDiskRep::strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated)
+void SingleDiskRep::strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags)
 {
+	DiskRep::strictValidate(cd, tolerated, flags);
+	
 	// code limit must cover (exactly) the entire file
-	if (cd && cd->codeLimit != signingLimit())
+	if (cd && cd->signingLimit() != signingLimit())
 		MacOSError::throwMe(errSecCSSignatureInvalid);
 }
 

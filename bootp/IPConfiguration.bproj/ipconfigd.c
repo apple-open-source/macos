@@ -1893,6 +1893,25 @@ IFStateFreeService(IFStateRef ifstate, ServiceRef service_p)
     return;
 }
 
+static void
+IFState_clear_state(IFStateRef ifstate,
+		    ipconfig_method_t method)
+{
+    interface_t *	if_p = ifstate->if_p;
+
+    if (ipconfig_method_is_v6(method)) {
+	if (dynarray_count(&ifstate->services_v6) == 0) {
+	    my_log(LOG_NOTICE, "%s: clearing stale IPv6 state",
+		   if_name(if_p));
+	    /* flush IPv6 state from the interface */
+	    (void)inet6_rtadv_disable(if_name(if_p));
+	    (void)inet6_linklocal_stop(if_name(if_p));
+	    inet6_detach_interface(if_name(if_p));
+	}
+    }
+    return;
+}
+
 static ipconfig_status_t
 IFState_service_add(IFStateRef ifstate, CFStringRef serviceID, 
 		    ipconfig_method_t method, void * method_data,
@@ -4710,18 +4729,6 @@ set_if(const char * name, ipconfig_method_t method,
 				NULL, NULL));
 }
 
-static CFStringRef
-myCFUUIDStringCreate(CFAllocatorRef alloc)
-{
-    CFUUIDRef 	uuid;
-    CFStringRef	uuid_str;
-
-    uuid = CFUUIDCreate(alloc);
-    uuid_str = CFUUIDCreateString(alloc, uuid);
-    CFRelease(uuid);
-    return (uuid_str);
-}
-
 static ipconfig_status_t
 add_or_set_service(const char * name, ipconfig_method_t method, 
 		   bool add_only,
@@ -4729,6 +4736,7 @@ add_or_set_service(const char * name, ipconfig_method_t method,
 		   void * service_id, unsigned int * service_id_len,
 		   CFDictionaryRef plist, pid_t pid)
 {
+    boolean_t		clear_state = FALSE;
     interface_t * 	if_p = ifl_find_name(S_interfaces, name);
     IFStateRef   	ifstate;
     unsigned int	in_length;
@@ -4737,7 +4745,7 @@ add_or_set_service(const char * name, ipconfig_method_t method,
     boolean_t		no_publish = FALSE;
     boolean_t		perform_nud = TRUE;
     ServiceRef		service_p;
-    CFStringRef		serviceID;
+    CFStringRef		serviceID = NULL;
     ipconfig_status_t	status;
 
     in_length = *service_id_len;
@@ -4775,10 +4783,6 @@ add_or_set_service(const char * name, ipconfig_method_t method,
 	}
 	IFStateFreeService(ifstate, service_p);
     }
-    serviceID = myCFUUIDStringCreate(NULL);
-    if (serviceID == NULL) {
-	return (ipconfig_status_allocation_failed_e);
-    }
 
     /* get service options */
     if (plist != NULL) {
@@ -4787,6 +4791,8 @@ add_or_set_service(const char * name, ipconfig_method_t method,
 	options_dict = CFDictionaryGetValue(plist, 
 					    kIPConfigurationServiceOptions);
 	if (isA_CFDictionary(options_dict) != NULL) {
+	    CFStringRef		prop_serviceID;
+
 	    if (S_get_plist_boolean_quiet(options_dict, 
 					  _kIPConfigurationServiceOptionMonitorPID,
 					  FALSE)) {
@@ -4803,6 +4809,23 @@ add_or_set_service(const char * name, ipconfig_method_t method,
 		= S_get_plist_boolean_quiet(options_dict,
 					    _kIPConfigurationServiceOptionPerformNUD,
 					    TRUE);
+	    prop_serviceID
+		= CFDictionaryGetValue(options_dict,
+				       _kIPConfigurationServiceOptionServiceID);
+	    if (isA_CFString(prop_serviceID) != NULL) {
+		serviceID = CFRetain(prop_serviceID);
+	    }
+	    clear_state
+		= S_get_plist_boolean_quiet(options_dict, 
+					    _kIPConfigurationServiceOptionClearState,
+					    FALSE);
+	}
+    }
+
+    if (serviceID == NULL) {
+	serviceID = my_CFUUIDStringCreate(NULL);
+	if (serviceID == NULL) {
+	    return (ipconfig_status_allocation_failed_e);
 	}
     }
 
@@ -4815,6 +4838,9 @@ add_or_set_service(const char * name, ipconfig_method_t method,
 	interface_set_mtu(name, mtu);
     }
     ifstate->disable_perform_nud = !perform_nud;
+    if (clear_state) {
+	IFState_clear_state(ifstate, method);
+    }
     status = IFState_service_add(ifstate, serviceID, method, method_data,
 				 NULL, &service_p);
     if (status == ipconfig_status_success_e) {
@@ -7678,7 +7704,6 @@ S_get_plist_int(CFDictionaryRef plist, CFStringRef key,
     }
     return (ret);
 }
-
 
 #include <math.h>
 static struct timeval

@@ -122,6 +122,10 @@ if (!window.InspectorFrontendHost) {
                 console.error("Clipboard access is denied");
         },
 
+        killText: function(text, shouldStartNewSequence)
+        {
+        },
+
         openInNewTab: function(url)
         {
             window.open(url, "_blank");
@@ -172,7 +176,7 @@ if (!window.InspectorFrontendHost) {
         }
     };
 
-    InspectorFrontendHost = new WebInspector.InspectorFrontendHostStub();
+    InspectorFrontendHost = new WebInspector.InspectorFrontendHostStub;
 
     WebInspector.dontLocalizeUserInterface = true;
 }

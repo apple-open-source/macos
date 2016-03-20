@@ -115,13 +115,13 @@ AclSubject::Maker::~Maker()
 // A SimpleAclSubject accepts only a single type of sample, validates
 // samples independently, and makes no use of certificates.
 //
-bool SimpleAclSubject::validate(const AclValidationContext &ctx) const
+bool SimpleAclSubject::validates(const AclValidationContext &ctx) const
 {
     for (uint32 n = 0; n < ctx.count(); n++) {
         const TypedList &sample = ctx[n];
         if (!sample.isProper())
             CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
-        if (sample.type() == type() && validate(ctx, sample)) {
+        if (sample.type() == type() && validates(ctx, sample)) {
 			ctx.matched(ctx[n]);
             return true;	// matched this sample; validation successful
 		}

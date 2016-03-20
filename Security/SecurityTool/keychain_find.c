@@ -34,7 +34,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <libkern/OSByteOrder.h>
+#include <Security/SecACL.h>
+#include <Security/SecItem.h>
+#include <Security/SecItemPriv.h>
 #include <Security/SecKeychainItem.h>
+#include <Security/SecKeychainItemPriv.h>
 #include <Security/SecKeychainSearch.h>
 #include <Security/SecCertificate.h>
 #include <CoreFoundation/CFString.h>
@@ -1184,6 +1188,353 @@ cleanup:
 
 	return result;
 }
+
+// Declare here to use later.
+int keychain_set_partition_list(SecKeychainRef kc, CFDictionaryRef query, CFStringRef password, CFStringRef partitionlist);
+int keychain_parse_args_and_set_partition_list(int argc, char * const *argv, CFDictionaryRef query, CFStringRef partitionidsinput, CFStringRef password);
+
+int keychain_set_internet_password_partition_list(int argc, char * const *argv) {
+    /*
+     *  "    -a  Match \"account\" string\n"
+     *  "    -c  Match \"creator\" (four-character code)\n"
+     *  "    -C  Match \"type\" (four-character code)\n"
+     *  "    -d  Match \"securityDomain\" string\n"
+     *  "    -D  Match \"kind\" string\n"
+     *  "    -j  Match \"comment\" string\n"
+     *  "    -l  Match \"label\" string\n"
+     *  "    -p  Match \"path\" string\n"
+     *  "    -P  Match port number\n"
+     *  "    -r  Match \"protocol\" (four-character code)\n"
+     *  "    -s  Match \"server\" string\n"
+     *  "    -t  Match \"authenticationType\" (four-character code)\n"
+     *  "    -S  Comma-separated list of allowed partition IDs"
+     *  "    -k  password for keychain"
+     */
+
+    CFMutableDictionaryRef query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(query, kSecClass, kSecClassInternetPassword);
+    CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitAll);
+
+    CFStringRef partitionidsinput = NULL;
+    CFStringRef password = NULL;
+
+    int ch, result = 0;
+    while ((ch = getopt(argc, argv, "a:c:C:d:D:j:l:p:P:r:s:S:t:k:")) != -1)
+    {
+        switch  (ch)
+        {
+            case 'a':
+                CFDictionarySetValue(query, kSecAttrAccount, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'c':
+                CFDictionarySetValue(query, kSecAttrCreator, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'C':
+                CFDictionarySetValue(query, kSecAttrType, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'd':
+                CFDictionarySetValue(query, kSecAttrSecurityDomain, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'D':
+                CFDictionarySetValue(query, kSecAttrDescription, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'j':
+                CFDictionarySetValue(query, kSecAttrComment, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'l':
+                CFDictionarySetValue(query, kSecAttrLabel, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'p':
+                CFDictionarySetValue(query, kSecAttrPath, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'P':
+                CFDictionarySetValue(query, kSecAttrPort, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'r':
+                CFDictionarySetValue(query, kSecAttrProtocol, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 's':
+                CFDictionarySetValue(query, kSecAttrService, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 't':
+                CFDictionarySetValue(query, kSecAttrAuthenticationType, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'S':
+                partitionidsinput = CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull);
+                break;
+            case 'k':
+                password = CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull);
+                break;
+            case '?':
+            default:
+                result = 2;
+                goto cleanup;
+        }
+    }
+
+    argc -= optind;
+    argv += optind;
+
+    result = keychain_parse_args_and_set_partition_list(argc, argv, query, partitionidsinput, password);
+
+cleanup:
+    safe_CFRelease(&password);
+    safe_CFRelease(&partitionidsinput);
+    safe_CFRelease(&query);
+    return result;
+}
+
+int
+keychain_set_generic_password_partition_list(int argc, char * const *argv) {
+    CFMutableDictionaryRef query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+    //        -a  Match \"account\" string
+    //        -c  Match \"creator\" (four-character code)
+    //        -C  Match \"type\" (four-character code)
+    //        -D  Match \"kind\" string
+    //        -G  Match \"value\" string (generic attribute)
+    //        -j  Match \"comment\" string
+    //        -l  Match \"label\" string
+    //        -s  Match \"service\" string
+    //        -S  Comma-separated list of allowed partition IDs
+    //        -k  password for keychain
+
+    CFDictionarySetValue(query, kSecClass, kSecClassGenericPassword);
+    CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitAll);
+
+    CFStringRef partitionidsinput = NULL;
+    CFStringRef password = NULL;
+
+    int ch, result = 0;
+    while ((ch = getopt(argc, argv, "a:c:C:D:G:j:l:s:S:k:")) != -1)
+    {
+        switch  (ch)
+        {
+            case 'a':
+                CFDictionarySetValue(query, kSecAttrAccount, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'c':
+                CFDictionarySetValue(query, kSecAttrCreator, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'C':
+                CFDictionarySetValue(query, kSecAttrType, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'D':
+                CFDictionarySetValue(query, kSecAttrDescription, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'G':
+                CFDictionarySetValue(query, kSecAttrGeneric, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'j':
+                CFDictionarySetValue(query, kSecAttrComment, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'l':
+                CFDictionarySetValue(query, kSecAttrLabel, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 's':
+                CFDictionarySetValue(query, kSecAttrService, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'S':
+                partitionidsinput = CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull);
+                break;
+            case 'k':
+                password = CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull);
+                break;
+            case '?':
+            default:
+                result = 2;
+                goto cleanup;
+        }
+    }
+
+    argc -= optind;
+    argv += optind;
+
+    result = keychain_parse_args_and_set_partition_list(argc, argv, query, partitionidsinput, password);
+
+cleanup:
+    safe_CFRelease(&password);
+    safe_CFRelease(&partitionidsinput);
+    safe_CFRelease(&query);
+    return result;
+}
+
+
+int keychain_parse_args_and_set_partition_list(int argc, char * const *argv, CFDictionaryRef query, CFStringRef partitionidsinput, CFStringRef password) {
+    int result = 0;
+    const char *keychainName = NULL;
+    SecKeychainRef kc = NULL;
+
+    // if we were given a keychain, use it
+    if (argc == 1)
+    {
+        keychainName = argv[0];
+        if (*keychainName == '\0')
+        {
+            result = 2;
+            goto cleanup;
+        }
+
+        kc = keychain_open(keychainName);
+        if(!kc) {
+            sec_error("couldn't open \"%s\"", keychainName);
+            result = 1;
+            goto cleanup;
+        }
+
+        CFMutableArrayRef searchList = (CFMutableArrayRef) CFArrayCreateMutable(kCFAllocatorDefault, 1, &kCFTypeArrayCallBacks);
+        CFArrayAppendValue((CFMutableArrayRef)searchList, kc);
+        CFDictionarySetValue(query, kSecMatchSearchList, searchList);
+    } else if (argc != 0) {
+        result = 2;
+        goto cleanup;
+    }
+
+    if(!password) {
+        char* cpassword = prompt_password(keychainName);
+        if (!cpassword) {
+            result = -1;
+            goto cleanup;
+        }
+        password = CFStringCreateWithCString(NULL, cpassword, kCFStringEncodingUTF8);
+        free(cpassword);
+    }
+
+    if(!partitionidsinput || !password) {
+        result = 2;
+        goto cleanup;
+    }
+
+    result = keychain_set_partition_list(kc, query, password, partitionidsinput);
+
+cleanup:
+    return result;
+}
+
+
+int keychain_set_partition_list(SecKeychainRef kc, CFDictionaryRef query, CFStringRef password, CFStringRef partitionlist) {
+    int result = 0;
+
+    char *passwordBuf = NULL;
+    size_t passwordLen;
+    GetCStringFromCFString(password, &passwordBuf, &passwordLen);
+
+    OSStatus status;
+
+    // Unlock the keychain with the given password, since we'll be fetching ACLs
+    status = SecKeychainUnlock(kc, (UInt32) passwordLen, passwordBuf, true);
+    if(status) {
+        sec_perror("SecKeychainUnlock", status);
+        result = 1;
+        goto cleanup;
+    }
+
+    CFTypeRef results = NULL;
+    status = SecItemCopyMatching(query, &results);
+    if(status) {
+        sec_perror("SecItemCopyMatching", status);
+        result = 1;
+        goto cleanup;
+    }
+
+    if(!results) {
+        result = 0;
+        goto cleanup;
+    }
+
+    if (CFGetTypeID(results) == CFArrayGetTypeID()) {
+        for(int i = 0; i < CFArrayGetCount(results); i++) {
+            SecKeychainItemRef item = (SecKeychainItemRef) CFArrayGetValueAtIndex(results, i);
+            SecAccessRef access = NULL;
+
+            do_password_item_printing(item, false, false);
+
+            status = SecKeychainItemCopyAccess(item, &access);
+            if (status == errSecNoAccessForItem) {
+                continue;
+            }
+            if(status) {
+                sec_perror("SecKeychainItemCopyAccess", status);
+                result = 1;
+                goto cleanup;
+            }
+
+            CFArrayRef aclList = NULL;
+            status = SecAccessCopyACLList(access, &aclList);
+            if (status)
+            {
+                sec_perror("SecAccessCopyACLList", status);
+                result = 1;
+                goto cleanup;
+            }
+
+            CFIndex size = CFArrayGetCount(aclList);
+            for(CFIndex i = 0; i < size; i++) {
+                SecACLRef acl = (SecACLRef) CFArrayGetValueAtIndex(aclList, i);
+                CSSM_ACL_AUTHORIZATION_TAG tags[64]; // Pick some upper limit
+                uint32 tagix, tagCount = sizeof(tags) / sizeof(*tags);
+                status = SecACLGetAuthorizations(acl, tags, &tagCount);
+
+                if (status)
+                {
+                    sec_perror("SecACLGetAuthorizations", status);
+                    result = 1;
+                    goto cleanup;
+                }
+
+                CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR promptSelector = {};
+
+                for (tagix = 0; tagix < tagCount; ++tagix)
+                {
+                    CSSM_ACL_AUTHORIZATION_TAG tag = tags[tagix];
+                    if(tag == CSSM_ACL_AUTHORIZATION_PARTITION_ID) {
+
+                        CFArrayRef applicationList;
+                        CFStringRef promptDescription;
+
+                        status = SecACLCopySimpleContents(acl, &applicationList, &promptDescription, &promptSelector);
+                        if(status) {
+                            sec_perror("SecACLCopySimpleContents", status);
+                            result = 1;
+                            goto cleanup;
+                        }
+
+                        CFArrayRef partitionIDs = CFStringCreateArrayBySeparatingStrings(kCFAllocatorDefault, partitionlist, CFSTR(","));
+                        CFMutableDictionaryRef dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+                        CFDictionarySetValue(dict, CFSTR("Partitions"), partitionIDs);
+                        CFDataRef xml = CFPropertyListCreateXMLData(NULL, dict);
+                        CFStringRef xmlstr = cfToHex(xml);
+
+                        SecACLSetSimpleContents(acl, applicationList, xmlstr, &promptSelector);
+
+                        safe_CFRelease(&xmlstr);
+                        safe_CFRelease(&xml);
+                        safe_CFRelease(&dict);
+                        safe_CFRelease(&partitionIDs);
+                    }
+                }
+            }
+
+            status = SecKeychainItemSetAccessWithPassword(item, access, (UInt32) passwordLen, passwordBuf);
+            if(status) {
+                sec_perror("SecKeychainItemSetAccessWithPassword", status);
+                result = 1;
+                goto cleanup;
+            }
+        }
+    }
+
+    result = 0;
+
+cleanup:
+    if(passwordBuf) {
+        free(passwordBuf);
+    }
+    safe_CFRelease(&results);
+
+    return result;
+}
+
 
 
 int

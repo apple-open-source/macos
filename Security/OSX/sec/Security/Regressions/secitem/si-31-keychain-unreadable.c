@@ -26,6 +26,7 @@
 #include <Security/SecBase.h>
 #include <Security/SecItem.h>
 #include <Security/SecInternal.h>
+#include <securityd/SecItemServer.h>
 
 #include <stdlib.h>
 #include <fcntl.h>
@@ -44,8 +45,6 @@ static void ensureKeychainExists(void) {
     CFReleaseNull(results);
 }
 #endif
-
-void kc_dbhandle_reset(void);
 
 /* Create an empty keychain file that can't be read or written and make sure
    securityd can deal with it. */
@@ -67,7 +66,7 @@ static void tests(void)
     ok_unix(fchmod(fd, 0), " keychain file '%s'", keychain_name);
     ok_unix(close(fd), "close keychain file '%s'", keychain_name);
 
-    kc_dbhandle_reset();
+    SecKeychainDbReset(NULL);
 
     int v_eighty = 80;
     CFNumberRef eighty = CFNumberCreate(NULL, kCFNumberSInt32Type, &v_eighty);

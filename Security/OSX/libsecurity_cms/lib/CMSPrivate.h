@@ -32,6 +32,7 @@
 #include <Security/SecCmsEncoder.h>
 #include <Security/SecCmsDecoder.h>
 #include <Security/SecCmsMessage.h>
+#include <AvailabilityMacros.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -82,6 +83,15 @@ OSStatus CMSEncoderSetSigningTime(
 	CMSEncoderRef		cmsEncoder,
 	CFAbsoluteTime		time);
 
+/*
+ * Set the hash agility attribute for a CMSEncoder.
+ * This is only used if the kCMSAttrAppleCodesigningHashAgility attribute
+ * is included.
+ */
+OSStatus CMSEncoderSetAppleCodesigningHashAgility(
+        CMSEncoderRef   cmsEncoder,
+        CFDataRef       hashAgilityAttrValue);
+
 void
 CmsMessageSetTSAContext(CMSEncoderRef cmsEncoder, CFTypeRef tsaContext);
 
@@ -123,6 +133,20 @@ OSStatus CMSDecoderSetDecoder(
 OSStatus CMSDecoderGetDecoder(
 	CMSDecoderRef		cmsDecoder,
 	SecCmsDecoderRef	*decoder);			/* RETURNED */
+
+/*
+ * Obtain the Hash Agility attribute value of signer 'signerIndex'
+ * of a CMS message, if present.
+ *
+ * Returns errSecParam if the CMS message was not signed or if signerIndex
+ * is greater than the number of signers of the message minus one.
+ *
+ * This cannot be called until after CMSDecoderFinalizeMessage() is called.
+ */
+OSStatus CMSDecoderCopySignerAppleCodesigningHashAgility(
+    CMSDecoderRef		cmsDecoder,
+    size_t				signerIndex,            /* usually 0 */
+    CFDataRef  CF_RETURNS_RETAINED *hashAgilityAttrValue);		/* RETURNED */
 	
 #ifdef __cplusplus
 }

@@ -191,6 +191,7 @@ static void *create_core_dir_config(apr_pool_t *a, char *dir)
     conf->max_reversals = AP_MAXRANGES_UNSET;
 
     conf->cgi_pass_auth = AP_CGI_PASS_AUTH_UNSET;
+    conf->qualify_redirect_url = AP_CORE_CONFIG_UNSET; 
 
     return (void *)conf;
 }
@@ -405,6 +406,8 @@ static void *merge_core_dir_configs(apr_pool_t *a, void *basev, void *newv)
 
     conf->cgi_pass_auth = new->cgi_pass_auth != AP_CGI_PASS_AUTH_UNSET ? new->cgi_pass_auth : base->cgi_pass_auth;
 
+    AP_CORE_MERGE_FLAG(qualify_redirect_url, conf, base, new);
+
     return (void*)conf;
 }
 
@@ -468,6 +471,9 @@ static void *create_core_server_config(apr_pool_t *a, server_rec *s)
 
     conf->trace_enable = AP_TRACE_UNSET;
 
+    conf->protocols = apr_array_make(a, 5, sizeof(const char *));
+    conf->protocols_honor_order = -1;
+    
     return (void *)conf;
 }
 
@@ -518,6 +524,12 @@ static void *merge_core_server_configs(apr_pool_t *p, void *basev, void *virtv)
                            ? virt->merge_trailers
                            : base->merge_trailers;
 
+    conf->protocols = ((virt->protocols->nelts > 0)? 
+                       virt->protocols : base->protocols);
+    conf->protocols_honor_order = ((virt->protocols_honor_order < 0)?
+                                       base->protocols_honor_order :
+                                       virt->protocols_honor_order);
+    
     return conf;
 }
 
@@ -1097,7 +1109,7 @@ AP_DECLARE(apr_off_t) ap_get_limit_req_body(const request_rec *r)
 /*****************************************************************
  *
  * Commands... this module handles almost all of the NCSA httpd.conf
- * commands, but most of the old srm.conf is in the the modules.
+ * commands, but most of the old srm.conf is in the modules.
  */
 
 
@@ -1230,8 +1242,8 @@ AP_DECLARE(const char *) ap_resolve_env(apr_pool_t *p, const char * word)
         }
 
         if (*s == '$') {
-            if (s[1] == '{' && (e = ap_strchr_c(s, '}'))) {
-                char *name = apr_pstrndup(p, s+2, e-s-2);
+            if (s[1] == '{' && (e = ap_strchr_c(s+2, '}'))) {
+                char *name = apr_pstrmemdup(p, s+2, e-s-2);
                 word = NULL;
                 if (server_config_defined_vars)
                     word = apr_table_get(server_config_defined_vars, name);
@@ -1698,6 +1710,15 @@ static const char *set_cgi_pass_auth(cmd_parms *cmd, void *d_, int flag)
     return NULL;
 }
 
+static const char *set_qualify_redirect_url(cmd_parms *cmd, void *d_, int flag)
+{
+    core_dir_config *d = d_;
+
+    d->qualify_redirect_url = flag ? AP_CORE_CONFIG_ON : AP_CORE_CONFIG_OFF;
+
+    return NULL;
+}
+
 static const char *set_override_list(cmd_parms *cmd, void *d_, int argc, char *const argv[])
 {
     core_dir_config *d = d_;
@@ -1715,7 +1736,7 @@ static const char *set_override_list(cmd_parms *cmd, void *d_, int argc, char *c
 
     d->override_list = apr_table_make(cmd->pool, argc);
 
-    for (i=0;i<argc;i++){
+    for (i = 0; i < argc; i++) {
         if (!strcasecmp(argv[i], "None")) {
             if (argc != 1) {
                 return "'None' not allowed with other directives in "
@@ -1726,6 +1747,7 @@ static const char *set_override_list(cmd_parms *cmd, void *d_, int argc, char *c
         else {
             const command_rec *result = NULL;
             module *mod = ap_top_module;
+
             result = ap_find_command_in_modules(argv[i], &mod);
             if (result == NULL) {
                 ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server,
@@ -1744,7 +1766,7 @@ static const char *set_override_list(cmd_parms *cmd, void *d_, int argc, char *c
                 continue;
             }
             else {
-                apr_table_set(d->override_list, argv[i], "1");
+                apr_table_setn(d->override_list, argv[i], "1");
             }
         }
     }
@@ -2084,7 +2106,7 @@ AP_CORE_DECLARE_NONSTD(const char *) ap_limit_section(cmd_parms *cmd,
         return unclosed_directive(cmd);
     }
 
-    limited_methods = apr_pstrndup(cmd->temp_pool, arg, endp - arg);
+    limited_methods = apr_pstrmemdup(cmd->temp_pool, arg, endp - arg);
 
     if (!limited_methods[0]) {
         return missing_container_arg(cmd);
@@ -2101,7 +2123,7 @@ AP_CORE_DECLARE_NONSTD(const char *) ap_limit_section(cmd_parms *cmd,
             return "TRACE cannot be controlled by <Limit>, see TraceEnable";
         }
         else if (methnum == M_INVALID) {
-            /* method has not been registered yet, but resorce restriction
+            /* method has not been registered yet, but resource restriction
              * is always checked before method handling, so register it.
              */
             methnum = ap_method_register(cmd->pool,
@@ -3692,6 +3714,48 @@ static const char *set_trace_enable(cmd_parms *cmd, void *dummy,
     return NULL;
 }
 
+static const char *set_protocols(cmd_parms *cmd, void *dummy,
+                                 const char *arg)
+{
+    core_server_config *conf =
+    ap_get_core_module_config(cmd->server->module_config);
+    const char **np;
+    const char *err = ap_check_cmd_context(cmd, NOT_IN_DIR_LOC_FILE);
+
+    if (err) {
+        return err;
+    }
+    
+    np = (const char **)apr_array_push(conf->protocols);
+    *np = arg;
+
+    return NULL;
+}
+
+static const char *set_protocols_honor_order(cmd_parms *cmd, void *dummy,
+                                             const char *arg)
+{
+    core_server_config *conf =
+    ap_get_core_module_config(cmd->server->module_config);
+    const char *err = ap_check_cmd_context(cmd, NOT_IN_DIR_LOC_FILE);
+    
+    if (err) {
+        return err;
+    }
+    
+    if (strcasecmp(arg, "on") == 0) {
+        conf->protocols_honor_order = 1;
+    }
+    else if (strcasecmp(arg, "off") == 0) {
+        conf->protocols_honor_order = 0;
+    }
+    else {
+        return "ProtocolsHonorOrder must be 'on' or 'off'";
+    }
+    
+    return NULL;
+}
+
 static apr_hash_t *errorlog_hash;
 
 static int log_constant_item(const ap_errorlog_info *info, const char *arg,
@@ -4155,6 +4219,10 @@ AP_INIT_TAKE12("LimitInternalRecursion", set_recursion_limit, NULL, RSRC_CONF,
 AP_INIT_FLAG("CGIPassAuth", set_cgi_pass_auth, NULL, OR_AUTHCFG,
              "Controls whether HTTP authorization headers, normally hidden, will "
              "be passed to scripts"),
+AP_INIT_FLAG("QualifyRedirectURL", set_qualify_redirect_url, NULL, OR_FILEINFO,
+             "Controls whether HTTP authorization headers, normally hidden, will "
+             "be passed to scripts"),
+
 AP_INIT_TAKE1("ForceType", ap_set_string_slot_lower,
        (void *)APR_OFFSETOF(core_dir_config, mime_type), OR_FILEINFO,
      "a mime type that overrides other configured type"),
@@ -4205,6 +4273,11 @@ AP_INIT_TAKE1("TraceEnable", set_trace_enable, NULL, RSRC_CONF,
               "'on' (default), 'off' or 'extended' to trace request body content"),
 AP_INIT_FLAG("MergeTrailers", set_merge_trailers, NULL, RSRC_CONF,
               "merge request trailers into request headers or not"),
+AP_INIT_ITERATE("Protocols", set_protocols, NULL, RSRC_CONF,
+                "Controls which protocols are allowed"),
+AP_INIT_TAKE1("ProtocolsHonorOrder", set_protocols_honor_order, NULL, RSRC_CONF,
+              "'off' (default) or 'on' to respect given order of protocols, "
+              "by default the client specified order determines selection"),
 { NULL }
 };
 
@@ -4936,6 +5009,80 @@ static void core_dump_config(apr_pool_t *p, server_rec *s)
     }
 }
 
+static int core_upgrade_handler(request_rec *r)
+{
+    conn_rec *c = r->connection;
+    const char *upgrade;
+
+    if (c->master) {
+        /* Not possible to perform an HTTP/1.1 upgrade from a slave
+         * connection. */
+        return DECLINED;
+    }
+    
+    upgrade = apr_table_get(r->headers_in, "Upgrade");
+    if (upgrade && *upgrade) {
+        const char *conn = apr_table_get(r->headers_in, "Connection");
+        if (ap_find_token(r->pool, conn, "upgrade")) {
+            apr_array_header_t *offers = NULL;
+            const char *err;
+            
+            err = ap_parse_token_list_strict(r->pool, upgrade, &offers, 0);
+            if (err) {
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(02910)
+                              "parsing Upgrade header: %s", err);
+                return DECLINED;
+            }
+            
+            if (offers && offers->nelts > 0) {
+                const char *protocol = ap_select_protocol(c, r, NULL, offers);
+                if (protocol && strcmp(protocol, ap_get_protocol(c))) {
+                    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(02909)
+                                  "Upgrade selects '%s'", protocol);
+                    /* Let the client know what we are upgrading to. */
+                    apr_table_clear(r->headers_out);
+                    apr_table_setn(r->headers_out, "Upgrade", protocol);
+                    apr_table_setn(r->headers_out, "Connection", "Upgrade");
+                    
+                    r->status = HTTP_SWITCHING_PROTOCOLS;
+                    r->status_line = ap_get_status_line(r->status);
+                    ap_send_interim_response(r, 1);
+
+                    ap_switch_protocol(c, r, r->server, protocol);
+
+                    /* make sure httpd closes the connection after this */
+                    c->keepalive = AP_CONN_CLOSE;
+                    return DONE;
+                }
+            }
+        }
+    }
+    else if (!c->keepalives) {
+        /* first request on a master connection, if we have protocols other
+         * than the current one enabled here, announce them to the
+         * client. If the client is already talking a protocol with requests
+         * on slave connections, leave it be. */
+        const apr_array_header_t *upgrades;
+        ap_get_protocol_upgrades(c, r, NULL, 0, &upgrades);
+        if (upgrades && upgrades->nelts > 0) {
+            char *protocols = apr_array_pstrcat(r->pool, upgrades, ',');
+            apr_table_setn(r->headers_out, "Upgrade", protocols);
+            apr_table_setn(r->headers_out, "Connection", "Upgrade");
+        }
+    }
+    
+    return DECLINED;
+}
+
+static int core_upgrade_storage(request_rec *r)
+{
+    if ((r->method_number == M_OPTIONS) && r->uri && (r->uri[0] == '*') &&
+        (r->uri[1] == '\0')) {
+        return core_upgrade_handler(r);
+    }
+    return DECLINED;
+}
+
 static void register_hooks(apr_pool_t *p)
 {
     errorlog_hash = apr_hash_make(p);
@@ -4958,10 +5105,12 @@ static void register_hooks(apr_pool_t *p)
     ap_hook_check_config(core_check_config,NULL,NULL,APR_HOOK_FIRST);
     ap_hook_test_config(core_dump_config,NULL,NULL,APR_HOOK_FIRST);
     ap_hook_translate_name(ap_core_translate,NULL,NULL,APR_HOOK_REALLY_LAST);
+    ap_hook_map_to_storage(core_upgrade_storage,NULL,NULL,APR_HOOK_REALLY_FIRST);
     ap_hook_map_to_storage(core_map_to_storage,NULL,NULL,APR_HOOK_REALLY_LAST);
     ap_hook_open_logs(ap_open_logs,NULL,NULL,APR_HOOK_REALLY_FIRST);
     ap_hook_child_init(core_child_init,NULL,NULL,APR_HOOK_REALLY_FIRST);
     ap_hook_child_init(ap_logs_child_init,NULL,NULL,APR_HOOK_MIDDLE);
+    ap_hook_handler(core_upgrade_handler,NULL,NULL,APR_HOOK_REALLY_FIRST);
     ap_hook_handler(default_handler,NULL,NULL,APR_HOOK_REALLY_LAST);
     /* FIXME: I suspect we can eliminate the need for these do_nothings - Ben */
     ap_hook_type_checker(do_nothing,NULL,NULL,APR_HOOK_REALLY_LAST);

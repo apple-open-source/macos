@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2013 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2011-2016 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -120,9 +120,26 @@ static void copyCFDictionary(const void *key, const void *value, void *ctx)
 		CFDictionaryAddValue(target, key, value);
 	}
 }
+	
+	
+static void precheckAccess(CFURLRef path, CFDictionaryRef context)
+{
+	CFTypeRef type = CFDictionaryGetValue(context, kSecAssessmentContextKeyOperation);
+	if (type == NULL || CFEqual(type, kSecAssessmentOperationTypeExecute)) {
+		CFRef<SecStaticCodeRef> code;
+		MacOSError::check(SecStaticCodeCreateWithPath(path, kSecCSDefaultFlags, &code.aref()));
+		CFRef<CFURLRef> exec;
+		MacOSError::check(SecCodeCopyPath(code, kSecCSDefaultFlags, &exec.aref()));
+		UnixError::check(::access(cfString(exec).c_str(), R_OK));
+	} else {
+		UnixError::check(access(cfString(path).c_str(), R_OK));
+	}
+}
+	
 
 void xpcEngineAssess(CFURLRef path, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result)
 {
+	precheckAccess(path, context);
 	Message msg("assess");
 	xpc_dictionary_set_string(msg, "path", cfString(path).c_str());
 	xpc_dictionary_set_int64(msg, "flags", flags);
@@ -171,9 +188,10 @@ CFDictionaryRef xpcEngineUpdate(CFTypeRef target, SecAssessmentFlags flags, CFDi
 	if (target) {
 		if (CFGetTypeID(target) == CFNumberGetTypeID())
 			xpc_dictionary_set_uint64(msg, "rule", cfNumber<int64_t>(CFNumberRef(target)));
-		else if (CFGetTypeID(target) == CFURLGetTypeID())
+		else if (CFGetTypeID(target) == CFURLGetTypeID()) {
+			precheckAccess(CFURLRef(target), context);
 			xpc_dictionary_set_string(msg, "url", cfString(CFURLRef(target)).c_str());
-		else if (CFGetTypeID(target) == SecRequirementGetTypeID()) {
+		} else if (CFGetTypeID(target) == SecRequirementGetTypeID()) {
 			CFRef<CFDataRef> data;
 			MacOSError::check(SecRequirementCopyData(SecRequirementRef(target), kSecCSDefaultFlags, &data.aref()));
 			xpc_dictionary_set_data(msg, "requirement", CFDataGetBytePtr(data), CFDataGetLength(data));

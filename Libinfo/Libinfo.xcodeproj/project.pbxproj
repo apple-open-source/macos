@@ -25,6 +25,7 @@
 		2D31A0FC128074E700D5A84C /* getifmaddrs.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D31A0FB128074E700D5A84C /* getifmaddrs.c */; };
 		2D4070B1129354A700FE81ED /* getnameinfo_link.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D4070B0129354A700FE81ED /* getnameinfo_link.c */; };
 		2D5DD5D21608E6E80051891A /* configuration_profile.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D5DD5D01608E6E80051891A /* configuration_profile.c */; };
+		C965793A1B94C97100624699 /* muser_module.c in Sources */ = {isa = PBXBuildFile; fileRef = C96579391B94C97100624699 /* muser_module.c */; settings = {ASSET_TAGS = (); }; };
 		FC5284C011478C200058CCB0 /* herror.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283EE11478C200058CCB0 /* herror.c */; };
 		FC5284C811478C200058CCB0 /* res_comp.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283F711478C200058CCB0 /* res_comp.c */; };
 		FC5284CD11478C200058CCB0 /* res_query.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283FC11478C200058CCB0 /* res_query.c */; };
@@ -147,6 +148,8 @@
 		2D5DD5D11608E6E80051891A /* configuration_profile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = configuration_profile.h; sourceTree = "<group>"; };
 		2DBB147712DBD63300D710E3 /* inet6_opt_init.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = inet6_opt_init.3; sourceTree = "<group>"; };
 		3F397F7D185BD67F00987BCC /* Libinfo.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Libinfo.xcconfig; path = xcodescripts/Libinfo.xcconfig; sourceTree = "<group>"; };
+		C96579391B94C97100624699 /* muser_module.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = muser_module.c; sourceTree = "<group>"; };
+		C965793B1B94CF2B00624699 /* libinfo_muser.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = libinfo_muser.h; sourceTree = "<group>"; };
 		D2AAC0630554660B00DB518D /* libsystem_info.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_info.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC5283EE11478C200058CCB0 /* herror.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = herror.c; sourceTree = "<group>"; };
 		FC5283F711478C200058CCB0 /* res_comp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = res_comp.c; sourceTree = "<group>"; };
@@ -430,7 +433,9 @@
 				FC52842A11478C200058CCB0 /* kvbuf.h */,
 				FC52842B11478C200058CCB0 /* libinfo.c */,
 				FC52842C11478C200058CCB0 /* libinfo.h */,
+				C965793B1B94CF2B00624699 /* libinfo_muser.h */,
 				FC52842E11478C200058CCB0 /* mdns_module.c */,
+				C96579391B94C97100624699 /* muser_module.c */,
 				FC52842F11478C200058CCB0 /* netdb.h */,
 				FC52843011478C200058CCB0 /* netdb_async.h */,
 				FC52843111478C200058CCB0 /* printerdb.h */,
@@ -740,6 +745,7 @@
 				FC52852411478C200058CCB0 /* auth_none.c in Sources */,
 				FC52852511478C200058CCB0 /* auth_unix.c in Sources */,
 				FC52852711478C200058CCB0 /* authunix_prot.c in Sources */,
+				C965793A1B94C97100624699 /* muser_module.c in Sources */,
 				FC52852811478C200058CCB0 /* bindresvport.c in Sources */,
 				FC52852A11478C200058CCB0 /* clnt_generic.c in Sources */,
 				FC52852B11478C200058CCB0 /* clnt_perror.c in Sources */,

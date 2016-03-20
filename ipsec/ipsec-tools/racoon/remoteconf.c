@@ -80,6 +80,7 @@
 #include "nattraversal.h"
 #include "isakmp_frag.h"
 #include "genlist.h"
+#include "vpn_control_var.h"
 
 static TAILQ_HEAD(_rmtree, remoteconf) rmtree;
 
@@ -244,7 +245,28 @@ struct remoteconf *
 getrmconf(remote)
 	struct sockaddr_storage *remote;
 {
-	return getrmconf_strict(remote, 1);
+	struct remoteconf *rmconf = getrmconf_strict(remote, 1);
+	if (rmconf != NULL) {
+		return rmconf;
+	}
+	if (remote->ss_family == AF_INET6) {
+		struct sockaddr_in v4dst;
+		v4dst.sin_family = AF_INET;
+		v4dst.sin_len = sizeof(struct sockaddr_in);
+		v4dst.sin_port = 0;
+
+		nw_nat64_prefix_t nat64_prefix;
+		if (vpncontrol_set_nat64_prefix(&nat64_prefix)) {
+			nw_nat64_extract_v4(&nat64_prefix, &((struct sockaddr_in6 *)remote)->sin6_addr, &v4dst.sin_addr);
+
+			rmconf = getrmconf(ALIGNED_CAST(struct sockaddr_storage *)&v4dst);
+			if (rmconf != NULL) {
+				return rmconf;
+			}
+		}
+	}
+
+	return NULL;
 }
 
 struct remoteconf *

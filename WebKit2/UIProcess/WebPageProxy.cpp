@@ -40,6 +40,7 @@
 #include "APINavigationAction.h"
 #include "APINavigationClient.h"
 #include "APINavigationResponse.h"
+#include "APIPageConfiguration.h"
 #include "APIPolicyClient.h"
 #include "APISecurityOrigin.h"
 #include "APIUIClient.h"
@@ -52,6 +53,7 @@
 #include "DrawingAreaProxyMessages.h"
 #include "EventDispatcherMessages.h"
 #include "Logging.h"
+#include "NativeWebGestureEvent.h"
 #include "NativeWebKeyboardEvent.h"
 #include "NativeWebMouseEvent.h"
 #include "NativeWebWheelEvent.h"
@@ -292,13 +294,14 @@ private:
     PageClient& m_pageClient;
 };
 
-Ref<WebPageProxy> WebPageProxy::create(PageClient& pageClient, WebProcessProxy& process, uint64_t pageID, const WebPageConfiguration& configuration)
+Ref<WebPageProxy> WebPageProxy::create(PageClient& pageClient, WebProcessProxy& process, uint64_t pageID, Ref<API::PageConfiguration>&& configuration)
 {
-    return adoptRef(*new WebPageProxy(pageClient, process, pageID, configuration));
+    return adoptRef(*new WebPageProxy(pageClient, process, pageID, WTF::move(configuration)));
 }
 
-WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, uint64_t pageID, const WebPageConfiguration& configuration)
+WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, uint64_t pageID, Ref<API::PageConfiguration>&& configuration)
     : m_pageClient(pageClient)
+    , m_configuration(WTF::move(configuration))
     , m_loaderClient(std::make_unique<API::LoaderClient>())
     , m_policyClient(std::make_unique<API::PolicyClient>())
     , m_formClient(std::make_unique<API::FormClient>())
@@ -310,14 +313,14 @@ WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, uin
 #endif
     , m_navigationState(std::make_unique<WebNavigationState>())
     , m_process(process)
-    , m_pageGroup(*configuration.pageGroup)
-    , m_preferences(*configuration.preferences)
-    , m_userContentController(configuration.userContentController)
-    , m_visitedLinkProvider(*configuration.visitedLinkProvider)
-    , m_websiteDataStore(*configuration.websiteDataStore)
+    , m_pageGroup(*m_configuration->pageGroup())
+    , m_preferences(*m_configuration->preferences())
+    , m_userContentController(m_configuration->userContentController())
+    , m_visitedLinkProvider(*m_configuration->visitedLinkProvider())
+    , m_websiteDataStore(m_configuration->websiteDataStore()->websiteDataStore())
     , m_mainFrame(nullptr)
     , m_userAgent(standardUserAgent())
-    , m_treatsSHA1CertificatesAsInsecure(configuration.treatsSHA1SignedCertificatesAsInsecure)
+    , m_treatsSHA1CertificatesAsInsecure(m_configuration->treatsSHA1SignedCertificatesAsInsecure())
 #if PLATFORM(IOS)
     , m_hasReceivedLayerTreeTransactionAfterDidCommitLoad(true)
     , m_firstLayerTreeTransactionIdAfterDidCommitLoad(0)
@@ -334,7 +337,7 @@ WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, uin
     , m_viewState(ViewState::NoFlags)
     , m_viewWasEverInWindow(false)
 #if PLATFORM(IOS)
-    , m_alwaysRunsAtForegroundPriority(configuration.alwaysRunsAtForegroundPriority)
+    , m_alwaysRunsAtForegroundPriority(m_configuration->alwaysRunsAtForegroundPriority())
 #endif
     , m_backForwardList(WebBackForwardList::create(*this))
     , m_maintainsInactiveSelection(false)
@@ -378,7 +381,7 @@ WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, uin
     , m_isTrackingTouchEvents(false)
 #endif
     , m_pageID(pageID)
-    , m_sessionID(configuration.sessionID)
+    , m_sessionID(m_configuration->sessionID())
     , m_isPageSuspended(false)
     , m_addsVisitedLinks(true)
 #if ENABLE(REMOTE_INSPECTOR)
@@ -435,7 +438,7 @@ WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, uin
 #endif
     , m_scrollPinningBehavior(DoNotPin)
     , m_navigationID(0)
-    , m_configurationPreferenceValues(configuration.preferenceValues)
+    , m_configurationPreferenceValues(m_configuration->preferenceValues())
     , m_potentiallyChangedViewStateFlags(ViewState::NoFlags)
     , m_viewStateChangeWantsSynchronousReply(false)
 {
@@ -515,6 +518,11 @@ WebPageProxy::~WebPageProxy()
 #ifndef NDEBUG
     webPageProxyCounter.decrement();
 #endif
+}
+
+const API::PageConfiguration& WebPageProxy::configuration() const
+{
+    return m_configuration.get();
 }
 
 PlatformProcessIdentifier WebPageProxy::processIdentifier() const
@@ -1915,6 +1923,20 @@ bool WebPageProxy::shouldStartTrackingTouchEvents(const WebTouchEvent& touchStar
     return true;
 }
 
+#endif
+
+#if ENABLE(MAC_GESTURE_EVENTS)
+void WebPageProxy::handleGestureEvent(const NativeWebGestureEvent& event)
+{
+    if (!isValid())
+        return;
+
+    m_gestureEventQueue.append(event);
+    // FIXME: Consider doing some coalescing here.
+    m_process->responsivenessTimer()->start();
+
+    m_process->send(Messages::EventDispatcher::GestureEvent(m_pageID, event), 0);
+}
 #endif
 
 #if ENABLE(IOS_TOUCH_EVENTS)
@@ -4592,6 +4614,11 @@ void WebPageProxy::didReceiveEvent(uint32_t opaqueType, bool handled)
     case WebEvent::TouchEnd:
     case WebEvent::TouchCancel:
 #endif
+#if ENABLE(MAC_GESTURE_EVENTS)
+    case WebEvent::GestureStart:
+    case WebEvent::GestureChange:
+    case WebEvent::GestureEnd:
+#endif
         m_process->responsivenessTimer()->stop();
         break;
     }
@@ -4661,6 +4688,21 @@ void WebPageProxy::didReceiveEvent(uint32_t opaqueType, bool handled)
             m_uiClient->didNotHandleKeyEvent(this, event);
         break;
     }
+#if ENABLE(MAC_GESTURE_EVENTS)
+    case WebEvent::GestureStart:
+    case WebEvent::GestureChange:
+    case WebEvent::GestureEnd: {
+        MESSAGE_CHECK(!m_gestureEventQueue.isEmpty());
+        NativeWebGestureEvent event = m_gestureEventQueue.takeFirst();
+
+        MESSAGE_CHECK(type == event.type());
+
+        if (!handled)
+            m_pageClient.gestureEventWasNotHandledByWebCore(event);
+        break;
+    }
+        break;
+#endif
 #if ENABLE(IOS_TOUCH_EVENTS)
     case WebEvent::TouchStart:
     case WebEvent::TouchMove:

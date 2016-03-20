@@ -129,6 +129,8 @@ static void tests(void)
     ok(peers && CFArrayGetCount(peers) == 2, "See two peers %@ (%@)", peers, error);
     CFReleaseNull(peers);
 
+
+    
     is(SOSAccountUpdateView(alice_account, kTestView1, kSOSCCViewEnable, &error), kSOSCCViewMember, "Enable view (%@)", error);
     CFReleaseNull(error);
 
@@ -140,7 +142,10 @@ static void tests(void)
 
     ok(SOSAccountSetBackupPublicKey(bob_account, bob_backup_key, &error), "Set backup public key, alice (%@)", error);
     CFReleaseNull(error);
-        
+    
+    SOSAccountEnsureBackupStarts(alice_account);
+    SOSAccountEnsureBackupStarts(bob_account);
+    
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kTestView1), "Is alice is in backup before sync?");
     
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Is bob in the backup after sync? - 1");
@@ -184,6 +189,8 @@ static void tests(void)
     CFReleaseNull(error);
 
     ok(SOSAccountSetBackupPublicKey(bob_account, bob_backup_key, &error), "Set backup public key, alice (%@)", error);
+    SOSAccountEnsureBackupStarts(bob_account);
+    
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 1, "updates");
 
     
@@ -204,6 +211,7 @@ static void tests(void)
     
     ok(SOSAccountSetBackupPublicKey(bob_account, bob_backup_key, &error), "Set backup public key, alice (%@)", error);
     CFReleaseNull(error);
+    SOSAccountEnsureBackupStarts(bob_account);
     
     is(SOSAccountUpdateView(bob_account, kTestView1, kSOSCCViewEnable, &error), kSOSCCViewMember, "Enable view (%@)", error);
     ok(SOSAccountStartNewBackup(bob_account, kTestView1, &error), "Setting new backup public key for bob account failed: (%@)", error);

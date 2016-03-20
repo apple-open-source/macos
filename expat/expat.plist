@@ -18,5 +18,9 @@
 	<string>MIT</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>expat.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Added availability attribute to XML_SetHashSalt.</string>
+	</array>
 </dict>
 </plist>

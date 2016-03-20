@@ -1,5 +1,5 @@
 /*
- * "$Id: log.c 12827 2015-07-31 15:21:37Z msweet $"
+ * "$Id: log.c 12992 2015-11-19 15:19:00Z msweet $"
  *
  * Log file routines for the CUPS scheduler.
  *
@@ -617,7 +617,7 @@ cupsdLogJob(cupsd_job_t *job,		/* I - Job */
 
       asl_set(m, PWG_Event, "JobStateChanged");
       asl_set(m, PWG_JobID, job_id);
-      asl_set(m, PWG_JobState, job_states[job->state_value - IPP_JSTATE_PENDING]);
+      asl_set(m, PWG_JobState, job->state_value < IPP_JSTATE_PENDING ? "" : job_states[job->state_value - IPP_JSTATE_PENDING]);
 
       if (job->impressions)
       {
@@ -637,7 +637,7 @@ cupsdLogJob(cupsd_job_t *job,		/* I - Job */
 #elif defined(HAVE_SYSTEMD_SD_JOURNAL_H)
   if (!strcmp(ErrorLog, "syslog"))
   {
-    cupsd_printer_t *printer = job->printer ? job->printer : job->dest ? cupsdFindDest(job->dest) : NULL;
+    cupsd_printer_t *printer = job ? (job->printer ? job->printer : (job->dest ? cupsdFindDest(job->dest) : NULL)) : NULL;
     static const char * const job_states[] =
     {					/* job-state strings */
       "Pending",
@@ -667,7 +667,7 @@ cupsdLogJob(cupsd_job_t *job,		/* I - Job */
 		      PWG_Event"=JobStateChanged",
 		      PWG_ServiceURI"=%s", printer ? printer->uri : "",
 		      PWG_JobID"=%d", job->id,
-		      PWG_JobState"=%s", job_states[job->state_value - IPP_JSTATE_PENDING],
+		      PWG_JobState"=%s", job->state_value < IPP_JSTATE_PENDING ? "" : job_states[job->state_value - IPP_JSTATE_PENDING],
 		      PWG_JobImpressionsCompleted"=%d", ippGetInteger(job->impressions, 0),
 		      NULL);
     else
@@ -1476,7 +1476,7 @@ format_log_line(const char *message,	/* I - Printf-style format string */
   * Format the log message...
   */
 
-  len = vsnprintf(log_line, log_linesize, message, ap);
+  len = _cups_safe_vsnprintf(log_line, log_linesize, message, ap);
 
  /*
   * Resize the buffer as needed...
@@ -1485,7 +1485,6 @@ format_log_line(const char *message,	/* I - Printf-style format string */
   if ((size_t)len >= log_linesize && log_linesize < 65536)
   {
     char	*temp;			/* Temporary string pointer */
-
 
     len ++;
 
@@ -1510,5 +1509,5 @@ format_log_line(const char *message,	/* I - Printf-style format string */
 
 
 /*
- * End of "$Id: log.c 12827 2015-07-31 15:21:37Z msweet $".
+ * End of "$Id: log.c 12992 2015-11-19 15:19:00Z msweet $".
  */

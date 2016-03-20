@@ -61,6 +61,9 @@ public:
 	
 	// provide an Adornable for a given subject to store data in, or throw if none available (default)
 	virtual Adornable &store(const AclSubject *subject);
+	
+	// special-purpose bypass (force validation to succeed)
+	bool forceSuccess = false;
 };
 
 
@@ -121,6 +124,25 @@ private:
     AclValidationEnvironment *mEnv;		// environmental context (if any)
 	const char *mEntryTag;				// entry tag
 };
+	
+	
+//
+// An AclValidationContext that simply presents all top-level credentials
+// to all subjects.
+//
+class BaseValidationContext : public AclValidationContext {
+public:
+	BaseValidationContext(const AccessCredentials *cred,
+						  AclAuthorization auth, AclValidationEnvironment *env)
+	: AclValidationContext(cred, auth, env) { }
+	
+	uint32 count() const	{ return cred() ? cred()->samples().length() : 0; }
+	uint32 size() const		{ return count(); }
+	const TypedList &sample(uint32 n) const
+	{ assert(n < count()); return cred()->samples()[n]; }
+	
+	void matched(const TypedList *) const { }		// ignore match info
+};
 
 
 //
@@ -151,7 +173,7 @@ public:
     CSSM_ACL_SUBJECT_TYPE type() const { return mType; }
     
 	// validation (evaluation) primitive
-    virtual bool validate(const AclValidationContext &ctx) const = 0;
+    virtual bool validates(const AclValidationContext &ctx) const = 0;
     
     // export to CSSM interface
     virtual CssmList toList(Allocator &alloc) const = 0;
@@ -212,8 +234,8 @@ class SimpleAclSubject : public AclSubject {
 public:
     SimpleAclSubject(CSSM_ACL_SUBJECT_TYPE type) : AclSubject(type) { }
     
-    bool validate(const AclValidationContext &ctx) const;
-    virtual bool validate(const AclValidationContext &baseCtx,
+    virtual bool validates(const AclValidationContext &ctx) const;
+    virtual bool validates(const AclValidationContext &baseCtx,
         const TypedList &sample) const = 0;
 };
 

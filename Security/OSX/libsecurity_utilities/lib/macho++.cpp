@@ -412,6 +412,19 @@ const linkedit_data_command *MachOBase::findLibraryDependencies() const
 		return reinterpret_cast<const linkedit_data_command *>(cmd);
 	return NULL;		// not found
 }
+	
+const version_min_command *MachOBase::findMinVersion() const
+{
+	for (const load_command *command = loadCommands(); command; command = nextCommand(command))
+		switch (flip(command->cmd)) {
+		case LC_VERSION_MIN_MACOSX:
+		case LC_VERSION_MIN_IPHONEOS:
+		case LC_VERSION_MIN_WATCHOS:
+		case LC_VERSION_MIN_TVOS:
+			return reinterpret_cast<const version_min_command *>(command);
+		}
+	return NULL;
+}
 
 
 //

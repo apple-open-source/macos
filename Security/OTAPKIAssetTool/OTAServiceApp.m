@@ -82,7 +82,7 @@ static void OTAPKI_LOG(const char* sz, ...)
 	kkManifestFileName - 		The file name of the manifest file for the
 								OTA PKI trust asset
  
-    	kAllowListFileName -        	The file name of the asset file that contains
+    kAllowListFileName -        The file name of the asset file that contains
 								hashes of the allowed leaf certificates whose
 								trust store root has been removed
 								
@@ -110,6 +110,10 @@ static void OTAPKI_LOG(const char* sz, ...)
 								certificates.  This file sets which certs will
 								be considered to be EV.
 								
+	kCTLogsFileName - 			The file name of the asset file that contains
+                                the list of Certificate Transparency logs and
+                                their public keys.
+
 	kCertsIndexFileName - 		The file name of the asset file that contains
 								a hash table of offsets into the cert table
 								file.  This is used to look up anchor certs.
@@ -145,6 +149,7 @@ static const NSString* kAppleESCertificatesName = @"AppleESCertificates.plist";
 static const NSString* kBlockKeyFileName = @"Blocked.plist";
 static const NSString* kGrayListedKeysFileName = @"GrayListedKeys.plist";
 static const NSString* kEVRootsFileName = @"EVRoots.plist";
+static const NSString* kCTLogsFileName = @"TrustedCTLogs.plist";
 static const NSString* kCertsIndexFileName = @"certsIndex.data";
 static const NSString* kCertsTableFileName = @"certsTable.data";
 static const NSString* kVersionNumberKey = @"VersionNumber";
@@ -499,7 +504,7 @@ out:
 		_file_list = [NSArray arrayWithObjects:kBlockKeyFileName, kGrayListedKeysFileName, 
 								kEVRootsFileName, kCertsIndexFileName, kCertsTableFileName,
 								kManifestFileName, kAssetVersionFileName, kAppleESCertificatesName, 
-								kAllowListFileName, nil];
+								kAllowListFileName, kCTLogsFileName, nil];
 								
 		_current_asset_version = nil;
 		_next_asset_version = nil;

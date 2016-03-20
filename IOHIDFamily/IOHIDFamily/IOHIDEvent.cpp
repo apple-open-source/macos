@@ -424,6 +424,34 @@ IOHIDEvent * IOHIDEvent::ambientLightSensorEvent(
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// IOHIDEvent::ambientLightSensorEvent
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+IOHIDEvent * IOHIDEvent::ambientLightSensorEvent(
+                                        AbsoluteTime            timeStamp,
+                                        UInt32                  level,
+                                        IOHIDEventColorSpace    colorSpace,
+                                        IOHIDDouble             colorComponent0,
+                                        IOHIDDouble             colorComponent1,
+                                        IOHIDDouble             colorComponent2,
+                                        IOOptionBits            options)
+{
+    IOHIDEvent *me = new IOHIDEvent;
+
+    if (me && !me->initWithTypeTimeStamp(kIOHIDEventTypeAmbientLightSensor, timeStamp, options)) {
+        me->release();
+        return 0;
+    }
+
+    IOHIDAmbientLightSensorEventData * event = (IOHIDAmbientLightSensorEventData *)me->_data;
+    event->level = level;
+    event->colorSpace = colorSpace;
+    event->colorComponent0 = colorComponent0;
+    event->colorComponent1 = colorComponent1;
+    event->colorComponent2 = colorComponent2;
+    return me;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // IOHIDEvent::proximityEvent
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 IOHIDEvent * IOHIDEvent::proximityEvent (
@@ -1137,6 +1165,22 @@ SInt32 IOHIDEvent::getIntegerValue(     IOHIDEventField         key,
 }
 
 //==============================================================================
+// IOHIDEvent::getDoubleValue
+//==============================================================================
+IOHIDDouble IOHIDEvent::getDoubleValue( IOHIDEventField         key,
+                                        IOOptionBits            options)
+{
+    IOHIDDouble value = 0;
+
+    GET_EVENT_VALUE_FIXED(this, key, value, options);
+  
+    return value;
+}
+
+
+
+
+//==============================================================================
 // IOHIDEvent::getFixedValue
 //==============================================================================
 IOFixed IOHIDEvent::getFixedValue(      IOHIDEventField         key,
@@ -1180,6 +1224,17 @@ void IOHIDEvent::setFixedValue(         IOHIDEventField         key,
                                         IOOptionBits            options)
 {
     SET_EVENT_VALUE_FIXED(this, key, value, options);
+}
+//==============================================================================
+// IOHIDEvent::setDoubleValue
+//==============================================================================
+void IOHIDEvent::setDoubleValue( IOHIDEventField         key,
+                                 IOHIDDouble             value,
+                                 IOOptionBits            options)
+{
+
+    SET_EVENT_VALUE_FIXED(this, key, value, options);
+  
 }
 
 //==============================================================================

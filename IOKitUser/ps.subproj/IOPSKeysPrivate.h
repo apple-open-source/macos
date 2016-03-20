@@ -62,11 +62,59 @@
 
 
 /*
- * Additional identifiable information to relate multiple accessory power sources.
+ * kIOPSAccessoryIdentifierKey -
+ * Accessory Identifier key. This key holds identifier key for each accessory power source.
+ * This could be different for each part of an accessory with multiple parts.
+ *
  * Holds a CFStringRef
  */
 #define kIOPSAccessoryIdentifierKey         "Accessory Identifier"
 
+/*
+ * kIOPSGroupIdentifierKey -
+ *
+ * Accessories with multiple parts report each part as a separate power source to powerd.
+ * These individual parts of the accessory will have the same 'Group Identifier'.
+ *
+ * Holds a CFStringRef
+ */
+#define kIOPSGroupIdentifierKey    "Group Identifier"
+
+/*
+ * kIOPSPartNameKey -
+ * User friendly name for each part of an accessory.
+ *
+ * Accessories with multiple parts report each part as a separate power source to powerd.
+ * 'kIOPSPartNameKey' will hold a user friendly name for each of these parts.
+ * 'kIOPSNameKey' will be common for all the parts of the accessory
+ *
+ * Holds a CFStringRef
+ */
+
+#define kIOPSPartNameKey           "Part Name"
+
+/*
+ * kIOPSPartIdentifierKey -
+ * Identity for each part of an accessory.
+ *
+ * Accessories with multiple parts report each part as a separate power source to powerd.
+ * Unlike kIOPSAccessoryIdentifierKey, which carries identification numbers like UUID, serial numbers etc.,
+ * kIOPSPartIdentifierKey is used to hold the identity of the part in relation to other parts of the
+ * accessory.
+ *
+ * Holds a CFStringRef, with the possible values defined below.
+ */
+
+#define kIOPSPartIdentifierKey           "Part Identifier"
+
+/*
+ * Possible values for Part Identifier(kIOPSPartIdentifierKey)
+ */
+#define kIOPSPartIdentifierLeft         "Left"
+#define kIOPSPartIdentifierRight        "Right"
+#define kIOPSPartIdentifierCase         "Case"
+#define kIOPSPartIdentifierSingle       "Single"
+#define kIOPSPartIdentifierOther        "Other"
 
 /* Internal transport types */
 #define kIOPSAIDTransportType                   "AID"

@@ -57,7 +57,7 @@ namespace Security {
 //
 class SecretAclSubject : public SimpleAclSubject {
 public:
-    bool validate(const AclValidationContext &ctx, const TypedList &sample) const;
+    bool validates(const AclValidationContext &ctx, const TypedList &sample) const;
     
     SecretAclSubject(Allocator &alloc, CSSM_ACL_SUBJECT_TYPE type, const CssmData &secret);
     SecretAclSubject(Allocator &alloc, CSSM_ACL_SUBJECT_TYPE type, CssmManagedData &secret);

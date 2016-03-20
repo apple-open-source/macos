@@ -68,6 +68,7 @@ public:
 	{ assert(ix < size()); return AuthTags[ix]; }
 	
 	bool contains(CSSM_ACL_AUTHORIZATION_TAG tag) const;
+	bool containsOnly(CSSM_ACL_AUTHORIZATION_TAG tag) const;
 	operator AclAuthorizationSet () const;
 };
 

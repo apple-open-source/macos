@@ -115,8 +115,6 @@ public:
     static RetainPtr<CFTypeRef> objectForEqualityCheck(CTFontRef);
     RetainPtr<CFTypeRef> objectForEqualityCheck() const;
 
-    bool allowsLigatures() const;
-
 #if USE(APPKIT)
     // FIXME: Remove this when all NSFont usage is removed.
     NSFont *nsFont() const { return (NSFont *)m_font.get(); }
@@ -137,6 +135,7 @@ public:
     bool isCompositeFontReference() const { return m_isCompositeFontReference; }
     FontOrientation orientation() const { return m_orientation; }
     FontWidthVariant widthVariant() const { return m_widthVariant; }
+    bool isForTextCombine() const { return widthVariant() != RegularWidth; } // Keep in sync with callers of FontDescription::setWidthVariant().
 
     void setOrientation(FontOrientation orientation) { m_orientation = orientation; }
     void setSyntheticOblique(bool syntheticOblique) { m_syntheticOblique = syntheticOblique; }

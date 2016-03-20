@@ -1,5 +1,5 @@
 dnl
-dnl "$Id: cups-common.m4 12827 2015-07-31 15:21:37Z msweet $"
+dnl "$Id: cups-common.m4 12992 2015-11-19 15:19:00Z msweet $"
 dnl
 dnl Common configuration stuff for CUPS.
 dnl
@@ -327,7 +327,7 @@ DBUSDIR=""
 DBUS_NOTIFIER=""
 DBUS_NOTIFIERLIBS=""
 
-if test "x$enable_dbus" != xno -a "x$PKGCONFIG" != x; then
+if test "x$enable_dbus" != xno -a "x$PKGCONFIG" != x -a "x$uname" != xDarwin; then
 	AC_MSG_CHECKING(for DBUS)
 	if $PKGCONFIG --exists dbus-1; then
 		AC_MSG_RESULT(yes)
@@ -474,5 +474,5 @@ esac
 AC_SUBST(BUILDDIRS)
 
 dnl
-dnl End of "$Id: cups-common.m4 12827 2015-07-31 15:21:37Z msweet $".
+dnl End of "$Id: cups-common.m4 12992 2015-11-19 15:19:00Z msweet $".
 dnl

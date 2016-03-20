@@ -32,6 +32,7 @@
 #include <security_utilities/machserver.h>
 #include <security_utilities/powerwatch.h>
 #include <security_utilities/ccaudit.h>
+#include <security_utilities/threading.h>
 #include <security_cdsa_client/cssmclient.h>
 #include <security_cdsa_client/cspclient.h>
 #include <security_utilities/devrandom.h>

@@ -1161,7 +1161,7 @@ static CFArrayRef dict_to_array_error_request(enum SecXPCOperation op, CFDiction
     return result;
 }
 
-bool cftype_ag_to_bool_cftype_error_request(enum SecXPCOperation op, CFTypeRef attributes, __unused CFArrayRef accessGroups, CFTypeRef *result, CFErrorRef *error) {
+bool cftype_client_to_bool_cftype_error_request(enum SecXPCOperation op, CFTypeRef attributes, __unused SecurityClient *client, CFTypeRef *result, CFErrorRef *error) {
     return cftype_to_bool_cftype_error_request(op, attributes, result, error);
 }
 
@@ -1172,7 +1172,7 @@ static bool dict_to_error_request(enum SecXPCOperation op, CFDictionaryRef query
     }, NULL);
 }
 
-static bool dict_ag_to_error_request(enum SecXPCOperation op, CFDictionaryRef query, __unused CFArrayRef accessGroups, CFErrorRef *error)
+static bool dict_client_to_error_request(enum SecXPCOperation op, CFDictionaryRef query, __unused SecurityClient *client, CFErrorRef *error)
 {
     return dict_to_error_request(op, query, error);
 }
@@ -1269,8 +1269,8 @@ static bool SecTokenItemAdd(TKTokenRef token, CFDictionaryRef attributes, CFDict
 
     if (!CFEqualSafe(CFDictionaryGetValue(attrs, kSecAttrIsPermanent), kCFBooleanFalse)) {
         // IsPermanent is not present or is true, so add item to the db.
-        require_quiet(SECURITYD_XPC(sec_item_add, cftype_ag_to_bool_cftype_error_request, attrs,
-                                    SecAccessGroupsGetCurrent(), &db_result, error), out);
+        require_quiet(SECURITYD_XPC(sec_item_add, cftype_client_to_bool_cftype_error_request, attrs,
+                                    SecSecurityClientGet(), &db_result, error), out);
     } else {
         // Process directly result of token call.
         db_result = CFRetain(attrs);
@@ -1309,7 +1309,7 @@ SecItemAdd(CFDictionaryRef attributes, CFTypeRef *result)
         return SecItemAuthDoQuery(&attrs, NULL, SecItemAdd, error, ^bool(TKTokenRef token, CFDictionaryRef attributes, CFDictionaryRef unused, CFDictionaryRef auth_params, CFErrorRef *error) {
             if (token == NULL) {
                 CFTypeRef raw_result = NULL;
-                if (!SECURITYD_XPC(sec_item_add, cftype_ag_to_bool_cftype_error_request, attributes, SecAccessGroupsGetCurrent(), &raw_result, error))
+                if (!SECURITYD_XPC(sec_item_add, cftype_client_to_bool_cftype_error_request, attributes, SecSecurityClientGet(), &raw_result, error))
                     return false;
 
                 bool ok = SecItemResultProcess(attributes, auth_params, token, raw_result, result, error);
@@ -1360,7 +1360,7 @@ SecItemCopyMatching(CFDictionaryRef inQuery, CFTypeRef *result)
     status = SecOSStatusWith(^bool(CFErrorRef *error) {
         return SecItemAuthDoQuery(&query, NULL, SecItemCopyMatching, error, ^bool(TKTokenRef token, CFDictionaryRef query, CFDictionaryRef attributes, CFDictionaryRef auth_params, CFErrorRef *error) {
             CFTypeRef raw_result = NULL;
-            if (!SECURITYD_XPC(sec_item_copy_matching, cftype_ag_to_bool_cftype_error_request, query, SecAccessGroupsGetCurrent(), &raw_result, error))
+            if (!SECURITYD_XPC(sec_item_copy_matching, cftype_client_to_bool_cftype_error_request, query, SecSecurityClientGet(), &raw_result, error))
                 return false;
 
             // We intentionally pass NULL as token argument, because we want to be able to decide about token on which the item lives
@@ -1399,8 +1399,8 @@ static bool SecTokenItemForEachMatching(CFDictionaryRef query, CFErrorRef *error
     }
     CFDictionarySetValue(list_query, kSecReturnData, kCFBooleanTrue);
     CFDictionarySetValue(list_query, kSecReturnPersistentRef, kCFBooleanTrue);
-    require_quiet(SECURITYD_XPC(sec_item_copy_matching, cftype_ag_to_bool_cftype_error_request, list_query,
-                                SecAccessGroupsGetCurrent(), &items, error), out);
+    require_quiet(SECURITYD_XPC(sec_item_copy_matching, cftype_client_to_bool_cftype_error_request, list_query,
+                                SecSecurityClientGet(), &items, error), out);
     if (CFGetTypeID(items) != CFArrayGetTypeID()) {
         // Wrap single returned item into the array.
         CFArrayRef item_array = CFArrayCreateForCFTypes(NULL, items, NULL);
@@ -1439,7 +1439,7 @@ static bool SecItemRawUpdate(CFDictionaryRef query, CFDictionaryRef attributesTo
         // Ensure the dictionary passed to securityd has proper kCFTypeDictionaryKeyCallBacks.
         CFMutableDictionaryRef tmp = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, NULL);
         CFDictionaryForEach(attributesToUpdate, ^(const void *key, const void *value) { CFDictionaryAddValue(tmp, key, value); });
-        ok = gSecurityd->sec_item_update(query, tmp, SecAccessGroupsGetCurrent(), error);
+        ok = gSecurityd->sec_item_update(query, tmp, SecSecurityClientGet(), error);
         CFRelease(tmp);
     } else {
         xpc_object_t message = securityd_create_message(sec_item_update_id, error);
@@ -1555,7 +1555,7 @@ SecItemDelete(CFDictionaryRef inQuery)
     status = SecOSStatusWith(^bool(CFErrorRef *error) {
         return SecItemAuthDoQuery(&query, NULL, SecItemDelete, error, ^bool(TKTokenRef token, CFDictionaryRef query, CFDictionaryRef attributes, CFDictionaryRef auth_params, CFErrorRef *error) {
             if (token == NULL) {
-                return SECURITYD_XPC(sec_item_delete, dict_ag_to_error_request, query, SecAccessGroupsGetCurrent(), error);
+                return SECURITYD_XPC(sec_item_delete, dict_client_to_error_request, query, SecSecurityClientGet(), error);
             } else {
                 return SecTokenItemForEachMatching(query, error, ^bool(CFDictionaryRef object_data, CFDictionaryRef item_query, CFErrorRef *error) {
                     bool ok = false;
@@ -1566,8 +1566,8 @@ SecItemDelete(CFDictionaryRef inQuery)
                                          SecTokenProcessError(kAKSKeyOpDelete, token, object_id, error));
 
                     // Delete the item from the keychain.
-                    require_quiet(SECURITYD_XPC(sec_item_delete, dict_ag_to_error_request, item_query,
-                                                SecAccessGroupsGetCurrent(), error), out);
+                    require_quiet(SECURITYD_XPC(sec_item_delete, dict_client_to_error_request, item_query,
+                                                SecSecurityClientGet(), error), out);
                     ok = true;
 
                 out:

@@ -1,6 +1,6 @@
 #
 # List of readers supported by the CCID driver
-# Generated: 2015-07-28
+# Generated: 2015-10-20
 #
 # DO NOT EDIT BY HAND
 
@@ -19,7 +19,6 @@
 
 # Alcor Micro
 0x058F:0x9520:Alcor Micro AU9520
-0x058F:0x9540:Alcor Micro AU9540
 
 # Athena
 0x0DC3:0x1004:Athena ASE IIIe
@@ -124,6 +123,7 @@
 # ACS
 0x072F:0x1204:ACS ACR101 ICC Reader
 0x072F:0x221A:ACS ACR1251 Dual Reader
+0x072F:0x223B:ACS ACR1252 Dual Reader
 0x072F:0x8201:ACS APG8201 PINhandy 1
 0x072F:0x8202:ACS APG8201 USB Reader
 0x072F:0x90DB:ACS CryptoMate64
@@ -221,13 +221,12 @@
 
 # Chicony
 0x04F2:0x0967:Chicony USB Smart Card Keyboard
+0x03F0:0x114A:Chicony HP USB Smartcard CCID Keyboard KR
+0x03F0:0x124A:Chicony HP USB Smartcard CCID Keyboard JP
 
 # COVADIS
 0x0982:0x0008:COVADIS VEGA-ALPHA
 0x0982:0x0040:COVADIS Auriga
-
-# Crypto Stick
-0x20A0:0x4108:Crypto Stick Crypto Stick v1.4
 
 # DUALi
 0x1DB2:0x088B:DUALi DRAGON NFC READER
@@ -238,10 +237,15 @@
 # Elatec
 0x09D8:0x0427:Elatec TWN4 SmartCard NFC
 
+# FEITIAN
+0x096E:0x0619:FEITIAN iR301
+0x096E:0x061A:FEITIAN bR301
+0x096E:0x061C:FEITIAN iR301
+
 # Feitian
 0x096E:0x0608:Feitian 502-CL
 0x096E:0x060D:Feitian R502
-0x096E:0x061A:Feitian bR301
+0x096E:0x0624:Feitian bR301 BLE
 0x096E:0x0807:Feitian ePass2003
 0x096E:0x080F:Feitian eJAVA Token
 
@@ -250,7 +254,9 @@
 
 # Free Software Initiative of Japan
 0x234B:0x0000:Free Software Initiative of Japan Gnuk
-0x20A0:0x4211:Free Software Initiative of Japan Gnuk Token
+
+# FT
+0x096E:0x080A:FT ePass2003Auto
 
 # Fujitsu Siemens Computers
 0x0BF8:0x1005:Fujitsu Siemens Computers SmartCard Keyboard USB 2A
@@ -276,7 +282,6 @@
 0x08E6:0x3479:Gemplus GemCore POS Pro Smart Card Reader
 
 # Generic
-0x0BDA:0x0165:Generic Smart Card Reader Interface
 0x0BDA:0x0169:Generic USB2.0-CRW
 0x048D:0x1366:Generic MultiCard Device
 
@@ -316,10 +321,27 @@
 # id3 Semiconductors
 0x0B81:0x0220:id3 Semiconductors CL1356A_HID
 
+# Identiv
+0x04E6:0x5713:Identiv CLOUD 2980 F Smart Card Reader
+0x04E6:0x5724:Identiv Identiv uTrust 4701 F Dual Interface Reader
+0x04E6:0x5790:Identiv uTrust 3700 F CL Reader
+0x04E6:0x5791:Identiv uTrust 3701 F CL Reader
+0x04E6:0x5811:Identiv uTrust 2900 R Smart Card Reader
+0x04E6:0x5812:Identiv uTrust 2910 R Smart Card Reader
+0x04E6:0x5814:Identiv SCR3500 A Contact Reader
+0x04E6:0x5815:Identiv SCR3500 B Contact Reader
+0x04E6:0x5816:Identiv uTrust 3512 SAM slot Token
+0x04E6:0x5818:Identiv @MAXX Light2 token
+0x04E6:0x5819:Identiv @MAXX ID-1 Smart Card Reader
+0x04E6:0x581A:Identiv uTrust 3522 embd SE RFID Token
+0x04E6:0x581B:Identiv uTrust 2910 R Taglio SC Reader
+0x04E6:0x581C:Identiv SCR35xx USB Smart Card Reader
+
 # Identive
 0x04E6:0x5710:Identive CLOUD 2700 F Smart Card Reader
 0x04E6:0x5720:Identive Identive CLOUD 4500 F Dual Interface Reader
 0x04E6:0x5721:Identive Identive CLOUD 4510 F Contactless + SAM Reader
+0x04E6:0x5723:Identive Identive CLOUD 4000 F DTC
 0x04E6:0x5810:Identive CLOUD 2700 R Smart Card Reader
 0x04E6:0x5817:Identive SCT3522CC token
 
@@ -363,6 +385,11 @@
 0x17EF:0x6007:Lenovo Lenovo USB Smartcard Keyboard
 0x17EF:0x6055:Lenovo Lenovo USB Smartcard Keyboard
 
+# Liteon
+0x03F0:0x164A:Liteon HP SC Keyboard - Apollo (Liteon)
+0x03F0:0x174A:Liteon HP SC Keyboard - Apollo KR (Liteon)
+0x03F0:0x184A:Liteon HP SC Keyboard - Apollo JP (Liteon)
+
 # Macally
 0x08AE:0x0BDF:Macally NFC CCID eNetPad
 
@@ -382,6 +409,11 @@
 0x1E0D:0x0033:Neowave Weneo
 0x1E0D:0x1023:Neowave Weneo
 0x1E0D:0x8033:Neowave Weneo
+
+# Nitrokey
+0x20A0:0x4108:Nitrokey Nitrokey Pro
+0x20A0:0x4211:Nitrokey Nitrokey Start
+0x20A0:0x4230:Nitrokey Nitrokey HSM
 
 # NTT Communications Corp.
 0x04E6:0x511A:NTT Communications Corp. SCR3310-NTTCom USB SmartCard Reader
@@ -433,6 +465,9 @@
 0x0C4B:0x0504:REINER SCT cyberJack go
 0x0C4B:0x0520:REINER SCT tanJack Bluetooth
 0x0C4B:0x9102:REINER SCT cyberJack RFID basis
+
+# Rocketek
+0x14CD:0x8166:Rocketek RT-SCR1
 
 # SafeNet
 0x0529:0x0602:SafeNet eToken 7300
@@ -515,10 +550,14 @@
 0x1A44:0x0855:VASCO DP855
 0x1A44:0x0865:VASCO DP865
 0x1A44:0x0870:VASCO DIGIPASS 870
+0x1A44:0x0875:VASCO DIGIPASS 875
 0x1A44:0x0920:VASCO DIGIPASS 920
 
 # VMware
 0x0E0F:0x0004:VMware Virtual USB CCID
+
+# WatchCNPC
+0x163C:0x0406:WatchCNPC USB CCID Key
 
 # Watchdata
 0x163C:0x0407:Watchdata USB Key
@@ -553,6 +592,9 @@
 
 # Aladdin
 
+# Alcor Micro
+0x058F:0x9540:Alcor Micro AU9540
+
 # ATMEL
 0x03EB:0x6016:ATMEL VaultIC460
 
@@ -564,6 +606,9 @@
 
 # Feitian
 0x096E:0x0503:Feitian SCR301
+
+# Generic
+0x0BDA:0x0165:Generic Smart Card Reader Interface
 
 # Hewlett-Packard Company
 0x03F0:0x0036:Hewlett-Packard Company HP USB CCID Smartcard Keyboard
@@ -634,6 +679,12 @@
 #0x04E6:0x5721:Identive Identive CLOUD 4710 F Contactless + SAM Reader (Identive_CLOUD_4710_F.txt)
 #0x04E6:0x5721:Identive Identive CLOUD 4710 F Contactless + SAM Reader (Identive_CLOUD_4710_F.txt_i1)
 
+#0x04E6:0x5723:Identive Identive CLOUD 4000 F DTC (Identive_Identive_CLOUD_4000_F_DTC.txt)
+#0x04E6:0x5723:Identive Identive CLOUD 4000 F DTC (Identive_Identive_CLOUD_4000_F_DTC.txt_i1)
+
+#0x04E6:0x5724:Identiv Identiv uTrust 4701 F Dual Interface Reader (Identiv_Identiv_uTrust_4701_F_Dual_Interface_Reader.txt)
+#0x04E6:0x5724:Identiv Identiv uTrust 4701 F Dual Interface Reader (Identiv_Identiv_uTrust_4701_F_Dual_Interface_Reader.txt_i1)
+
 #0x0529:0x0620:Aladdin eToken PRO USB 72K Java (Aladdin_eToken_PRO_USB_72K_Java.txt)
 #0x0529:0x0620:SafeNet eToken 5100 (SafeNet_Token_JC.txt)
 
@@ -643,6 +694,9 @@
 
 #0x072F:0x221A:ACS ACR1251 Dual Reader (ACS_ACR1251_Dual_Reader.txt)
 #0x072F:0x221A:ACS ACR1251 Dual Reader (ACS_ACR1251_Dual_Reader.txt_i1)
+
+#0x072F:0x223B:ACS ACR1252 Dual Reader (ACS_ACR1252_Dual_Reader.txt)
+#0x072F:0x223B:ACS ACR1252 Dual Reader (ACS_ACR1252_Dual_Reader.txt_i1)
 
 #0x072F:0x90CC:ACS ACR122U (ACR122U.txt)
 #0x072F:0x90CC:ACS ACR 38U-CCID (ACR38U-CCID.txt)

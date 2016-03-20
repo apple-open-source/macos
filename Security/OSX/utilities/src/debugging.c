@@ -414,7 +414,7 @@ static void setup_environment_scopes() {
     ApplyScopeListForIDC(cur_scope, kScopeIDEnvironment);
 }
 
-#define XPCSCOPESTRWANT "api,account,accountChange,circle,circleChange,circleCreat,flush,fresh,keygen,signing,talkwithkvs"
+#define XPCSCOPESTRWANT "api,account,accountChange,circle,circleChange,circleCreat,flush,fresh,keygen,signing,talkwithkvs,syncbubble"
 #define XPCSCOPESTRDONTWANT "-event,http,item,keytrace,lockassertions,otr_keysetup,securityd,server,serverxpc,session,sync,titc,transport,trust,updates,xpc"
 static void setup_xpcdefault_scopes() {
     

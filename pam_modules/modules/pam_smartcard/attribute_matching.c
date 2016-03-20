@@ -238,16 +238,78 @@ cleanup:
     return result;
 }
 
-SecKeychainRef copyAttributeMatchedKeychain(ODRecordRef odRecord, CFArrayRef certificates)
+typedef CF_OPTIONS(uint32_t, SecKeyUsageExtensions)
+{
+    kSecKeyUsageUnspecified      = 0,
+    kSecKeyUsageDigitalSignature = 1 << 0,
+    kSecKeyUsageNonRepudiation   = 1 << 1,
+    kSecKeyUsageKeyEncipherment  = 1 << 2,
+    kSecKeyUsageDataEncipherment = 1 << 3,
+    kSecKeyUsageKeyAgreement     = 1 << 4,
+    kSecKeyUsageKeyCertSign      = 1 << 5,
+    kSecKeyUsageCRLSign          = 1 << 6,
+    kSecKeyUsageEncipherOnly     = 1 << 7,
+    kSecKeyUsageDecipherOnly     = 1 << 8,
+    kSecKeyUsageCritical         = 1 << 31,
+    kSecKeyUsageAll              = 0x7FFFFFFF
+};
+
+bool isNonRepudiated(SecCertificateRef cert)
+{
+    bool result = false;
+    
+    CFDictionaryRef certDetails = SecCertificateCopyValues(cert, NULL, NULL);
+    if (!certDetails)
+        return result;
+
+    // the most correct way to do this is to get key ACL and look if it needs PIN, but since getACL for smartcards record is hardcoded,
+    // we are unable to distinguish between records on ACL basis. Using key name is also not a proper way because it is based on tokend
+    // implementation
+    // please note that the fact certificate itself has no kSecKeyUsageNonRepudiation bit set does not imply anything because "PIN every time" policy
+    // is enforced by smartcard and not by the certificate. So let's hope the cards are made the correct way and certificates have
+    // kSecKeyUsageNonRepudiation set, like DHS cards do.
+
+    CFDictionaryRef usageDict = CFDictionaryGetValue(certDetails, kSecOIDKeyUsage);
+    if (usageDict)
+    {
+        CFNumberRef usage = CFDictionaryGetValue(usageDict, kSecPropertyKeyValue);
+        if (usage)
+        {
+            uint32_t usageBits;
+            CFNumberGetValue(usage, kCFNumberSInt32Type, &usageBits);
+            if (usageBits & kSecKeyUsageNonRepudiation)
+            {
+                result = true;
+            }
+        }
+    }
+    CFRelease(certDetails);
+    return result;
+}
+
+SecKeychainRef copyAttributeMatchedKeychain(ODRecordRef odRecord, CFArrayRef identities, SecIdentityRef* returnedIdentity)
 {
     CFDictionaryRef dict;
     
-    if (certificates == NULL)
+    if (identities == NULL)
         return NULL;
-    
-    for (CFIndex i = 0; i < CFArrayGetCount(certificates); ++i)
+
+    SecKeychainRef keychainCandidate = NULL;
+    SecIdentityRef identityCandidate = NULL;
+    bool isNonRepu;
+    SecKeychainRef keychain = NULL;
+    for (CFIndex i = 0; i < CFArrayGetCount(identities); ++i)
     {
-        dict = createUserSearchKey((SecCertificateRef)CFArrayGetValueAtIndex(certificates, i));
+        SecIdentityRef identity = (SecIdentityRef)CFArrayGetValueAtIndex(identities, i);
+        SecCertificateRef candidate;
+        OSStatus status = SecIdentityCopyCertificate(identity, &candidate);
+        if (status != errSecSuccess)
+            continue;
+
+        dict = createUserSearchKey(candidate);
+        isNonRepu = isNonRepudiated(candidate);
+        CFRelease(candidate);
+
         if (dict)
         {
             // find user for this pair
@@ -256,17 +318,46 @@ SecKeychainRef copyAttributeMatchedKeychain(ODRecordRef odRecord, CFArrayRef cer
             CFStringRef value = NULL;
             int res = od_record_attribute_create_cfstring(odRecord, attributeName, &value);
             bool match = (res == 0) && (value) && (CFStringCompare(expectedValue, value, 0) == kCFCompareEqualTo);
+            status = SecKeychainItemCopyKeychain((SecKeychainItemRef)candidate, &keychain);
             CFRelease(dict);
-            if (match)
-            {
-                SecKeychainRef result;
 
-                OSStatus status = SecKeychainItemCopyKeychain((SecKeychainItemRef)CFArrayGetValueAtIndex(certificates, i), &result);
-                if (status == errSecSuccess)
-                    return result;
+            if (status == errSecSuccess && match == true)
+            {
+                // check if this certificate is non-repudiated
+                // if so, keep it as a candidate for the case we won't find better one
+                if (!isNonRepu)
+                {
+                    CFReleaseSafe(keychainCandidate); // no need to retain candidate
+                    if (returnedIdentity)
+                        *returnedIdentity = identity;
+                    return keychain;
+                }
+                else
+                {
+                    if (keychainCandidate == NULL)
+                    {
+                        CFRetain(keychain);
+                        keychainCandidate = keychain;
+                        identityCandidate = identity;
+                    }
+                    else
+                    {
+                        // not interested in additional candidates
+                        CFReleaseSafe(keychainCandidate);
+                    }
+                }
             }
+            CFReleaseNull(keychain);
         }
     }
-    
+
+    // if we got here, all available certificates were either non-repu or non-matching
+    if (keychainCandidate)
+    {
+        if (returnedIdentity)
+            *returnedIdentity = identityCandidate;
+        return keychainCandidate;
+    }
+
     return NULL;
 }

@@ -58,6 +58,7 @@
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/ScrollingConstraints.h>
 #include <WebCore/ScrollingCoordinator.h>
+#include <WebCore/SearchPopupMenu.h>
 #include <WebCore/SessionID.h>
 #include <WebCore/TextCheckerClient.h>
 #include <WebCore/TextIndicator.h>
@@ -478,6 +479,22 @@ bool ArgumentCoder<Path>::decode(ArgumentDecoder& decoder, Path& path)
             break;
         }
     }
+
+    return true;
+}
+
+void ArgumentCoder<RecentSearch>::encode(ArgumentEncoder& encoder, const RecentSearch& recentSearch)
+{
+    encoder << recentSearch.string << recentSearch.time;
+}
+
+bool ArgumentCoder<RecentSearch>::decode(ArgumentDecoder& decoder, RecentSearch& recentSearch)
+{
+    if (!decoder.decode(recentSearch.string))
+        return false;
+
+    if (!decoder.decode(recentSearch.time))
+        return false;
 
     return true;
 }
@@ -960,10 +977,6 @@ void ArgumentCoder<WindowFeatures>::encode(ArgumentEncoder& encoder, const Windo
     encoder << windowFeatures.y;
     encoder << windowFeatures.width;
     encoder << windowFeatures.height;
-    encoder << windowFeatures.xSet;
-    encoder << windowFeatures.ySet;
-    encoder << windowFeatures.widthSet;
-    encoder << windowFeatures.heightSet;
     encoder << windowFeatures.menuBarVisible;
     encoder << windowFeatures.statusBarVisible;
     encoder << windowFeatures.toolBarVisible;
@@ -983,14 +996,6 @@ bool ArgumentCoder<WindowFeatures>::decode(ArgumentDecoder& decoder, WindowFeatu
     if (!decoder.decode(windowFeatures.width))
         return false;
     if (!decoder.decode(windowFeatures.height))
-        return false;
-    if (!decoder.decode(windowFeatures.xSet))
-        return false;
-    if (!decoder.decode(windowFeatures.ySet))
-        return false;
-    if (!decoder.decode(windowFeatures.widthSet))
-        return false;
-    if (!decoder.decode(windowFeatures.heightSet))
         return false;
     if (!decoder.decode(windowFeatures.menuBarVisible))
         return false;

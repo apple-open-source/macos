@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,7 @@
 #include <unistd.h>
 #include <TargetConditionals.h>
 #include <Security/SecItem.h>
+#include <Security/SecItemPriv.h>
 #if ! TARGET_OS_EMBEDDED
 #include <Security/SecIdentitySearch.h>
 #include <Security/SecKeychain.h>
@@ -206,7 +207,8 @@ IdentityCreateFromData(CFDataRef data, SecIdentityRef * ret_identity)
     const void *		keys[] = {
 	kSecClass,
 	kSecReturnRef,
-	kSecValuePersistentRef
+	kSecValuePersistentRef,
+	kSecUseSystemKeychain
     };
     CFDictionaryRef		query;
     CFTypeRef			results = NULL;
@@ -214,7 +216,8 @@ IdentityCreateFromData(CFDataRef data, SecIdentityRef * ret_identity)
     const void *		values[] = {
 	kSecClassIdentity,
 	kCFBooleanTrue,
-	data
+	data,
+	kCFBooleanTrue
     };
 
     *ret_identity = NULL;

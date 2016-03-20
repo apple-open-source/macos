@@ -23,86 +23,84 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.NetworkGridContentView = function(representedObject, extraArguments)
+WebInspector.NetworkGridContentView = class NetworkGridContentView extends WebInspector.ContentView
 {
-    console.assert(extraArguments);
-    console.assert(extraArguments.networkSidebarPanel instanceof WebInspector.NetworkSidebarPanel);
+    constructor(representedObject, extraArguments)
+    {
+        console.assert(extraArguments);
+        console.assert(extraArguments.networkSidebarPanel instanceof WebInspector.NetworkSidebarPanel);
 
-    WebInspector.ContentView.call(this, representedObject);
+        super(representedObject);
 
-    this._networkSidebarPanel = extraArguments.networkSidebarPanel;
+        this._networkSidebarPanel = extraArguments.networkSidebarPanel;
 
-    this._contentTreeOutline = this._networkSidebarPanel.contentTreeOutline;
-    this._contentTreeOutline.onselect = this._treeElementSelected.bind(this);
+        this._contentTreeOutline = this._networkSidebarPanel.contentTreeOutline;
+        this._contentTreeOutline.onselect = this._treeElementSelected.bind(this);
 
-    var columns = {domain: {}, type: {}, method: {}, scheme: {}, statusCode: {}, cached: {}, size: {}, transferSize: {}, requestSent: {}, latency: {}, duration: {}};
+        var columns = {domain: {}, type: {}, method: {}, scheme: {}, statusCode: {}, cached: {}, size: {}, transferSize: {}, requestSent: {}, latency: {}, duration: {}};
 
-    columns.domain.title = WebInspector.UIString("Domain");
-    columns.domain.width = "10%";
+        columns.domain.title = WebInspector.UIString("Domain");
+        columns.domain.width = "10%";
 
-    columns.type.title = WebInspector.UIString("Type");
-    columns.type.width = "8%";
+        columns.type.title = WebInspector.UIString("Type");
+        columns.type.width = "8%";
 
-    columns.method.title = WebInspector.UIString("Method");
-    columns.method.width = "6%";
+        columns.method.title = WebInspector.UIString("Method");
+        columns.method.width = "6%";
 
-    columns.scheme.title = WebInspector.UIString("Scheme");
-    columns.scheme.width = "6%";
+        columns.scheme.title = WebInspector.UIString("Scheme");
+        columns.scheme.width = "6%";
 
-    columns.statusCode.title = WebInspector.UIString("Status");
-    columns.statusCode.width = "6%";
+        columns.statusCode.title = WebInspector.UIString("Status");
+        columns.statusCode.width = "6%";
 
-    columns.cached.title = WebInspector.UIString("Cached");
-    columns.cached.width = "6%";
+        columns.cached.title = WebInspector.UIString("Cached");
+        columns.cached.width = "6%";
 
-    columns.size.title = WebInspector.UIString("Size");
-    columns.size.width = "8%";
-    columns.size.aligned = "right";
+        columns.size.title = WebInspector.UIString("Size");
+        columns.size.width = "8%";
+        columns.size.aligned = "right";
 
-    columns.transferSize.title = WebInspector.UIString("Transfered");
-    columns.transferSize.width = "8%";
-    columns.transferSize.aligned = "right";
+        columns.transferSize.title = WebInspector.UIString("Transferred");
+        columns.transferSize.width = "8%";
+        columns.transferSize.aligned = "right";
 
-    columns.requestSent.title = WebInspector.UIString("Start Time");
-    columns.requestSent.width = "9%";
-    columns.requestSent.aligned = "right";
+        columns.requestSent.title = WebInspector.UIString("Start Time");
+        columns.requestSent.width = "9%";
+        columns.requestSent.aligned = "right";
 
-    columns.latency.title = WebInspector.UIString("Latency");
-    columns.latency.width = "9%";
-    columns.latency.aligned = "right";
+        columns.latency.title = WebInspector.UIString("Latency");
+        columns.latency.width = "9%";
+        columns.latency.aligned = "right";
 
-    columns.duration.title = WebInspector.UIString("Duration");
-    columns.duration.width = "9%";
-    columns.duration.aligned = "right";
+        columns.duration.title = WebInspector.UIString("Duration");
+        columns.duration.width = "9%";
+        columns.duration.aligned = "right";
 
-    for (var column in columns)
-        columns[column].sortable = true;
+        for (var column in columns)
+            columns[column].sortable = true;
 
-    this._dataGrid = new WebInspector.TimelineDataGrid(this._contentTreeOutline, columns);
-    this._dataGrid.addEventListener(WebInspector.DataGrid.Event.SelectedNodeChanged, this._dataGridNodeSelected, this);
-    this._dataGrid.sortColumnIdentifier = "requestSent";
-    this._dataGrid.sortOrder = WebInspector.DataGrid.SortOrder.Ascending;
+        this._dataGrid = new WebInspector.TimelineDataGrid(this._contentTreeOutline, columns);
+        this._dataGrid.addEventListener(WebInspector.DataGrid.Event.SelectedNodeChanged, this._dataGridNodeSelected, this);
+        this._dataGrid.sortColumnIdentifier = "requestSent";
+        this._dataGrid.sortOrder = WebInspector.DataGrid.SortOrder.Ascending;
 
-    this.element.classList.add("network-grid");
-    this.element.appendChild(this._dataGrid.element);
+        this.element.classList.add("network-grid");
+        this.addSubview(this._dataGrid);
 
-    var networkTimeline = WebInspector.timelineManager.persistentNetworkTimeline;
-    networkTimeline.addEventListener(WebInspector.Timeline.Event.RecordAdded, this._networkTimelineRecordAdded, this);
-    networkTimeline.addEventListener(WebInspector.Timeline.Event.Reset, this._networkTimelineReset, this);
+        var networkTimeline = WebInspector.timelineManager.persistentNetworkTimeline;
+        networkTimeline.addEventListener(WebInspector.Timeline.Event.RecordAdded, this._networkTimelineRecordAdded, this);
+        networkTimeline.addEventListener(WebInspector.Timeline.Event.Reset, this._networkTimelineReset, this);
 
-    this._pendingRecords = [];
-};
-
-WebInspector.NetworkGridContentView.prototype = {
-    constructor: WebInspector.NetworkGridContentView,
-    __proto__: WebInspector.ContentView.prototype,
+        this._pendingRecords = [];
+    }
 
     // Public
 
     get navigationSidebarTreeOutline()
     {
         return this._contentTreeOutline;
-    },
+    }
 
     get selectionPathComponents()
     {
@@ -112,64 +110,56 @@ WebInspector.NetworkGridContentView.prototype = {
         var pathComponent = new WebInspector.GeneralTreeElementPathComponent(this._contentTreeOutline.selectedTreeElement);
         pathComponent.addEventListener(WebInspector.HierarchicalPathComponent.Event.SiblingWasSelected, this._treeElementPathComponentSelected, this);
         return [pathComponent];
-    },
+    }
 
     get zeroTime()
     {
         return WebInspector.timelineManager.persistentNetworkTimeline.startTime;
-    },
+    }
 
-    shown: function()
+    shown()
     {
-        WebInspector.ContentView.prototype.shown.call(this);
+        super.shown();
 
         this._dataGrid.shown();
-    },
+    }
 
-    hidden: function()
+    hidden()
     {
         this._dataGrid.hidden();
 
-        WebInspector.ContentView.prototype.hidden.call(this);
-    },
+        super.hidden();
+    }
 
-    closed: function()
+    closed()
     {
         this._dataGrid.closed();
-    },
+    }
 
-    updateLayout: function()
-    {
-        if (this._scheduledLayoutUpdateIdentifier) {
-            cancelAnimationFrame(this._scheduledLayoutUpdateIdentifier);
-            delete this._scheduledLayoutUpdateIdentifier;
-        }
-
-        this._dataGrid.updateLayout();
-
-        this._processPendingRecords();
-    },
-
-    needsLayout: function()
+    needsLayout()
     {
         if (!this._networkSidebarPanel.visible)
             return;
 
-        if (this._scheduledLayoutUpdateIdentifier)
-            return;
+        super.needsLayout();
+    }
 
-        this._scheduledLayoutUpdateIdentifier = requestAnimationFrame(this.updateLayout.bind(this));
-    },
-
-    reset: function()
+    reset()
     {
         this._contentTreeOutline.removeChildren();
         this._dataGrid.reset();
-    },
+    }
+
+    // Protected
+
+    layout()
+    {
+        this._processPendingRecords();
+    }
 
     // Private
 
-    _processPendingRecords: function()
+    _processPendingRecords()
     {
         if (!this._pendingRecords.length)
             return;
@@ -187,14 +177,14 @@ WebInspector.NetworkGridContentView.prototype = {
         }
 
         this._pendingRecords = [];
-    },
+    }
 
-    _networkTimelineReset: function(event)
+    _networkTimelineReset(event)
     {
         this.reset();
-    },
+    }
 
-    _networkTimelineRecordAdded: function(event)
+    _networkTimelineRecordAdded(event)
     {
         var resourceTimelineRecord = event.data.record;
         console.assert(resourceTimelineRecord instanceof WebInspector.ResourceTimelineRecord);
@@ -202,17 +192,17 @@ WebInspector.NetworkGridContentView.prototype = {
         this._pendingRecords.push(resourceTimelineRecord);
 
         this.needsLayout();
-    },
+    }
 
-    _treeElementPathComponentSelected: function(event)
+    _treeElementPathComponentSelected(event)
     {
         var dataGridNode = this._dataGrid.dataGridNodeForTreeElement(event.data.pathComponent.generalTreeElement);
         if (!dataGridNode)
             return;
         dataGridNode.revealAndSelect();
-    },
+    }
 
-    _treeElementSelected: function(treeElement, selectedByUser)
+    _treeElementSelected(treeElement, selectedByUser)
     {
         this.dispatchEventToListeners(WebInspector.ContentView.Event.SelectionPathComponentsDidChange);
 
@@ -225,9 +215,9 @@ WebInspector.NetworkGridContentView.prototype = {
         }
 
         console.error("Unknown tree element", treeElement);
-    },
+    }
 
-    _dataGridNodeSelected: function(event)
+    _dataGridNodeSelected(event)
     {
         this.dispatchEventToListeners(WebInspector.ContentView.Event.SelectionPathComponentsDidChange);
     }

@@ -760,7 +760,7 @@ void ManifestFileItem::ComputeDigestForAppleDoubleResourceFork (char* name, SHA1
 	
 	if (bytesRead != st.st_size)
 	{
-		delete buffer;
+		delete [] buffer;
 		UnixError::throwMe ();
 	}
 	
@@ -801,7 +801,7 @@ void ManifestFileItem::ComputeDigestForAppleDoubleResourceFork (char* name, SHA1
 	// compute the SHA1 hash
 	CC_SHA1_Final (digest, &digestContext);
 	
-	delete buffer;
+	delete [] buffer;
 }
 
 

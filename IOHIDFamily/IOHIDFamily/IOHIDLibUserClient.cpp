@@ -48,7 +48,7 @@ __END_DECLS
 
 #if TARGET_OS_EMBEDDED
 #include <AppleMobileFileIntegrity/AppleMobileFileIntegrity.h>
-#define kIOHIDManagerUserAccessKeyboardEntitlement "com.apple.hid.manager.user-access-keyboard"
+#define kIOHIDManagerUserAccessKeyboardEntitlement  "com.apple.hid.manager.user-access-keyboard"
 #endif
 
 #define super IOUserClient

@@ -1,5 +1,5 @@
 .\"
-.\" "$Id: cups-config.man 11830 2014-04-24 12:10:41Z msweet $"
+.\" "$Id: cups-config.man 12992 2015-11-19 15:19:00Z msweet $"
 .\"
 .\" cups-config man page for CUPS.
 .\"
@@ -110,7 +110,7 @@ Compile a simple one-file CUPS filter:
 .BR cups (1),
 CUPS Online Help (http://localhost:631/help)
 .SH COPYRIGHT
-Copyright \[co] 2007-2014 by Apple Inc.
+Copyright \[co] 2007-2015 by Apple Inc.
 .\"
-.\" End of "$Id: cups-config.man 11830 2014-04-24 12:10:41Z msweet $".
+.\" End of "$Id: cups-config.man 12992 2015-11-19 15:19:00Z msweet $".
 .\"

@@ -133,6 +133,7 @@ public:
     void retryAfterFailedCacheOnlyMainResourceLoad();
 
     static void reportLocalLoadFailed(Frame*, const String& url);
+    static void reportBlockedPortFailed(Frame*, const String& url);
 
     // FIXME: These are all functions which stop loads. We have too many.
     WEBCORE_EXPORT void stopAllLoaders(ClearProvisionalItemPolicy = ShouldClearProvisionalItem);
@@ -170,6 +171,7 @@ public:
     void handleFallbackContent();
 
     WEBCORE_EXPORT ResourceError cancelledError(const ResourceRequest&) const;
+    ResourceError blockedError(const ResourceRequest&) const;
 
     bool isHostedByObjectElement() const;
 
@@ -317,6 +319,7 @@ private:
     SubstituteData defaultSubstituteDataForURL(const URL&);
 
     bool handleBeforeUnloadEvent(Chrome&, FrameLoader* frameLoaderBeingNavigated);
+    void handleUnloadEvents(UnloadEventPolicy);
 
     void continueLoadAfterNavigationPolicy(const ResourceRequest&, PassRefPtr<FormState>, bool shouldContinue, AllowNavigationToInvalidURL);
     void continueLoadAfterNewWindowPolicy(const ResourceRequest&, PassRefPtr<FormState>, const String& frameName, const NavigationAction&, bool shouldContinue, AllowNavigationToInvalidURL, NewFrameOpenerPolicy);

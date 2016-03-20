@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleShortVersionString</key>
+	<string>2.4.16</string>
+	<key>CFBundleExecutable</key>
+	<string>httpd</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.apache.httpd</string>
+	<key>CFBundleName</key>
+	<string>httpd</string>
+	<key>Application-Group</key>
+	<string>com.apple.identity.export</string>
+</dict>
+</plist>

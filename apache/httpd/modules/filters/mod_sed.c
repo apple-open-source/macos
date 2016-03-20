@@ -312,7 +312,7 @@ static apr_status_t sed_response_filter(ap_filter_t *f,
      * evaluation is allocated on request's pool so it will be cleared once
      * request is over.
      *
-     * If flush bucket is found then append the the flush bucket to ctx->bb
+     * If flush bucket is found then append the flush bucket to ctx->bb
      * and pass it to next filter. There may be some data which will still be
      * in sed's internal buffer which can't be flushed until new line
      * character is arrived.
@@ -424,7 +424,7 @@ static apr_status_t sed_request_filter(ap_filter_t *f,
      * the buckets in bbinp and read the data from buckets and invoke
      * sed_eval_buffer on the data. libsed will generate its output using
      * sed_write_output which will add data in ctx->bb. Do it until it have
-     * atleast one bucket bucket in ctx->bb. At the end of data eos bucket
+     * atleast one bucket in ctx->bb. At the end of data eos bucket
      * should be there.
      *
      * Once eos bucket is seen, then invoke sed_finalize_eval to clear the

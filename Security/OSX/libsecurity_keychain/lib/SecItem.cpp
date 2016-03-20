@@ -3025,7 +3025,9 @@ _CreateSecItemParamsFromDictionary(CFDictionaryRef dict, OSStatus *error)
 	else if (value) {
 		itemParams->itemClass = _ConvertItemClass(value, itemParams->keyClass, &itemParams->returnIdentity);
 		if (itemParams->itemClass == kSecSymmetricKeyItemClass && !itemParams->keyClass) {
-			itemParams->assumedKeyClass = kSecAttrKeyClassSymmetric; // no key class specified, so start with symmetric key class; will search the others later
+            // no key class specified, so start with symmetric key class; will search the others later in UpdateKeychainSearchAndCopyNext
+            itemParams->itemClass = kSecSymmetricKeyItemClass;
+            itemParams->assumedKeyClass = kSecAttrKeyClassPublic;
 		}
 		require_action(!(itemParams->itemClass == 0 && !itemParams->useItems), error_exit, status = errSecItemClassMissing);
 	}

@@ -82,6 +82,7 @@ enum {
 	kAuthorityFlagInhibitCache = 0x0004, // never cache outcome of this rule
 	kAuthorityFlagWhitelist = 0x1000,	// whitelist override
 	kAuthorityFlagWhitelistV2 = 0x2000, // apply "deep" signature to this record
+	kAuthorityFlagWhitelistSHA256 = 0x4000, // use SHA256 signature
 };
 
 

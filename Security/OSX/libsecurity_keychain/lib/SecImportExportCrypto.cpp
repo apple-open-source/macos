@@ -41,6 +41,7 @@
 #include <security_cdsa_client/securestorage.h>
 #include <security_cdsa_client/dlclient.h>
 #include <Security/cssmapi.h>
+#include <security_keychain/KeyItem.h>
 
 /*
  * Key attrribute names and values.
@@ -562,8 +563,14 @@ OSStatus impExpImportKeyCommon(
 			KeychainCore::Access::required(accessRef) :
 			new KeychainCore::Access("Imported Private Key"));
 		try {
-			CssmClient::KeyAclBearer bearer(cspHand, unwrappedKey, Allocator::standard());
-			theAccess->setAccess(bearer, maker);
+            if(secKeyRef != NULL) {
+                // setAccess using the new secKeyRef, not the old unwrappedKey.
+                // At this point, we might have duplicate keys registered with securityd. Use the newest one.
+                theAccess->setAccess(*KeyItem::required(secKeyRef)->key(), maker);
+            } else {
+                CssmClient::KeyAclBearer bearer(cspHand, unwrappedKey, Allocator::standard());
+                theAccess->setAccess(bearer, maker);
+            }
 		}
 		catch (const CssmError &e) {
 			/* not implemented means we're talking to the raw CSP which does

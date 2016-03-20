@@ -49,7 +49,7 @@ public:
 	CommentAclSubject()
 	: AclSubject(CSSM_ACL_SUBJECT_TYPE_COMMENT) { }
 	
-	bool validate(const AclValidationContext &ctx) const;
+	bool validates(const AclValidationContext &ctx) const;
 	CssmList toList(Allocator &alloc) const;
 
     void exportBlob(Writer::Counter &pub, Writer::Counter &priv);

@@ -262,7 +262,11 @@ typedef CF_ENUM(uint32_t, CMSSignedAttributes) {
     /*
      * Include the signing time.
      */
-    kCMSAttrSigningTime					= 0x0008
+    kCMSAttrSigningTime					= 0x0008,
+    /*
+     * Include the Apple Codesigning Hash Agility.
+     */
+    kCMSAttrAppleCodesigningHashAgility = 0x0010
 };
 
 /*

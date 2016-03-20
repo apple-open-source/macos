@@ -235,6 +235,7 @@ _CMSEncoderSetEncapsulatedContentTypeOID
 _CMSEncoderSetEncoder
 _CMSEncoderAddSignedAttributes
 _CMSEncoderSetSigningTime
+_CMSEncoderSetAppleCodesigningHashAgility
 _CMSEncoderSetCertificateChainMode
 _CMSEncoderGetCertificateChainMode
 _CMSEncoderUpdateContent
@@ -263,6 +264,7 @@ _CMSDecoderCopySignerTimestampWithPolicy
 _CMSDecoderCopySignerTimestampCertificates
 _CMSEncoderCopySignerTimestamp
 _CMSEncoderCopySignerTimestampWithPolicy
+_CMSDecoderCopySignerAppleCodesigningHashAgility
 
 //
 // libsecurity_codesigning
@@ -351,6 +353,7 @@ _kSecCodeInfoEntitlementsDict
 _kSecCodeInfoFlags
 _kSecCodeInfoFormat
 _kSecCodeInfoDigestAlgorithm
+_kSecCodeInfoDigestAlgorithms
 _kSecCodeInfoIdentifier
 _kSecCodeInfoImplicitDesignatedRequirement
 _kSecCodeInfoMainExecutable
@@ -362,6 +365,7 @@ _kSecCodeInfoStatus
 _kSecCodeInfoTeamIdentifier
 _kSecCodeInfoTrust
 _kSecCodeInfoUnique
+_kSecCodeInfoCdHashes
 _kSecCodeInfoCodeDirectory
 _kSecCodeInfoCodeOffset
 _kSecCodeInfoResourceDirectory
@@ -1106,6 +1110,8 @@ _kSecACLAuthorizationKeychainItemRead
 _kSecACLAuthorizationKeychainItemInsert
 _kSecACLAuthorizationKeychainItemModify
 _kSecACLAuthorizationKeychainItemDelete
+_kSecACLAuthorizationPartitionID
+_kSecACLAuthorizationIntegrity
 _kSecIdentityDomainDefault
 _kSecIdentityDomainKerberosKDC
 _kSecClass
@@ -1308,6 +1314,7 @@ _kSecPolicyAppleTestATVAppSigning
 _kSecPolicyApplePayIssuerEncryption
 _kSecPolicyAppleOSXProvisioningProfileSigning
 _kSecPolicyAppleATVVPNProfileSigning
+_kSecPolicyAppleAST2DiagnosticsServerAuth
 _kSecPolicyOid
 _kSecPolicyName
 _kSecPolicyClient
@@ -1498,6 +1505,7 @@ _SecCertificateCopyPreferred
 _SecCertificateCopyPublicKey
 _SecCertificateCopyPublicKeySHA1Digest
 _SecCertificateCopyPublicKeySHA1DigestFromCertificateData
+_SecCertificateCopySHA256Digest
 _SecCertificateCopySubjectSummary
 _SecCertificateCopyDNSNames
 _SecCertificateCreateItemImplInstance
@@ -1664,6 +1672,7 @@ _SecKeychainGetStatus
 _SecKeychainGetTypeID
 _SecKeychainGetUserInteractionAllowed
 _SecKeychainGetVersion
+_SecKeychainGetKeychainVersion
 _SecKeychainMDSInstall
 _SecKeychainIsValid
 _SecKeychainItemAdd
@@ -1698,6 +1707,7 @@ _SecKeychainItemModifyAttributesAndData
 _SecKeychainItemModifyEncryptedData
 _SecKeychainItemModifyContent
 _SecKeychainItemSetAccess
+_SecKeychainItemSetAccessWithPassword
 _SecKeychainItemSetAttribute
 _SecKeychainItemSetData
 _SecKeychainItemSetExtendedAttribute
@@ -1751,6 +1761,7 @@ _SecPolicyCreateApplePushService
 _SecPolicyCreateApplePushServiceLegacy
 _SecPolicyCreateAppleMMCSService
 _SecPolicyCreateApplePPQService
+_SecPolicyCreateAppleAST2Service
 _SecPolicyCreateAppleATVAppSigning
 _SecPolicyCreateTestAppleATVAppSigning
 _SecPolicyCreateAppleATVVPNProfileSigning
@@ -1891,11 +1902,18 @@ __SecKeychainRestoreBackup
 __SecKeychainSyncUpdateMessage
 __SecKeychainBackupSyncable
 __SecKeychainRestoreSyncable
+__SecKeychainWriteBackupToFileDescriptor
+__SecKeychainRestoreBackupFromFileDescriptor
 _SecItemBackupWithRegisteredBackups
 _SecItemBackupSetConfirmedManifest
 _SecItemBackupRestore
 _SecItemBackupCopyMatching
 _SecItemBackupWithChanges
+__SecSecuritydCopyWhoAmI
+__SecSyncBubbleTransfer
+__SecSystemKeychainTransfer
+__SecSyncDeleteUserViews
+
 
 //
 // libsecurity_manifest
@@ -2027,6 +2045,7 @@ _SecCmsSignerInfoAddMSSMIMEEncKeyPrefs
 _SecCmsSignerInfoAddSMIMECaps
 _SecCmsSignerInfoAddSMIMEEncKeyPrefs
 _SecCmsSignerInfoAddSigningTime
+_SecCmsSignerInfoAddAppleCodesigningHashAgility
 _SecCmsSignerInfoCreate
 _SecCmsSignerInfoCreateWithSubjKeyID
 _SecCmsSignerInfoDestroy
@@ -2038,6 +2057,7 @@ _SecCmsSignerInfoGetSignerEmailAddress
 _SecCmsSignerInfoGetSigningCertificate
 _SecCmsSignerInfoGetSigningTime
 _SecCmsSignerInfoGetTimestampTime
+_SecCmsSignerInfoGetAppleCodesigningHashAgility
 _SecCmsSignerInfoGetVerificationStatus
 _SecCmsSignerInfoGetEncDigest
 _SecCmsSignerInfoIncludeCerts
@@ -2279,6 +2299,7 @@ _SecKeyCreatePublicFromPrivate
 _add_security_log_handler
 _remove_security_log_handler
 _secdebug_internal
+_secdebugfunc_internal
 
 //
 // libSecureObjectSync

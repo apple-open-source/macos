@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-/*
-  $Id: mod_macro.c 1663260 2015-03-02 11:12:18Z jim $
-*/
-
 #include "httpd.h"
 #include "http_config.h"
 #include "http_log.h"

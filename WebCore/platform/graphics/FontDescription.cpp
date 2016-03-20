@@ -40,8 +40,6 @@ struct SameSizeAsFontDescription {
     uint32_t bitfields2 : 8;
 };
 
-COMPILE_ASSERT(sizeof(FontDescription) == sizeof(SameSizeAsFontDescription), FontDescription_should_stay_small);
-
 FontWeight FontDescription::lighterWeight(void) const
 {
     switch (m_weight) {
@@ -89,7 +87,6 @@ FontWeight FontDescription::bolderWeight(void) const
 FontTraitsMask FontDescription::traitsMask() const
 {
     return static_cast<FontTraitsMask>((m_italic ? FontStyleItalicMask : FontStyleNormalMask)
-            | (m_smallCaps ? FontVariantSmallCapsMask : FontVariantNormalMask)
             | (FontWeight100Mask << (m_weight - FontWeight100)));
     
 }

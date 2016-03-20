@@ -34,7 +34,7 @@
 #define SECURITY_COMMAND_IOS(name, function, parameters, description) extern int command_not_on_this_platform(int argc, char * const *argv);
 #endif
 
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
+#if !TARGET_OS_IPHONE
 #define SECURITY_COMMAND_MAC(name, function, parameters, description) int function(int argc, char * const *argv);
 #else
 #define SECURITY_COMMAND_MAC(name, function, parameters, description) extern int command_not_on_this_platform(int argc, char * const *argv);

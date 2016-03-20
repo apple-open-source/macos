@@ -98,10 +98,17 @@ static void idskeychainsyncingproxy_peer_dictionary_handler(const xpc_connection
         
         NSString *deviceName = (__bridge_transfer NSString*)(_CFXPCCreateCFObjectFromXPCObject(xDeviceName));
         NSString *peerID = (__bridge_transfer NSString*)(_CFXPCCreateCFObjectFromXPCObject(xPeerID));
-        NSDictionary *messageData = (__bridge_transfer NSDictionary*)(_CFXPCCreateCFObjectFromXPCObject(xidsMessageData));
+        NSDictionary *messageDictionary = (__bridge_transfer NSDictionary*)(_CFXPCCreateCFObjectFromXPCObject(xidsMessageData));
         NSError *error = NULL;
+        bool isNameString = (CFGetTypeID((__bridge CFTypeRef)(deviceName)) == CFStringGetTypeID());
+        bool isPeerIDString = (CFGetTypeID((__bridge CFTypeRef)(peerID)) == CFStringGetTypeID());
+        bool isMessageDictionary = (CFGetTypeID((__bridge CFTypeRef)(messageDictionary)) == CFDictionaryGetTypeID());
+
+        require_quiet(isNameString, xit);
+        require_quiet(isPeerIDString, xit);
+        require_quiet(isMessageDictionary, xit);
         
-        BOOL object = [[IDSKeychainSyncingProxy idsProxy] sendIDSMessage:messageData name:deviceName peer:peerID error:&error];
+        BOOL object = [[IDSKeychainSyncingProxy idsProxy] sendIDSMessage:messageDictionary name:deviceName peer:peerID error:&error];
         
         xpc_object_t replyMessage = xpc_dictionary_create_reply(event);
         xpc_dictionary_set_bool(replyMessage, kMessageKeyValue, object);

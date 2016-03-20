@@ -76,14 +76,14 @@ void DetachedBlobWriter::flush()
 //
 // ArchEditor
 //
-ArchEditor::ArchEditor(Universal &code, CodeDirectory::HashAlgorithm hashType, uint32_t attrs)
+ArchEditor::ArchEditor(Universal &code, CodeDirectory::HashAlgorithms hashTypes, uint32_t attrs)
 	: DiskRep::Writer(attrs)
 {
 	Universal::Architectures archList;
 	code.architectures(archList);
 	for (Universal::Architectures::const_iterator it = archList.begin();
 			it != archList.end(); ++it)
-		architecture[*it] = new Arch(*it, hashType);
+		architecture[*it] = new Arch(*it, hashTypes);
 }
 
 
@@ -92,13 +92,21 @@ ArchEditor::~ArchEditor()
 	for (ArchMap::iterator it = begin(); it != end(); ++it)
 		delete it->second;
 }
+	
+	
+ArchEditor::Arch::Arch(const Architecture &arch, CodeDirectory::HashAlgorithms hashTypes)
+	: architecture(arch)
+{
+	for (auto type = hashTypes.begin(); type != hashTypes.end(); ++type)
+		cdBuilders.insert(make_pair(*type, new CodeDirectory::Builder(*type)));
+}
 
 
 //
 // BlobEditor
 //
 BlobEditor::BlobEditor(Universal &fat, SecCodeSigner::Signer &s)
-	: ArchEditor(fat, s.digestAlgorithm(), 0), signer(s)
+	: ArchEditor(fat, s.digestAlgorithms(), 0), signer(s)
 { }
 
 
@@ -130,11 +138,12 @@ void BlobEditor::commit()
 // "drill up" the Mach-O binary for insertion of Code Signing signature data.
 // After the tool succeeds, we open the new file and are ready to write it.
 //
-MachOEditor::MachOEditor(DiskRep::Writer *w, Universal &code, CodeDirectory::HashAlgorithm hashType, std::string srcPath)
-	: ArchEditor(code, hashType, w->attributes()),
+MachOEditor::MachOEditor(DiskRep::Writer *w, Universal &code, CodeDirectory::HashAlgorithms hashTypes, std::string srcPath)
+	: ArchEditor(code, hashTypes, w->attributes()),
 	  writer(w),
 	  sourcePath(srcPath),
 	  tempPath(srcPath + ".cstemp"),
+	  mHashTypes(hashTypes),
 	  mNewCode(NULL),
 	  mTempMayExist(false)
 {
@@ -242,8 +251,12 @@ void MachOEditor::childAction()
 void MachOEditor::reset(Arch &arch)
 {
 	arch.source.reset(mNewCode->architecture(arch.architecture));
-	arch.cdbuilder.reopen(tempPath,
-		arch.source->offset(), arch.source->signingOffset());
+
+	for (auto type = mHashTypes.begin(); type != mHashTypes.end(); ++type) {
+		arch.eachDigest(^(CodeDirectory::Builder& builder) {
+			builder.reopen(tempPath, arch.source->offset(), arch.source->signingOffset());
+		});
+	}
 }
 
 
@@ -354,6 +367,62 @@ PreSigningContext::PreSigningContext(const SecCodeSigner::Signer &signer)
 	
 	// other stuff
 	this->identifier = signer.signingIdentifier();
+}
+	
+	
+//
+// A collector of CodeDirectories for hash-agile construction of signatures.
+//
+CodeDirectorySet::~CodeDirectorySet()
+{
+	for (auto it = begin(); it != end(); ++it)
+		::free(const_cast<CodeDirectory*>(it->second));
+}
+	
+	
+void CodeDirectorySet::add(const Security::CodeSigning::CodeDirectory *cd)
+{
+	insert(make_pair(cd->hashType, cd));
+	if (cd->hashType == kSecCodeSignatureHashSHA1)
+		mPrimary = cd;
+}
+	
+	
+void CodeDirectorySet::populate(DiskRep::Writer *writer) const
+{
+	assert(!empty());
+	
+	if (mPrimary == NULL)	// didn't add SHA-1; pick another occupant for this slot
+		mPrimary = begin()->second;
+	
+	// reserve slot zero for a SHA-1 digest if present; else pick something else
+	CodeDirectory::SpecialSlot nextAlternate = cdAlternateCodeDirectorySlots;
+	for (auto it = begin(); it != end(); ++it) {
+		if (it->second == mPrimary) {
+			writer->codeDirectory(it->second, cdCodeDirectorySlot);
+		} else {
+			writer->codeDirectory(it->second, nextAlternate++);
+		}
+	}
+}
+	
+
+const CodeDirectory* CodeDirectorySet::primary() const
+{
+	if (mPrimary == NULL)
+		mPrimary = begin()->second;
+	return mPrimary;
+}
+
+
+CFArrayRef CodeDirectorySet::hashBag() const
+{
+	CFRef<CFMutableArrayRef> hashList = makeCFMutableArray(0);
+	for (auto it = begin(); it != end(); ++it) {
+		CFRef<CFDataRef> cdhash = it->second->cdhash();
+		CFArrayAppendValue(hashList, cdhash);
+	}
+	return hashList.yield();
 }
 
 

@@ -1,5 +1,181 @@
                                                          -*- coding: utf-8 -*-
 
+Changes with Apache 2.4.18
+
+  *) mod_ssl: for all ssl_engine_vars.c lookups, fall back to master connection
+     if conn_rec itself holds no valid SSLConnRec*. Fixes PR58666.
+     [Stefan Eissing]
+
+  *) mod_http2: connection level window for flow control is set to protocol
+     maximum of 2GB-1, preventing window exhaustion when sending data on many
+     streams with higher cumulative window size. 
+     Reducing write frequency unless push promises need to be flushed.
+     [Stefan Eissing]
+  
+  *) mod_http2: required minimum version of libnghttp2 is 1.2.1
+     [Stefan Eissing]
+  
+  *) mod_proxy_fdpass: Fix AH01153 error when using the default configuration.
+     In earlier version of httpd, you can explicitelly set the 'flusher' parameter
+     to 'flush' as a workaround. (i.e. flusher=flush)
+     Add documentation for the 'flusher' parameter when defining a proxy worker.
+     [Christophe Jaillet]
+
+  *) mod_ssl: For the "SSLStaplingReturnResponderErrors off" case, make sure
+     to only staple responses with certificate status "good". [Kaspar Brand]
+
+  *) mod_http2: new directive 'H2PushPriority' to allow priority specifications
+     on server pushed streams according to their content-type. 
+     [Stefan Eissing]
+     
+  *) mod_http2: fixes crash on connection abort for a busy connection.
+     fixes crash on a request that did not produce any response.
+     [Stefan Eissing]
+
+  *) mod_http2: trailers are sent after reponse body if set in request_rec
+     trailers_out before the end-of-request bucket is sent through the 
+     output filters. [Stefan Eissing]
+
+  *) mod_http2: incoming trailers (headers after request body) are properly
+     forwarded to the processing engine. [Stefan Eissing]
+
+  *) mod_http2: new directive 'H2Push' to en-/disable HTTP/2 server
+     pushes a server/virtual host. Pushes are initiated by the presence
+     of 'Link:' headers with relation 'preload' on a response. [Stefan Eissing]
+     
+  *) mod_http2: write performance of http2 improved for larger resources,
+     especially static files. [Stefan Eissing]
+     
+  *) core: if the first HTTP/1.1 request on a connection goes to a server that
+     prefers different protocols, these protocols are announced in a Upgrade:
+     header on the response, mentioning the preferred protocols.
+     [Stefan Eissing]
+     
+  *) mod_http2: new directives 'H2TLSWarmUpSize' and 'H2TLSCoolDownSecs'
+     to control TLS record sizes during connection lifetime.
+     [Stefan Eissing]
+     
+  *) mod_http2: new directive 'H2ModernTLSOnly' to enforce security
+     requirements of RFC 7540 on TLS connections. [Stefan Eissing]
+     
+  *) core: add ap_get_protocol_upgrades() to retrieve the list of protocols
+     that a client could possibly upgrade to. Use in first request on a 
+     connection to announce protocol choices. [Stefan Eissing]
+
+  *) mod_http2: reworked deallocation on connection shutdown and worker
+     abort. Separate parent pool for all workers. worker threads are joined
+     on planned worker shutdown. [Yann Ylavic, Stefan Eissing]
+     
+  *) mod_ssl: when receiving requests for other virtual hosts than the handshake
+     server, the SSL parameters are checked for equality. With equal 
+     configuration, requests are passed for processing. Any change will trigger
+     the old behaviour of "421 Misdirected Request".
+     SSL now remembers the cipher suite that was used for the last handshake.
+     This is compared against for any vhost/directory cipher specification. 
+     Detailed examination of renegotiation is only done when these do not
+     match.
+     Renegotiation is 403ed when a master connection is present. Exact reason
+     is given additionally in a request note. [Stefan Eissing]
+
+  *) core: Fix scoreboard crash (SIGBUS) on hardware requiring strict 64bit
+     alignment (SPARC64, PPC64).  [Yann Ylavic]
+
+  *) mod_cache: Accept HT (Horizontal Tab) when parsing cache related header
+     fields as described in RFC7230. [Christophe Jaillet]
+
+  *) core/util_script: making REDIRECT_URL a full URL is now opt-in
+     via new 'QualifyRedirectURL' directive.
+
+  *) core: Limit to ten the number of tolerated empty lines between request,
+     and consume them before the pipelining check to avoid possible response
+     delay when reading the next request without flushing.  [Yann Ylavic]
+
+  *) mod_ssl: Extend expression parser registration to support ssl variables
+     in any expression using mod_rewrite syntax "%{SSL:VARNAME}" or function
+     syntax "ssl(VARNAME)". [Rainer Jung]
+
+Changes with Apache 2.4.17
+
+  *) mod_http2: added donated HTTP/2 implementation via core module. Similar
+     configuration options to mod_ssl. [Stefan Eissing]
+
+  *) mod_proxy: don't recyle backend announced "Connection: close" connections
+     to avoid reusing it should the close be effective after some new request
+     is ready to be sent.  [Yann Ylavic]
+
+  *) mod_ssl: Make the output filter more friendly with deferred write and
+     response pipelining. [Yann Ylavic, Joe Orton]
+
+  *) mod_substitute: Allow to configure the patterns merge order with the new
+     SubstituteInheritBefore on|off directive.  PR 57641
+     [Marc.Stern <Marc.Stern approach.be>, Yann Ylavic, William Rowe]
+
+  *) mod_proxy: Fix ProxySourceAddress binding failure with AH00938.
+     PR 56687.  [Arne de Bruijn <apache arbruijn.dds.nl>
+
+  *) mod_ssl: Support compilation against libssl built with OPENSSL_NO_SSL3,
+     and change the compiled-in default for SSL[Proxy]Protocol to "all -SSLv3",
+     in accordance with RFC 7568. PR 58349, PR 57120. [Kaspar Brand]
+
+  *) mod_ssl: append :!aNULL:!eNULL:!EXP to the cipher string settings,
+     instead of prepending !aNULL:!eNULL:!EXP: (as was the case in 2.4.7
+     and later). Enables support for configuring the SUITEB* cipher
+     strings introduced in OpenSSL 1.0.2. PR 58213. [Kaspar Brand]
+
+  *) mod_ssl: Add support for extracting the msUPN and dnsSRV forms
+     of subjectAltName entries of type "otherName" into
+     SSL_{CLIENT,SERVER}_SAN_OTHER_{msUPN,dnsSRV}_n environment
+     variables. Addresses PR 58020. [Jan Pazdziora <jpazdziora redhat.com>,
+     Kaspar Brand]
+
+  *) mod_logio: Fix logging of %^FB (time to first byte) on the first request on
+     an SSL connection.  PR 58454.  
+     [Konstantin J. Chernov <k.j.chernov gmail.com>]
+
+  *) mod_cache: r->err_headers_out is not merged into
+     r->headers when mod_cache is enabled and the response
+     is cached for the first time. [Edward Lu]
+
+  *) mod_slotmem_shm: Fix slots/SHM files names on restart for systems that
+     can't create new (clear) slots while previous children gracefully stopping
+     still use the old ones (e.g. Windows, OS2). mod_proxy_balancer failed to
+     restart whenever the number of configured balancers/members changed during
+     restart.  PR 58024.  [Yann Ylavic]
+
+  *) core/util_script: make REDIRECT_URL a full URL.  PR 57785. [Nick Kew]
+
+  *) MPMs: Support SO_REUSEPORT to create multiple duplicated listener
+     records for scalability. [Yingqi Lu <yingqi.lu@intel.com>,
+     Jeff Trawick, Jim Jagielski, Yann Ylavic]
+
+  *) mod_proxy: Fix a race condition that caused a failed worker to be retried
+     before the retry period is over. [Ruediger Pluem]
+
+  *) mod_autoindex: Allow autoindexes when neither mod_dir nor mod_mime are
+     loaded. [Eric Covener]
+
+  *) mod_rewrite:  Allow cookies set by mod_rewrite to contain ':' by accepting
+     ';' as an alternate separator.  PR47241. 
+     [<bugzilla schermesser com>, Eric Covener]
+
+  *) apxs: Add HTTPD_VERSION and HTTPD_MMN to the variables available with 
+     apxs -q. PR58202. [Daniel Shahaf <danielsh apache.org>]
+
+  *) mod_rewrite: Avoid a crash when lacking correct DB access permissions
+     when using RewriteMap with MapType dbd or fastdbd.  [Christophe Jaillet]
+
+  *) mod_authz_dbd: Avoid a crash when lacking correct DB access permissions.
+     PR 57868. [Jose Kahan <jose w3.org>, Yann Ylavic]
+
+  *) mod_socache_memcache: Add the 'MemcacheConnTTL' directive to control how 
+     long to keep idle connections with the memcache server(s).
+     Change default value from 600 usec (!) to 15 sec. PR 58091
+     [Christophe Jaillet]
+
+  *) mod_dir: Prevent the internal identifier "httpd/unix-directory" from
+     appearing as a Content-Type response header when requests for a directory
+     are rewritten by mod_rewrite. [Eric Covener]
+
 Changes with Apache 2.4.16
 
   *) http: Fix LimitRequestBody checks when there is no more bytes to read.
@@ -18,7 +194,7 @@ Changes with Apache 2.4.16
   *) mod_ldap: In some case, LDAP_NO_SUCH_ATTRIBUTE could be returned instead
      of an error during a compare operation. [Eric Covener]
 
-Changes with Apache 2.4.15
+Changes with Apache 2.4.15 (not released)
 
   *) mod_ext_filter, mod_charset_lite: Avoid inadvertent filtering of protocol
      data during read of chunked request bodies. PR 58049. 
@@ -33,7 +209,7 @@ Changes with Apache 2.4.15
   *) mod_ssl: Remove deprecated SSLCertificateChainFile warning.
      [Yann Ylavic]
 
-Changes with Apache 2.4.14
+Changes with Apache 2.4.14 (not released)
 
   *) SECURITY: CVE-2015-3183 (cve.mitre.org)
      core: Fix chunk header parsing defect.
@@ -46,7 +222,7 @@ Changes with Apache 2.4.14
      Replacement of ap_some_auth_required (unusable in Apache httpd 2.4)
      with new ap_some_authn_required and ap_force_authn hook.  [Ben Reser]
 
-Changes with Apache 2.4.13
+Changes with Apache 2.4.13 (not released)
 
   *) SECURITY: CVE-2015-0253 (cve.mitre.org)
      core: Fix a crash with ErrorDocument 400 pointing to a local URL-path 
@@ -292,7 +468,7 @@ Changes with Apache 2.4.12
   *) Reverted <DirectoryMatch > behavior regression introduced in 2.4.11
      (not released).
 
-Changes with Apache 2.4.11
+Changes with Apache 2.4.11 (not released)
   
   *) SECURITY: CVE-2014-3583 (cve.mitre.org)
      mod_proxy_fcgi: Fix a potential crash due to buffer over-read, with 
@@ -756,7 +932,7 @@ Changes with Apache 2.4.9
      LuaMapHandler directive in certain cases by changing the URI before the map 
      handler code executes [Daniel Gruno, Daniel Ferradal <dferradal gmail com>].
 
-Changes with Apache 2.4.8
+Changes with Apache 2.4.8 (not released)
 
   *) SECURITY: CVE-2014-0098 (cve.mitre.org)
      Clean up cookie logging with fewer redundant string parsing passes.

@@ -64,7 +64,7 @@ OSStatus SecACLCreateFromSimpleContents(SecAccessRef accessRef,
 {
 	BEGIN_SECAPI
 	SecPointer<Access> access = Access::required(accessRef);
-	SecPointer<ACL> acl = new ACL(*access, cfString(description), *promptSelector);
+	SecPointer<ACL> acl = new ACL(cfString(description), *promptSelector);
 	if (applicationList) {
 		// application-list + prompt
 		acl->form(ACL::appListForm);
@@ -125,10 +125,18 @@ OSStatus SecACLCopySimpleContents(SecACLRef aclRef,
 		break;
 	case ACL::appListForm:
 		Required(applicationList) =
-			makeCFArray(convert, acl->applications());
+			makeCFArrayFrom(convert, acl->applications());
 		Required(promptDescription) = makeCFString(acl->promptDescription());
 		Required(promptSelector) = acl->promptSelector();
 		break;
+    case ACL::integrityForm:
+        Required(applicationList) = NULL;
+        Required(promptDescription) = makeCFString(acl->integrity().toHex());
+
+        // We don't have a prompt selector. Nullify.
+        Required(promptSelector).version = CSSM_ACL_KEYCHAIN_PROMPT_CURRENT_VERSION;
+        Required(promptSelector).flags = 0;
+        break;
 	default:
 		return errSecACLNotSimple;		// custom or unknown
 	}
@@ -155,15 +163,30 @@ OSStatus SecACLSetSimpleContents(SecACLRef aclRef,
 {
 	BEGIN_SECAPI
 	SecPointer<ACL> acl = ACL::required(aclRef);
-	acl->promptDescription() = description ? cfString(description) : "";
+    if(acl->form() == ACL::integrityForm) {
+        // If this is an integrity ACL, route the (unhexified) promptDescription into the right place
+        string hex = cfString(description);
+        if(hex.length() %2 == 0) {
+            // might be a valid hex string, try to set
+            CssmAutoData data(Allocator::standard());
+            data.malloc(hex.length() / 2);
+            data.get().fromHex(hex.c_str());
+            acl->setIntegrity(data);
+        }
+    } else {
+        // Otherwise, put it in the promptDescription where it belongs
+        acl->promptDescription() = description ? cfString(description) : "";
+    }
 	acl->promptSelector() = promptSelector ? *promptSelector : ACL::defaultSelector;
-	if (applicationList) {
-		// application-list + prompt
-		acl->form(ACL::appListForm);
-		setApplications(acl, applicationList);
-	} else {
-		// allow-any
-		acl->form(ACL::allowAllForm);
+    if(acl->form() !=  ACL::integrityForm) {
+        if (applicationList) {
+            // application-list + prompt
+            acl->form(ACL::appListForm);
+            setApplications(acl, applicationList);
+        } else {
+            // allow-any
+            acl->form(ACL::allowAllForm);
+        }
 	}
 	acl->modify();
 	END_SECAPI
@@ -248,7 +271,7 @@ CFArrayRef SecACLCopyAuthorizations(SecACLRef acl)
 		strings[iCnt] = (CFTypeRef)GetAuthStringFromACLAuthorizationTag(tags[iCnt]);
 	}
 
-	result = CFArrayCreate(kCFAllocatorDefault, (const void **)strings, numAuths, NULL);
+	result = CFArrayCreate(kCFAllocatorDefault, (const void **)strings, numAuths, &kCFTypeArrayCallBacks);
 
 	delete[] strings;
     delete[] tags;

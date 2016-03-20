@@ -57,15 +57,8 @@ void hashOfCertificate(const void *certData, size_t certLength, SHA1::Digest dig
 void hashOfCertificate(SecCertificateRef cert, SHA1::Digest digest);
 bool verifyHash(SecCertificateRef cert, const Hashing::Byte *digest);
 
-
-//
-// Calculate hashes of (a section of) a file.
-// Starts at the current file position.
-// Extends to end of file, or (if limit > 0) at most limit bytes.
-// Returns number of bytes digested.
-//
-template <class _Hash>
-size_t hashFileData(UnixPlusPlus::FileDesc fd, _Hash *hasher, size_t limit = 0)
+	
+inline size_t scanFileData(UnixPlusPlus::FileDesc fd, size_t limit, void (^handle)(const void *buffer, size_t size))
 {
 	unsigned char buffer[4096];
 	size_t total = 0;
@@ -77,11 +70,26 @@ size_t hashFileData(UnixPlusPlus::FileDesc fd, _Hash *hasher, size_t limit = 0)
 		total += got;
 		if (fd.atEnd())
 			break;
-		hasher->update(buffer, got);
+		handle(buffer, got);
 		if (limit && (limit -= got) == 0)
 			break;
 	}
 	return total;
+}
+
+
+//
+// Calculate hashes of (a section of) a file.
+// Starts at the current file position.
+// Extends to end of file, or (if limit > 0) at most limit bytes.
+// Returns number of bytes digested.
+//
+template <class _Hash>
+size_t hashFileData(UnixPlusPlus::FileDesc fd, _Hash *hasher, size_t limit = 0)
+{
+	return scanFileData(fd, limit, ^(const void *buffer, size_t size) {
+		hasher->update(buffer, size);
+	});
 }
 
 template <class _Hash>
@@ -90,7 +98,7 @@ size_t hashFileData(const char *path, _Hash *hasher)
 	UnixPlusPlus::AutoFileDesc fd(path);
 	return hashFileData(fd, hasher);
 }
-
+	
 
 //
 // Check to see if a certificate contains a particular field, by OID. This works for extensions,

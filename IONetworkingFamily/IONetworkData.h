@@ -28,8 +28,8 @@
 /*! @enum NetworkDataAccessTypes
     @abstract Constants that describe access types.
     @constant kIONetworkDataAccessTypeRead  Read access.
-    @constant kIONetworkDataAccessTypeWrite Write access.
-    @constant kIONetworkDataAccessTypeReset Reset access.
+    @constant kIONetworkDataAccessTypeWrite Write access (deprecated).
+    @constant kIONetworkDataAccessTypeReset Reset access (deprecated).
     @constant kIONetworkDataAccessTypeSerialize Serialization access. 
 */
 

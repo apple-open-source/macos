@@ -11,7 +11,7 @@
 		4CC92ABC15A3B51100C6D578 /* test_regressions.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CC92ABB15A3B51100C6D578 /* test_regressions.h */; settings = {ATTRIBUTES = (); }; };
 		4CC92ABD15A3B8FB00C6D578 /* testlist_begin.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CC92AB715A3B19100C6D578 /* testlist_begin.h */; settings = {ATTRIBUTES = (); }; };
 		4CC92B1715A3BD1E00C6D578 /* test-00-test.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CC92B1615A3BD1E00C6D578 /* test-00-test.c */; };
-		E710C7371331938000F85568 /* testenv.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C25A6C412271FAF0050C2BD /* testenv.c */; };
+		E710C7371331938000F85568 /* testenv.m in Sources */ = {isa = PBXBuildFile; fileRef = 0C25A6C412271FAF0050C2BD /* testenv.m */; };
 		E710C7381331938000F85568 /* testmore.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C25A6C812271FAF0050C2BD /* testmore.c */; };
 		E710C7391331938000F85568 /* testcert.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C25A6CA12271FAF0050C2BD /* testcert.c */; };
 		E723A60F13DA18C50075AAC1 /* testcpp.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C25A6C312271FAF0050C2BD /* testcpp.h */; settings = {ATTRIBUTES = (); }; };
@@ -28,7 +28,7 @@
 		0C25A69312271FAF0050C2BD /* MyHarness.pm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; path = MyHarness.pm; sourceTree = "<group>"; };
 		0C25A6C012271FAF0050C2BD /* security.pl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; path = security.pl; sourceTree = "<group>"; };
 		0C25A6C312271FAF0050C2BD /* testcpp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = testcpp.h; sourceTree = "<group>"; };
-		0C25A6C412271FAF0050C2BD /* testenv.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = testenv.c; sourceTree = "<group>"; };
+		0C25A6C412271FAF0050C2BD /* testenv.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = testenv.m; sourceTree = "<group>"; };
 		0C25A6C512271FAF0050C2BD /* testenv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = testenv.h; sourceTree = "<group>"; };
 		0C25A6C812271FAF0050C2BD /* testmore.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = testmore.c; sourceTree = "<group>"; };
 		0C25A6C912271FAF0050C2BD /* testmore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = testmore.h; sourceTree = "<group>"; };
@@ -99,7 +99,7 @@
 				4CC92AB715A3B19100C6D578 /* testlist_begin.h */,
 				4CC92AB815A3B19D00C6D578 /* testlist_end.h */,
 				0C25A6C312271FAF0050C2BD /* testcpp.h */,
-				0C25A6C412271FAF0050C2BD /* testenv.c */,
+				0C25A6C412271FAF0050C2BD /* testenv.m */,
 				0C25A6C512271FAF0050C2BD /* testenv.h */,
 				0C25A6C812271FAF0050C2BD /* testmore.c */,
 				0C25A6C912271FAF0050C2BD /* testmore.h */,
@@ -183,7 +183,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E710C7371331938000F85568 /* testenv.c in Sources */,
+				E710C7371331938000F85568 /* testenv.m in Sources */,
 				E710C7381331938000F85568 /* testmore.c in Sources */,
 				E710C7391331938000F85568 /* testcert.c in Sources */,
 				E76CA47913D8D5B4001B6A11 /* testpolicy.m in Sources */,

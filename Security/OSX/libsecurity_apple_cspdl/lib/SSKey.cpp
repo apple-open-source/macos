@@ -290,6 +290,8 @@ SSKey::keyHandle()
 			clientSession().decodeKey(mUniqueId->database().dbHandle(), blob,
 									  dummyHeader);
 
+        secdebugfunc("SecAccessReference", "decoded a new key into handle %d [reference %d]", mKeyHandle, keyReference());
+
 		// @@@ Check decoded header against returned header
 	}
 

@@ -907,7 +907,11 @@ SSLAdvanceHandshake(SSLHandshakeType processed, tls_handshake_t ctx)
                             return err;
                         }
                         ctx->sessionMatch = 1;
-                        SSLChangeHdskState(ctx, SSL_HdskStateChangeCipherSpec);
+                        if(ctx->sessionTicket_confirmed) {
+                            SSLChangeHdskState(ctx, SSL_HdskStateNewSessionTicket);
+                        } else {
+                            SSLChangeHdskState(ctx, SSL_HdskStateChangeCipherSpec);
+                        }
                         break;
                     } else {
                         sslLogResumSessDebug("FAILED TO RESUME TLS client-side session: ");
@@ -1174,7 +1178,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, tls_handshake_t ctx)
                     tls_metric_client_finished(ctx);
                 }
             }
-            if (ctx->allowResumption && ((ctx->sessionID.data && !ctx->sessionTicket_announced) || ctx->sessionTicket.data)) {
+            if (ctx->allowResumption && (ctx->sessionID.data || ctx->sessionTicket.data)) {
                 SSLAddSessionData(ctx);
 			}
             break;

@@ -23,11 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.QuickConsole = class QuickConsole extends WebInspector.Object
+WebInspector.QuickConsole = class QuickConsole extends WebInspector.View
 {
     constructor(element)
     {
-        super();
+        super(element);
 
         this._toggleOrFocusKeyboardShortcut = new WebInspector.KeyboardShortcut(null, WebInspector.KeyboardShortcut.Key.Escape, this._toggleOrFocus.bind(this));
 
@@ -38,12 +38,11 @@ WebInspector.QuickConsole = class QuickConsole extends WebInspector.Object
         this._otherExecutionContextPathComponents = [];
         this._frameIdentifierToExecutionContextPathComponentMap = {};
 
-        this._element = element || document.createElement("div");
-        this._element.classList.add("quick-console");
+        this.element.classList.add("quick-console");
 
         this.prompt = new WebInspector.ConsolePrompt(null, "text/javascript");
         this.prompt.element.classList.add("text-prompt");
-        this._element.appendChild(this.prompt.element);
+        this.addSubview(this.prompt);
 
         // FIXME: CodeMirror 4 has a default "Esc" key handler that always prevents default.
         // Our keyboard shortcut above will respect the default prevented and ignore the event
@@ -55,7 +54,7 @@ WebInspector.QuickConsole = class QuickConsole extends WebInspector.Object
         this.prompt.shown();
 
         this._navigationBar = new WebInspector.QuickConsoleNavigationBar;
-        this._element.appendChild(this._navigationBar.element);
+        this.addSubview(this._navigationBar);
 
         this._executionContextSelectorItem = new WebInspector.HierarchicalPathNavigationItem;
         this._executionContextSelectorItem.showSelectorArrows = true;
@@ -66,25 +65,13 @@ WebInspector.QuickConsole = class QuickConsole extends WebInspector.Object
 
         this._rebuildExecutionContextPathComponents();
 
-        // COMPATIBILITY (iOS 6): Execution contexts did not exist, evaluation worked with frame ids.
-        if (WebInspector.ExecutionContext.supported()) {
-            WebInspector.Frame.addEventListener(WebInspector.Frame.Event.PageExecutionContextChanged, this._framePageExecutionContextsChanged, this);
-            WebInspector.Frame.addEventListener(WebInspector.Frame.Event.ExecutionContextsCleared, this._frameExecutionContextsCleared, this);
-        } else {
-            WebInspector.frameResourceManager.addEventListener(WebInspector.FrameResourceManager.Event.FrameWasAdded, this._frameAdded, this);
-            WebInspector.frameResourceManager.addEventListener(WebInspector.FrameResourceManager.Event.FrameWasRemoved, this._frameRemoved, this);
-            WebInspector.Frame.addEventListener(WebInspector.Frame.Event.MainResourceDidChange, this._frameMainResourceChanged, this);
-        }
+        WebInspector.Frame.addEventListener(WebInspector.Frame.Event.PageExecutionContextChanged, this._framePageExecutionContextsChanged, this);
+        WebInspector.Frame.addEventListener(WebInspector.Frame.Event.ExecutionContextsCleared, this._frameExecutionContextsCleared, this);
 
         WebInspector.debuggerManager.addEventListener(WebInspector.DebuggerManager.Event.ActiveCallFrameDidChange, this._debuggerActiveCallFrameDidChange, this);
     }
 
     // Public
-
-    get element()
-    {
-        return this._element;
-    }
 
     get navigationBar()
     {
@@ -96,13 +83,6 @@ WebInspector.QuickConsole = class QuickConsole extends WebInspector.Object
         return this._selectedExecutionContextPathComponent._executionContextIdentifier;
     }
 
-    updateLayout()
-    {
-        // A hard maximum size of 33% of the window.
-        var maximumAllowedHeight = Math.round(window.innerHeight * 0.33);
-        this.prompt.element.style.maxHeight = maximumAllowedHeight + "px";
-    }
-
     consoleLogVisibilityChanged(visible)
     {
         if (visible === this.element.classList.contains(WebInspector.QuickConsole.ShowingLogClassName))
@@ -111,6 +91,15 @@ WebInspector.QuickConsole = class QuickConsole extends WebInspector.Object
         this.element.classList.toggle(WebInspector.QuickConsole.ShowingLogClassName, visible);
 
         this.dispatchEventToListeners(WebInspector.QuickConsole.Event.DidResize);
+    }
+
+    // Protected
+
+    layout()
+    {
+        // A hard maximum size of 33% of the window.
+        var maximumAllowedHeight = Math.round(window.innerHeight * 0.33);
+        this.prompt.element.style.maxHeight = maximumAllowedHeight + "px";
     }
 
     // Private
@@ -171,24 +160,6 @@ WebInspector.QuickConsole = class QuickConsole extends WebInspector.Object
         this._removeExecutionContextPathComponentForFrame(frame);
     }
 
-    _frameAdded(event)
-    {
-        var frame = event.data.frame;
-        this._insertExecutionContextPathComponentForFrame(frame);
-    }
-
-    _frameRemoved(event)
-    {
-        var frame = event.data.frame;
-        this._removeExecutionContextPathComponentForFrame(frame);
-    }
-
-    _frameMainResourceChanged(event)
-    {
-        var frame = event.target;
-        this._updateExecutionContextPathComponentForFrame(frame);
-    }
-
     _createExecutionContextPathComponent(name, identifier)
     {
         var pathComponent = new WebInspector.HierarchicalPathComponent(name, "execution-context", identifier, true, true);
@@ -202,9 +173,8 @@ WebInspector.QuickConsole = class QuickConsole extends WebInspector.Object
     _createExecutionContextPathComponentFromFrame(frame)
     {
         var name = frame.name ? frame.name + " \u2014 " + frame.mainResource.displayName : frame.mainResource.displayName;
-        var identifier = WebInspector.ExecutionContext.supported() ? frame.pageExecutionContext.id : frame.id;
 
-        var pathComponent = this._createExecutionContextPathComponent(name, identifier);
+        var pathComponent = this._createExecutionContextPathComponent(name, frame.pageExecutionContext.id);
         pathComponent._frame = frame;
 
         return pathComponent;

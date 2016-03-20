@@ -267,15 +267,15 @@ int l2tp_outgoing_call(int fd, struct sockaddr *peer_address,
     int			size;
     int			result;
     u_int16_t		msg_type;
-    struct sockaddr	from;
+    struct sockaddr_storage	from;
 
     /* ------------- send SCCRQ  -------------*/	 
 	size = prepare_SCCRQ(control_buf, MAX_CNTL_BUFFER_SIZE, our_params);
 	SEND_PACKET(fd, control_buf, size, 0, peer_address, "SCCRQ");
 
     /* ------------- read SCCRP  -------------*/	 
-    from.sa_len = sizeof(from);
-    result = l2tp_recv(fd, control_buf, MAX_CNTL_BUFFER_SIZE, &size, &from, recv_timeout, "SCCRP");
+    from.ss_len = sizeof(from);
+    result = l2tp_recv(fd, control_buf, MAX_CNTL_BUFFER_SIZE, &size, (struct sockaddr *)&from, recv_timeout, "SCCRP");
     if (result == -2) // cancel
 		return result;
 	if (result == -1 || size == 0) { // no reply
@@ -284,7 +284,7 @@ int l2tp_outgoing_call(int fd, struct sockaddr *peer_address,
 	}
     
    /* the server can reply from an other port, lock our connection to the new received peer address */
-    l2tp_change_peeraddress(fd, &from);
+    l2tp_change_peeraddress(fd, (struct sockaddr *)&from);
 
     PROCESS_PACKET(control_buf, size, &msg_type, peer_params, L2TP_SCCRP);
     
@@ -310,8 +310,8 @@ int l2tp_outgoing_call(int fd, struct sockaddr *peer_address,
     SEND_PACKET(fd, control_buf, size, 0, 0, "ICRQ");
         
     /* ------------- read ICRP  -------------*/	 
-    from.sa_len = sizeof(from);
-    RECV_PACKET(fd, control_buf, MAX_CNTL_BUFFER_SIZE, &size, &from, recv_timeout, "ICRP");
+    from.ss_len = sizeof(from);
+    RECV_PACKET(fd, control_buf, MAX_CNTL_BUFFER_SIZE, &size, (struct sockaddr *)&from, recv_timeout, "ICRP");
     
     PROCESS_PACKET(control_buf, size, &msg_type, peer_params, L2TP_ICRP);
     

@@ -3,5 +3,6 @@
 #include <libsecurity_keychain/regressions/keychain_regressions.h>
 #include <Breadcrumb/breadcrumb_regressions.h>
 #include <libsecurity_smime/regressions/smime_regressions.h>
+#include <libsecurity_cms/regressions/cms_regressions.h>
 
 

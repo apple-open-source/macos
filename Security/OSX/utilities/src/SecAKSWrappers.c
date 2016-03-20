@@ -42,7 +42,62 @@
 #  error "unsupported target platform"
 #endif
 
+#if TARGET_OS_MAC && !TARGET_OS_EMBEDDED && TARGET_HAS_KEYSTORE
+                            // OS X
+const keybag_handle_t keybagHandle = session_keybag_handle;
+#elif TARGET_HAS_KEYSTORE                                                         // iOS, but not simulator
+const keybag_handle_t keybagHandle = device_keybag_handle;
+#endif
+
+#if TARGET_HAS_KEYSTORE
+const AKSAssertionType_t lockAssertType = kAKSAssertTypeOther;
+#endif
+
+CFGiblisGetSingleton(dispatch_queue_t, GetKeybagAssertionQueue, sUserKeyBagAssertionLockQueue, ^{
+    *sUserKeyBagAssertionLockQueue = dispatch_queue_create("AKS Lock Assertion Queue", NULL);
+})
+
+#if TARGET_HAS_KEYSTORE
+static uint32_t count = 0;
+#endif
 const char * const kUserKeybagStateChangeNotification = change_notification;
+
+bool SecAKSLockUserKeybag(uint64_t timeout, CFErrorRef *error){
+#if !TARGET_HAS_KEYSTORE
+    return true;
+#else
+    __block kern_return_t status = kIOReturnSuccess;
+
+    dispatch_sync(GetKeybagAssertionQueue(), ^{
+        if (count == 0) {
+            secnotice("lockassertions", "Requesting lock assertion for %lld seconds", timeout);
+            status = aks_assert_hold(keybagHandle, lockAssertType, timeout);
+        }
+        
+        if (status == kIOReturnSuccess)
+            ++count;
+    });
+    return SecKernError(status, error, CFSTR("Kern return error"));
+#endif /* !TARGET_HAS_KEYSTORE */
+}
+
+bool SecAKSUnLockUserKeybag(CFErrorRef *error){
+#if !TARGET_HAS_KEYSTORE
+    return true;
+#else
+    __block kern_return_t status = kIOReturnSuccess;
+
+    dispatch_sync(GetKeybagAssertionQueue(), ^{
+        if (count && (--count == 0)) {
+            secnotice("lockassertions", "Dropping lock assertion");
+            status = aks_assert_drop(keybagHandle, lockAssertType);
+        }
+    });
+    
+    return SecKernError(status, error, CFSTR("Kern return error"));
+#endif /* !TARGET_HAS_KEYSTORE */
+}
+
 
 bool SecAKSDoWhileUserBagLocked(CFErrorRef *error, dispatch_block_t action)
 {
@@ -52,44 +107,13 @@ bool SecAKSDoWhileUserBagLocked(CFErrorRef *error, dispatch_block_t action)
 #else
     // Acquire lock assertion, ref count?
     
-    __block kern_return_t status = kIOReturnSuccess;
-    static dispatch_once_t queue_once;
-    static dispatch_queue_t assertion_queue;
-    
-#if TARGET_OS_MAC && !TARGET_OS_EMBEDDED                            // OS X
-    keybag_handle_t keybagHandle = session_keybag_handle;
-#else                                                               // iOS, but not simulator
-    keybag_handle_t keybagHandle = device_keybag_handle;
-#endif
-    AKSAssertionType_t lockAssertType = kAKSAssertTypeOther;
-
-    dispatch_once(&queue_once, ^{
-        assertion_queue = dispatch_queue_create("AKS Lock Assertion Queue", NULL);
-    });
-    
-    static uint32_t count = 0;
-    
-    dispatch_sync(assertion_queue, ^{
-        if (count == 0) {
-            uint64_t timeout = 60ull;
-            secnotice("lockassertions", "Requesting lock assertion for %lld seconds", timeout);
-            status = aks_assert_hold(keybagHandle, lockAssertType, timeout);
-        }
-        
-        if (status == kIOReturnSuccess)
-            ++count;
-    });
-    
-    if (status == kIOReturnSuccess) {
+    bool status = false;
+    uint64_t timeout = 60ull;
+    if (SecAKSLockUserKeybag(timeout, error)) {
         action();
-        dispatch_sync(assertion_queue, ^{
-            if (count && (--count == 0)) {
-                secnotice("lockassertions", "Dropping lock assertion");
-                status = aks_assert_drop(keybagHandle, lockAssertType);
-            }
-        });
+        status = SecAKSUnLockUserKeybag(error);
     }
-    return SecKernError(status, error, CFSTR("Kern return error"));
+    return status;
 #endif  /* !TARGET_HAS_KEYSTORE */
 }
 

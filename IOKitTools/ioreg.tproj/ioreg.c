@@ -897,16 +897,18 @@ static void show( io_registry_entry_t service,
         char *      aCStr;
 
         classCFStr = IOObjectCopyClass (service);
-        ancestryCFStr = createInheritanceStringForIORegistryClassName (classCFStr);
-
-        aCStr = (char *) CFStringGetCStringPtr (ancestryCFStr, kCFStringEncodingMacRoman);
-        if (NULL != aCStr)
-        {
-            print(aCStr);
+        if (classCFStr) {
+            ancestryCFStr = createInheritanceStringForIORegistryClassName (classCFStr);
+            if (ancestryCFStr) {
+                aCStr = (char *) CFStringGetCStringPtr (ancestryCFStr, kCFStringEncodingMacRoman);
+                if (NULL != aCStr)
+                {
+                    print(aCStr);
+                }
+                CFRelease (ancestryCFStr);
+            }
+            CFRelease (classCFStr);
         }
-
-        CFRelease (classCFStr);
-        CFRelease (ancestryCFStr);
     }
     else
     {
@@ -1399,31 +1401,35 @@ static void cfstringshow(CFStringRef object)
 
 static CFStringRef createInheritanceStringForIORegistryClassName(CFStringRef name)
 {
-	CFStringRef				curClassCFStr;
-	CFStringRef				oldClassCFStr;
-	CFMutableStringRef		outCFStr;
+    CFStringRef				curClassCFStr = NULL;
+    CFStringRef				oldClassCFStr = NULL;
+    CFMutableStringRef		outCFStr = NULL;
 	
 	outCFStr = CFStringCreateMutable (NULL, 512);
-	CFStringInsert (outCFStr, 0, name);
-	
-	curClassCFStr = CFStringCreateCopy (NULL, name);
-	
-	for (;;)
-	{
-		oldClassCFStr = curClassCFStr;
-		curClassCFStr = IOObjectCopySuperclassForClass (curClassCFStr);
-		CFRelease (oldClassCFStr);
-		
-		if (FALSE == CFEqual (curClassCFStr, CFSTR ("OSObject")))
-		{
-			CFStringInsert (outCFStr, 0, CFSTR (":"));
-			CFStringInsert (outCFStr, 0, curClassCFStr);
-		}
-		else
-		{
-			break;
-		}
-	}
+    if (outCFStr == NULL) return(NULL);
+    
+    CFStringInsert (outCFStr, 0, name);
+    
+    curClassCFStr = CFStringCreateCopy (NULL, name);
+    if (curClassCFStr == NULL) return((CFStringRef) outCFStr);
+    
+    for (;;)
+    {
+        oldClassCFStr = curClassCFStr;
+        curClassCFStr = IOObjectCopySuperclassForClass (curClassCFStr);
+        CFRelease (oldClassCFStr);
+        if (curClassCFStr == NULL)  break;
+        
+        if (FALSE == CFEqual (curClassCFStr, CFSTR ("OSObject")))
+        {
+            CFStringInsert (outCFStr, 0, CFSTR (":"));
+            CFStringInsert (outCFStr, 0, curClassCFStr);
+        }
+        else
+        {
+            break;
+        }
+    } // for...
     
     if (curClassCFStr) CFRelease(curClassCFStr);
 	

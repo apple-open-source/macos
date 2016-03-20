@@ -875,10 +875,6 @@ IOReturn IOPCIBridge::setDevicePowerState(IOPCIDevice * device, IOOptionBits opt
 		    {
 		    	newState = kIOPCIDeviceOnState;
 			}
-			else if (kIOPCIConfiguratorDeepIdle & gIOPCIFlags)
-			{
-				newState = kIOPCIDeviceDozeState;
-			}
 			device->setPCIPowerState(newState, 0);
             break;
             

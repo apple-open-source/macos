@@ -25,7 +25,8 @@
 
 #include <stdint.h>
 
-# include <Security/SecTrust.h>
+#include <Security/SecTrust.h>
+#include <Security/SecTask.h>
 #ifndef MINIMIZE_INCLUDES
 # include <Security/SecTrustStore.h>
 # include <Security/SecCertificatePath.h>
@@ -38,6 +39,10 @@ typedef struct __SecCertificate *SecCertificateRef;
 typedef struct SecCertificatePath *SecCertificatePathRef;
 # endif // _SECURITY_SECCERTIFICATEPATH_H_
 #endif // MINIMIZE_INCLUDES
+
+#if TARGET_OS_EMBEDDED
+#include <libaks.h>
+#endif
 
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFDictionary.h>
@@ -84,6 +89,7 @@ extern const char *kSecXPCKeyEnabledViewsKey;
 extern const char *kSecXPCKeyDisabledViewsKey;
 extern const char *kSecXPCKeyEscrowLabel;
 extern const char *kSecXPCKeyAvailability;
+extern const char *kSecXPCKeyFileDescriptor;
 //
 // MARK: Dispatch macros
 //
@@ -224,15 +230,47 @@ enum SecXPCOperation {
     kSecXPCOpSetEscrowRecord,
     kSecXPCOpGetEscrowRecord,
     kSecXPCOpCheckPeerAvailability,
+    kSecXPCOpCopyAccountData,
+    kSecXPCOpDeleteAccountData,
+    kSecXPCOpCopyEngineData,
+    kSecXPCOpDeleteEngineData,
+    /* after this is free for all */
+    kSecXPCOpWhoAmI,
+    kSecXPCOpTransmogrifyToSyncBubble,
+    kSecXPCOpTransmogrifyToSystemKeychain,
+    kSecXPCOpWrapToBackupSliceKeyBagForView,
+    kSecXPCOpDeleteUserView,
 };
 
 
+typedef struct {
+    SecTaskRef task;
+    CFArrayRef accessGroups;
+    bool allowSystemKeychain;
+    bool allowSyncBubbleKeychain;
+    bool isNetworkExtension;
+    uid_t uid;
+    CFDataRef musr;
+#if TARGET_OS_EMBEDDED
+    keybag_handle_t keybag;
+#endif
+#if TARGET_OS_IPHONE
+    bool inMultiUser;
+    int activeUser;
+#endif
+} SecurityClient;
+
+
+extern SecurityClient * SecSecurityClientGet(void);
+#if TARGET_OS_IOS
+void SecSecuritySetMusrMode(bool mode, uid_t uid, int activeUser);
+#endif
 
 struct securityd {
-    bool (*sec_item_add)(CFDictionaryRef attributes, CFArrayRef accessGroups, CFTypeRef *result, CFErrorRef* error);
-    bool (*sec_item_copy_matching)(CFDictionaryRef query, CFArrayRef accessGroups, CFTypeRef *result, CFErrorRef* error);
-    bool (*sec_item_update)(CFDictionaryRef query, CFDictionaryRef attributesToUpdate, CFArrayRef accessGroups, CFErrorRef* error);
-    bool (*sec_item_delete)(CFDictionaryRef query, CFArrayRef accessGroups, CFErrorRef* error);
+    bool (*sec_item_add)(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *result, CFErrorRef* error);
+    bool (*sec_item_copy_matching)(CFDictionaryRef query, SecurityClient *client, CFTypeRef *result, CFErrorRef* error);
+    bool (*sec_item_update)(CFDictionaryRef query, CFDictionaryRef attributesToUpdate, SecurityClient *client, CFErrorRef* error);
+    bool (*sec_item_delete)(CFDictionaryRef query, SecurityClient *client, CFErrorRef* error);
     bool (*sec_add_shared_web_credential)(CFDictionaryRef attributes, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef accessGroups, CFTypeRef *result, CFErrorRef *error);
     bool (*sec_copy_shared_web_credential)(CFDictionaryRef query, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef accessGroups, CFTypeRef *result, CFErrorRef *error);
     SecTrustStoreRef (*sec_trust_store_for_domain)(CFStringRef domainName, CFErrorRef* error);       // TODO: remove, has no msg id
@@ -242,8 +280,8 @@ struct securityd {
     bool (*sec_truststore_remove_all)(SecTrustStoreRef ts, CFErrorRef* error);                         // TODO: remove, has no msg id
     bool (*sec_item_delete_all)(CFErrorRef* error);
     SecTrustResultType (*sec_trust_evaluate)(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef *details, CFDictionaryRef *info, SecCertificatePathRef *chain, CFErrorRef *error);
-    CFDataRef (*sec_keychain_backup)(CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
-    bool (*sec_keychain_restore)(CFDataRef backup, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
+    CFDataRef (*sec_keychain_backup)(SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
+    bool (*sec_keychain_restore)(CFDataRef backup, SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
     CFDictionaryRef (*sec_keychain_backup_syncable)(CFDictionaryRef backup_in, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
     bool (*sec_keychain_restore_syncable)(CFDictionaryRef backup, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
     CFArrayRef (*sec_item_backup_copy_names)(CFErrorRef *error);
@@ -317,6 +355,11 @@ struct securityd {
     bool (*soscc_SetEscrowRecords)(CFStringRef escrow_label, uint64_t tries, CFErrorRef *error);
     CFDictionaryRef (*soscc_CopyEscrowRecords)(CFErrorRef *error);
     bool (*soscc_PeerAvailability)(CFErrorRef *error);
+    bool (*sosbskb_WrapToBackupSliceKeyBagForView)(CFStringRef viewName, CFDataRef input, CFDataRef* output, CFDataRef* bskbEncoded, CFErrorRef* error);
+    CFDataRef (*soscc_CopyAccountState)(CFErrorRef *error);
+    bool (*soscc_DeleteAccountState)(CFErrorRef *error);
+    CFDataRef (*soscc_CopyEngineData)(CFErrorRef *error);
+    bool (*soscc_DeleteEngineState)(CFErrorRef *error);
 };
 
 extern struct securityd *gSecurityd;

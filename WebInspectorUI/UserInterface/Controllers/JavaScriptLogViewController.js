@@ -45,6 +45,7 @@ WebInspector.JavaScriptLogViewController = class JavaScriptLogViewController ext
 
         this._cleared = true;
         this._previousMessageView = null;
+        this._lastCommitted = "";
         this._repeatCountWasInterrupted = false;
 
         this._sessions = [];
@@ -52,16 +53,12 @@ WebInspector.JavaScriptLogViewController = class JavaScriptLogViewController ext
         this.messagesClearKeyboardShortcut = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl, "K", this._handleClearShortcut.bind(this));
         this.messagesAlternateClearKeyboardShortcut = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.Control, "L", this._handleClearShortcut.bind(this), this._element);
 
-        this._messagesFindKeyboardShortcut = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl, "F", this._handleFindShortcut.bind(this), this._element);
         this._messagesFindNextKeyboardShortcut = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl, "G", this._handleFindNextShortcut.bind(this), this._element);
         this._messagesFindPreviousKeyboardShortcut = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl | WebInspector.KeyboardShortcut.Modifier.Shift, "G", this._handleFindPreviousShortcut.bind(this), this._element);
 
         this._promptAlternateClearKeyboardShortcut = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.Control, "L", this._handleClearShortcut.bind(this), this._prompt.element);
-        this._promptFindKeyboardShortcut = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl, "F", this._handleFindShortcut.bind(this), this._prompt.element);
         this._promptFindNextKeyboardShortcut = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl, "G", this._handleFindNextShortcut.bind(this), this._prompt.element);
         this._promptFindPreviousKeyboardShortcut = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl | WebInspector.KeyboardShortcut.Modifier.Shift, "G", this._handleFindPreviousShortcut.bind(this), this._prompt.element);
-        this._promptSaveKeyboardShortcut = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl, "S", this._save.bind(this), this._prompt.element);
-        this._promptSaveAsKeyboardShortcut = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.Shift | WebInspector.KeyboardShortcut.Modifier.CommandOrControl, "S", this._saveAs.bind(this), this._prompt.element);
 
         this.startNewSession();
     }
@@ -83,8 +80,6 @@ WebInspector.JavaScriptLogViewController = class JavaScriptLogViewController ext
         this._cleared = true;
 
         this.startNewSession(true);
-
-        this.prompt.focus();
     }
 
     startNewSession(clearPreviousSessions)
@@ -108,6 +103,7 @@ WebInspector.JavaScriptLogViewController = class JavaScriptLogViewController ext
         var consoleSession = new WebInspector.ConsoleSession;
 
         this._previousMessageView = null;
+        this._lastCommitted = "";
         this._repeatCountWasInterrupted = false;
 
         this._sessions.push(consoleSession);
@@ -119,7 +115,7 @@ WebInspector.JavaScriptLogViewController = class JavaScriptLogViewController ext
         consoleSession.element.scrollIntoView();
     }
 
-    appendImmediateExecutionWithResult(text, result, addSpecialUserLogClass)
+    appendImmediateExecutionWithResult(text, result, addSpecialUserLogClass, synthetic)
     {
         console.assert(result instanceof WebInspector.RemoteObject);
 
@@ -128,7 +124,7 @@ WebInspector.JavaScriptLogViewController = class JavaScriptLogViewController ext
 
         function saveResultCallback(savedResultIndex)
         {
-            var commandResultMessage = new WebInspector.ConsoleCommandResultMessage(result, false, savedResultIndex);
+            var commandResultMessage = new WebInspector.ConsoleCommandResultMessage(result, false, savedResultIndex, synthetic);
             var commandResultMessageView = new WebInspector.ConsoleMessageView(commandResultMessage);
             this._appendConsoleMessageView(commandResultMessageView, true);
         }
@@ -203,12 +199,6 @@ WebInspector.JavaScriptLogViewController = class JavaScriptLogViewController ext
             return;
         }
 
-        // COMPATIBILITY (iOS 6): RuntimeAgent.parse did not exist in iOS 6. Always commit.
-        if (!RuntimeAgent.parse) {
-            handler(true);
-            return;
-        }
-
         function parseFinished(error, result, message, range)
         {
             handler(result !== RuntimeAgent.SyntaxErrorType.Recoverable);
@@ -221,20 +211,24 @@ WebInspector.JavaScriptLogViewController = class JavaScriptLogViewController ext
     {
         console.assert(text);
 
-        var commandMessageView = new WebInspector.ConsoleCommandView(text);
-        this._appendConsoleMessageView(commandMessageView, true);
+        if (this._lastCommitted !== text) {
+            var commandMessageView = new WebInspector.ConsoleCommandView(text);
+            this._appendConsoleMessageView(commandMessageView, true);
+            this._lastCommitted = text;
+        }
 
         function printResult(result, wasThrown, savedResultIndex)
         {
             if (!result || this._cleared)
                 return;
 
-            var commandResultMessage = new WebInspector.ConsoleCommandResultMessage(result, wasThrown, savedResultIndex);
+            var synthetic = false;
+            var commandResultMessage = new WebInspector.ConsoleCommandResultMessage(result, wasThrown, savedResultIndex, synthetic);
             var commandResultMessageView = new WebInspector.ConsoleMessageView(commandResultMessage);
             this._appendConsoleMessageView(commandResultMessageView, true);
         }
 
-        WebInspector.runtimeManager.evaluateInInspectedWindow(text, "console", true, false, false, true, true, printResult.bind(this));
+        WebInspector.runtimeManager.evaluateInInspectedWindow(text, WebInspector.RuntimeManager.ConsoleObjectGroup, true, false, false, true, true, printResult.bind(this));
     }
 
     // Private
@@ -242,11 +236,6 @@ WebInspector.JavaScriptLogViewController = class JavaScriptLogViewController ext
     _handleClearShortcut()
     {
         WebInspector.logManager.requestClearMessages();
-    }
-
-    _handleFindShortcut()
-    {
-        this.delegate.focusSearchBar();
     }
 
     _handleFindNextShortcut()
@@ -259,16 +248,6 @@ WebInspector.JavaScriptLogViewController = class JavaScriptLogViewController ext
         this.delegate.highlightPreviousSearchMatch();
     }
 
-    _save()
-    {
-        this.delegate.save();
-    }
-
-    _saveAs()
-    {
-        this.delegate.saveAs();
-    }
-
     _appendConsoleMessageView(messageView, repeatCountWasInterrupted)
     {
         var wasScrolledToBottom = this.isScrolledToBottom();
@@ -278,6 +257,9 @@ WebInspector.JavaScriptLogViewController = class JavaScriptLogViewController ext
 
         if (!repeatCountWasInterrupted)
             this._previousMessageView = messageView;
+
+        if (messageView.message && messageView.message.source !== WebInspector.ConsoleMessage.MessageSource.JS)
+            this._lastCommitted = "";
 
         var type = messageView instanceof WebInspector.ConsoleCommandView ? null : messageView.message.type;
         if (type === WebInspector.ConsoleMessage.MessageType.EndGroup) {

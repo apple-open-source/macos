@@ -160,7 +160,7 @@ bool SecDbWithSQL(SecDbConnectionRef dbconn, CFStringRef sql, CFErrorRef *error,
 bool SecDbForEach(sqlite3_stmt *stmt, CFErrorRef *error, bool(^row)(int row_index));
 
 // Mark the database as corrupted.
-void SecDbCorrupt(SecDbConnectionRef dbconn);
+void SecDbCorrupt(SecDbConnectionRef dbconn, CFErrorRef error);
 
 __END_DECLS
 

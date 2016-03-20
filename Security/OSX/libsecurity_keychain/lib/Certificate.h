@@ -74,7 +74,8 @@ public:
     const CssmData &data();
     CSSM_CERT_TYPE type();
 	CSSM_CERT_ENCODING encoding();
-	CFDataRef sha1Hash();
+    CFDataRef sha1Hash();
+    CFDataRef sha256Hash();
 	CFStringRef commonName();
 	CFStringRef distinguishedName(const CSSM_OID *sourceOid, const CSSM_OID *componentOid);
 	CFStringRef copyFirstEmailAddress();
@@ -140,7 +141,8 @@ private:
 	CSSM_DATA_PTR mV1SubjectPublicKeyCStructValue; // Hack to prevent algorithmID() from leaking.
     CSSM_DATA_PTR mV1SubjectNameCStructValue;
     CSSM_DATA_PTR mV1IssuerNameCStructValue;
-	CFDataRef mSha1Hash;
+    CFDataRef mSha1Hash;
+    CFDataRef mSha256Hash;
 	bool mEncodingVerified;
 };
 

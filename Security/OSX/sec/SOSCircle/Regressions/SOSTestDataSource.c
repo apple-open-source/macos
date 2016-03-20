@@ -343,7 +343,6 @@ SOSDataSourceRef SOSTestDataSourceCreate(void) {
     ds->ds.dsRestoreObject = dsRestoreObject;
 
     ds->ds.objectCopyDigest = copyDigest;
-    ds->ds.objectCopyPrimaryKey = copyPrimaryKey;
     ds->ds.objectCreateWithPropertyList = createWithPropertyList;
     ds->ds.objectCopyPropertyList = copyPropertyList;
     ds->ds.objectCopyBackup = objectCopyBackup;

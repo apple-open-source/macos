@@ -121,6 +121,7 @@ public:
 };
 
 
+
 //
 // Walk a structure and apply a constant linear shift to all pointers
 // encountered. This is useful when a structure and its deep components

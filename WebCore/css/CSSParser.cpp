@@ -36,6 +36,7 @@
 #include "CSSContentDistributionValue.h"
 #include "CSSCrossfadeValue.h"
 #include "CSSCursorImageValue.h"
+#include "CSSCustomPropertyValue.h"
 #include "CSSFilterImageValue.h"
 #include "CSSFontFaceRule.h"
 #include "CSSFontFaceSrcValue.h"
@@ -56,14 +57,17 @@
 #include "CSSPrimitiveValueMappings.h"
 #include "CSSPropertySourceData.h"
 #include "CSSReflectValue.h"
+#include "CSSRevertValue.h"
 #include "CSSSelector.h"
 #include "CSSShadowValue.h"
 #include "CSSStyleSheet.h"
 #include "CSSTimingFunctionValue.h"
 #include "CSSUnicodeRangeValue.h"
+#include "CSSUnsetValue.h"
 #include "CSSValueKeywords.h"
 #include "CSSValueList.h"
 #include "CSSValuePool.h"
+#include "CSSVariableDependentValue.h"
 #include "Counter.h"
 #include "Document.h"
 #include "FloatConversion.h"
@@ -316,7 +320,6 @@ CSSParser::CSSParser(const CSSParserContext& context)
     , m_inParseShorthand(0)
     , m_currentShorthand(CSSPropertyInvalid)
     , m_implicitShorthand(false)
-    , m_hasFontFaceOnlyValues(false)
     , m_hadSyntacticallyValidCSSRule(false)
     , m_logErrors(false)
     , m_ignoreErrorsInDeclaration(false)
@@ -1039,6 +1042,18 @@ static inline bool isValidKeywordPropertyAndValue(CSSPropertyID propertyId, int 
             return true;
         break;
 #endif
+    case CSSPropertyFontVariantPosition: // normal | sub | super
+        if (valueID == CSSValueNormal || valueID == CSSValueSub || valueID == CSSValueSuper)
+            return true;
+        break;
+    case CSSPropertyFontVariantCaps: // normal | small-caps | all-small-caps | petite-caps | all-petite-caps | unicase | titling-caps
+        if (valueID == CSSValueNormal || valueID == CSSValueSmallCaps || valueID == CSSValueAllSmallCaps || valueID == CSSValuePetiteCaps || valueID == CSSValueAllPetiteCaps || valueID == CSSValueUnicase || valueID == CSSValueTitlingCaps)
+            return true;
+        break;
+    case CSSPropertyFontVariantAlternates: // We only support the normal and historical-forms values.
+        if (valueID == CSSValueNormal || valueID == CSSValueHistoricalForms)
+            return true;
+        break;
     default:
         ASSERT_NOT_REACHED();
         return false;
@@ -1166,6 +1181,9 @@ static inline bool isKeywordPropertyID(CSSPropertyID propertyId)
 #if ENABLE(CSS_TRAILING_WORD)
     case CSSPropertyAppleTrailingWord:
 #endif
+    case CSSPropertyFontVariantPosition:
+    case CSSPropertyFontVariantCaps:
+    case CSSPropertyFontVariantAlternates:
         return true;
     default:
         return false;
@@ -1179,10 +1197,10 @@ static CSSParser::ParseResult parseKeywordValue(MutableStyleProperties* declarat
     if (!isKeywordPropertyID(propertyId)) {
         // All properties accept the values of "initial" and "inherit".
         String lowerCaseString = string.lower();
-        if (lowerCaseString != "initial" && lowerCaseString != "inherit")
+        if (lowerCaseString != "initial" && lowerCaseString != "inherit" && lowerCaseString != "unset" && lowerCaseString != "revert")
             return CSSParser::ParseResult::Error;
 
-        // Parse initial/inherit shorthands using the CSSParser.
+        // Parse initial/inherit/unset/revert shorthands using the CSSParser.
         if (shorthandForProperty(propertyId).length())
             return CSSParser::ParseResult::Error;
     }
@@ -1199,6 +1217,10 @@ static CSSParser::ParseResult parseKeywordValue(MutableStyleProperties* declarat
         value = cssValuePool().createInheritedValue();
     else if (valueID == CSSValueInitial)
         value = cssValuePool().createExplicitInitialValue();
+    else if (valueID == CSSValueUnset)
+        value = cssValuePool().createUnsetValue();
+    else if (valueID == CSSValueRevert)
+        value = cssValuePool().createRevertValue();
     else if (isValidKeywordPropertyAndValue(propertyId, valueID, parserContext, styleSheetContents))
         value = cssValuePool().createIdentifierValue(valueID);
     else
@@ -1337,6 +1359,19 @@ CSSParser::ParseResult CSSParser::parseValue(MutableStyleProperties* declaration
     return parser.parseValue(declaration, propertyID, string, important, contextStyleSheet);
 }
 
+CSSParser::ParseResult CSSParser::parseCustomPropertyValue(MutableStyleProperties* declaration, const AtomicString& propertyName, const String& string, bool important, CSSParserMode cssParserMode, StyleSheetContents* contextStyleSheet)
+{
+    CSSParserContext context(cssParserMode);
+    if (contextStyleSheet) {
+        context = contextStyleSheet->parserContext();
+        context.mode = cssParserMode;
+    }
+
+    CSSParser parser(context);
+    parser.setCustomPropertyName(propertyName);
+    return parser.parseValue(declaration, CSSPropertyCustom, string, important, contextStyleSheet);
+}
+
 CSSParser::ParseResult CSSParser::parseValue(MutableStyleProperties* declaration, CSSPropertyID propertyID, const String& string, bool important, StyleSheetContents* contextStyleSheet)
 {
     setStyleSheet(contextStyleSheet);
@@ -1351,8 +1386,6 @@ CSSParser::ParseResult CSSParser::parseValue(MutableStyleProperties* declaration
     m_rule = nullptr;
 
     ParseResult result = ParseResult::Error;
-    if (m_hasFontFaceOnlyValues)
-        deleteFontFaceOnlyValues();
 
     if (!m_parsedProperties.isEmpty()) {
         result = declaration->addParsedProperties(m_parsedProperties) ? ParseResult::Changed : ParseResult::Unchanged;
@@ -1442,9 +1475,6 @@ Ref<ImmutableStyleProperties> CSSParser::parseDeclaration(const String& string, 
     cssyyparse(this);
     m_rule = nullptr;
 
-    if (m_hasFontFaceOnlyValues)
-        deleteFontFaceOnlyValues();
-
     Ref<ImmutableStyleProperties> style = createStyleProperties();
     clearProperties();
     return style;
@@ -1469,8 +1499,6 @@ bool CSSParser::parseDeclaration(MutableStyleProperties* declaration, const Stri
     m_rule = nullptr;
 
     bool ok = false;
-    if (m_hasFontFaceOnlyValues)
-        deleteFontFaceOnlyValues();
     if (!m_parsedProperties.isEmpty()) {
         ok = true;
         declaration->addParsedProperties(m_parsedProperties);
@@ -1559,13 +1587,25 @@ CSSParser::SourceSize CSSParser::sourceSize(std::unique_ptr<MediaQueryExp>&& exp
     return SourceSize(WTF::move(expression), WTF::move(value));
 }
 
-static inline void filterProperties(bool important, const CSSParser::ParsedPropertyVector& input, Vector<CSSProperty, 256>& output, size_t& unusedEntries, std::bitset<numCSSProperties>& seenProperties)
+static inline void filterProperties(bool important, const CSSParser::ParsedPropertyVector& input, Vector<CSSProperty, 256>& output, size_t& unusedEntries, std::bitset<numCSSProperties>& seenProperties, HashSet<AtomicString>& seenCustomProperties)
 {
     // Add properties in reverse order so that highest priority definitions are reached first. Duplicate definitions can then be ignored when found.
     for (int i = input.size() - 1; i >= 0; --i) {
         const CSSProperty& property = input[i];
         if (property.isImportant() != important)
             continue;
+        
+        if (property.id() == CSSPropertyCustom) {
+            if (property.value()) {
+                const AtomicString& name = downcast<CSSCustomPropertyValue>(*property.value()).name();
+                if (seenCustomProperties.contains(name))
+                    continue;
+                seenCustomProperties.add(name);
+                output[--unusedEntries] = property;
+            }
+            continue;
+        }
+
         const unsigned propertyIDIndex = property.id() - firstCSSProperty;
         ASSERT(propertyIDIndex < seenProperties.size());
         if (seenProperties[propertyIDIndex])
@@ -1582,8 +1622,9 @@ Ref<ImmutableStyleProperties> CSSParser::createStyleProperties()
     Vector<CSSProperty, 256> results(unusedEntries);
 
     // Important properties have higher priority, so add them first. Duplicate definitions can then be ignored when found.
-    filterProperties(true, m_parsedProperties, results, unusedEntries, seenProperties);
-    filterProperties(false, m_parsedProperties, results, unusedEntries, seenProperties);
+    HashSet<AtomicString> seenCustomProperties;
+    filterProperties(true, m_parsedProperties, results, unusedEntries, seenProperties, seenCustomProperties);
+    filterProperties(false, m_parsedProperties, results, unusedEntries, seenProperties, seenCustomProperties);
     if (unusedEntries)
         results.remove(0, unusedEntries);
 
@@ -1634,7 +1675,6 @@ void CSSParser::clearProperties()
 {
     m_parsedProperties.clear();
     m_numParsedPropertiesBeforeMarginBox = INVALID_NUM_PARSED_PROPERTIES;
-    m_hasFontFaceOnlyValues = false;
 }
 
 URL CSSParser::completeURL(const CSSParserContext& context, const String& url)
@@ -1863,13 +1903,37 @@ void CSSParser::addExpandedPropertyForValue(CSSPropertyID propId, PassRefPtr<CSS
         addProperty(longhands[i], value, important);
 }
 
+RefPtr<CSSValue> CSSParser::parseVariableDependentValue(CSSPropertyID propID, const CSSVariableDependentValue& dependentValue, const CustomPropertyValueMap& customProperties)
+{
+    m_valueList.reset(new CSSParserValueList());
+    if (!dependentValue.valueList()->buildParserValueListSubstitutingVariables(m_valueList.get(), customProperties))
+        return nullptr;
+    bool parsed = parseValue(dependentValue.propertyID(), false);
+    if (!parsed)
+        return nullptr;
+    for (size_t i = 0; i < m_parsedProperties.size(); ++i) {
+        if (m_parsedProperties[i].id() == propID)
+            return m_parsedProperties[i].value();
+    }
+    return nullptr;
+}
+
 bool CSSParser::parseValue(CSSPropertyID propId, bool important)
 {
     if (!m_valueList || !m_valueList->current())
         return false;
-
+    
     ValueWithCalculation valueWithCalculation(*m_valueList->current());
     CSSValueID id = valueWithCalculation.value().id;
+    
+    if (propId == CSSPropertyCustom)
+        return parseCustomPropertyDeclaration(important, id);
+
+    if (m_valueList->containsVariables()) {
+        RefPtr<CSSValueList> valueList = CSSValueList::createFromParserValueList(*m_valueList);
+        addExpandedPropertyForValue(propId, CSSVariableDependentValue::create(valueList, propId), important);
+        return true;
+    }
 
     unsigned num = inShorthand() ? 1 : m_valueList->size();
 
@@ -1884,7 +1948,20 @@ bool CSSParser::parseValue(CSSPropertyID propId, bool important)
             return false;
         addExpandedPropertyForValue(propId, cssValuePool().createExplicitInitialValue(), important);
         return true;
+    } else if (id == CSSValueUnset) {
+        if (num != 1)
+            return false;
+        addExpandedPropertyForValue(propId, cssValuePool().createUnsetValue(), important);
+        return true;
+    } else if (id == CSSValueRevert) {
+        if (num != 1)
+            return false;
+        addExpandedPropertyForValue(propId, cssValuePool().createRevertValue(), important);
+        return true;
     }
+    
+    if (propId == CSSPropertyAll)
+        return false; // "all" doesn't allow you to specify anything other than inherit/initial/unset.
 
     if (isKeywordPropertyID(propId)) {
         if (!isValidKeywordPropertyAndValue(propId, id, m_context, m_styleSheet))
@@ -2268,9 +2345,6 @@ bool CSSParser::parseValue(CSSPropertyID propId, bool important)
     case CSSPropertyFontSize:
         return parseFontSize(important);
 
-    case CSSPropertyFontVariant:         // normal | small-caps | inherit
-        return parseFontVariant(important);
-
     case CSSPropertyVerticalAlign:
         // baseline | sub | super | top | text-top | middle | bottom | text-bottom |
         // <percentage> | <length> | inherit
@@ -2512,7 +2586,7 @@ bool CSSParser::parseValue(CSSPropertyID propId, bool important)
     case CSSPropertyWebkitBoxOrdinalGroup:
         validPrimitive = validateUnit(valueWithCalculation, FInteger | FNonNeg, CSSStrictMode) && valueWithCalculation.value().fValue;
         break;
-    case CSSPropertyWebkitFilter:
+    case CSSPropertyFilter:
 #if ENABLE(FILTERS_LEVEL_2)
     case CSSPropertyWebkitBackdropFilter:
 #endif
@@ -2794,6 +2868,13 @@ bool CSSParser::parseValue(CSSPropertyID propId, bool important)
         break;
     // End of CSS3 properties
 
+    case CSSPropertyWillChange: // auto | [scroll-position | contents | <custom-ident>]#
+        if (id == CSSValueAuto)
+            validPrimitive = true;
+        else
+            return parseWillChange(important);
+        break;
+
     // Apple specific properties.  These will never be standardized and are purely to
     // support custom WebKit-based Apple applications.
     case CSSPropertyWebkitLineClamp:
@@ -2993,19 +3074,48 @@ bool CSSParser::parseValue(CSSPropertyID propId, bool important)
         else
             return parseLineBoxContain(important);
         break;
-    case CSSPropertyWebkitFontFeatureSettings:
+    case CSSPropertyFontFeatureSettings:
         if (id == CSSValueNormal)
             validPrimitive = true;
         else
             return parseFontFeatureSettings(important);
         break;
-
-    case CSSPropertyWebkitFontVariantLigatures:
+    case CSSPropertyFontVariantLigatures:
+        if (id == CSSValueNormal || id == CSSValueNone)
+            validPrimitive = true;
+        else
+            return parseFontVariantLigatures(important, true, false);
+        break;
+    case CSSPropertyFontVariantNumeric:
         if (id == CSSValueNormal)
             validPrimitive = true;
         else
-            return parseFontVariantLigatures(important);
+            return parseFontVariantNumeric(important, true, false);
         break;
+    case CSSPropertyFontVariantEastAsian:
+        if (id == CSSValueNormal)
+            validPrimitive = true;
+        else
+            return parseFontVariantEastAsian(important, true, false);
+        break;
+    case CSSPropertyFontVariant:
+        if (id == CSSValueNormal) {
+            ShorthandScope scope(this, CSSPropertyFontVariant);
+            addProperty(CSSPropertyFontVariantLigatures, cssValuePool().createIdentifierValue(CSSValueNormal), important, true);
+            addProperty(CSSPropertyFontVariantPosition, cssValuePool().createIdentifierValue(CSSValueNormal), important, true);
+            addProperty(CSSPropertyFontVariantCaps, cssValuePool().createIdentifierValue(CSSValueNormal), important, true);
+            addProperty(CSSPropertyFontVariantNumeric, cssValuePool().createIdentifierValue(CSSValueNormal), important, true);
+            addProperty(CSSPropertyFontVariantAlternates, cssValuePool().createIdentifierValue(CSSValueNormal), important, true);
+            addProperty(CSSPropertyFontVariantEastAsian, cssValuePool().createIdentifierValue(CSSValueNormal), important, true);
+            return true;
+        }
+        if (id == CSSValueNone) {
+            ShorthandScope scope(this, CSSPropertyFontVariant);
+            addProperty(CSSPropertyFontVariantLigatures, cssValuePool().createIdentifierValue(CSSValueNone), important, true);
+            return true;
+        }
+        return parseFontVariant(important);
+
     case CSSPropertyWebkitClipPath:
         parsedValue = parseClipPath();
         break;
@@ -4077,7 +4187,33 @@ bool CSSParser::parseAlt(CSSPropertyID propID, bool important)
 
     return false;
 }
+
+bool CSSParser::parseCustomPropertyDeclaration(bool important, CSSValueID id)
+{
+    if (m_customPropertyName.isEmpty() || !m_valueList)
+        return false;
     
+    RefPtr<CSSValue> value;
+    if (id == CSSValueInherit)
+        value = cssValuePool().createInheritedValue();
+    else if (id == CSSValueInitial)
+        value = cssValuePool().createExplicitInitialValue();
+    else if (id == CSSValueUnset)
+        value = cssValuePool().createUnsetValue();
+    else if (id == CSSValueRevert)
+        value = cssValuePool().createRevertValue();
+    else {
+        RefPtr<CSSValueList> valueList = CSSValueList::createFromParserValueList(*m_valueList);
+        if (m_valueList->containsVariables())
+            value = CSSVariableDependentValue::create(valueList, CSSPropertyCustom);
+        else
+            value = valueList;
+    }
+
+    addProperty(CSSPropertyCustom, CSSCustomPropertyValue::create(m_customPropertyName, value), important, false);
+    return true;
+}
+
 // [ <string> | <uri> | <counter> | attr(X) | open-quote | close-quote | no-open-quote | no-close-quote ]+ | inherit
 // in CSS 2.1 this got somewhat reduced:
 // [ <string> | attr(X) | open-quote | close-quote | no-open-quote | no-close-quote ]+ | inherit
@@ -4950,7 +5086,7 @@ PassRefPtr<CSSValue> CSSParser::parseAnimationProperty(AnimationParseContext& co
     if (value.unit != CSSPrimitiveValue::CSS_IDENT)
         return nullptr;
     CSSPropertyID result = cssPropertyID(value.string);
-    if (result)
+    if (result && result != CSSPropertyAll) // "all" value in animation is not equivalent to the all property.
         return cssValuePool().createIdentifierValue(result);
     if (equalIgnoringCase(value, "all")) {
         context.sawAnimationPropertyKeyword();
@@ -5227,7 +5363,7 @@ bool CSSParser::parseAnimationProperty(CSSPropertyID propId, RefPtr<CSSValue>& r
 }
 
 #if ENABLE(CSS_GRID_LAYOUT)
-static inline bool isValidCustomIdent(const CSSParserValue& value)
+static inline bool isValidGridPositionCustomIdent(const CSSParserValue& value)
 {
     return value.unit == CSSPrimitiveValue::CSS_IDENT && value.id != CSSValueSpan && value.id != CSSValueAuto;
 }
@@ -5239,14 +5375,14 @@ bool CSSParser::parseIntegerOrCustomIdentFromGridPosition(RefPtr<CSSPrimitiveVal
     if (validateUnit(valueWithCalculation, FInteger) && valueWithCalculation.value().fValue) {
         numericValue = createPrimitiveNumericValue(valueWithCalculation);
         CSSParserValue* nextValue = m_valueList->next();
-        if (nextValue && isValidCustomIdent(*nextValue)) {
+        if (nextValue && isValidGridPositionCustomIdent(*nextValue)) {
             gridLineName = createPrimitiveStringValue(*nextValue);
             m_valueList->next();
         }
         return true;
     }
 
-    if (isValidCustomIdent(valueWithCalculation)) {
+    if (isValidGridPositionCustomIdent(valueWithCalculation)) {
         gridLineName = createPrimitiveStringValue(valueWithCalculation);
         if (CSSParserValue* nextValue = m_valueList->next()) {
             ValueWithCalculation nextValueWithCalculation(*nextValue);
@@ -6572,7 +6708,7 @@ bool CSSParser::parseFont(bool important)
             fontStyleParsed = true;
         } else if (!fontVariantParsed && (value->id == CSSValueNormal || value->id == CSSValueSmallCaps)) {
             // Font variant in the shorthand is particular, it only accepts normal or small-caps.
-            addProperty(CSSPropertyFontVariant, cssValuePool().createIdentifierValue(value->id), important);
+            addProperty(CSSPropertyFontVariantCaps, cssValuePool().createIdentifierValue(value->id), important);
             fontVariantParsed = true;
         } else if (!fontWeightParsed && parseFontWeight(important))
             fontWeightParsed = true;
@@ -6587,7 +6723,7 @@ bool CSSParser::parseFont(bool important)
     if (!fontStyleParsed)
         addProperty(CSSPropertyFontStyle, cssValuePool().createIdentifierValue(CSSValueNormal), important, true);
     if (!fontVariantParsed)
-        addProperty(CSSPropertyFontVariant, cssValuePool().createIdentifierValue(CSSValueNormal), important, true);
+        addProperty(CSSPropertyFontVariantCaps, cssValuePool().createIdentifierValue(CSSValueNormal), important, true);
     if (!fontWeightParsed)
         addProperty(CSSPropertyFontWeight, cssValuePool().createIdentifierValue(CSSValueNormal), important, true);
 
@@ -6646,7 +6782,7 @@ void CSSParser::parseSystemFont(bool important)
     Ref<CSSValueList> fontFamilyList = CSSValueList::createCommaSeparated();
     fontFamilyList->append(cssValuePool().createFontFamilyValue(fontDescription.familyAt(0), FromSystemFontID::Yes));
     addProperty(CSSPropertyFontFamily, WTF::move(fontFamilyList), important);
-    addProperty(CSSPropertyFontVariant, cssValuePool().createIdentifierValue(CSSValueNormal), important);
+    addProperty(CSSPropertyFontVariantCaps, cssValuePool().createIdentifierValue(CSSValueNormal), important);
     addProperty(CSSPropertyLineHeight, cssValuePool().createIdentifierValue(CSSValueNormal), important);
 }
 
@@ -6683,6 +6819,12 @@ private:
     CSSValueList& m_list;
 };
 
+static bool valueIsCSSKeyword(const CSSParserValue& value)
+{
+    // FIXME: when we add "unset", we should handle it here.
+    return value.id == CSSValueInitial || value.id == CSSValueInherit || value.id == CSSValueDefault;
+}
+
 PassRefPtr<CSSValueList> CSSParser::parseFontFamily()
 {
     RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
@@ -6699,7 +6841,7 @@ PassRefPtr<CSSValueList> CSSParser::parseFontFamily()
             ((nextValue->id >= CSSValueSerif && nextValue->id <= CSSValueWebkitBody) ||
             (nextValue->unit == CSSPrimitiveValue::CSS_STRING || nextValue->unit == CSSPrimitiveValue::CSS_IDENT));
 
-        bool valueIsKeyword = value->id == CSSValueInitial || value->id == CSSValueInherit || value->id == CSSValueDefault;
+        bool valueIsKeyword = valueIsCSSKeyword(*value);
         if (valueIsKeyword && !inFamily) {
             if (nextValBreaksFont)
                 value = m_valueList->next();
@@ -6785,53 +6927,6 @@ bool CSSParser::parseFontSize(bool important)
     if (validPrimitive && (!m_valueList->next() || inShorthand()))
         addProperty(CSSPropertyFontSize, parseValidPrimitive(id, valueWithCalculation), important);
     return validPrimitive;
-}
-
-bool CSSParser::parseFontVariant(bool important)
-{
-    RefPtr<CSSValueList> values;
-    if (m_valueList->size() > 1)
-        values = CSSValueList::createCommaSeparated();
-    CSSParserValue* val;
-    bool expectComma = false;
-    while ((val = m_valueList->current())) {
-        RefPtr<CSSPrimitiveValue> parsedValue;
-        if (!expectComma) {
-            expectComma = true;
-            if (val->id == CSSValueNormal || val->id == CSSValueSmallCaps)
-                parsedValue = cssValuePool().createIdentifierValue(val->id);
-            else if (val->id == CSSValueAll && !values) {
-                // 'all' is only allowed in @font-face and with no other values. Make a value list to
-                // indicate that we are in the @font-face case.
-                values = CSSValueList::createCommaSeparated();
-                parsedValue = cssValuePool().createIdentifierValue(val->id);
-            }
-        } else if (val->unit == CSSParserValue::Operator && val->iValue == ',') {
-            expectComma = false;
-            m_valueList->next();
-            continue;
-        }
-
-        if (!parsedValue)
-            return false;
-
-        m_valueList->next();
-
-        if (values)
-            values->append(parsedValue.releaseNonNull());
-        else {
-            addProperty(CSSPropertyFontVariant, parsedValue.release(), important);
-            return true;
-        }
-    }
-
-    if (values && values->length()) {
-        m_hasFontFaceOnlyValues = true;
-        addProperty(CSSPropertyFontVariant, values.release(), important);
-        return true;
-    }
-
-    return false;
 }
 
 static CSSValueID createFontWeightValueKeyword(int weight)
@@ -9131,6 +9226,7 @@ bool CSSParser::isGeneratedImageValue(CSSParserValue& value) const
         || equalIgnoringCase(value.function->name, "repeating-radial-gradient(")
         || equalIgnoringCase(value.function->name, "-webkit-canvas(")
         || equalIgnoringCase(value.function->name, "-webkit-cross-fade(")
+        || equalIgnoringCase(value.function->name, "filter(")
         || equalIgnoringCase(value.function->name, "-webkit-filter(")
         || equalIgnoringCase(value.function->name, "-webkit-named-image(");
 }
@@ -9175,7 +9271,7 @@ bool CSSParser::parseGeneratedImage(CSSParserValueList& valueList, RefPtr<CSSVal
     if (equalIgnoringCase(parserValue.function->name, "-webkit-cross-fade("))
         return parseCrossfade(valueList, value);
 
-    if (equalIgnoringCase(parserValue.function->name, "-webkit-filter("))
+    if (equalIgnoringCase(parserValue.function->name, "filter(") || equalIgnoringCase(parserValue.function->name, "-webkit-filter("))
         return parseFilterImage(valueList, value);
 
     if (equalIgnoringCase(parserValue.function->name, "-webkit-named-image("))
@@ -9853,7 +9949,7 @@ PassRefPtr<WebKitCSSFilterValue> CSSParser::parseBuiltinFilterArguments(CSSParse
     }
     case WebKitCSSFilterValue::DropShadowFilterOperation: {
         // drop-shadow() takes a single shadow.
-        RefPtr<CSSValueList> shadowValueList = parseShadow(args, CSSPropertyWebkitFilter);
+        RefPtr<CSSValueList> shadowValueList = parseShadow(args, CSSPropertyFilter);
         if (!shadowValueList || shadowValueList->length() != 1)
             return nullptr;
         
@@ -10354,23 +10450,21 @@ bool CSSParser::parseLineBoxContain(bool important)
 
 bool CSSParser::parseFontFeatureTag(CSSValueList& settings)
 {
-    // Feature tag name consists of 4-letter characters.
-    static const unsigned tagNameLength = 4;
-
     CSSParserValue* value = m_valueList->current();
     // Feature tag name comes first
     if (value->unit != CSSPrimitiveValue::CSS_STRING)
         return false;
-    if (value->string.length() != tagNameLength)
+    FontFeatureTag tag;
+    if (value->string.length() != tag.size())
         return false;
-    for (unsigned i = 0; i < tagNameLength; ++i) {
+    for (unsigned i = 0; i < tag.size(); ++i) {
         // Limits the range of characters to 0x20-0x7E, following the tag name rules defiend in the OpenType specification.
         UChar character = value->string[i];
         if (character < 0x20 || character > 0x7E)
             return false;
+        tag[i] = toASCIILower(character);
     }
 
-    String tag = value->string;
     int tagValue = 1;
     // Feature tag values could follow: <integer> | on | off
     value = m_valueList->next();
@@ -10385,7 +10479,7 @@ bool CSSParser::parseFontFeatureTag(CSSValueList& settings)
             m_valueList->next();
         }
     }
-    settings.append(CSSFontFeatureValue::create(tag, tagValue));
+    settings.append(CSSFontFeatureValue::create(WTF::move(tag), tagValue));
     return true;
 }
 
@@ -10394,7 +10488,7 @@ bool CSSParser::parseFontFeatureSettings(bool important)
     if (m_valueList->size() == 1 && m_valueList->current()->id == CSSValueNormal) {
         RefPtr<CSSPrimitiveValue> normalValue = cssValuePool().createIdentifierValue(CSSValueNormal);
         m_valueList->next();
-        addProperty(CSSPropertyWebkitFontFeatureSettings, normalValue.release(), important);
+        addProperty(CSSPropertyFontFeatureSettings, normalValue.release(), important);
         return true;
     }
 
@@ -10409,18 +10503,318 @@ bool CSSParser::parseFontFeatureSettings(bool important)
             return false;
     }
     if (settings->length()) {
-        addProperty(CSSPropertyWebkitFontFeatureSettings, settings.release(), important);
+        addProperty(CSSPropertyFontFeatureSettings, settings.release(), important);
         return true;
     }
     return false;
 }
 
-bool CSSParser::parseFontVariantLigatures(bool important)
+bool CSSParser::parseFontVariantLigatures(bool important, bool unknownIsFailure, bool implicit)
 {
-    RefPtr<CSSValueList> ligatureValues = CSSValueList::createSpaceSeparated();
-    bool sawCommonLigaturesValue = false;
-    bool sawDiscretionaryLigaturesValue = false;
-    bool sawHistoricalLigaturesValue = false;
+    auto values = CSSValueList::createSpaceSeparated();
+    FontVariantLigatures commonLigatures = FontVariantLigatures::Normal;
+    FontVariantLigatures discretionaryLigatures = FontVariantLigatures::Normal;
+    FontVariantLigatures historicalLigatures = FontVariantLigatures::Normal;
+    FontVariantLigatures contextualAlternates = FontVariantLigatures::Normal;
+
+    for (CSSParserValue* value = m_valueList->current(); value; value = m_valueList->next()) {
+        if (value->unit != CSSPrimitiveValue::CSS_IDENT)
+            return false;
+
+        switch (value->id) {
+        case CSSValueNoCommonLigatures:
+            commonLigatures = FontVariantLigatures::No;
+            break;
+        case CSSValueCommonLigatures:
+            commonLigatures = FontVariantLigatures::Yes;
+            break;
+        case CSSValueNoDiscretionaryLigatures:
+            discretionaryLigatures = FontVariantLigatures::No;
+            break;
+        case CSSValueDiscretionaryLigatures:
+            discretionaryLigatures = FontVariantLigatures::Yes;
+            break;
+        case CSSValueNoHistoricalLigatures:
+            historicalLigatures = FontVariantLigatures::No;
+            break;
+        case CSSValueHistoricalLigatures:
+            historicalLigatures = FontVariantLigatures::Yes;
+            break;
+        case CSSValueContextual:
+            contextualAlternates = FontVariantLigatures::Yes;
+            break;
+        case CSSValueNoContextual:
+            contextualAlternates = FontVariantLigatures::No;
+            break;
+        default:
+            if (unknownIsFailure)
+                return false;
+            continue;
+        }
+    }
+
+    switch (commonLigatures) {
+    case FontVariantLigatures::Normal:
+        break;
+    case FontVariantLigatures::Yes:
+        values->append(cssValuePool().createIdentifierValue(CSSValueCommonLigatures));
+        break;
+    case FontVariantLigatures::No:
+        values->append(cssValuePool().createIdentifierValue(CSSValueNoCommonLigatures));
+        break;
+    }
+
+    switch (discretionaryLigatures) {
+    case FontVariantLigatures::Normal:
+        break;
+    case FontVariantLigatures::Yes:
+        values->append(cssValuePool().createIdentifierValue(CSSValueDiscretionaryLigatures));
+        break;
+    case FontVariantLigatures::No:
+        values->append(cssValuePool().createIdentifierValue(CSSValueNoDiscretionaryLigatures));
+        break;
+    }
+
+    switch (historicalLigatures) {
+    case FontVariantLigatures::Normal:
+        break;
+    case FontVariantLigatures::Yes:
+        values->append(cssValuePool().createIdentifierValue(CSSValueHistoricalLigatures));
+        break;
+    case FontVariantLigatures::No:
+        values->append(cssValuePool().createIdentifierValue(CSSValueNoHistoricalLigatures));
+        break;
+    }
+
+    switch (contextualAlternates) {
+    case FontVariantLigatures::Normal:
+        break;
+    case FontVariantLigatures::Yes:
+        values->append(cssValuePool().createIdentifierValue(CSSValueContextual));
+        break;
+    case FontVariantLigatures::No:
+        values->append(cssValuePool().createIdentifierValue(CSSValueNoContextual));
+        break;
+    }
+
+    if (!values->length())
+        return !unknownIsFailure;
+
+    addProperty(CSSPropertyFontVariantLigatures, WTF::move(values), important, implicit);
+    return true;
+}
+
+bool CSSParser::parseFontVariantNumeric(bool important, bool unknownIsFailure, bool implicit)
+{
+    auto values = CSSValueList::createSpaceSeparated();
+    FontVariantNumericFigure figure = FontVariantNumericFigure::Normal;
+    FontVariantNumericSpacing spacing = FontVariantNumericSpacing::Normal;
+    FontVariantNumericFraction fraction = FontVariantNumericFraction::Normal;
+    FontVariantNumericOrdinal ordinal = FontVariantNumericOrdinal::Normal;
+    FontVariantNumericSlashedZero slashedZero = FontVariantNumericSlashedZero::Normal;
+
+    for (CSSParserValue* value = m_valueList->current(); value; value = m_valueList->next()) {
+        if (value->unit != CSSPrimitiveValue::CSS_IDENT)
+            return false;
+
+        switch (value->id) {
+        case CSSValueLiningNums:
+            figure = FontVariantNumericFigure::LiningNumbers;
+            break;
+        case CSSValueOldstyleNums:
+            figure = FontVariantNumericFigure::OldStyleNumbers;
+            break;
+        case CSSValueProportionalNums:
+            spacing = FontVariantNumericSpacing::ProportionalNumbers;
+            break;
+        case CSSValueTabularNums:
+            spacing = FontVariantNumericSpacing::TabularNumbers;
+            break;
+        case CSSValueDiagonalFractions:
+            fraction = FontVariantNumericFraction::DiagonalFractions;
+            break;
+        case CSSValueStackedFractions:
+            fraction = FontVariantNumericFraction::StackedFractions;
+            break;
+        case CSSValueOrdinal:
+            ordinal = FontVariantNumericOrdinal::Yes;
+            break;
+        case CSSValueSlashedZero:
+            slashedZero = FontVariantNumericSlashedZero::Yes;
+            break;
+        default:
+            if (unknownIsFailure)
+                return false;
+            continue;
+        }
+    }
+
+    switch (figure) {
+    case FontVariantNumericFigure::Normal:
+        break;
+    case FontVariantNumericFigure::LiningNumbers:
+        values->append(cssValuePool().createIdentifierValue(CSSValueLiningNums));
+        break;
+    case FontVariantNumericFigure::OldStyleNumbers:
+        values->append(cssValuePool().createIdentifierValue(CSSValueOldstyleNums));
+        break;
+    }
+
+    switch (spacing) {
+    case FontVariantNumericSpacing::Normal:
+        break;
+    case FontVariantNumericSpacing::ProportionalNumbers:
+        values->append(cssValuePool().createIdentifierValue(CSSValueProportionalNums));
+        break;
+    case FontVariantNumericSpacing::TabularNumbers:
+        values->append(cssValuePool().createIdentifierValue(CSSValueTabularNums));
+        break;
+    }
+
+    switch (fraction) {
+    case FontVariantNumericFraction::Normal:
+        break;
+    case FontVariantNumericFraction::DiagonalFractions:
+        values->append(cssValuePool().createIdentifierValue(CSSValueDiagonalFractions));
+        break;
+    case FontVariantNumericFraction::StackedFractions:
+        values->append(cssValuePool().createIdentifierValue(CSSValueStackedFractions));
+        break;
+    }
+
+    switch (ordinal) {
+    case FontVariantNumericOrdinal::Normal:
+        break;
+    case FontVariantNumericOrdinal::Yes:
+        values->append(cssValuePool().createIdentifierValue(CSSValueOrdinal));
+        break;
+    }
+
+    switch (slashedZero) {
+    case FontVariantNumericSlashedZero::Normal:
+        break;
+    case FontVariantNumericSlashedZero::Yes:
+        values->append(cssValuePool().createIdentifierValue(CSSValueSlashedZero));
+        break;
+    }
+
+    if (!values->length())
+        return !unknownIsFailure;
+
+    addProperty(CSSPropertyFontVariantNumeric, WTF::move(values), important, implicit);
+    return true;
+}
+
+bool CSSParser::parseFontVariantEastAsian(bool important, bool unknownIsFailure, bool implicit)
+{
+    auto values = CSSValueList::createSpaceSeparated();
+    FontVariantEastAsianVariant variant = FontVariantEastAsianVariant::Normal;
+    FontVariantEastAsianWidth width = FontVariantEastAsianWidth::Normal;
+    FontVariantEastAsianRuby ruby = FontVariantEastAsianRuby::Normal;
+
+    for (CSSParserValue* value = m_valueList->current(); value; value = m_valueList->next()) {
+        if (value->unit != CSSPrimitiveValue::CSS_IDENT)
+            return false;
+
+        switch (value->id) {
+        case CSSValueJis78:
+            variant = FontVariantEastAsianVariant::Jis78;
+            break;
+        case CSSValueJis83:
+            variant = FontVariantEastAsianVariant::Jis83;
+            break;
+        case CSSValueJis90:
+            variant = FontVariantEastAsianVariant::Jis90;
+            break;
+        case CSSValueJis04:
+            variant = FontVariantEastAsianVariant::Jis04;
+            break;
+        case CSSValueSimplified:
+            variant = FontVariantEastAsianVariant::Simplified;
+            break;
+        case CSSValueTraditional:
+            variant = FontVariantEastAsianVariant::Traditional;
+            break;
+        case CSSValueFullWidth:
+            width = FontVariantEastAsianWidth::Full;
+            break;
+        case CSSValueProportionalWidth:
+            width = FontVariantEastAsianWidth::Proportional;
+            break;
+        case CSSValueRuby:
+            ruby = FontVariantEastAsianRuby::Yes;
+            break;
+        default:
+            if (unknownIsFailure)
+                return false;
+            continue;
+        }
+    }
+
+    switch (variant) {
+    case FontVariantEastAsianVariant::Normal:
+        break;
+    case FontVariantEastAsianVariant::Jis78:
+        values->append(cssValuePool().createIdentifierValue(CSSValueJis78));
+        break;
+    case FontVariantEastAsianVariant::Jis83:
+        values->append(cssValuePool().createIdentifierValue(CSSValueJis83));
+        break;
+    case FontVariantEastAsianVariant::Jis90:
+        values->append(cssValuePool().createIdentifierValue(CSSValueJis90));
+        break;
+    case FontVariantEastAsianVariant::Jis04:
+        values->append(cssValuePool().createIdentifierValue(CSSValueJis04));
+        break;
+    case FontVariantEastAsianVariant::Simplified:
+        values->append(cssValuePool().createIdentifierValue(CSSValueSimplified));
+        break;
+    case FontVariantEastAsianVariant::Traditional:
+        values->append(cssValuePool().createIdentifierValue(CSSValueTraditional));
+        break;
+    }
+
+    switch (width) {
+    case FontVariantEastAsianWidth::Normal:
+        break;
+    case FontVariantEastAsianWidth::Full:
+        values->append(cssValuePool().createIdentifierValue(CSSValueFullWidth));
+        break;
+    case FontVariantEastAsianWidth::Proportional:
+        values->append(cssValuePool().createIdentifierValue(CSSValueProportionalWidth));
+        break;
+    }
+
+    switch (ruby) {
+    case FontVariantEastAsianRuby::Normal:
+        break;
+    case FontVariantEastAsianRuby::Yes:
+        values->append(cssValuePool().createIdentifierValue(CSSValueRuby));
+    }
+
+    if (!values->length())
+        return !unknownIsFailure;
+
+    addProperty(CSSPropertyFontVariantEastAsian, WTF::move(values), important, implicit);
+    return true;
+}
+
+bool CSSParser::parseFontVariant(bool important)
+{
+    ShorthandScope scope(this, CSSPropertyFontVariant);
+    if (!parseFontVariantLigatures(important, false, false))
+        return false;
+    m_valueList->setCurrentIndex(0);
+    if (!parseFontVariantNumeric(important, false, false))
+        return false;
+    m_valueList->setCurrentIndex(0);
+    if (!parseFontVariantEastAsian(important, false, false))
+        return false;
+    m_valueList->setCurrentIndex(0);
+
+    FontVariantPosition position = FontVariantPosition::Normal;
+    FontVariantCaps caps = FontVariantCaps::Normal;
+    FontVariantAlternates alternates = FontVariantAlternates::Normal;
 
     for (CSSParserValue* value = m_valueList->current(); value; value = m_valueList->next()) {
         if (value->unit != CSSPrimitiveValue::CSS_IDENT)
@@ -10429,34 +10823,157 @@ bool CSSParser::parseFontVariantLigatures(bool important)
         switch (value->id) {
         case CSSValueNoCommonLigatures:
         case CSSValueCommonLigatures:
-            if (sawCommonLigaturesValue)
-                return false;
-            sawCommonLigaturesValue = true;
-            ligatureValues->append(cssValuePool().createIdentifierValue(value->id));
-            break;
         case CSSValueNoDiscretionaryLigatures:
         case CSSValueDiscretionaryLigatures:
-            if (sawDiscretionaryLigaturesValue)
-                return false;
-            sawDiscretionaryLigaturesValue = true;
-            ligatureValues->append(cssValuePool().createIdentifierValue(value->id));
-            break;
         case CSSValueNoHistoricalLigatures:
         case CSSValueHistoricalLigatures:
-            if (sawHistoricalLigaturesValue)
-                return false;
-            sawHistoricalLigaturesValue = true;
-            ligatureValues->append(cssValuePool().createIdentifierValue(value->id));
+        case CSSValueContextual:
+        case CSSValueNoContextual:
+        case CSSValueLiningNums:
+        case CSSValueOldstyleNums:
+        case CSSValueProportionalNums:
+        case CSSValueTabularNums:
+        case CSSValueDiagonalFractions:
+        case CSSValueStackedFractions:
+        case CSSValueOrdinal:
+        case CSSValueSlashedZero:
+        case CSSValueJis78:
+        case CSSValueJis83:
+        case CSSValueJis90:
+        case CSSValueJis04:
+        case CSSValueSimplified:
+        case CSSValueTraditional:
+        case CSSValueFullWidth:
+        case CSSValueProportionalWidth:
+        case CSSValueRuby:
+            break;
+        case CSSValueSub:
+            position = FontVariantPosition::Subscript;
+            break;
+        case CSSValueSuper:
+            position = FontVariantPosition::Superscript;
+            break;
+        case CSSValueSmallCaps:
+            caps = FontVariantCaps::Small;
+            break;
+        case CSSValueAllSmallCaps:
+            caps = FontVariantCaps::AllSmall;
+            break;
+        case CSSValuePetiteCaps:
+            caps = FontVariantCaps::Petite;
+            break;
+        case CSSValueAllPetiteCaps:
+            caps = FontVariantCaps::AllPetite;
+            break;
+        case CSSValueUnicase:
+            caps = FontVariantCaps::Unicase;
+            break;
+        case CSSValueTitlingCaps:
+            caps = FontVariantCaps::Titling;
+            break;
+        case CSSValueHistoricalForms:
+            alternates = FontVariantAlternates::HistoricalForms;
             break;
         default:
             return false;
         }
     }
 
-    if (!ligatureValues->length())
+    switch (position) {
+    case FontVariantPosition::Normal:
+        break;
+    case FontVariantPosition::Subscript:
+        addProperty(CSSPropertyFontVariantPosition, cssValuePool().createIdentifierValue(CSSValueSub), important, false);
+        break;
+    case FontVariantPosition::Superscript:
+        addProperty(CSSPropertyFontVariantPosition, cssValuePool().createIdentifierValue(CSSValueSuper), important, false);
+        break;
+    }
+
+    switch (caps) {
+    case FontVariantCaps::Normal:
+        break;
+    case FontVariantCaps::Small:
+        addProperty(CSSPropertyFontVariantCaps, cssValuePool().createIdentifierValue(CSSValueSmallCaps), important, false);
+        break;
+    case FontVariantCaps::AllSmall:
+        addProperty(CSSPropertyFontVariantCaps, cssValuePool().createIdentifierValue(CSSValueAllSmallCaps), important, false);
+        break;
+    case FontVariantCaps::Petite:
+        addProperty(CSSPropertyFontVariantCaps, cssValuePool().createIdentifierValue(CSSValuePetiteCaps), important, false);
+        break;
+    case FontVariantCaps::AllPetite:
+        addProperty(CSSPropertyFontVariantCaps, cssValuePool().createIdentifierValue(CSSValueAllPetiteCaps), important, false);
+        break;
+    case FontVariantCaps::Unicase:
+        addProperty(CSSPropertyFontVariantCaps, cssValuePool().createIdentifierValue(CSSValueUnicase), important, false);
+        break;
+    case FontVariantCaps::Titling:
+        addProperty(CSSPropertyFontVariantCaps, cssValuePool().createIdentifierValue(CSSValueTitlingCaps), important, false);
+        break;
+    }
+
+    switch (alternates) {
+    case FontVariantAlternates::Normal:
+        break;
+    case FontVariantAlternates::HistoricalForms:
+        addProperty(CSSPropertyFontVariantAlternates, cssValuePool().createIdentifierValue(CSSValueHistoricalForms), important, false);
+        break;
+    }
+
+    return true;
+}
+
+static inline bool isValidWillChangeAnimatableFeature(const CSSParserValue& value)
+{
+    if (value.id == CSSValueNone || value.id == CSSValueAuto || value.id == CSSValueAll)
         return false;
 
-    addProperty(CSSPropertyWebkitFontVariantLigatures, ligatureValues.release(), important);
+    if (valueIsCSSKeyword(value))
+        return false;
+
+    if (cssPropertyID(value.string) == CSSPropertyWillChange)
+        return false;
+
+    return true;
+}
+
+bool CSSParser::parseWillChange(bool important)
+{
+    RefPtr<CSSValueList> willChangePropertyValues = CSSValueList::createCommaSeparated();
+
+    bool expectComma = false;
+    for (CSSParserValue* value = m_valueList->current(); value; value = m_valueList->next()) {
+        if (expectComma) {
+            if (!isComma(value))
+                return false;
+            
+            expectComma = false;
+            continue;
+        }
+
+        if (value->unit != CSSPrimitiveValue::CSS_IDENT)
+            return false;
+
+        if (!isValidWillChangeAnimatableFeature(*value))
+            return false;
+
+        RefPtr<CSSValue> cssValue;
+        if (value->id == CSSValueScrollPosition || value->id == CSSValueContents)
+            cssValue = cssValuePool().createIdentifierValue(value->id);
+        else {
+            CSSPropertyID propertyID = cssPropertyID(value->string);
+            if (propertyID != CSSPropertyInvalid)
+                cssValue = cssValuePool().createIdentifierValue(propertyID);
+            else // This might be a property we don't support.
+                cssValue = createPrimitiveStringValue(*value);
+        }
+
+        willChangePropertyValues->append(cssValue.releaseNonNull());
+        expectComma = true;
+    }
+
+    addProperty(CSSPropertyWillChange, willChangePropertyValues.release(), important);
     return true;
 }
 
@@ -10660,6 +11177,13 @@ static inline bool isURILetter(CharacterType character)
 
 template <typename CharacterType>
 static inline bool isIdentifierStartAfterDash(CharacterType* currentCharacter)
+{
+    return isASCIIAlpha(currentCharacter[0]) || currentCharacter[0] == '_' || currentCharacter[0] >= 128
+        || (currentCharacter[0] == '\\' && isCSSEscape(currentCharacter[1]));
+}
+
+template <typename CharacterType>
+static inline bool isCustomPropertyIdentifier(CharacterType* currentCharacter)
 {
     return isASCIIAlpha(currentCharacter[0]) || currentCharacter[0] == '_' || currentCharacter[0] >= 128
         || (currentCharacter[0] == '\\' && isCSSEscape(currentCharacter[1]));
@@ -10904,10 +11428,6 @@ inline bool CSSParser::parseIdentifierInternal(SrcCharacterType*& src, DestChara
 template <typename CharacterType>
 inline void CSSParser::parseIdentifier(CharacterType*& result, CSSParserString& resultString, bool& hasEscape)
 {
-    // If a valid identifier start is found, we can safely
-    // parse the identifier until the next invalid character.
-    ASSERT(isIdentifierStart<CharacterType>());
-
     CharacterType* start = currentCharacter<CharacterType>();
     if (UNLIKELY(!parseIdentifierInternal(currentCharacter<CharacterType>(), result, hasEscape))) {
         // Found an escape we couldn't handle with 8 bits, copy what has been recognized and continue
@@ -11157,6 +11677,10 @@ inline bool CSSParser::detectFunctionTypeToken(int length)
         }
         if (isASCIIAlphaCaselessEqual(name[0], 'u') && isASCIIAlphaCaselessEqual(name[1], 'r') && isASCIIAlphaCaselessEqual(name[2], 'l')) {
             m_token = URI;
+            return true;
+        }
+        if (isASCIIAlphaCaselessEqual(name[0], 'v') && isASCIIAlphaCaselessEqual(name[1], 'a') && isASCIIAlphaCaselessEqual(name[2], 'r')) {
+            m_token = VARFUNCTION;
             return true;
         }
 #if ENABLE(VIDEO_TRACK)
@@ -11850,6 +12374,11 @@ restartAfterComment:
         } else if (currentCharacter<SrcCharacterType>()[0] == '-' && currentCharacter<SrcCharacterType>()[1] == '>') {
             currentCharacter<SrcCharacterType>() += 2;
             m_token = SGML_CD;
+        } else if (currentCharacter<SrcCharacterType>()[0] == '-') {
+            --currentCharacter<SrcCharacterType>();
+            parseIdentifier(result, resultString, hasEscape);
+            m_token = CUSTOM_PROPERTY;
+            yylval->string = resultString;
         } else if (UNLIKELY(m_parsingMode == NthChildMode)) {
             // "-[0-9]+n" is always an NthChild.
             if (parseNthChild<SrcCharacterType>()) {
@@ -12216,8 +12745,6 @@ PassRefPtr<StyleRuleBase> CSSParser::createStyleRule(Vector<std::unique_ptr<CSSP
     if (selectors) {
         m_allowImportRules = false;
         m_allowNamespaceDeclarations = false;
-        if (m_hasFontFaceOnlyValues)
-            deleteFontFaceOnlyValues();
         rule = StyleRule::create(m_lastSelectorLineNumber, createStyleProperties());
         rule->parserAdoptSelectorVector(*selectors);
         processAndAddNewRuleToSourceTreeIfNeeded();
@@ -12232,9 +12759,7 @@ PassRefPtr<StyleRuleBase> CSSParser::createFontFaceRule()
     m_allowImportRules = m_allowNamespaceDeclarations = false;
     for (unsigned i = 0; i < m_parsedProperties.size(); ++i) {
         CSSProperty& property = m_parsedProperties[i];
-        if (property.id() == CSSPropertyFontVariant && property.value()->isPrimitiveValue())
-            property.wrapValueInCommaSeparatedList();
-        else if (property.id() == CSSPropertyFontFamily && (!is<CSSValueList>(*property.value()) || downcast<CSSValueList>(*property.value()).length() != 1)) {
+        if (property.id() == CSSPropertyFontFamily && (!is<CSSValueList>(*property.value()) || downcast<CSSValueList>(*property.value()).length() != 1)) {
             // Unlike font-family property, font-family descriptor in @font-face rule
             // has to be a value list with exactly one family name. It cannot have a
             // have 'initial' value and cannot 'inherit' from parent.
@@ -12390,14 +12915,6 @@ void CSSParser::endDeclarationsForMarginBox()
 {
     rollbackLastProperties(m_parsedProperties.size() - m_numParsedPropertiesBeforeMarginBox);
     m_numParsedPropertiesBeforeMarginBox = INVALID_NUM_PARSED_PROPERTIES;
-}
-
-void CSSParser::deleteFontFaceOnlyValues()
-{
-    ASSERT(m_hasFontFaceOnlyValues);
-    m_parsedProperties.removeAllMatching([] (const CSSProperty& property) {
-        return property.id() == CSSPropertyFontVariant && property.value()->isValueList();
-    });
 }
 
 PassRefPtr<StyleKeyframe> CSSParser::createKeyframe(CSSParserValueList& keys)

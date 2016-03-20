@@ -36,6 +36,7 @@
 #include <vproc.h>
 #endif
 #include <dispatch/dispatch.h>
+#include <network/nat64.h>
 #include "vmbuf.h"
 #include "ipsec_doi.h"
 
@@ -83,6 +84,7 @@ struct vpnctl_socket_elem {
 struct bound_addr {
 	LIST_ENTRY(bound_addr) chain;
 	u_int32_t	address;
+	nw_nat64_prefix_t nat64_prefix;
 	vchar_t		*user_id;
 	vchar_t		*user_pw;
 	vchar_t		*version;	/* our version string - if present */

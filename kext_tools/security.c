@@ -29,6 +29,8 @@
 #include <sys/csr.h>
 #include <servers/bootstrap.h>
 #include <IOKit/kext/kextmanager_types.h>
+#include <msgtracer_client.h>
+#include <msgtracer_keys.h>
 
 #include "security.h"
 #include "kext_tools_util.h"
@@ -56,6 +58,65 @@ static uint64_t     getKextDevModeFlags(void);
 #if USE_OLD_EXCEPTION_LIST
 static Boolean bundleIdIsInExceptionList(OSKextRef theKext, CFDictionaryRef theDict);
 #endif
+
+/*******************************************************************************
+ * messageTraceStrictValidateFailure() - log MessageTracer message for kexts
+ * that fail signature check when we add kSecCSStrictValidate to 
+ * SecStaticCodeCheckValidity call.
+ * <rdar://problem/23183961>
+ *******************************************************************************/
+
+void messageTraceStrictValidateFailure(OSKextRef theKext, OSStatus theResult)
+{
+    CFStringRef     versionString;
+    CFStringRef     bundleIDString;
+    CFURLRef        kextURL             = NULL;   // must release
+    CFStringRef     kextName            = NULL;   // must release
+    char            *versionCString     = NULL;   // must free
+    char            *bundleIDCString    = NULL;   // must free
+    char            *kextNameCString    = NULL;   // must free
+    char            resultString[32];
+    
+    kextURL = CFURLCopyAbsoluteURL(OSKextGetURL(theKext));
+    if (!kextURL) {
+        OSKextLogMemError();
+        goto finish;
+    }
+    versionString = OSKextGetValueForInfoDictionaryKey(theKext,
+                                                       kCFBundleVersionKey);
+    if (versionString) {
+        versionCString = createUTF8CStringForCFString(versionString);
+    }
+
+    bundleIDString = OSKextGetIdentifier(theKext);
+    if (bundleIDString) {
+        bundleIDCString = createUTF8CStringForCFString(bundleIDString);
+    }
+    
+    kextName = CFURLCopyLastPathComponent(kextURL);
+    if (kextName) {
+        kextNameCString = createUTF8CStringForCFString(kextName);
+    }
+    
+    /* log the message tracer data
+     */
+    snprintf(resultString, sizeof(resultString), "%d", (int) theResult);
+    msgtracer_log_with_keys("com.apple.kext.strictvalidation", ASL_LEVEL_NOTICE,
+                                "com.apple.message.result", resultString,
+                                "com.apple.message.signature", bundleIDString ? bundleIDCString : "none",
+                                "com.apple.message.signature2", versionString ? versionCString : "none",
+                                "com.apple.message.signature3", kextName ? kextNameCString : "none",
+                                "com.apple.message.summarize", "YES",
+                               NULL);
+finish:
+    SAFE_FREE(versionCString);
+    SAFE_FREE(bundleIDCString);
+    SAFE_FREE(kextNameCString);
+    SAFE_RELEASE(kextURL);
+    SAFE_RELEASE(kextName);
+   
+    return;
+}
 
 /*******************************************************************************
  * messageTraceExcludedKext() - log MessageTracer message for kexts in 
@@ -199,6 +260,7 @@ finish:
 
 /*******************************************************************************
  * getAdhocSignatureHash() - create a hash signature for an unsigned kext
+ *  Syrah requires new adhoc signing rules (16411212)
  *******************************************************************************/
 
 static void getAdhocSignatureHash(CFURLRef kextURL, char ** signatureBuffer)
@@ -218,7 +280,8 @@ static void getAdhocSignatureHash(CFURLRef kextURL, char ** signatureBuffer)
     char *              tempBufPtr      = NULL;   // do not free
     CFNumberRef         myNumValue      = NULL;   // must release
     CFNumberRef         myRealValue     = NULL;   // must release
-    
+    CFNumberRef         myHashNumValue  = NULL;   // must release
+
     /* Ad-hoc sign the code temporarily so we can get its hash */
     if (SecStaticCodeCreateWithPath(kextURL,
                                     kSecCSDefaultFlags,
@@ -245,6 +308,15 @@ static void getAdhocSignatureHash(CFURLRef kextURL, char ** signatureBuffer)
     CFDictionarySetValue(signdict, kSecCodeSignerIdentity, kCFNull);
     CFDictionarySetValue(signdict, kSecCodeSignerDetached, signature);
     
+    int myHashNum = kSecCodeSignatureHashSHA1;
+    myHashNumValue = CFNumberCreate(kCFAllocatorDefault,
+                                    kCFNumberIntType, &myHashNum);
+    if (myHashNumValue == NULL) {
+        OSKextLogMemError();
+        goto finish;
+    }
+    CFDictionarySetValue(signdict, kSecCodeSignerDigestAlgorithm, myHashNumValue); // 24059794
+
     resourceRules = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                               &kCFTypeDictionaryKeyCallBacks,
                                               &kCFTypeDictionaryValueCallBacks);
@@ -339,7 +411,7 @@ static void getAdhocSignatureHash(CFURLRef kextURL, char ** signatureBuffer)
     // add both rules to signdict
     CFDictionarySetValue(signdict, kSecCodeSignerResourceRules, resourceRules);
     
-    if (SecCodeSignerCreate(signdict, kSecCSDefaultFlags, &signerRef) != 0) {
+    if (SecCodeSignerCreate(signdict, kSecCSDefaultFlags | kSecCSSignOpaque, &signerRef) != 0) {
         OSKextLog(NULL, kOSKextLogDebugLevel | kOSKextLogGeneralFlag,
                   "%s - SecCodeSignerCreate failed", __func__);
         goto finish;
@@ -1273,8 +1345,10 @@ OSStatus checkKextSignature(OSKextRef aKext,
                             Boolean earlyBoot)
 {
     OSStatus                result          = errSecCSSignatureFailed;
+    OSStatus                strict_result   = 0;
     CFURLRef                kextURL         = NULL;   // must release
     SecStaticCodeRef        staticCodeRef   = NULL;   // must release
+    SecStaticCodeRef        strict_staticCodeRef = NULL; // must release
     SecRequirementRef       requirementRef  = NULL;   // must release
     CFStringRef             myCFString;
     CFStringRef             requirementsString;
@@ -1296,6 +1370,12 @@ OSStatus checkKextSignature(OSKextRef aKext,
         OSKextLogMemError();
         goto finish;
     }
+    
+#if 1 // workaround for 24079932, don't care if this fails
+    SecStaticCodeCreateWithPath(kextURL,
+                                kSecCSDefaultFlags,
+                                &strict_staticCodeRef);
+#endif
     
     /* set up correct requirement string.  Apple kexts are signed by B&I while
      * 3rd party kexts are signed through a special developer kext devid
@@ -1325,14 +1405,38 @@ OSStatus checkKextSignature(OSKextRef aKext,
     
     // errSecCSUnsigned == -67062
     if (earlyBoot) {
+        // 23183961 - message trace kSecCSStrictValidate issues...
+        if (strict_staticCodeRef) {
+            strict_result = SecStaticCodeCheckValidity(strict_staticCodeRef,
+                                                       kSecCSNoNetworkAccess |
+                                                       kSecCSCheckAllArchitectures |
+                                                       kSecCSStrictValidate,
+                                                       requirementRef);
+        }
         result = SecStaticCodeCheckValidity(staticCodeRef,
                                             kSecCSNoNetworkAccess | kSecCSCheckAllArchitectures,
                                             requirementRef);
+        if (strict_result != 0 && result == 0) {
+            // strict check fails when non strict did not
+            messageTraceStrictValidateFailure(aKext, strict_result);
+        }
     }
     else {
+        // 23183961 - message trace kSecCSStrictValidate issues...
+        if (strict_staticCodeRef) {
+            strict_result = SecStaticCodeCheckValidity(strict_staticCodeRef,
+                                                       kSecCSEnforceRevocationChecks |
+                                                       kSecCSCheckAllArchitectures |
+                                                       kSecCSStrictValidate,
+                                                       requirementRef);
+        }
         result = SecStaticCodeCheckValidity(staticCodeRef,
                                             kSecCSEnforceRevocationChecks | kSecCSCheckAllArchitectures,
                                             requirementRef);
+        if (strict_result != 0 && result == 0) {
+            // strict check fails when non strict did not
+            messageTraceStrictValidateFailure(aKext, strict_result);
+        }
     }
     if ( result != 0 &&
         checkExceptionList &&
@@ -1344,6 +1448,7 @@ finish:
     SAFE_RELEASE(kextURL);
     SAFE_RELEASE(staticCodeRef);
     SAFE_RELEASE(requirementRef);
+    SAFE_RELEASE(strict_staticCodeRef);
     
     return result;
 }

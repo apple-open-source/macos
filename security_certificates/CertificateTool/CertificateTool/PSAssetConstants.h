@@ -13,7 +13,7 @@
 enum
 {
     isAnchor = (1UL << 0),
-    isBlackListed = (1UL << 1),
+    isBlocked = (1UL << 1),
     isGrayListed = (1UL << 2),
     hasFullCert = (1UL << 3),
     hasCertHash = (1UL << 4),

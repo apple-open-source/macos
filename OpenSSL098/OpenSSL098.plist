@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2015-07-14</string>
+	<string>2016-01-14</string>
 	<key>OpenSourceLicense</key>
 	<string>openssl</string>
 	<key>OpenSourceLicenseFile</key>
@@ -23,7 +23,7 @@
 	<key>OpenSourceProject</key>
 	<string>OpenSSL</string>
 	<key>OpenSourceVersion</key>
-	<string>0.9.8zg</string>
+	<string>0.9.8zh</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.openssl.org/</string>
 </dict>

@@ -71,6 +71,21 @@ CFDataRef copyData(CFTypeRef obj) {
     }
 }
 
+CFTypeRef copyUUID(CFTypeRef obj) {
+    CFTypeID tid = CFGetTypeID(obj);
+    if (tid == CFDataGetTypeID()) {
+        CFIndex length = CFDataGetLength(obj);
+        if (length != 0 && length != 16)
+            return NULL;
+        return CFDataCreateCopy(NULL, obj);
+    } if (tid == CFNullGetTypeID()) {
+        return CFDataCreate(NULL, NULL, 0);
+    } else {
+        return NULL;
+    }
+}
+
+
 CFTypeRef copyBlob(CFTypeRef obj) {
     CFTypeID tid = CFGetTypeID(obj);
     if (tid == CFDataGetTypeID()) {
@@ -160,8 +175,18 @@ static CFNumberRef SecDbColumnCopyNumber(CFAllocatorRef allocator, sqlite3_stmt 
     }
 }
 
-static CFStringRef SecDbColumnCopyString(CFAllocatorRef allocator, sqlite3_stmt *stmt, int col, CFErrorRef *error) {
+static CFTypeRef SecDbColumnCopyString(CFAllocatorRef allocator, sqlite3_stmt *stmt, int col, CFErrorRef *error,
+                                       CFOptionFlags flags) {
     const unsigned char *text = sqlite3_column_text(stmt, col);
+    if (!text || 0 == strlen((const char *)text)) {
+        if (flags & kSecDbDefaultEmptyFlag) {
+            return CFSTR("");
+        } else if (flags & kSecDbDefault0Flag) {
+            return CFSTR("0");
+        } else {
+            return kCFNull;
+        }
+    }
     return CFStringCreateWithBytes(allocator, text, strlen((const char *)text), kCFStringEncodingUTF8, false);
 }
 
@@ -206,6 +231,9 @@ CFTypeRef SecDbAttrCopyDefaultValue(const SecDbAttr *attr, CFErrorRef *error) {
             break;
         case kSecDbBlobAttr:
         case kSecDbDataAttr:
+            value = CFDataCreate(kCFAllocatorDefault, NULL, 0);
+            break;
+        case kSecDbUUIDAttr:
             value = CFDataCreate(kCFAllocatorDefault, NULL, 0);
             break;
         case kSecDbNumberAttr:
@@ -399,6 +427,9 @@ static CFTypeRef SecDbItemCopyValue(SecDbItemRef item, const SecDbAttr *attr, CF
                 value = kCFNull;
             }
             break;
+        case kSecDbUUIDAttr:
+            value = CFDataCreate(CFGetAllocator(item), NULL, 0);
+            break;
         case kSecDbNumberAttr:
         case kSecDbSyncAttr:
         case kSecDbTombAttr:
@@ -471,7 +502,7 @@ static CFTypeRef SecDbItemCopyValueForDb(SecDbItemRef item, const SecDbAttr *des
     CFTypeRef value = NULL;
     CFStringRef hash_name = NULL;
     hash_name = SecDbAttrGetHashName(desc);
-    if ((desc->flags & (kSecDbSHA1ValueInFlag | kSecDbInFlag)) != 0) {
+    if ((desc->flags & kSecDbSHA1ValueInFlag) && (desc->flags & kSecDbInFlag)) {
         value = CFRetainSafe(CFDictionaryGetValue(item->attributes, hash_name));
     }
 
@@ -551,6 +582,20 @@ static CFStringRef SecDbItemCopyFormatDescription(CFTypeRef cf, CFDictionaryRef 
                             // We don't log these, just record that we saw the attribute.
                             CFStringAppend(attrs, CFSTR(","));
                             CFStringAppend(attrs, attr->name);
+                        }
+                    }
+                    break;
+                case kSecDbUUIDAttr:
+                    if ((value = SecDbItemGetValue(item, attr, NULL))) {
+                        if (CFEqual(attr->name, kSecAttrMultiUser)) {
+                            if (isData(value)) {
+                                CFStringAppend(attrs, CFSTR(","));
+                                if (CFDataGetLength(value)) {
+                                    CFStringAppendHexData(attrs, value);
+                                } else {
+                                    CFStringAppend(attrs, attr->name);
+                                }
+                            }
                         }
                     }
                     break;
@@ -753,6 +798,10 @@ bool SecDbItemSetValue(SecDbItemRef item, const SecDbAttr *desc, CFTypeRef value
             break;
         case kSecDbUTombAttr:
             attr = CFRetainSafe(asBoolean(value, NULL));
+            break;
+        case kSecDbUUIDAttr:
+            attr = copyUUID(value);
+            break;
     }
 
     if (attr) {
@@ -841,7 +890,8 @@ SecDbColumnCopyValueWithAttr(CFAllocatorRef allocator, sqlite3_stmt *stmt, const
                     value = SecDbColumnCopyDouble(allocator, stmt, col, error);
                     break;
                 case SQLITE_TEXT:
-                    value = SecDbColumnCopyString(allocator, stmt, col, error);
+                    value = SecDbColumnCopyString(allocator, stmt, col, error,
+                                                  attr->flags);
                     break;
                 case SQLITE_BLOB:
                     value = SecDbColumnCopyData(allocator, stmt, col, error);
@@ -853,9 +903,11 @@ SecDbColumnCopyValueWithAttr(CFAllocatorRef allocator, sqlite3_stmt *stmt, const
             break;
         case kSecDbAccessAttr:
         case kSecDbStringAttr:
-            value = SecDbColumnCopyString(allocator, stmt, col, error);
+            value = SecDbColumnCopyString(allocator, stmt, col, error,
+                                          attr->flags);
             break;
         case kSecDbDataAttr:
+        case kSecDbUUIDAttr:
         case kSecDbSHA1Attr:
         case kSecDbPrimaryKeyAttr:
         case kSecDbEncryptedDataAttr:
@@ -1057,7 +1109,7 @@ SecDbAppendWhereOrAndIn(CFMutableStringRef sql, CFStringRef col, bool *needWhere
         return SecDbAppendWhereOrAndEquals(sql, col, needWhere);
     SecDbAppendWhereOrAnd(sql, needWhere);
     CFStringAppend(sql, col);
-    CFStringAppend(sql, CFSTR(" in ("));
+    CFStringAppend(sql, CFSTR(" IN ("));
     SecDbAppendCountArgsAndCloseParen(sql, count);
 }
 
@@ -1067,7 +1119,7 @@ SecDbAppendWhereOrAndNotIn(CFMutableStringRef sql, CFStringRef col, bool *needWh
         return SecDbAppendWhereOrAndNotEquals(sql, col, needWhere);
     SecDbAppendWhereOrAnd(sql, needWhere);
     CFStringAppend(sql, col);
-    CFStringAppend(sql, CFSTR(" not in ("));
+    CFStringAppend(sql, CFSTR(" NOT IN ("));
     SecDbAppendCountArgsAndCloseParen(sql, count);
 }
 
@@ -1138,7 +1190,7 @@ bool SecDbItemSetRowId(SecDbItemRef item, sqlite3_int64 rowid, CFErrorRef *error
     return ok;
 }
 
-static bool SecDbItemClearRowId(SecDbItemRef item, CFErrorRef *error) {
+bool SecDbItemClearRowId(SecDbItemRef item, CFErrorRef *error) {
     bool ok = true;
     const SecDbAttr *attr = SecDbClassAttrWithKind(item->class, kSecDbRowIdAttr, error);
     if (attr) {
@@ -1196,7 +1248,7 @@ static SecDbQueryRef SecDbQueryCreateWithItemPrimaryKey(SecDbItemRef item, CFErr
     if (!dict)
         return NULL;
 
-    SecDbQueryRef query = query_create(item->class, NULL, error);
+    SecDbQueryRef query = query_create(item->class, NULL, NULL, error);
     if (query) {
         CFReleaseSafe(query->q_item);
         query->q_item = dict;

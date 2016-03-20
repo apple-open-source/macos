@@ -322,6 +322,24 @@ public:
 	virtual void copyBlob(CssmData &data);
 	virtual void setBatchMode(Boolean mode, Boolean rollback);
 
+    // Get the version of this database's encoding
+    virtual uint32 dbBlobVersion();
+
+    // Attempt to recode this database to the new version
+    virtual uint32 recodeDbToVersion(uint32 version);
+
+    // Try to take or release the file lock on the underlying database.
+    // You _must_ call these as a pair. They start a transaction on the
+    // underlying DL object, and that transaction is only finished when release
+    // is called. Pass success=true if you want the transaction to commit; otherwise
+    // it will roll back.
+    virtual void takeFileLock();
+    virtual void releaseFileLock(bool success);
+
+    // Make a backup of this database on the filesystem
+    virtual void makeBackup();
+
+
 	// Utility methods
 
 	// Always use the dbName and dbLocation that were passed in during
@@ -527,6 +545,13 @@ class DbAttributes : public CssmAutoDbRecordAttributeData
 public:
 	DbAttributes();
 	DbAttributes(const Db &db, uint32 capacity = 0, Allocator &allocator = Allocator::standard());
+
+    // Similar to CssmAutoDbRecordAttributeData::updateWith, but a different
+    // signature. Will canonicalize the elements in both this and the newValues dbAttributes.
+    void updateWithDbAttributes(DbAttributes* newValues);
+
+    // Try to change the infos in this database to a canonicalized form
+    void canonicalize();
 };
 
 

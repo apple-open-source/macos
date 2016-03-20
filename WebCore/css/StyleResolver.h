@@ -28,7 +28,7 @@
 #include "DocumentRuleSets.h"
 #include "InspectorCSSOMWrappers.h"
 #include "LinkHash.h"
-#include "MediaQueryExp.h"
+#include "MediaQueryEvaluator.h"
 #include "RenderStyle.h"
 #include "RuleFeature.h"
 #include "RuleSet.h"
@@ -38,6 +38,7 @@
 #include "SelectorFilter.h"
 #include "StyleInheritedData.h"
 #include "ViewportStyleResolver.h"
+#include <bitset>
 #include <memory>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
@@ -92,19 +93,6 @@ class ViewportStyleResolver;
 class WebKitCSSFilterValue;
 struct ResourceLoaderOptions;
 
-class MediaQueryResult {
-    WTF_MAKE_NONCOPYABLE(MediaQueryResult); WTF_MAKE_FAST_ALLOCATED;
-public:
-    MediaQueryResult(const MediaQueryExp& expr, bool result)
-        : m_expression(expr)
-        , m_result(result)
-    {
-    }
-
-    MediaQueryExp m_expression;
-    bool m_result;
-};
-
 enum StyleSharingBehavior {
     AllowStyleSharing,
     DisallowStyleSharing,
@@ -118,6 +106,12 @@ enum RuleMatchingBehavior {
     MatchAllRules,
     MatchAllRulesExcludingSMIL,
     MatchOnlyUserAgentRules,
+};
+
+enum CascadeLevel {
+    UserAgentLevel,
+    AuthorLevel,
+    UserLevel
 };
 
 class PseudoStyleRequest {
@@ -196,6 +190,8 @@ public:
     Vector<RefPtr<StyleRule>> pseudoStyleRulesForElement(Element*, PseudoId, unsigned rulesToInclude = AllButEmptyCSSRules);
 
 public:
+    struct MatchResult;
+
     void applyPropertyToStyle(CSSPropertyID, CSSValue*, RenderStyle*);
 
     void applyPropertyToCurrentStyle(CSSPropertyID, CSSValue*);
@@ -286,6 +282,45 @@ public:
     private:
         Vector<MatchedProperties, 64> m_matchedProperties;
     };
+    
+    class CascadedProperties {
+    public:
+        CascadedProperties(TextDirection, WritingMode);
+
+        struct Property {
+            void apply(StyleResolver&, const MatchResult*);
+
+            CSSPropertyID id;
+            CascadeLevel level;
+            CSSValue* cssValue[3];
+        };
+
+        bool hasProperty(CSSPropertyID) const;
+        Property& property(CSSPropertyID);
+        void addMatches(const MatchResult&, bool important, int startIndex, int endIndex, bool inheritedOnly = false);
+
+        void set(CSSPropertyID, CSSValue&, unsigned linkMatchType, CascadeLevel);
+        void setDeferred(CSSPropertyID, CSSValue&, unsigned linkMatchType, CascadeLevel);
+
+        void applyDeferredProperties(StyleResolver&, const MatchResult*);
+
+        HashMap<AtomicString, Property>& customProperties() { return m_customProperties; }
+        bool hasCustomProperty(const String&) const;
+        Property customProperty(const String&) const;
+        
+    private:
+        void addStyleProperties(const StyleProperties&, StyleRule&, bool isImportant, bool inheritedOnly, PropertyWhitelistType, unsigned linkMatchType, CascadeLevel);
+        static void setPropertyInternal(Property&, CSSPropertyID, CSSValue&, unsigned linkMatchType, CascadeLevel);
+
+        Property m_properties[numCSSProperties + 2];
+        std::bitset<numCSSProperties + 2> m_propertyIsPresent;
+
+        Vector<Property, 8> m_deferredProperties;
+        HashMap<AtomicString, Property> m_customProperties;
+
+        TextDirection m_direction;
+        WritingMode m_writingMode;
+    };
 
 private:
     // This function fixes up the default font size if it detects that the current generic font family has changed. -dwh
@@ -307,9 +342,7 @@ private:
     enum ShouldUseMatchedPropertiesCache { DoNotUseMatchedPropertiesCache = 0, UseMatchedPropertiesCache };
     void applyMatchedProperties(const MatchResult&, const Element*, ShouldUseMatchedPropertiesCache = UseMatchedPropertiesCache);
 
-    class CascadedProperties;
-
-    void applyCascadedProperties(CascadedProperties&, int firstProperty, int lastProperty);
+    void applyCascadedProperties(CascadedProperties&, int firstProperty, int lastProperty, const MatchResult*);
     void cascadeMatches(CascadedProperties&, const MatchResult&, bool important, int startIndex, int endIndex, bool inheritedOnly);
 
     static bool isValidRegionStyleProperty(CSSPropertyID);
@@ -378,7 +411,7 @@ public:
         bool applyPropertyToRegularStyle() const { return m_applyPropertyToRegularStyle; }
         bool applyPropertyToVisitedLinkStyle() const { return m_applyPropertyToVisitedLinkStyle; }
         PendingImagePropertyMap& pendingImageProperties() { return m_pendingImageProperties; }
-
+        
         Vector<RefPtr<ReferenceFilterOperation>>& filtersWithPendingSVGDocuments() { return m_filtersWithPendingSVGDocuments; }
 
         void setFontDirty(bool isDirty) { m_fontDirty = isDirty; }
@@ -404,6 +437,15 @@ public:
 
         CSSToLengthConversionData cssToLengthConversionData() const { return m_cssToLengthConversionData; }
 
+        CascadeLevel cascadeLevel() const { return m_cascadeLevel; }
+        void setCascadeLevel(CascadeLevel level) { m_cascadeLevel = level; }
+        
+        CascadedProperties* authorRollback() const { return m_authorRollback.get(); }
+        CascadedProperties* userRollback() const { return m_userRollback.get(); }
+        
+        void setAuthorRollback(std::unique_ptr<CascadedProperties>& rollback) { m_authorRollback = WTF::move(rollback); }
+        void setUserRollback(std::unique_ptr<CascadedProperties>& rollback) { m_userRollback = WTF::move(rollback); }
+        
     private:
         void updateConversionData();
 
@@ -436,6 +478,10 @@ public:
         Color m_backgroundColor;
 
         CSSToLengthConversionData m_cssToLengthConversionData;
+        
+        CascadeLevel m_cascadeLevel { UserAgentLevel };
+        std::unique_ptr<CascadedProperties> m_authorRollback;
+        std::unique_ptr<CascadedProperties> m_userRollback;
     };
 
     State& state() { return m_state; }
@@ -452,6 +498,11 @@ public:
 
     bool applyPropertyToRegularStyle() const { return m_state.applyPropertyToRegularStyle(); }
     bool applyPropertyToVisitedLinkStyle() const { return m_state.applyPropertyToVisitedLinkStyle(); }
+
+    CascadeLevel cascadeLevel() const { return m_state.cascadeLevel(); }
+    void setCascadeLevel(CascadeLevel level) { m_state.setCascadeLevel(level); }
+    
+    CascadedProperties* cascadedPropertiesForRollback(const MatchResult&);
 
     CSSToStyleMap* styleMap() { return &m_styleMap; }
     InspectorCSSOMWrappers& inspectorCSSOMWrappers() { return m_inspectorCSSOMWrappers; }
@@ -470,7 +521,8 @@ private:
 
     bool canShareStyleWithControl(StyledElement*) const;
 
-    void applyProperty(CSSPropertyID, CSSValue*);
+    void applyProperty(CSSPropertyID, CSSValue*, SelectorChecker::LinkMatchMask = SelectorChecker::MatchDefault, const MatchResult* = nullptr);
+    RefPtr<CSSValue> resolvedVariableValue(CSSPropertyID, const CSSVariableDependentValue&);
 
     void applySVGProperty(CSSPropertyID, CSSValue*);
 

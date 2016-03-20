@@ -29,6 +29,9 @@
 		<string>Updated sandbox for privilege-separated pre-authorization sshd process</string>
 		<string>Replaced use of OpenSSL with CommonCrypto</string>
 		<string>Use LibreSSL libcrypto</string>
+        <string>Fix CVE-2015-5600</string>
+        <string>Fix CVE-2015-6563 and CVE-2015-6564</string>
+        <string>Fix CVE-2016-0777 and CVE-2016-0778</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>OpenSSH</string>

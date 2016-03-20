@@ -48,57 +48,24 @@ typedef struct
     tls_buffer               contents;
 } SSLRecord;
 
-/***
- *** Each of {TLS, SSLv3} implements each of these functions.
- ***/
-
-/* decrypt, validate one record */
-typedef int (*decryptRecordFcn) (
-	uint8_t type,
-	tls_buffer *input,
-	tls_record_t ctx);
-
-/* pack, encrypt, mac, queue one outgoing record */
-typedef int (*writeRecordFcn) (
-	SSLRecord rec,
-	tls_record_t ctx);
-
-/* initialize a per-CipherContext HashHmacContext for use in MACing each record */
-typedef int (*initMacFcn) (
-    CipherContext *cipherCtx		// macRef, macSecret valid on entry
-									// macCtx valid on return
-);
-
-/* free per-CipherContext HashHmacContext */
-typedef int (*freeMacFcn) (
-	CipherContext *cipherCtx);
-
-/* compute MAC on one record */
-typedef int (*computeMacFcn) (
-	uint8_t type,
-	tls_buffer data,
-	tls_buffer mac, 					// caller mallocs data
-	CipherContext *cipherCtx,		// assumes macCtx, macRef
-	uint64_t seqNo,
-	tls_record_t ctx);
 
 
-typedef struct _SslRecordCallouts {
-	decryptRecordFcn			decryptRecord;
-	initMacFcn					initMac;
-	freeMacFcn					freeMac;
-	computeMacFcn				computeMac;
-} SslRecordCallouts;
+/* From tls_record_crypto.c */
+uint8_t muxb(bool s, uint8_t a, uint8_t b);
+uint32_t mux32(bool s, uint32_t a, uint32_t b);
+void mem_extract(uint8_t *dst, const uint8_t *src, size_t offset, size_t dst_len, size_t src_len);
+
+int SSLComputeMac(uint8_t type,
+                  tls_buffer *data,
+                  size_t padLen,
+                  uint8_t *outputMAC,
+                  CipherContext *cipherCtx,
+                  tls_protocol_version pv);
 
 
-/* From ssl3RecordCallouts.c and tls1RecordCallouts.c */
-extern const SslRecordCallouts  Ssl3RecordCallouts;
-extern const SslRecordCallouts	Tls1RecordCallouts;
-
-/* one callout routine used in common (for now) */
-int ssl3WriteRecord(
-	SSLRecord rec,
-	tls_record_t ctx);
+int SSLDecryptRecord(uint8_t type,
+                     tls_buffer *payload,
+                     tls_record_t ctx);
 
 
 typedef struct WaitingRecord
@@ -113,18 +80,10 @@ typedef struct WaitingRecord
     uint8_t					data[1];
 } WaitingRecord;
 
-typedef struct {
-    const HashHmacReference     *macAlgorithm;
-    const SSLSymmetricCipher          *cipher;
-} SSLRecordCipherSpec;
-
-
-
 struct _tls_record_s
 {
     /* ciphers */
     uint16_t            selectedCipher;			/* currently selected */
-    SSLRecordCipherSpec selectedCipherSpec;     /* ditto */
     CipherContext       readCipher;
     CipherContext       writeCipher;
     CipherContext       readPending;
@@ -136,17 +95,8 @@ struct _tls_record_s
     bool                splitEnabled;
     bool                firstDataRecordEncrypted;         /* flag set to true after the first app data record is sent, after a (re)negotiation */
     tls_protocol_version  negProtocolVersion;	/* negotiated */
-    const SslRecordCallouts   *sslTslCalls;
     struct ccrng_state * rng; /* corecrypto rng interface */
 };
-
-/* Function called from the ssl3/tls1 callouts */
-
-int SSLVerifyMac(
-                 uint8_t type,
-                 tls_buffer *data,
-                 uint8_t *compareMAC,
-                 tls_record_t ctx);
 
 #ifdef	__cplusplus
 }

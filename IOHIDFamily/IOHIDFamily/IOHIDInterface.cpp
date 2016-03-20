@@ -173,7 +173,7 @@ bool IOHIDInterface::start( IOService * provider )
     OSSafeReleaseNULL(number);
 
     number = (OSNumber*)copyProperty(kIOHIDCountryCodeKey);
-    if ( number ) _countryCode = number->unsigned32BitValue();
+    if ( OSDynamicCast(OSNumber, number) ) _countryCode = number->unsigned32BitValue();
     OSSafeReleaseNULL(number);
 
     number = (OSNumber*)_owner->copyProperty(kIOHIDMaxInputReportSizeKey);

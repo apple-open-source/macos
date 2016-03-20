@@ -70,6 +70,8 @@ public:
 	
 	virtual bool belongsToSystem() const; // belongs to system (root) security domain
 
+    virtual uint32 dbVersion() = 0;     // For databases that have a concept of version, return the version
+
 protected:
 	void notify(NotificationEvent event, const DLDbIdentifier &ident);
 };
@@ -147,6 +149,9 @@ public:
 		CssmData *param, uint32 usage, uint32 attrs, RefPointer<Key> &derivedKey) = 0;
 
 	virtual void authenticate(CSSM_DB_ACCESS_TYPE mode, const AccessCredentials *cred);
+
+    // returns true if these credentials contain a valid password or master key for this database
+    virtual bool checkCredentials(const AccessCredentials *cred);
 	virtual SecurityServerAcl &acl();
 
 	virtual bool isLocked();
@@ -205,6 +210,8 @@ public:
 	DbCommon& common() const			{ return parent<DbCommon>(); }
 	virtual const char *dbName() const = 0;
 	virtual void dbName(const char *name);
+
+    virtual uint32 dbVersion() { return common().dbVersion(); }
 };
 
 

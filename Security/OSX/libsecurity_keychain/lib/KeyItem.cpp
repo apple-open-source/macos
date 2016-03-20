@@ -33,11 +33,13 @@
 #include <security_cdsa_client/genkey.h>
 #include <security_cdsa_client/signclient.h>
 #include <security_cdsa_client/cryptoclient.h>
+#include <security_utilities/CSPDLTransaction.h>
 
 #include <security_keychain/Globals.h>
 #include "KCEventNotifier.h"
 #include <CommonCrypto/CommonDigest.h>
 #include <SecBase.h>
+#include <SecBasePriv.h>
 
 // @@@ This needs to be shared.
 #pragma clang diagnostic push
@@ -110,7 +112,16 @@ KeyItem::~KeyItem()
 void
 KeyItem::update()
 {
-	ItemImpl::update();
+    //Create a new CSPDLTransaction
+    Db db(mKeychain->database());
+    CSPDLTransaction transaction(db);
+
+    ItemImpl::update();
+
+    /* Update integrity on key */
+    setIntegrity();
+
+    transaction.success();
 }
 
 Item
@@ -221,7 +232,8 @@ KeyItem::copyTo(const Keychain &keychain, Access *newAccess)
 		throw;
 	}
 
-	/* Set the acl and owner on the unwrapped key. */
+    /* Set the acl and owner on the unwrapped key. */
+    addIntegrity(*access);
 	access->setAccess(*unwrappedKey, maker);
 
 	/* Return a keychain item which represents the new key.  */
@@ -321,9 +333,6 @@ KeyItem::importTo(const Keychain &keychain, Access *newAccess, SecKeychainAttrib
 	// Set the initial label, application label, and application tag (if provided)
 	if (attrList) {
 		DbAttributes newDbAttributes;
-		SSDbCursor otherDbCursor(ssDb, 1);
-		otherDbCursor->recordType(recordType());
-		bool checkForDuplicates = false;
 
 		for (UInt32 index=0; index < attrList->count; index++) {
 			SecKeychainAttribute attr = attrList->attr[index];
@@ -333,35 +342,17 @@ KeyItem::importTo(const Keychain &keychain, Access *newAccess, SecKeychainAttrib
 			}
 			if (attr.tag == kSecKeyLabel) {
 				newDbAttributes.add(kInfoKeyLabel, attrData);
-				otherDbCursor->add(CSSM_DB_EQUAL, kInfoKeyLabel, attrData);
-				checkForDuplicates = true;
 			}
 			if (attr.tag == kSecKeyApplicationTag) {
 				newDbAttributes.add(kInfoKeyApplicationTag, attrData);
-				otherDbCursor->add(CSSM_DB_EQUAL, kInfoKeyApplicationTag, attrData);
-				checkForDuplicates = true;
 			}
 		}
 
-		DbAttributes otherDbAttributes;
-		DbUniqueRecord otherUniqueId;
-		CssmClient::Key otherKey;
-		try
-		{
-			if (checkForDuplicates && otherDbCursor->nextKey(&otherDbAttributes, otherKey, otherUniqueId))
-				MacOSError::throwMe(errSecDuplicateItem);
-
-			uniqueId->modify(recordType(), &newDbAttributes, NULL, CSSM_DB_MODIFY_ATTRIBUTE_REPLACE);
-		}
-		catch (CssmError e)
-		{
-			// clean up after trying to insert a duplicate key
-			uniqueId->deleteRecord ();
-			throw;
-		}
+        modifyUniqueId(keychain, ssDb, uniqueId, newDbAttributes, recordType());
 	}
 
 	/* Set the acl and owner on the unwrapped key. */
+    addIntegrity(*access);
 	access->setAccess(*unwrappedKey, maker);
 
 	/* Return a keychain item which represents the new key.  */
@@ -573,7 +564,7 @@ KeyItem::createPair(
 
 	CSSM_CC_HANDLE ccHandle = 0;
 
-	Item publicKeyItem, privateKeyItem;
+	SecPointer<KeyItem> publicKeyItem, privateKeyItem;
 	try
 	{
 		CSSM_RETURN status;
@@ -661,19 +652,29 @@ KeyItem::createPair(
 		// Set the PrintName of the public key to the description in the acl.
 		pubDbAttributes.add(kInfoKeyLabel, pubKeyHash);
 		pubDbAttributes.add(kInfoKeyPrintName, *pubDescription);
-		pubUniqueId->modify(CSSM_DL_DB_RECORD_PUBLIC_KEY, &pubDbAttributes, NULL, CSSM_DB_MODIFY_ATTRIBUTE_REPLACE);
+        modifyUniqueId(keychain, ssDb, pubUniqueId, pubDbAttributes, CSSM_DL_DB_RECORD_PUBLIC_KEY);
 
 		// Set the label of the private key to the public key hash.
 		// Set the PrintName of the private key to the description in the acl.
 		privDbAttributes.add(kInfoKeyLabel, pubKeyHash);
 		privDbAttributes.add(kInfoKeyPrintName, *privDescription);
-		privUniqueId->modify(CSSM_DL_DB_RECORD_PRIVATE_KEY, &privDbAttributes, NULL, CSSM_DB_MODIFY_ATTRIBUTE_REPLACE);
+        modifyUniqueId(keychain, ssDb, privUniqueId, privDbAttributes, CSSM_DL_DB_RECORD_PRIVATE_KEY);
 
 		// @@@ Not exception safe!
 		csp.allocator().free(cssmData->Data);
 		csp.allocator().free(cssmData);
 
+        // Create keychain items which will represent the keys.
+        publicKeyItem = dynamic_cast<KeyItem*>(keychain->item(CSSM_DL_DB_RECORD_PUBLIC_KEY, pubUniqueId).get());
+        privateKeyItem = dynamic_cast<KeyItem*>(keychain->item(CSSM_DL_DB_RECORD_PRIVATE_KEY, privUniqueId).get());
+
+        if (!publicKeyItem || !privateKeyItem)
+        {
+            CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
+        }
+
 		// Finally fix the acl and owner of the private key to the specified access control settings.
+        privateKeyItem->addIntegrity(*initialAccess);
 		initialAccess->setAccess(*privateKey, maker);
 
 		if(publicKeyAttr & CSSM_KEYATTR_PUBLIC_KEY_ENCRYPT) {
@@ -684,28 +685,12 @@ KeyItem::createPair(
 			 * CDSA-specified behavior).
 			 */
 			SecPointer<Access> pubKeyAccess(new Access());
+            publicKeyItem->addIntegrity(*pubKeyAccess);
 			pubKeyAccess->setAccess(*publicKey, maker);
 		}
 
-		// Create keychain items which will represent the keys.
-		publicKeyItem = keychain->item(CSSM_DL_DB_RECORD_PUBLIC_KEY, pubUniqueId);
-		privateKeyItem = keychain->item(CSSM_DL_DB_RECORD_PRIVATE_KEY, privUniqueId);
-
-		KeyItem* impl = dynamic_cast<KeyItem*>(&(*publicKeyItem));
-		if (impl == NULL)
-		{
-			CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
-		}
-
-		outPublicKey = impl;
-
-		impl = dynamic_cast<KeyItem*>(&(*privateKeyItem));
-		if (impl == NULL)
-		{
-			CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
-		}
-
-		outPrivateKey = impl;
+        outPublicKey = publicKeyItem;
+        outPrivateKey = privateKeyItem;
 	}
 	catch (...)
 	{
@@ -781,7 +766,7 @@ KeyItem::importPair(
 
 	CSSM_CC_HANDLE ccHandle = 0;
 
-	Item publicKeyItem, privateKeyItem;
+	SecPointer<KeyItem> publicKeyItem, privateKeyItem;
 	try
 	{
 		CSSM_RETURN status;
@@ -896,38 +881,33 @@ KeyItem::importPair(
 		// Set the label of the public key to the public key hash.
 		// Set the PrintName of the public key to the description in the acl.
 		pubDbAttributes.add(kInfoKeyPrintName, *pubDescription);
-		pubUniqueId->modify(CSSM_DL_DB_RECORD_PUBLIC_KEY, &pubDbAttributes, NULL, CSSM_DB_MODIFY_ATTRIBUTE_REPLACE);
+        modifyUniqueId(keychain, ssDb, pubUniqueId, pubDbAttributes, CSSM_DL_DB_RECORD_PUBLIC_KEY);
 
 		// Set the label of the private key to the public key hash.
 		// Set the PrintName of the private key to the description in the acl.
 		privDbAttributes.add(kInfoKeyPrintName, *privDescription);
-		privUniqueId->modify(CSSM_DL_DB_RECORD_PRIVATE_KEY, &privDbAttributes, NULL, CSSM_DB_MODIFY_ATTRIBUTE_REPLACE);
+        modifyUniqueId(keychain, ssDb, privUniqueId, privDbAttributes, CSSM_DL_DB_RECORD_PRIVATE_KEY);
 
-		// Finally fix the acl and owner of the private key to the specified access control settings.
+        // Create keychain items which will represent the keys.
+        publicKeyItem = dynamic_cast<KeyItem*>(keychain->item(CSSM_DL_DB_RECORD_PUBLIC_KEY, pubUniqueId).get());
+        privateKeyItem = dynamic_cast<KeyItem*>(keychain->item(CSSM_DL_DB_RECORD_PRIVATE_KEY, privUniqueId).get());
+
+        if (!publicKeyItem || !privateKeyItem)
+        {
+            CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
+        }
+
+        // Finally fix the acl and owner of the private key to the specified access control settings.
+        privateKeyItem->addIntegrity(*initialAccess);
 		initialAccess->setAccess(*privateKey, maker);
 
 		// Make the public key acl completely open
 		SecPointer<Access> pubKeyAccess(new Access());
+        publicKeyItem->addIntegrity(*pubKeyAccess);
 		pubKeyAccess->setAccess(*publicKey, maker);
 
-		// Create keychain items which will represent the keys.
-		publicKeyItem = keychain->item(CSSM_DL_DB_RECORD_PUBLIC_KEY, pubUniqueId);
-		privateKeyItem = keychain->item(CSSM_DL_DB_RECORD_PRIVATE_KEY, privUniqueId);
-
-		KeyItem* impl = dynamic_cast<KeyItem*>(&(*publicKeyItem));
-		if (impl == NULL)
-		{
-			CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
-		}
-
-		outPublicKey = impl;
-
-		impl = dynamic_cast<KeyItem*>(&(*privateKeyItem));
-		if (impl == NULL)
-		{
-			CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
-		}
-		outPrivateKey = impl;
+        outPublicKey = publicKeyItem;
+        outPrivateKey = privateKeyItem;
 	}
 	catch (...)
 	{
@@ -952,8 +932,8 @@ KeyItem::importPair(
 
 	if (keychain && publicKeyItem && privateKeyItem)
 	{
-		KCEventNotifier::PostKeychainEvent(kSecAddEvent, keychain, publicKeyItem);
-		KCEventNotifier::PostKeychainEvent(kSecAddEvent, keychain, privateKeyItem);
+		KCEventNotifier::PostKeychainEvent(kSecAddEvent, keychain, Item(publicKeyItem));
+		KCEventNotifier::PostKeychainEvent(kSecAddEvent, keychain, Item(privateKeyItem));
 	}
 }
 
@@ -1005,7 +985,10 @@ KeyItem::generateWithAttributes(const SecKeychainAttributeList *attrList,
 	ResourceControlContext *prcc = NULL, rcc;
 	const AccessCredentials *cred = NULL;
 	Access::Maker maker;
-	if (keychain && initialAccess)
+
+
+
+	if (keychain)
 	{
 		memset(&rcc, 0, sizeof(rcc));
 		// @@@ Potentially provide a credential argument which allows us to generate keys in the csp.
@@ -1015,13 +998,18 @@ KeyItem::generateWithAttributes(const SecKeychainAttributeList *attrList,
 		// Create the cred we need to manipulate the keys until we actually set a new access control for them.
 		cred = maker.cred();
 		prcc = &rcc;
-	}
+
+        if (!initialAccess) {
+            // We don't have an access, but we need to set integrity. Make an Access.
+            initialAccess = new Access(string(label));
+        }
+    }
 
 	CSSM_KEY cssmKey;
 
 	CSSM_CC_HANDLE ccHandle = 0;
 
-	Item keyItem;
+	SecPointer<KeyItem> keyItem;
 	try
 	{
 		CSSM_RETURN status;
@@ -1071,9 +1059,6 @@ KeyItem::generateWithAttributes(const SecKeychainAttributeList *attrList,
 			// Set the initial label, application label, and application tag (if provided)
 			if (attrList) {
 				DbAttributes newDbAttributes;
-				SSDbCursor otherDbCursor(ssDb, 1);
-				otherDbCursor->recordType(CSSM_DL_DB_RECORD_SYMMETRIC_KEY);
-				bool checkForDuplicates = false;
 
 				for (UInt32 index=0; index < attrList->count; index++) {
 					SecKeychainAttribute attr = attrList->attr[index];
@@ -1083,31 +1068,21 @@ KeyItem::generateWithAttributes(const SecKeychainAttributeList *attrList,
 					}
 					if (attr.tag == kSecKeyLabel) {
 						newDbAttributes.add(kInfoKeyLabel, attrData);
-						otherDbCursor->add(CSSM_DB_EQUAL, kInfoKeyLabel, attrData);
-						checkForDuplicates = true;
 					}
 					if (attr.tag == kSecKeyApplicationTag) {
 						newDbAttributes.add(kInfoKeyApplicationTag, attrData);
-						otherDbCursor->add(CSSM_DB_EQUAL, kInfoKeyApplicationTag, attrData);
-						checkForDuplicates = true;
 					}
 				}
 
-				DbAttributes otherDbAttributes;
-				DbUniqueRecord otherUniqueId;
-				CssmClient::Key otherKey;
-				if (checkForDuplicates && otherDbCursor->nextKey(&otherDbAttributes, otherKey, otherUniqueId))
-					MacOSError::throwMe(errSecDuplicateItem);
+                modifyUniqueId(keychain, ssDb, uniqueId, newDbAttributes, CSSM_DL_DB_RECORD_SYMMETRIC_KEY);
+            }
 
-				uniqueId->modify(CSSM_DL_DB_RECORD_SYMMETRIC_KEY, &newDbAttributes, NULL, CSSM_DB_MODIFY_ATTRIBUTE_REPLACE);
-			}
+            // Create keychain item which will represent the key.
+            keyItem = dynamic_cast<KeyItem *>(keychain->item(CSSM_DL_DB_RECORD_SYMMETRIC_KEY, uniqueId).get());
 
-			// Finally, fix the acl and owner of the key to the specified access control settings.
-			if (initialAccess)
-				initialAccess->setAccess(*key, maker);
-
-			// Create keychain item which will represent the key.
-			keyItem = keychain->item(CSSM_DL_DB_RECORD_SYMMETRIC_KEY, uniqueId);
+            // Finally, fix the acl and owner of the key to the specified access control settings.
+            keyItem->addIntegrity(*initialAccess);
+            initialAccess->setAccess(*key, maker);
 		}
 		else
 		{
@@ -1418,3 +1393,97 @@ CFHashCode KeyItem::hash()
 	return result;
 }
 
+void KeyItem::setIntegrity(bool force) {
+    ItemImpl::setIntegrity(*key(), force);
+}
+
+bool KeyItem::checkIntegrity() {
+    if(!isPersistent()) {
+        return true;
+    }
+
+    return ItemImpl::checkIntegrity(*key());
+}
+
+// KeyItems are a little bit special: the only modifications you can do to them
+// is to change their Print Name, Label, or Application Tag.
+//
+// When we do this modification, we need to look ahead to see if there's an item
+// that's already there. If there are, we're going to throw a errSecDuplicateItem.
+//
+// Unless that item doesn't pass the integrity check, in which case we delete it
+// and continue with the add.
+void KeyItem::modifyUniqueId(Keychain keychain, SSDb ssDb, DbUniqueRecord& uniqueId, DbAttributes& newDbAttributes, CSSM_DB_RECORDTYPE recordType) {
+    SSDbCursor otherDbCursor(ssDb, 1);
+    otherDbCursor->recordType(recordType);
+
+    bool checkForDuplicates = false;
+    // Set up the ssdb cursor
+    CssmDbAttributeData* label = newDbAttributes.findAttribute(kInfoKeyLabel);
+    if(label) {
+        otherDbCursor->add(CSSM_DB_EQUAL, kInfoKeyLabel, label->at(0));
+        checkForDuplicates = true;
+    }
+    CssmDbAttributeData* apptag = newDbAttributes.findAttribute(kInfoKeyApplicationTag);
+    if(apptag) {
+        otherDbCursor->add(CSSM_DB_EQUAL, kInfoKeyApplicationTag, apptag->at(0));
+        checkForDuplicates = true;
+    }
+
+    // KeyItems only have integrity if the keychain supports it; otherwise,
+    // don't pre-check for duplicates
+    if((!keychain) || !keychain->hasIntegrityProtection()) {
+        secdebugfunc("integrity", "key skipping duplicate integrity check due to keychain version");
+        checkForDuplicates = false;
+    }
+
+    if (checkForDuplicates) {
+        secdebugfunc("integrity", "looking for duplicates");
+        // If there are duplicates that are invalid, delete it and
+        // continue. Otherwise, if there are duplicates, throw errSecDuplicateItem.
+        DbAttributes otherDbAttributes;
+        DbUniqueRecord otherUniqueId;
+        CssmClient::Key otherKey;
+
+        while(otherDbCursor->nextKey(&otherDbAttributes, otherKey, otherUniqueId)) {
+            secdebugfunc("integrity", "found a duplicate, checking integrity");
+
+            PrimaryKey pk = keychain->makePrimaryKey(recordType, otherUniqueId);
+
+            ItemImpl* maybeItem = keychain->_lookupItem(pk);
+            if(maybeItem) {
+                if(maybeItem->checkIntegrity()) {
+                    secdebugfunc("integrity", "duplicate is real, throwing error");
+                    MacOSError::throwMe(errSecDuplicateItem);
+                } else {
+                    secdebugfunc("integrity", "existing duplicate item is invalid, removing...");
+                    Item item(maybeItem);
+                    keychain->deleteItem(item);
+                }
+            } else {
+                KeyItem temp(keychain, pk, otherUniqueId);
+
+                if(temp.checkIntegrity()) {
+                    secdebugfunc("integrity", "duplicate is real, throwing error");
+                    MacOSError::throwMe(errSecDuplicateItem);
+                } else {
+                    secdebugfunc("integrity", "duplicate is invalid, removing");
+                    // Keychain's idea of deleting items involves notifications and callbacks. We don't want that,
+                    // (since this isn't a real item and it should go away quietly), so use this roundabout method.
+                    otherUniqueId->deleteRecord();
+                    keychain->removeItem(temp.primaryKey(), &temp);
+                }
+            }
+        }
+    }
+
+    try {
+        secdebugfunc("integrity", "modifying unique id");
+        uniqueId->modify(recordType, &newDbAttributes, NULL, CSSM_DB_MODIFY_ATTRIBUTE_REPLACE);
+        secdebugfunc("integrity", "done modifying unique id");
+    } catch(CssmError e) {
+        // Just in case something went wrong, clean up after this add
+        uniqueId->deleteRecord();
+        throw;
+    }
+}

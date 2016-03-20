@@ -117,6 +117,10 @@
 #include "PlatformTouchEvent.h"
 #endif
 
+#if ENABLE(MAC_GESTURE_EVENTS)
+#include "PlatformGestureEventMac.h"
+#endif
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -134,7 +138,7 @@ const int GeneralDragHysteresis = 3;
 const std::chrono::milliseconds longMousePressRecognitionDelay = std::chrono::milliseconds(500);
 const int maximumLongMousePressDragDistance = 5; // in points.
 
-#if ENABLE(IOS_GESTURE_EVENTS)
+#if ENABLE(IOS_GESTURE_EVENTS) || ENABLE(MAC_GESTURE_EVENTS)
 const float GestureUnknown = 0;
 #endif
 
@@ -368,62 +372,18 @@ inline bool EventHandler::eventLoopHandleMouseDragged(const MouseEventWithHitTes
 
 EventHandler::EventHandler(Frame& frame)
     : m_frame(frame)
-    , m_mousePressed(false)
-    , m_capturesDragging(false)
-    , m_mouseDownMayStartSelect(false)
-#if ENABLE(DRAG_SUPPORT)
-    , m_mouseDownMayStartDrag(false)
-    , m_dragMayStartSelectionInstead(false)
-#endif
-    , m_mouseDownWasSingleClickInSelection(false)
-    , m_selectionInitiationState(HaveNotStartedSelection)
     , m_hoverTimer(*this, &EventHandler::hoverTimerFired)
 #if ENABLE(CURSOR_SUPPORT)
     , m_cursorUpdateTimer(*this, &EventHandler::cursorUpdateTimerFired)
 #endif
     , m_longMousePressTimer(*this, &EventHandler::recognizeLongMousePress)
-    , m_didRecognizeLongMousePress(false)
     , m_autoscrollController(std::make_unique<AutoscrollController>())
-    , m_mouseDownMayStartAutoscroll(false)
-    , m_mouseDownWasInSubframe(false)
 #if !ENABLE(IOS_TOUCH_EVENTS)
     , m_fakeMouseMoveEventTimer(*this, &EventHandler::fakeMouseMoveEventTimerFired)
 #endif
-    , m_svgPan(false)
-    , m_resizeLayer(nullptr)
-    , m_eventHandlerWillResetCapturingMouseEventsElement(false)
-    , m_clickCount(0)
-#if ENABLE(IOS_GESTURE_EVENTS)
-    , m_gestureInitialDiameter(GestureUnknown)
-    , m_gestureLastDiameter(GestureUnknown)
-    , m_gestureInitialRotation(GestureUnknown)
-    , m_gestureLastRotation(GestureUnknown)
-#endif
-#if ENABLE(IOS_TOUCH_EVENTS)
-    , m_firstTouchID(InvalidTouchIdentifier)
-#endif
-    , m_mousePositionIsUnknown(true)
-    , m_mouseDownTimestamp(0)
-#if PLATFORM(COCOA)
-    , m_mouseDownView(nil)
-    , m_sendingEventToSubview(false)
-#if !PLATFORM(IOS)
-    , m_activationEventNumber(-1)
-#endif // !PLATFORM(IOS)
-#endif
-#if ENABLE(TOUCH_EVENTS) && !ENABLE(IOS_TOUCH_EVENTS)
-    , m_originatingTouchPointTargetKey(0)
-    , m_touchPressed(false)
-#endif
-    , m_maxMouseMovedDuration(0)
-    , m_baseEventType(PlatformEvent::NoType)
-    , m_didStartDrag(false)
-    , m_didLongPressInvokeContextMenu(false)
-    , m_isHandlingWheelEvent(false)
 #if ENABLE(CURSOR_VISIBILITY)
     , m_autoHideCursorTimer(*this, &EventHandler::autoHideCursorTimerFired)
 #endif
-    , m_immediateActionStage(ImmediateActionStage::None)
 {
 }
 
@@ -466,9 +426,11 @@ void EventHandler::clear()
     m_clickCount = 0;
     m_clickNode = nullptr;
 #if ENABLE(IOS_GESTURE_EVENTS)
+    m_gestureInitialRotation = GestureUnknown;
+#endif
+#if ENABLE(IOS_GESTURE_EVENTS) || ENABLE(MAC_GESTURE_EVENTS)
     m_gestureInitialDiameter = GestureUnknown;
     m_gestureLastDiameter = GestureUnknown;
-    m_gestureInitialRotation = GestureUnknown;
     m_gestureLastRotation = GestureUnknown;
     m_gestureTargets.clear();
 #endif

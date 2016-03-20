@@ -195,7 +195,7 @@ main(int argc, char **argv)
     if (ret)
 	krb5_err(context, 1, ret, "kadm5_add_passwd_quality_verifier");
 
-#ifdef ___APPLE__
+#ifdef __APPLE__
     if (sandbox_flag) {
 	char *errorstring;
 	ret = sandbox_init("kadmind", SANDBOX_NAMED, &errorstring);

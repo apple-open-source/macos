@@ -382,6 +382,25 @@ static bool SecPasswordIsPasscodeIncrementingOrDecrementingDigits(CFStringRef pa
     return false;
 }
 
+static bool SecPasswordIsPasswordRepeatingTwoNumbers(CFStringRef passcode){
+    char* pin = CFStringToCString(passcode);
+
+    for(int i = 0; i < CFStringGetLength(passcode); i++)
+    {
+        if(i+2 == CFStringGetLength(passcode)-1){
+            free(pin);
+            return true;
+        }
+        else if(pin[i] == pin[i+2])
+            continue;
+        else
+            break;
+    }
+    
+    free(pin);
+    return false;
+}
+
 bool SecPasswordIsPasswordWeak2(bool isSimple, CFStringRef passcode)
 {
     uppercaseLetterCharacterSet = CFCharacterSetGetPredefined(kCFCharacterSetUppercaseLetter);
@@ -465,6 +484,11 @@ bool SecPasswordIsPasswordWeak2(bool isSimple, CFStringRef passcode)
                 free(pin);
                 return true;
             }
+            //passcode does not consist of 2 repeating digits
+            if(SecPasswordIsPasswordRepeatingTwoNumbers(passcode)){
+                free(pin);
+                return true;
+            }
         }
         else//should be a 4 or 6digit number
             return false;
@@ -486,6 +510,11 @@ bool SecPasswordIsPasswordWeak2(bool isSimple, CFStringRef passcode)
             free(pin);
             return true;
         }
+        if(SecPasswordIsPasswordRepeatingTwoNumbers(passcode)){
+            free(pin);
+            return true;
+        }
+
     }
     else{ // password is complex, evaluate entropy
         int u = 0;

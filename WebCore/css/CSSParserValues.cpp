@@ -21,11 +21,14 @@
 #include "config.h"
 #include "CSSParserValues.h"
 
+#include "CSSCustomPropertyValue.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSFunctionValue.h"
 #include "CSSSelector.h"
 #include "CSSSelectorList.h"
+#include "CSSVariableValue.h"
 #include "SelectorPseudoTypeMap.h"
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
@@ -37,6 +40,8 @@ void destroy(const CSSParserValue& value)
         delete value.function;
     else if (value.unit == CSSParserValue::ValueList)
         delete value.valueList;
+    else if (value.unit == CSSParserValue::Variable)
+        delete value.variable;
 }
 
 CSSParserValueList::~CSSParserValueList()
@@ -66,6 +71,21 @@ void CSSParserValueList::extend(CSSParserValueList& valueList)
         m_values.append(*(valueList.valueAt(i)));
 }
 
+bool CSSParserValueList::containsVariables() const
+{
+    for (unsigned i = 0; i < size(); i++) {
+        auto* parserValue = &m_values[i];
+        if (parserValue->unit == CSSParserValue::Variable)
+            return true;
+        if (parserValue->unit == CSSParserValue::Function && parserValue->function->args
+            && parserValue->function->args->containsVariables())
+            return true;
+        if (parserValue->unit == CSSParserValue::ValueList && parserValue->valueList->containsVariables())
+            return true;
+    }
+    return false;
+}
+
 PassRefPtr<CSSValue> CSSParserValue::createCSSValue()
 {
     RefPtr<CSSValue> parsedValue;
@@ -79,8 +99,11 @@ PassRefPtr<CSSValue> CSSParserValue::createCSSValue()
     }
     if (unit == CSSParserValue::Function)
         return CSSFunctionValue::create(function);
+    if (unit == CSSParserValue::Variable)
+        return CSSVariableValue::create(variable);
     if (unit == CSSParserValue::ValueList)
         return CSSValueList::createFromParserValueList(*valueList);
+
     if (unit >= CSSParserValue::Q_EMS)
         return CSSPrimitiveValue::createAllowingMarginQuirk(fValue, CSSPrimitiveValue::CSS_EMS);
 
@@ -95,6 +118,9 @@ PassRefPtr<CSSValue> CSSParserValue::createCSSValue()
     case CSSPrimitiveValue::CSS_STRING:
     case CSSPrimitiveValue::CSS_URI:
     case CSSPrimitiveValue::CSS_PARSER_HEXCOLOR:
+    case CSSPrimitiveValue::CSS_DIMENSION:
+    case CSSPrimitiveValue::CSS_UNICODE_RANGE:
+    case CSSPrimitiveValue::CSS_PARSER_WHITESPACE:
         return CSSPrimitiveValue::create(string, primitiveUnit);
     case CSSPrimitiveValue::CSS_PERCENTAGE:
     case CSSPrimitiveValue::CSS_EMS:
@@ -122,7 +148,6 @@ PassRefPtr<CSSValue> CSSParserValue::createCSSValue()
     case CSSPrimitiveValue::CSS_FR:
         return CSSPrimitiveValue::create(fValue, primitiveUnit);
     case CSSPrimitiveValue::CSS_UNKNOWN:
-    case CSSPrimitiveValue::CSS_DIMENSION:
     case CSSPrimitiveValue::CSS_ATTR:
     case CSSPrimitiveValue::CSS_COUNTER:
     case CSSPrimitiveValue::CSS_RECT:
@@ -134,7 +159,6 @@ PassRefPtr<CSSValue> CSSParserValue::createCSSValue()
 #if ENABLE(DASHBOARD_SUPPORT)
     case CSSPrimitiveValue::CSS_DASHBOARD_REGION:
 #endif
-    case CSSPrimitiveValue::CSS_UNICODE_RANGE:
     case CSSPrimitiveValue::CSS_PARSER_OPERATOR:
     case CSSPrimitiveValue::CSS_PARSER_INTEGER:
     case CSSPrimitiveValue::CSS_PARSER_IDENTIFIER:

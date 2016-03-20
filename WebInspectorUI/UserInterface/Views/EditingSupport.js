@@ -98,6 +98,11 @@ WebInspector.EditingConfig = class EditingConfig
     {
         this.customFinishHandler = customFinishHandler;
     }
+
+    setNumberCommitHandler(numberCommitHandler)
+    {
+        this.numberCommitHandler = numberCommitHandler;
+    }
 };
 
 WebInspector.startEditing = function(element, config)
@@ -190,6 +195,12 @@ WebInspector.startEditing = function(element, config)
             return "cancel";
         else if (event.keyIdentifier === "U+0009") // Tab key
             return "move-" + (event.shiftKey ? "backward" : "forward");
+        else if (event.altKey) {
+            if (event.keyIdentifier === "Up" || event.keyIdentifier === "Down")
+                return "modify-" + (event.keyIdentifier === "Up" ? "up" : "down");
+            if (event.keyIdentifier === "PageUp" || event.keyIdentifier === "PageDown")
+                return "modify-" + (event.keyIdentifier === "PageUp" ? "up-big" : "down-big");
+        }
     }
 
     function handleEditingResult(result, event)
@@ -206,6 +217,79 @@ WebInspector.startEditing = function(element, config)
             moveDirection = result.substring(5);
             if (event.keyIdentifier !== "U+0009")
                 blurEventListener();
+        } else if (result && result.startsWith("modify-")) {
+            var direction = result.substring(7);
+            var modifyValue = direction.startsWith("up") ? 1 : -1;
+            if (direction.endsWith("big"))
+                modifyValue *= 10;
+
+            if (event.shiftKey)
+                modifyValue *= 10;
+            else if (event.ctrlKey)
+                modifyValue /= 10;
+
+            var selection = element.ownerDocument.defaultView.getSelection();
+            if (!selection.rangeCount)
+                return;
+
+            var range = selection.getRangeAt(0);
+            if (!range.commonAncestorContainer.isSelfOrDescendant(element))
+                return false;
+
+            var wordRange = range.startContainer.rangeOfWord(range.startOffset, WebInspector.EditingSupport.StyleValueDelimiters, element);
+            var word = wordRange.toString();
+            var wordPrefix = "";
+            var wordSuffix = "";
+            var nonNumberInWord = /[^\d-\.]+/.exec(word);
+            if (nonNumberInWord) {
+                var nonNumberEndOffset = nonNumberInWord.index + nonNumberInWord[0].length;
+                if (range.startOffset > wordRange.startOffset + nonNumberInWord.index && nonNumberEndOffset < word.length && range.startOffset !== wordRange.startOffset) {
+                    wordPrefix = word.substring(0, nonNumberEndOffset);
+                    word = word.substring(nonNumberEndOffset);
+                } else {
+                    wordSuffix = word.substring(nonNumberInWord.index);
+                    word = word.substring(0, nonNumberInWord.index);
+                }
+            }
+
+            var matches = WebInspector.EditingSupport.CSSNumberRegex.exec(word);
+            if (!matches || matches.length !== 4)
+                return;
+
+            var replacement = matches[1] + (Math.round((parseFloat(matches[2]) + modifyValue) * 100) / 100) + matches[3];
+
+            selection.removeAllRanges();
+            selection.addRange(wordRange);
+            document.execCommand("insertText", false, wordPrefix + replacement + wordSuffix);
+
+            var container = range.commonAncestorContainer;
+            var startOffset = range.startOffset;
+            // This check is for the situation when the cursor is in the space between the
+            // opening quote of the attribute and the first character. In that spot, the
+            // commonAncestorContainer is actually the entire attribute node since `="` is
+            // added as a simple text node. Since the opening quote is immediately before
+            // the attribute, the node for that attribute must be the next sibling and the
+            // text of the attribute's value must be the first child of that sibling.
+            if (container.parentNode.classList.contains("editing")) {
+                container = container.nextSibling.firstChild;
+                startOffset = 0;
+            }
+            startOffset += wordPrefix.length;
+
+            if (!container)
+                return;
+
+            var replacementSelectionRange = document.createRange();
+            replacementSelectionRange.setStart(container, startOffset);
+            replacementSelectionRange.setEnd(container, startOffset + replacement.length);
+
+            selection.removeAllRanges();
+            selection.addRange(replacementSelectionRange);
+
+            if (typeof config.numberCommitHandler === "function")
+                config.numberCommitHandler(element, getContent(element), oldText, context, moveDirection);
+
+            event.preventDefault();
         }
     }
 
@@ -233,4 +317,10 @@ WebInspector.startEditing = function(element, config)
         cancel: editingCancelled.bind(element),
         commit: editingCommitted.bind(element)
     };
+};
+
+WebInspector.EditingSupport = {
+    StyleValueDelimiters: " \xA0\t\n\"':;,/()",
+    CSSNumberRegex: /(.*?)(-?(?:\d+(?:\.\d+)?|\.\d+))(.*)/,
+    NumberRegex: /^(-?(?:\d+(?:\.\d+)?|\.\d+))$/
 };

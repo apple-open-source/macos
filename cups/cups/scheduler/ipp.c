@@ -1,5 +1,5 @@
 /*
- * "$Id: ipp.c 12827 2015-07-31 15:21:37Z msweet $"
+ * "$Id: ipp.c 12992 2015-11-19 15:19:00Z msweet $"
  *
  * IPP routines for the CUPS scheduler.
  *
@@ -70,7 +70,7 @@ static void	copy_attrs(ipp_t *to, ipp_t *from, cups_array_t *ra,
 			   cups_array_t *exclude);
 static int	copy_banner(cupsd_client_t *con, cupsd_job_t *job,
 		            const char *name);
-static int	copy_file(const char *from, const char *to);
+static int	copy_file(const char *from, const char *to, mode_t mode);
 static int	copy_model(cupsd_client_t *con, const char *from,
 		           const char *to);
 static void	copy_job_attrs(cupsd_client_t *con,
@@ -978,6 +978,16 @@ add_class(cupsd_client_t  *con,		/* I - Client connection */
   if ((attr = ippFindAttribute(con->request, "printer-is-shared",
                                IPP_TAG_BOOLEAN)) != NULL)
   {
+    if (pclass->type & CUPS_PRINTER_REMOTE)
+    {
+     /*
+      * Cannot re-share remote printers.
+      */
+
+      send_ipp_status(con, IPP_BAD_REQUEST, _("Cannot change printer-is-shared for remote queues."));
+      return;
+    }
+
     if (pclass->shared && !attr->values[0].boolean)
       cupsdDeregisterPrinter(pclass, 1);
 
@@ -2471,6 +2481,16 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
       return;
     }
 
+    if (printer->type & CUPS_PRINTER_REMOTE)
+    {
+     /*
+      * Cannot re-share remote printers.
+      */
+
+      send_ipp_status(con, IPP_BAD_REQUEST, _("Cannot change printer-is-shared for remote queues."));
+      return;
+    }
+
     if (printer->shared && !attr->values[0].boolean)
       cupsdDeregisterPrinter(printer, 1);
 
@@ -2615,7 +2635,7 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
 	* interfaces directory and make it executable...
 	*/
 
-	if (copy_file(srcfile, dstfile))
+	if (copy_file(srcfile, dstfile, ConfigFilePerm | 0110))
 	{
           send_ipp_status(con, IPP_INTERNAL_ERROR,
 	                  _("Unable to copy interface script - %s"),
@@ -2625,7 +2645,6 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
 
 	cupsdLogMessage(CUPSD_LOG_DEBUG,
 			"Copied interface script successfully");
-	chmod(dstfile, 0755);
       }
 
       snprintf(dstfile, sizeof(dstfile), "%s/ppd/%s.ppd", ServerRoot,
@@ -2638,7 +2657,7 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
 	* ppd directory and make it readable by all...
 	*/
 
-	if (copy_file(srcfile, dstfile))
+	if (copy_file(srcfile, dstfile, ConfigFilePerm))
 	{
           send_ipp_status(con, IPP_INTERNAL_ERROR,
 	                  _("Unable to copy PPD file - %s"),
@@ -2648,7 +2667,6 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
 
 	cupsdLogMessage(CUPSD_LOG_DEBUG,
 			"Copied PPD file successfully");
-	chmod(dstfile, 0644);
       }
       else
       {
@@ -4336,7 +4354,8 @@ copy_banner(cupsd_client_t *con,	/* I - Client connection */
 
 static int				/* O - 0 = success, -1 = error */
 copy_file(const char *from,		/* I - Source file */
-          const char *to)		/* I - Destination file */
+          const char *to,		/* I - Destination file */
+	  mode_t     mode)		/* I - Permissions */
 {
   cups_file_t	*src,			/* Source file */
 		*dst;			/* Destination file */
@@ -4353,7 +4372,7 @@ copy_file(const char *from,		/* I - Source file */
   if ((src = cupsFileOpen(from, "rb")) == NULL)
     return (-1);
 
-  if ((dst = cupsFileOpen(to, "wb")) == NULL)
+  if ((dst = cupsdCreateConfFile(to, mode)) == NULL)
   {
     cupsFileClose(src);
     return (-1);
@@ -4377,7 +4396,7 @@ copy_file(const char *from,		/* I - Source file */
 
   cupsFileClose(src);
 
-  return (cupsFileClose(dst));
+  return (cupsdCloseCreatedConfFile(dst, to));
 }
 
 
@@ -11150,5 +11169,5 @@ validate_user(cupsd_job_t    *job,	/* I - Job */
 
 
 /*
- * End of "$Id: ipp.c 12827 2015-07-31 15:21:37Z msweet $".
+ * End of "$Id: ipp.c 12992 2015-11-19 15:19:00Z msweet $".
  */

@@ -1,3 +1,938 @@
+2016-02-12  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge patch for rdar://problem/24626412.
+
+    2016-02-12  Brent Fulgham  <bfulgham@apple.com>
+
+            [Win] Correct internal branch build failure.
+            <rdar://problem/24626412>
+
+            Work around some C++11 compiler limitations in VS2013. The new code
+            brought into this branch from trunk included some things that the
+            older compiler used on this branch does not support.
+
+            * JavaScriptCore.vcxproj/JavaScriptCore.vcxproj.filters: Correct
+            project file.
+            * inspector/InspectorBackendDispatcher.cpp:
+            (Inspector::castToInteger): Restored to work around compiler bug.
+            (Inspector::castToNumber): Ditto.
+            (Inspector::asString): Ditto.
+            (Inspector::asBoolean): Ditto.
+            (Inspector::asObject): Ditto.
+            (Inspector::asArray): Ditto.
+            (Inspector::asValue): Ditto.
+            (Inspector::BackendDispatcher::getInteger): Add VS2013 workaround.
+            (Inspector::BackendDispatcher::getString): Ditto.
+            (Inspector::BackendDispatcher::getBoolean): Ditto.
+            (Inspector::BackendDispatcher::getObject): Ditto.
+            (Inspector::BackendDispatcher::getArray): Ditto.
+            (Inspector::BackendDispatcher::getValue): Ditto.
+
+2016-02-10  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r196179.
+
+    2016-02-05  Filip Pizlo  <fpizlo@apple.com>
+
+            Arrayify for a typed array shouldn't create a monster
+            https://bugs.webkit.org/show_bug.cgi?id=153908
+            rdar://problem/24290639
+
+            Reviewed by Mark Lam.
+
+            Previously if you convinced the DFG to emit an Arrayify to ArrayStorage and then gave it a
+            typed array, you'd corrupt the object.
+
+            * runtime/JSArrayBufferView.cpp:
+            (WTF::printInternal):
+            * runtime/JSArrayBufferView.h:
+            * runtime/JSGenericTypedArrayViewInlines.h:
+            (JSC::JSGenericTypedArrayView<Adaptor>::visitChildren):
+            (JSC::JSGenericTypedArrayView<Adaptor>::slowDownAndWasteMemory):
+            * runtime/JSObject.cpp:
+            (JSC::JSObject::copyButterfly):
+            (JSC::JSObject::enterDictionaryIndexingMode):
+            (JSC::JSObject::ensureInt32Slow):
+            (JSC::JSObject::ensureDoubleSlow):
+            (JSC::JSObject::ensureContiguousSlow):
+            (JSC::JSObject::ensureArrayStorageSlow):
+            (JSC::JSObject::growOutOfLineStorage):
+            (JSC::getBoundSlotBaseFunctionForGetterSetter):
+            * runtime/Structure.h:
+            * tests/stress/arrayify-array-storage-typed-array.js: Added. This test failed.
+            * tests/stress/arrayify-int32-typed-array.js: Added. This test case already had other protections, but we beefed them up.
+
+2016-01-29  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r194479.
+
+    2016-01-01  Jeff Miller  <jeffm@apple.com>
+
+            Update user-visible copyright strings to include 2016
+            https://bugs.webkit.org/show_bug.cgi?id=152531
+
+            Reviewed by Alexey Proskuryakov.
+
+            * Info.plist:
+
+2016-01-29  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge patch for rdar://problem/23968717.
+
+    2016-01-28  Saam barati  <sbarati@apple.com>
+
+            Inspector should remove cached code when it recompiles due to the Type Profiler being disabled.
+
+            Keeping around cached code is a mistake because we then
+            generate code that depends on the VM having a TypeProfiler
+            when it doesn't. Note that VM::discardAllCode does exactly
+            what we want.
+
+            * inspector/agents/InspectorRuntimeAgent.cpp:
+            (Inspector::InspectorRuntimeAgent::getRuntimeTypesForVariablesAtOffsets):
+            (Inspector::recompileAllJSFunctionsForTypeProfiling):
+            (Inspector::InspectorRuntimeAgent::willDestroyFrontendAndBackend):
+            (Inspector::TypeRecompiler::visit): Deleted.
+            (Inspector::TypeRecompiler::operator()): Deleted.
+
+2016-01-27  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r194559. rdar://problem/24269083
+
+    2016-01-04  Tim Horton  <timothy_horton@apple.com>
+
+            Turn on gesture events when building for Yosemite
+            https://bugs.webkit.org/show_bug.cgi?id=152704
+            rdar://problem/24042472
+
+            Reviewed by Anders Carlsson.
+
+            * Configurations/FeatureDefines.xcconfig:
+
+2016-01-27  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r193782. rdar://problem/24358367
+
+    2015-12-08  Filip Pizlo  <fpizlo@apple.com>
+
+            DFG::UnificationPhase should merge isProfitableToUnbox, since this may have been set in ByteCodeParser
+            https://bugs.webkit.org/show_bug.cgi?id=152011
+            rdar://problem/23777875
+
+            Reviewed by Michael Saboff.
+
+            Previously UnificationPhase did not merge this because we used to only set this in FixupPhase, which runs after unification. But now
+            ByteCodeParser may set isProfitableToUnbox as part of how it handles the ArgumentCount of an inlined varargs call, so UnificationPhase
+            needs to merge it after unifying.
+
+            Also changed the order of unification since this makes the bug more obvious and easier to test.
+
+            * dfg/DFGUnificationPhase.cpp:
+            (JSC::DFG::UnificationPhase::run):
+            * tests/stress/varargs-with-unused-count.js: Added.
+
+2016-01-13  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r193939. rdar://problem/24154418
+
+    2015-12-10  Daniel Bates  <dabates@apple.com>
+
+            [CSP] eval() is not blocked for stringified literals
+            https://bugs.webkit.org/show_bug.cgi?id=152158
+            <rdar://problem/15775625>
+
+            Reviewed by Saam Barati.
+
+            Fixes an issue where stringified literals can be eval()ed despite being disallowed by
+            Content Security Policy of the page.
+
+            * interpreter/Interpreter.cpp:
+            (JSC::eval): Throw a JavaScript EvalError exception if eval() is disallowed for the page
+            and return undefined.
+            * runtime/JSGlobalObjectFunctions.cpp:
+            (JSC::globalFuncEval): Ditto.
+
+2016-01-12  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r194704. rdar://problem/24043057
+
+    2016-01-06  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: CRASH Attempting to pause on CSP violation not inside of script
+            https://bugs.webkit.org/show_bug.cgi?id=152825
+            <rdar://problem/24021276>
+
+            Reviewed by Timothy Hatcher.
+
+            * debugger/Debugger.cpp:
+            (JSC::Debugger::breakProgram):
+            We cannot pause if we are not evaluating JavaScript, so bail.
+
+2016-01-12  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r194908. rdar://problem/24101253
+
+    2016-01-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r192186. rdar://problem/24101174
+
+        2015-11-09  Joseph Pecoraro  <pecoraro@apple.com>
+
+                Web Inspector: $0 stops working after navigating to a different domain
+                https://bugs.webkit.org/show_bug.cgi?id=147962
+
+                Reviewed by Brian Burg.
+
+                Extract the per-GlobalObject cache of JSValue wrappers for
+                InjectedScriptHost objects to be reused by WebCore for its
+                CommandLineAPIHost objects injected into multiple contexts.
+
+                * CMakeLists.txt:
+                * JavaScriptCore.vcxproj/JavaScriptCore.vcxproj:
+                * JavaScriptCore.vcxproj/JavaScriptCore.vcxproj.filters:
+                * JavaScriptCore.xcodeproj/project.pbxproj:
+                Add new files.
+
+                * inspector/PerGlobalObjectWrapperWorld.h:
+                * inspector/PerGlobalObjectWrapperWorld.cpp:
+                (Inspector::PerGlobalObjectWrapperWorld::getWrapper):
+                (Inspector::PerGlobalObjectWrapperWorld::addWrapper):
+                (Inspector::PerGlobalObjectWrapperWorld::clearAllWrappers):
+                Hold a bunch of per-global-object wrappers for an object
+                that will outlive the global object. This inspector does this
+                for host objects that it exposes into scripts it injects into
+                each execution context created by the page.
+
+                * inspector/InjectedScriptHost.cpp:
+                (Inspector::InjectedScriptHost::wrapper):
+                (Inspector::InjectedScriptHost::clearAllWrappers):
+                (Inspector::InjectedScriptHost::jsWrapper): Deleted.
+                (Inspector::clearWrapperFromValue): Deleted.
+                (Inspector::InjectedScriptHost::clearWrapper): Deleted.
+                Extract and simplify the Per-GlobalObject wrapping into a class.
+                Simplify object construction as well.
+
+                * inspector/InjectedScriptHost.h:
+                * inspector/InjectedScriptManager.cpp:
+                (Inspector::InjectedScriptManager::createInjectedScript):
+                (Inspector::InjectedScriptManager::discardInjectedScripts):
+                Make discarding virtual so subclasses may also discard injected scripts.
+
+                * inspector/JSInjectedScriptHost.cpp:
+                (Inspector::JSInjectedScriptHost::JSInjectedScriptHost):
+                (Inspector::JSInjectedScriptHost::releaseImpl): Deleted.
+                (Inspector::JSInjectedScriptHost::~JSInjectedScriptHost): Deleted.
+                (Inspector::toJS): Deleted.
+                (Inspector::toJSInjectedScriptHost): Deleted.
+                * inspector/JSInjectedScriptHost.h:
+                (Inspector::JSInjectedScriptHost::create):
+                (Inspector::JSInjectedScriptHost::impl):
+                Update this code originally copied from older generated bindings to
+                be more like new generated bindings and remove some now unused code.
+
+2015-12-17  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r191343.
+
+    2015-10-20  Tim Horton  <timothy_horton@apple.com>
+
+            Try to fix the build by disabling MAC_GESTURE_EVENTS on 10.9 and 10.10
+
+            * Configurations/FeatureDefines.xcconfig:
+
+2015-12-17  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r191305.
+
+    2015-10-19  Tim Horton  <timothy_horton@apple.com>
+
+            Try to fix the iOS build
+
+            * Configurations/FeatureDefines.xcconfig:
+
+2015-12-16  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r191299.
+
+    2015-10-19  Tim Horton  <timothy_horton@apple.com>
+
+            Add magnify and rotate gesture event support for Mac
+            https://bugs.webkit.org/show_bug.cgi?id=150179
+            <rdar://problem/8036240>
+
+            Reviewed by Darin Adler.
+
+            * Configurations/FeatureDefines.xcconfig:
+            New feature flag.
+
+2015-12-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r193480. rdar://problem/23849785
+
+    2015-12-04  Filip Pizlo  <fpizlo@apple.com>
+
+            Having a bad time has a really awful time when it runs at the same time as the JIT
+            https://bugs.webkit.org/show_bug.cgi?id=151882
+            rdar://problem/23547038
+
+            Unreviewed, really adding the test this time.
+
+            * tests/stress/ftl-has-a-bad-time.js: Added.
+            (foo):
+
+2015-12-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r193470. rdar://problem/23849785
+
+    2015-12-04  Filip Pizlo  <fpizlo@apple.com>
+
+            Having a bad time has a really awful time when it runs at the same time as the JIT
+            https://bugs.webkit.org/show_bug.cgi?id=151882
+            rdar://problem/23547038
+
+            Reviewed by Geoffrey Garen.
+
+            The DFG's use of watchpoints for havingABadTime goes back a long time. We introduced this feature
+            when we first introduced watchpoints. That left it open to a lot of bitrot. On top of that, this
+            code doesn't get tested much because having a bad time is not something that is really supposed to
+            happen.
+
+            Well, now I've got reports that it does happen - or at least, we know that it is because of
+            crashes in an assertion that could only be triggered if a bad time was had. In the meantime, we
+            added two new features without adequately testing havingABadTime: concurrent JIT and FTL.
+            Concurrency means that we have to worry about the havingABadTime watchpoint triggering during
+            compilation. FTL means that we have new code and new optimizations that needs to deal with this
+            feature correctly.
+
+            The bug can arise via race condition or just goofy profiling. As in the newly added test, we could
+            first profile an allocation thinking that it will allocate sane arrays. Then we might have a bad
+            time, and then compile that function with the FTL. The ByteCodeParser will represent the
+            allocation with a NewArray node that has a sane indexingType(). But when we go to lower the Node,
+            we observe that the Structure* that the JSGlobalObject tells us to use has a different indexing
+            type. This is a feature of havingABadTime that the DFG knew about, but the FTL didn't. The FTL
+            didn't know about it because we didn't have adequate tests, and this code rarely gets triggered in
+            the wild. So, the FTL had a silly assertion that the indexing types match. They absolutely don't
+            have to match.
+
+            There is another bug, a race condition, that remains even if we remove the bad assertion. We set
+            the havingABadTime watchpoint late in compilation, and we do it based on whether the watchpoint is
+            still OK. This means that we could parse a function before we have a bad time and then do
+            optimizations (for example in AbstractInterpreter) like proving that the structure set associated
+            with the value returned by the NewArray is the one with a sane indexing type. Then, after those
+            optimizations have already been done, we will go to set the watchpoint. But just as we are doing
+            this, we could haveABadTime on the main thread. Currently this sort of almost works because
+            having a bad time requires doing a GC, and we can't GC until the watchpoint collection phase. But
+            that feels too fragile. So, this phase moves the setting of the watchpoint to the FixupPhase. This
+            is consistent with our long-term goal of removing the WatchpointCollectionPhase. Moving this to
+            FixupPhase means that we set the watchpoint before doing any optimizations. So, if having a bad
+            time happens before the FixupPhase then all optimizations will agree that we're having a bad time
+            and so everything is fine; if we have a bad time after FixupPhase then we will cancel the
+            compilation anyway.
+
+            * dfg/DFGByteCodeParser.cpp:
+            (JSC::DFG::ByteCodeParser::handleConstantInternalFunction):
+            * dfg/DFGFixupPhase.cpp:
+            (JSC::DFG::FixupPhase::fixupNode):
+            (JSC::DFG::FixupPhase::watchHavingABadTime):
+            (JSC::DFG::FixupPhase::createToString):
+            * dfg/DFGNode.h:
+            (JSC::DFG::Node::hasIndexingType):
+            (JSC::DFG::Node::indexingType):
+            * dfg/DFGWatchpointCollectionPhase.cpp:
+            (JSC::DFG::WatchpointCollectionPhase::handle):
+            * ftl/FTLLowerDFGToLLVM.cpp:
+            (JSC::FTL::DFG::LowerDFGToLLVM::compileNewArray):
+            (JSC::FTL::DFG::LowerDFGToLLVM::compileNewArrayBuffer):
+            * tests/stress/ftl-has-a-bad-time.js: Added.
+
+2015-12-04  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r192190. rdar://problem/23732407
+
+    2015-11-09  Saam barati  <sbarati@apple.com>
+
+            DFG::PutStackSinkingPhase should not treat the stack variables written by LoadVarargs/ForwardVarargs as being live
+            https://bugs.webkit.org/show_bug.cgi?id=145295
+
+            Reviewed by Filip Pizlo.
+
+            This patch fixes PutStackSinkingPhase to no longer escape the stack
+            locations that LoadVarargs and ForwardVarargs write to. We used
+            to consider sinking PutStacks right before a LoadVarargs/ForwardVarargs
+            because we considered them uses of such stack locations. They aren't
+            uses of those stack locations, they unconditionally write to those
+            stack locations. Sinking PutStacks to these nodes was not needed before,
+            but seemed mostly innocent. But I ran into a problem with this while implementing
+            FTL try/catch where we would end up having to generate a value for a sunken PutStack
+            right before a LoadVarargs. This would cause us to issue a GetStack that loaded garbage that
+            was then forwarded into a Phi that was used as the source as the PutStack. This caused the
+            abstract interpreter to confuse itself on type information for the garbage GetStack
+            that was fed into the Phi, which would cause the abstract interpreter to then claim
+            that the basic block with the PutStack in it would never be reached. This isn't true, the
+            block would indeed be reached. The solution here is to be more precise about the
+            liveness of locals w.r.t LoadVarargs and ForwardVarargs.
+
+            * dfg/DFGPreciseLocalClobberize.h:
+            (JSC::DFG::PreciseLocalClobberizeAdaptor::PreciseLocalClobberizeAdaptor):
+            (JSC::DFG::PreciseLocalClobberizeAdaptor::write):
+            * dfg/DFGPutStackSinkingPhase.cpp:
+            * dfg/DFGSSACalculator.h:
+
+2015-12-04  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r192391. rdar://problem/23221163
+
+    2015-11-12  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Reduce list of saved console messages
+            https://bugs.webkit.org/show_bug.cgi?id=151225
+
+            Reviewed by Geoffrey Garen.
+
+            Inspector saves messages so that when an inspector frontend opens it can report
+            these messages to the frontend. However we were saving a rather large list of
+            1000 messages. Most pages do not produce a large number of console messages.
+            However pages that live for a long time can generate many errors over time,
+            especially periodic engine issues such as cross-origin access errors. This could
+            result in a lot of wasted memory for console messages that may never be used.
+
+            Likewise when an inspector first open sending all 1000 messages to the frontend
+            results in a poor experience.
+
+            Lets reduce the list of saved messages. Developer will still be able to see
+            all messages as long as they have Web Inspector open at the time the messages
+            are generated.
+
+            * inspector/agents/InspectorConsoleAgent.cpp:
+            Reduce the list from 1000 to 100. Also, when expiring
+            messages from this list, chunk in 10s instead of 100s.
+
+2015-12-04  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r191397. rdar://problem/23221163
+
+    2015-10-21  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Array previews with Symbol objects have too few preview values
+            https://bugs.webkit.org/show_bug.cgi?id=150404
+
+            Reviewed by Timothy Hatcher.
+
+            * inspector/InjectedScriptSource.js:
+            (InjectedScript.RemoteObject.prototype._appendPropertyPreviews):
+            We should be continuing inside this loop not returning.
+
+2015-12-04  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r188976. rdar://problem/23221163
+
+    2015-08-26  Brian Burg  <bburg@apple.com>
+
+            Web Inspector: REGRESSION(r188965): BackendDispatcher loses request ids when called re-entrantly
+            https://bugs.webkit.org/show_bug.cgi?id=148480
+
+            Reviewed by Joseph Pecoraro.
+
+            I added an assertion that m_currentRequestId is Nullopt when dispatch() is called, but this should
+            not hold if dispatching a backend command while debugger is paused. I will remove the assertion
+            and add proper scoping for all dispatch() branches.
+
+            No new tests, this wrong assert caused inspector/dom-debugger/node-removed.html to crash reliably.
+
+            * inspector/InspectorBackendDispatcher.cpp:
+            (Inspector::BackendDispatcher::dispatch): Cover each exit with an appropriate TemporaryChange scope.
+
+2015-12-04  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r188656. rdar://problem/23221163
+
+    2015-08-19  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Unexpected node preview format for an element with newlines in className attribute
+            https://bugs.webkit.org/show_bug.cgi?id=148192
+
+            Reviewed by Brian Burg.
+
+            * inspector/InjectedScriptSource.js:
+            (InjectedScript.prototype._nodePreview):
+            Replace whitespace blocks with single spaces to produce a simpler class string for previews.
+
+2015-12-04  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r187897. rdar://problem/23221163
+
+    2015-08-04  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Object previews for SVG elements shows SVGAnimatedString instead of text
+            https://bugs.webkit.org/show_bug.cgi?id=147328
+
+            Reviewed by Timothy Hatcher.
+
+            * inspector/InjectedScriptSource.js:
+            Use classList and classList.toString instead of className.
+
+2015-12-03  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r188530. rdar://problem/23732374
+
+    2015-08-17  Simon Fraser  <simon.fraser@apple.com>
+
+            will-change should sometimes trigger compositing
+            https://bugs.webkit.org/show_bug.cgi?id=148072
+
+            Reviewed by Tim Horton.
+
+            Include will-change as a reason for compositing.
+
+            * inspector/protocol/LayerTree.json:
+
+2015-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r191967. rdar://problem/23221163
+
+    2015-11-03  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Handle or Remove ParseHTML Timeline Event Records
+            https://bugs.webkit.org/show_bug.cgi?id=150689
+
+            Reviewed by Timothy Hatcher.
+
+            * inspector/protocol/Timeline.json:
+
+2015-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r191692. rdar://problem/23221163
+
+    2015-10-28  Timothy Hatcher  <timothy@apple.com>
+
+            Web Inspector: jsmin.py mistakenly removes whitespace from template literal strings
+            https://bugs.webkit.org/show_bug.cgi?id=148728
+
+            Reviewed by Joseph Pecoraro.
+
+            * Scripts/jsmin.py:
+            (JavascriptMinify.minify): Make backtick a quoting character.
+
+2015-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r191651. rdar://problem/23221163
+
+    2015-10-27  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Remove Timeline MarkDOMContent and MarkLoad, data is already available
+            https://bugs.webkit.org/show_bug.cgi?id=150615
+
+            Reviewed by Timothy Hatcher.
+
+            * inspector/protocol/Timeline.json:
+
+2015-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r191355. rdar://problem/23221163
+
+    2015-10-20  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: JavaScriptCore should parse sourceURL and sourceMappingURL directives
+            https://bugs.webkit.org/show_bug.cgi?id=150096
+
+            Reviewed by Geoffrey Garen.
+
+            * inspector/ContentSearchUtilities.cpp:
+            (Inspector::ContentSearchUtilities::scriptCommentPattern): Deleted.
+            (Inspector::ContentSearchUtilities::findScriptSourceURL): Deleted.
+            (Inspector::ContentSearchUtilities::findScriptSourceMapURL): Deleted.
+            * inspector/ContentSearchUtilities.h:
+            No longer need to search script content.
+
+            * inspector/ScriptDebugServer.cpp:
+            (Inspector::ScriptDebugServer::dispatchDidParseSource):
+            Carry over the sourceURL and sourceMappingURL from the SourceProvider.
+
+            * inspector/agents/InspectorDebuggerAgent.cpp:
+            (Inspector::InspectorDebuggerAgent::sourceMapURLForScript):
+            (Inspector::InspectorDebuggerAgent::didParseSource):
+            No longer do content searching.
+
+            * parser/Lexer.cpp:
+            (JSC::Lexer<T>::setCode):
+            (JSC::Lexer<T>::skipWhitespace):
+            (JSC::Lexer<T>::parseCommentDirective):
+            (JSC::Lexer<T>::parseCommentDirectiveValue):
+            (JSC::Lexer<T>::consume):
+            (JSC::Lexer<T>::lex):
+            * parser/Lexer.h:
+            (JSC::Lexer::sourceURL):
+            (JSC::Lexer::sourceMappingURL):
+            (JSC::Lexer::sourceProvider): Deleted.
+            Give lexer the ability to detect script comment directives.
+            This just consumes characters in single line comments and
+            ultimately sets the sourceURL or sourceMappingURL found.
+
+            * parser/Parser.h:
+            (JSC::Parser<LexerType>::parse):
+            * parser/SourceProvider.h:
+            (JSC::SourceProvider::url):
+            (JSC::SourceProvider::sourceURL):
+            (JSC::SourceProvider::sourceMappingURL):
+            (JSC::SourceProvider::setSourceURL):
+            (JSC::SourceProvider::setSourceMappingURL):
+            After parsing a script, update the Source Provider with the
+            value of directives that may have been found in the script.
+
+2015-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r190542. rdar://problem/23221163
+
+    2015-10-02  Matt Baker  <mattbaker@apple.com>
+
+            Web Inspector: Add breakpoint option to ignore n times before stopping
+            https://bugs.webkit.org/show_bug.cgi?id=147664
+
+            Reviewed by Timothy Hatcher.
+
+            * debugger/Breakpoint.h:
+            (JSC::Breakpoint::Breakpoint):
+            Added ignoreCount and hitCount fields. Cleaned up initializers.
+
+            * debugger/Debugger.cpp:
+            (JSC::Debugger::hasBreakpoint):
+            If a breakpoint matches the current text position, increment breakpoint hit count and
+            compare with ignore count before testing the breakpoint condition.
+
+            * inspector/ScriptBreakpoint.h:
+            (Inspector::ScriptBreakpoint::ScriptBreakpoint):
+            Added ignoreCount field. Cleaned up initializers.
+
+            * inspector/ScriptDebugServer.cpp:
+            (Inspector::ScriptDebugServer::setBreakpoint):
+            Added ignoreCount field.
+
+            * inspector/agents/InspectorDebuggerAgent.cpp:
+            (Inspector::buildObjectForBreakpointCookie):
+            (Inspector::InspectorDebuggerAgent::setBreakpointByUrl):
+            (Inspector::InspectorDebuggerAgent::setBreakpoint):
+            (Inspector::InspectorDebuggerAgent::continueToLocation):
+            (Inspector::InspectorDebuggerAgent::didParseSource):
+            Plumbing for ignoreCount property.
+
+            * inspector/protocol/Debugger.json:
+            Added optional ignoreCount property to BreakpointOptions object.
+
+2015-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r190146. rdar://problem/23221163
+
+    2015-09-22  Saam barati  <sbarati@apple.com>
+
+            Web Inspector: [ES6] Improve Type Profiler Support for Arrow Functions
+            https://bugs.webkit.org/show_bug.cgi?id=143171
+
+            Reviewed by Joseph Pecoraro.
+
+            We now need to take into account TypeProfilerSearchDescriptor when
+            hashing results for type profiler queries. Before, we've gotten
+            away with not doing this because before we would never have a text
+            collision between a return type text offset and a normal expression text
+            offset. But, with arrow functions, we will have collisions when
+            the arrow function doesn't have parens around its single parameter.
+            I.e: "param => { ... };"
+
+            * runtime/TypeProfiler.cpp:
+            (JSC::TypeProfiler::findLocation):
+            * runtime/TypeProfiler.h:
+            (JSC::QueryKey::QueryKey):
+            (JSC::QueryKey::isHashTableDeletedValue):
+            (JSC::QueryKey::operator==):
+            (JSC::QueryKey::hash):
+            * tests/typeProfiler/arrow-functions.js: Added.
+
+2015-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r189415. rdar://problem/23221163
+
+    2015-09-04  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Test Runtime.saveResult and $n values
+            https://bugs.webkit.org/show_bug.cgi?id=148837
+
+            Reviewed by Timothy Hatcher.
+
+            * inspector/InjectedScriptSource.js:
+            (InjectedScript.prototype._evaluateOn):
+            We don't need to be in the console object group to put the value
+            in the saved results list. That strong reference will ensure $n
+            values are always alive even if other object groups were used
+            when creating and subsequently released.
+
+2015-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r189373. rdar://problem/23221163
+
+    2015-09-04  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Expand Console domain test coverage
+            https://bugs.webkit.org/show_bug.cgi?id=148740
+
+            Reviewed by Brian Burg.
+
+            * inspector/protocol/Console.json:
+            Update the description of this command now that it only
+            manipulates $0, and not $1, $2, .. $n.
+
+2015-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r189104. rdar://problem/23221163
+
+    2015-08-28  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Separate creating a style sheet from adding a new rule in the protocol
+            https://bugs.webkit.org/show_bug.cgi?id=148502
+
+            Reviewed by Timothy Hatcher.
+
+            * inspector/protocol/CSS.json:
+            Add CSS.createStyleSheet. Modify CSS.addRule.
+
+2015-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r189002. rdar://problem/23221163
+
+    2015-08-26  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Implement tracking of active stylesheets in the frontend
+            https://bugs.webkit.org/show_bug.cgi?id=105828
+
+            Reviewed by Timothy Hatcher.
+
+            * inspector/protocol/CSS.json:
+            Add new events for when a StyleSheet is added or removed.
+
+2015-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r188965. rdar://problem/23221163
+
+    2015-08-25  Brian Burg  <bburg@apple.com>
+
+            Web Inspector: no need to allocate protocolErrors array for every dispatched backend command
+            https://bugs.webkit.org/show_bug.cgi?id=146466
+
+            Reviewed by Joseph Pecoraro.
+
+            Clean up some of the backend dispatcher code, with a focus on eliminating useless allocations
+            of objects in the common case when no protocol errors happen. This is done by saving the
+            current id of each request as it is being processed by the backend dispatcher, and tagging any
+            subsequent errors with that id. This also means we don't have to thread the requestId except
+            in the async command code path.
+
+            This patch also lifts some common code shared between all generated backend command
+            implementatations into the per-domain dispatch method instead. This reduces generated code size.
+
+            To be consistent, this patch standardizes on calling the id of a backend message its 'requestId'.
+            Requests can be handled synchronously or asynchronously (triggered via the 'async' property).
+
+            No new tests, covered by existing protocol tests.
+
+            * inspector/InspectorBackendDispatcher.cpp:
+            (Inspector::BackendDispatcher::CallbackBase::CallbackBase): Split the two code paths for reporting
+            success and failure.
+
+            (Inspector::BackendDispatcher::CallbackBase::sendFailure):
+            (Inspector::BackendDispatcher::CallbackBase::sendSuccess): Renamed from sendIfActive.
+            (Inspector::BackendDispatcher::dispatch): Reset counters and current requestId before dispatching.
+            No need to manually thread the requestId to all reportProtocolError calls.
+
+            (Inspector::BackendDispatcher::hasProtocolErrors): Added.
+            (Inspector::BackendDispatcher::sendResponse):
+            (Inspector::BackendDispatcher::sendPendingErrors): Send any saved protocol errors to the frontend.
+            Always send a 'data' member with all of the errors, even if there's just one. We might want to add
+            more information about errors later.
+
+            (Inspector::BackendDispatcher::reportProtocolError): Enqueue a protocol error to be sent later.
+            (Inspector::BackendDispatcher::getPropertyValue): Remove useless type parameters and nuke most of
+            the type conversion methods. Use std::function types instead of function pointer types.
+
+            (Inspector::castToInteger): Added.
+            (Inspector::castToNumber): Added.
+            (Inspector::BackendDispatcher::getInteger):
+            (Inspector::BackendDispatcher::getDouble):
+            (Inspector::BackendDispatcher::getString):
+            (Inspector::BackendDispatcher::getBoolean):
+            (Inspector::BackendDispatcher::getObject):
+            (Inspector::BackendDispatcher::getArray):
+            (Inspector::BackendDispatcher::getValue):
+            (Inspector::getPropertyValue): Deleted.
+            (Inspector::AsMethodBridges::asInteger): Deleted.
+            (Inspector::AsMethodBridges::asDouble): Deleted.
+            (Inspector::AsMethodBridges::asString): Deleted.
+            (Inspector::AsMethodBridges::asBoolean): Deleted.
+            (Inspector::AsMethodBridges::asObject): Deleted.
+            (Inspector::AsMethodBridges::asArray): Deleted.
+            (Inspector::AsMethodBridges::asValue): Deleted.
+            * inspector/InspectorBackendDispatcher.h:
+            * inspector/scripts/codegen/cpp_generator_templates.py: Extract 'params' object in domain dispatch method.
+            Omit requestIds where possible. Convert dispatch tables to use NeverDestroyed. Check the protocol error count
+            to decide whether to abort the dispatch or not, rather than allocating our own errors array.
+
+            * inspector/scripts/codegen/cpp_generator_templates.py:
+            (void):
+            * inspector/scripts/codegen/generate_cpp_backend_dispatcher_header.py: Revert to passing RefPtr<InspectorObject>
+            since parameters are now being passed rather than the message object. Some commands do not require parameters.
+            * inspector/scripts/codegen/generate_cpp_backend_dispatcher_implementation.py:
+            (CppBackendDispatcherImplementationGenerator.generate_output):
+            (CppBackendDispatcherImplementationGenerator._generate_small_dispatcher_switch_implementation_for_domain):
+            (CppBackendDispatcherImplementationGenerator._generate_dispatcher_implementation_for_command):
+            * inspector/scripts/codegen/generate_objc_backend_dispatcher_header.py:
+            (ObjCBackendDispatcherHeaderGenerator._generate_objc_handler_declaration_for_command):
+            * inspector/scripts/codegen/generate_objc_backend_dispatcher_implementation.py:
+            (ObjCConfigurationImplementationGenerator._generate_handler_implementation_for_command):
+            (ObjCConfigurationImplementationGenerator._generate_success_block_for_command):
+            * inspector/scripts/codegen/objc_generator_templates.py:
+
+            Rebaseline some protocol generator tests.
+            * inspector/scripts/tests/expected/commands-with-async-attribute.json-result:
+            * inspector/scripts/tests/expected/commands-with-optional-call-return-parameters.json-result:
+            * inspector/scripts/tests/expected/domains-with-varying-command-sizes.json-result:
+            * inspector/scripts/tests/expected/enum-values.json-result:
+            * inspector/scripts/tests/expected/events-with-optional-parameters.json-result:
+            * inspector/scripts/tests/expected/generate-domains-with-feature-guards.json-result:
+            * inspector/scripts/tests/expected/same-type-id-different-domain.json-result:
+            * inspector/scripts/tests/expected/shadowed-optional-type-setters.json-result:
+            * inspector/scripts/tests/expected/type-declaration-aliased-primitive-type.json-result:
+            * inspector/scripts/tests/expected/type-declaration-array-type.json-result:
+            * inspector/scripts/tests/expected/type-declaration-enum-type.json-result:
+            * inspector/scripts/tests/expected/type-declaration-object-type.json-result:
+            * inspector/scripts/tests/expected/type-requiring-runtime-casts.json-result:
+
+2015-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r188897. rdar://problem/23221163
+
+    2015-08-24  Brian Burg  <bburg@apple.com>
+
+            Web Inspector: add protocol test for existing error handling performed by the backend
+            https://bugs.webkit.org/show_bug.cgi?id=147097
+
+            Reviewed by Joseph Pecoraro.
+
+            A new test revealed that the protocol "method" parameter was being parsed in a naive way.
+            Rewrite it to use String::split and improve error checking to avoid failing later.
+
+            * inspector/InspectorBackendDispatcher.cpp:
+            (Inspector::BackendDispatcher::dispatch):
+
+2015-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r188631. rdar://problem/23221163
+
+    2015-08-18  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Links for rules in <style> are incorrect, do not account for <style> offset in the document
+            https://bugs.webkit.org/show_bug.cgi?id=148141
+
+            Reviewed by Brian Burg.
+
+            * inspector/protocol/CSS.json:
+            Extend StyleSheetHeader to include start offset information and a bit
+            for whether or not this was an inline style tag created by the parser.
+            These match additions to Blink's protocol.
+
+2015-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r188549. rdar://problem/23221163
+
+    2015-08-17  Saam barati  <sbarati@apple.com>
+
+            Web Inspector: Type profiler return types aren't showing up
+            https://bugs.webkit.org/show_bug.cgi?id=147348
+
+            Reviewed by Brian Burg.
+
+            Bug #145995 changed the starting offset of a function to
+            be the open parenthesis of the function's parameter list.
+            This broke JSC's type profiler protocol of communicating
+            return types of a function to the web inspector. This
+            is now fixed. The text offset used in the protocol is now
+            the first letter of the function/get/set/method name.
+            So "f" in "function a() {}", "s" in "set foo(){}", etc.
+
+            * bytecode/CodeBlock.cpp:
+            (JSC::CodeBlock::CodeBlock):
+            * jsc.cpp:
+            (functionReturnTypeFor):
+
+2015-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r188403. rdar://problem/23221163
+
+    2015-08-13  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: A {Map, WeakMap, Set, WeakSet} object contains itself will hang the console
+            https://bugs.webkit.org/show_bug.cgi?id=147966
+
+            Reviewed by Timothy Hatcher.
+
+            * inspector/InjectedScriptSource.js:
+            (InjectedScript.prototype._initialPreview):
+            Renamed to initial preview. This is not a complete preview for
+            this object, and it needs some processing in order to be a
+            complete accurate preview.
+
+            (InjectedScript.RemoteObject.prototype._emptyPreview):
+            This attempts to be an accurate empty preview for the given object.
+            For types with entries, it adds an empty entries list and updates
+            the overflow and lossless properties.
+
+            (InjectedScript.RemoteObject.prototype._createObjectPreviewForValue):
+            Take a generatePreview parameter to generate a full preview or empty preview.
+
+            (InjectedScript.RemoteObject.prototype._appendPropertyPreviews):
+            (InjectedScript.RemoteObject.prototype._appendEntryPreviews):
+            (InjectedScript.RemoteObject.prototype._isPreviewableObject):
+            Take care to avoid cycles.
+
+2015-12-01  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r187496. rdar://problem/23221163
+
+    2015-07-28  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Show Pseudo Elements in DOM Tree
+            https://bugs.webkit.org/show_bug.cgi?id=139612
+
+            Reviewed by Timothy Hatcher.
+
+            * inspector/protocol/DOM.json:
+            Add new properties to DOMNode if it is a pseudo element or if it has
+            pseudo element children. Add new events for if a pseudo element is
+            added or removed dynamically to an existing DOMNode.
+
+2015-12-01  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r187249. rdar://problem/23221163
+
+    2015-07-23  Devin Rousso  <drousso@apple.com>
+
+            Web Inspector: Add a function to CSSCompletions to get a list of supported system fonts
+            https://bugs.webkit.org/show_bug.cgi?id=147009
+
+            Reviewed by Joseph Pecoraro.
+
+            * inspector/protocol/CSS.json: Added getSupportedSystemFontFamilyNames function.
+
+2015-12-01  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r187211. rdar://problem/23221163
+
+    2015-07-22  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Timeline should immediately start moving play head when starting a new recording
+            https://bugs.webkit.org/show_bug.cgi?id=147210
+
+            Reviewed by Timothy Hatcher.
+
+            * inspector/protocol/Timeline.json:
+            Add timestamps to recordingStarted and recordingStopped events.
+
 2015-10-27  Matthew Hanson  <matthew_hanson@apple.com>
 
         Merge r191395. rdar://problem/22847057

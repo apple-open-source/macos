@@ -122,6 +122,22 @@ MasterAudioFunctions *masterAudioFunctions = 0;
 
 #define NORMAL_MODIFIER_MASK (NX_COMMANDMASK | NX_CONTROLMASK | NX_SHIFTMASK | NX_ALTERNATEMASK)
 
+#define POINTING_EVENT_MASK (NX_LMOUSEDOWNMASK | \
+    NX_LMOUSEDOWNMASK |\
+    NX_LMOUSEUPMASK |\
+    NX_RMOUSEDOWNMASK |\
+    NX_RMOUSEUPMASK |\
+    NX_MOUSEMOVEDMASK |\
+    NX_LMOUSEDRAGGEDMASK |\
+    NX_RMOUSEDRAGGEDMASK |\
+    NX_TABLETPOINTERMASK |\
+    NX_TABLETPROXIMITY |\
+    NX_MOUSEENTEREDMASK |\
+    NX_MOUSEEXITEDMASK |\
+    NX_SCROLLWHEELMOVEDMASK)
+
+#define KEYBOARD_EVENT_MASK (NX_KEYDOWNMASK | NX_FLAGSCHANGEDMASK)
+
 #define EV_MAX_SCREENS 32
 
 #define IDLE_HID_ACTIVITY_NSECS ((uint64_t)(5*60*NSEC_PER_SEC))
@@ -677,6 +693,15 @@ struct IOHIDSystem::ExpansionData
     
     UInt32                  onScreenPinMask;
     IOGBounds               onScreenBounds[EV_MAX_SCREENS];
+    
+    IOSimpleReporter        *pointingIdleReporter;
+    IOSimpleReporter        *keyboardIdleReporter;
+    IOSimpleReporter        *combinedIdleReporter;
+    
+    OSSet                   *reporters;
+    AbsoluteTime            reporterLastTS;
+    AbsoluteTime            reporterLastPointingTS;
+    AbsoluteTime            reporterLastKeyboardTS;
 };
 
 #define _cursorHelper               (_privateData->cursorHelper)
@@ -722,6 +747,16 @@ struct IOHIDSystem::ExpansionData
 
 #define _onScreenBounds             (_privateData->onScreenBounds)
 #define _onScreenPinMask            (_privateData->onScreenPinMask)
+
+#define _pointingIdleReporter        (_privateData->pointingIdleReporter)
+#define _keyboardIdleReporter        (_privateData->keyboardIdleReporter)
+#define _combinedIdleReporter        (_privateData->combinedIdleReporter)
+#define _reporters                   (_privateData->reporters)
+#define _reporterLastTS              (_privateData->reporterLastTS)
+#define _reporterLastPointingTS      (_privateData->reporterLastKeyboardTS)
+#define _reporterLastKeyboardTS      (_privateData->reporterLastPointingTS)
+
+
 
 enum {
     kScrollDirectionInvalid = 0,
@@ -835,6 +870,345 @@ IOWorkLoop * IOHIDSystem::getWorkLoop() const
     return workLoop;
 }
 
+
+bool IOHIDSystem::initReporters()
+{
+    IOReturn ret = kIOReturnError;
+
+    _reporterLastTS = _reporterLastKeyboardTS = _reporterLastPointingTS = mach_absolute_time();
+    
+    _reporters = OSSet::withCapacity(2);
+    require(_reporters != NULL, error_exit);
+    
+    _pointingIdleReporter = IOSimpleReporter::with(this, kIOReportCategoryTraffic, kIOReportUnitNone);
+    require(_pointingIdleReporter != NULL, error_exit);
+    
+    _reporters->setObject(_pointingIdleReporter);
+    _pointingIdleReporter->release();
+    
+    _keyboardIdleReporter = IOSimpleReporter::with(this, kIOReportCategoryTraffic, kIOReportUnitNone);
+    require(_keyboardIdleReporter != NULL, error_exit);
+    
+    _reporters->setObject(_keyboardIdleReporter);
+    _keyboardIdleReporter->release();
+    
+    _combinedIdleReporter = IOSimpleReporter::with(this, kIOReportCategoryTraffic, kIOReportUnitNone);
+    require(_combinedIdleReporter != NULL, error_exit);
+    
+    _reporters->setObject(_combinedIdleReporter);
+    _combinedIdleReporter->release();
+    
+    _pointingIdleReporter->addChannel(kPointingChannelID_15_30, kChannelName_15_30);
+    _pointingIdleReporter->addChannel(kPointingChannelID_30_60, kChannelName_30_60);
+    _pointingIdleReporter->addChannel(kPointingChannelID_60_120, kChannelName_60_120);
+    _pointingIdleReporter->addChannel(kPointingChannelID_120_240, kChannelName_120_240);
+    _pointingIdleReporter->addChannel(kPointingChannelID_240_360, kChannelName_240_360);
+    _pointingIdleReporter->addChannel(kPointingChannelID_360_480, kChannelName_360_480);
+    _pointingIdleReporter->addChannel(kPointingChannelID_480_600, kChannelName_480_600);
+    _pointingIdleReporter->addChannel(kPointingChannelID_600_INF, kChannelName_600_INF);
+
+    _pointingIdleReporter->addChannel(kPointingTotalChannelID_15_30, kChannelTotalName_15_30);
+    _pointingIdleReporter->addChannel(kPointingTotalChannelID_30_60, kChannelTotalName_30_60);
+    _pointingIdleReporter->addChannel(kPointingTotalChannelID_60_120, kChannelTotalName_60_120);
+    _pointingIdleReporter->addChannel(kPointingTotalChannelID_120_240, kChannelTotalName_120_240);
+    _pointingIdleReporter->addChannel(kPointingTotalChannelID_240_360, kChannelTotalName_240_360);
+    _pointingIdleReporter->addChannel(kPointingTotalChannelID_360_480, kChannelTotalName_360_480);
+    _pointingIdleReporter->addChannel(kPointingTotalChannelID_480_600, kChannelTotalName_480_600);
+    _pointingIdleReporter->addChannel(kPointingTotalChannelID_600_INF, kChannelTotalName_600_INF);
+
+
+    _keyboardIdleReporter->addChannel(kKeyboardChannelID_15_30, kChannelName_15_30);
+    _keyboardIdleReporter->addChannel(kKeyboardChannelID_30_60, kChannelName_30_60);
+    _keyboardIdleReporter->addChannel(kKeyboardChannelID_60_120, kChannelName_60_120);
+    _keyboardIdleReporter->addChannel(kKeyboardChannelID_120_240, kChannelName_120_240);
+    _keyboardIdleReporter->addChannel(kKeyboardChannelID_240_360, kChannelName_240_360);
+    _keyboardIdleReporter->addChannel(kKeyboardChannelID_360_480, kChannelName_360_480);
+    _keyboardIdleReporter->addChannel(kKeyboardChannelID_480_600, kChannelName_480_600);
+    _keyboardIdleReporter->addChannel(kKeyboardChannelID_600_INF, kChannelName_600_INF);
+
+    _keyboardIdleReporter->addChannel(kKeyboardTotalChannelID_15_30, kChannelTotalName_15_30);
+    _keyboardIdleReporter->addChannel(kKeyboardTotalChannelID_30_60, kChannelTotalName_30_60);
+    _keyboardIdleReporter->addChannel(kKeyboardTotalChannelID_60_120, kChannelTotalName_60_120);
+    _keyboardIdleReporter->addChannel(kKeyboardTotalChannelID_120_240, kChannelTotalName_120_240);
+    _keyboardIdleReporter->addChannel(kKeyboardTotalChannelID_240_360, kChannelTotalName_240_360);
+    _keyboardIdleReporter->addChannel(kKeyboardTotalChannelID_360_480, kChannelTotalName_360_480);
+    _keyboardIdleReporter->addChannel(kKeyboardTotalChannelID_480_600, kChannelTotalName_480_600);
+    _keyboardIdleReporter->addChannel(kKeyboardTotalChannelID_600_INF, kChannelTotalName_600_INF);
+    
+    
+    _combinedIdleReporter->addChannel(kCombinedChannelID_15_30, kChannelName_15_30);
+    _combinedIdleReporter->addChannel(kCombinedChannelID_30_60, kChannelName_30_60);
+    _combinedIdleReporter->addChannel(kCombinedChannelID_60_120, kChannelName_60_120);
+    _combinedIdleReporter->addChannel(kCombinedChannelID_120_240, kChannelName_120_240);
+    _combinedIdleReporter->addChannel(kCombinedChannelID_240_360, kChannelName_240_360);
+    _combinedIdleReporter->addChannel(kCombinedChannelID_360_480, kChannelName_360_480);
+    _combinedIdleReporter->addChannel(kCombinedChannelID_480_600, kChannelName_480_600);
+    _combinedIdleReporter->addChannel(kCombinedChannelID_600_INF, kChannelName_600_INF);
+    
+    _combinedIdleReporter->addChannel(kCombinedTotalChannelID_15_30, kChannelTotalName_15_30);
+    _combinedIdleReporter->addChannel(kCombinedTotalChannelID_30_60, kChannelTotalName_30_60);
+    _combinedIdleReporter->addChannel(kCombinedTotalChannelID_60_120, kChannelTotalName_60_120);
+    _combinedIdleReporter->addChannel(kCombinedTotalChannelID_120_240, kChannelTotalName_120_240);
+    _combinedIdleReporter->addChannel(kCombinedTotalChannelID_240_360, kChannelTotalName_240_360);
+    _combinedIdleReporter->addChannel(kCombinedTotalChannelID_360_480, kChannelTotalName_360_480);
+    _combinedIdleReporter->addChannel(kCombinedTotalChannelID_480_600, kChannelTotalName_480_600);
+    _combinedIdleReporter->addChannel(kCombinedTotalChannelID_600_INF, kChannelTotalName_600_INF);
+    
+    ret = IOReportLegend::addReporterLegend(this, _pointingIdleReporter, "IOHIDSystem", "Pointing event idleness");
+    require_noerr(ret, error_exit);
+    
+    ret = IOReportLegend::addReporterLegend(this, _keyboardIdleReporter, "IOHIDSystem", "Keyboard event idleness");
+    require_noerr(ret, error_exit);
+    
+    ret = IOReportLegend::addReporterLegend(this, _combinedIdleReporter, "IOHIDSystem", "Combined event idleness");
+    require_noerr(ret, error_exit);
+    
+    return true;
+    
+error_exit:
+    
+    OSSafeReleaseNULL(_reporters);
+    
+    return false;
+}
+
+
+IOReturn IOHIDSystem::configureReport(IOReportChannelList *       channels,
+                                              IOReportConfigureAction     action,
+                                              void *                      result,
+                                              void *                      destination )
+{
+    
+    IOReturn status = kIOReturnError;
+    
+    if (_reporters)
+        status = IOReporter::configureAllReports(_reporters,
+                                              channels,
+                                              action,
+                                              result,
+                                              destination);
+    
+    return status;
+}
+
+
+IOReturn IOHIDSystem::updateReport(IOReportChannelList    *    channels,
+                                           IOReportUpdateAction    action,
+                                           void *                  result,
+                                           void *                  destination )
+{
+    
+    IOReturn status = kIOReturnError;
+    
+    if (_reporters)
+        status = IOReporter::updateAllReports(_reporters,
+                                           channels,
+                                           action,
+                                           result,
+                                           destination);
+
+    return status;
+}
+
+
+void IOHIDSystem::updateIdleReporters(uint32_t mask, AbsoluteTime ts)
+{
+    AbsoluteTime        delta           = 0;
+    uint64_t            deltaNS         = 0;
+    uint32_t            deltaS          = 0;
+    uint64_t            channelID       = 0;
+    uint64_t            totChannelID    = 0;
+    bool                isKeyboard      = false;
+    bool                isPointing      = false;
+
+    if (mask & KEYBOARD_EVENT_MASK) 
+        isKeyboard = true;
+
+    if (mask & POINTING_EVENT_MASK)
+        isPointing = true;
+
+    if ((!isPointing) && (!isKeyboard))
+        return;
+
+    // Get the combined idleness
+    delta = ts;
+    SUB_ABSOLUTETIME(&delta, &_reporterLastTS);
+    absolutetime_to_nanoseconds(delta, &deltaNS);
+    _reporterLastTS = ts;
+
+    deltaS = deltaNS / NSEC_PER_SEC;
+    
+     do {
+         if (deltaS < 15)
+             break;
+         
+         if (deltaS < 30) {
+             channelID       = kCombinedChannelID_15_30;
+             totChannelID    = kCombinedTotalChannelID_15_30;
+         } else {
+             if (deltaS < 60) {
+                 channelID       = kCombinedChannelID_30_60;
+                 totChannelID    = kCombinedTotalChannelID_30_60;
+             } else {
+                 if (deltaS < 120) {
+                     channelID       = kCombinedChannelID_60_120;
+                     totChannelID    = kCombinedTotalChannelID_60_120;
+                 } else {
+                     if (deltaS < 240) {
+                         channelID       = kCombinedChannelID_120_240;
+                         totChannelID    = kCombinedTotalChannelID_120_240;
+                     } else {
+                         if (deltaS < 360) {
+                             channelID       = kCombinedChannelID_240_360;
+                             totChannelID    = kCombinedTotalChannelID_240_360;
+                         } else {
+                             if (deltaS < 480) {
+                                 channelID       = kCombinedChannelID_360_480;
+                                 totChannelID    = kCombinedTotalChannelID_360_480;
+                             } else {
+                                 if (deltaS < 600) {
+                                     channelID       = kCombinedChannelID_480_600;
+                                     totChannelID    = kCombinedTotalChannelID_480_600;
+                                 } else {
+                                     channelID       = kCombinedChannelID_600_INF;
+                                     totChannelID    = kCombinedTotalChannelID_600_INF;
+                                 }
+                             }
+                         }
+                     }
+                 }
+             }
+         }
+         
+         if (channelID) {
+             _combinedIdleReporter->incrementValue(channelID, 1);
+             _combinedIdleReporter->incrementValue(totChannelID, deltaS);
+             channelID = NULL;
+         }
+    } while (0);
+    
+    
+    //Get the pointing idlenes
+    do {
+        if (!isPointing) break;
+        
+        delta = ts;
+        SUB_ABSOLUTETIME(&delta, &_reporterLastPointingTS);
+        absolutetime_to_nanoseconds(delta, &deltaNS);
+        _reporterLastPointingTS = ts;
+        
+        deltaS = deltaNS / NSEC_PER_SEC;
+        
+        if (deltaS < 15)
+            break;
+        
+        if (deltaS < 30) {
+            channelID       = kPointingChannelID_15_30;
+            totChannelID    = kPointingTotalChannelID_15_30;
+        } else {
+            if (deltaS < 60) {
+                channelID       = kPointingChannelID_30_60;
+                totChannelID    = kPointingTotalChannelID_30_60;
+            } else {
+                if (deltaS < 120) {
+                    channelID       = kPointingChannelID_60_120;
+                    totChannelID    = kPointingTotalChannelID_60_120;
+                } else {
+                    if (deltaS < 240) {
+                        channelID       = kPointingChannelID_120_240;
+                        totChannelID    = kPointingTotalChannelID_120_240;
+                    } else {
+                        if (deltaS < 360) {
+                            channelID       = kPointingChannelID_240_360;
+                            totChannelID    = kPointingTotalChannelID_240_360;
+                        } else {
+                            if (deltaS < 480) {
+                                channelID       = kPointingChannelID_360_480;
+                                totChannelID    = kPointingTotalChannelID_360_480;
+                            } else {
+                                if (deltaS < 600) {
+                                    channelID       = kPointingChannelID_480_600;
+                                    totChannelID    = kPointingTotalChannelID_480_600;
+                                } else {
+                                    channelID       = kPointingChannelID_600_INF;
+                                    totChannelID    = kPointingTotalChannelID_600_INF;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (channelID) {
+            _pointingIdleReporter->incrementValue(channelID, 1);
+            _pointingIdleReporter->incrementValue(totChannelID, deltaS);
+            channelID = NULL;
+        }
+    } while (0);
+
+    do {
+        if (!isKeyboard) break;
+        
+        delta = ts;
+        SUB_ABSOLUTETIME(&delta, &_reporterLastKeyboardTS);
+        absolutetime_to_nanoseconds(delta, &deltaNS);
+        _reporterLastKeyboardTS = ts;
+        
+        deltaS = deltaNS / NSEC_PER_SEC;
+        
+        if (deltaS < 15)
+            break;
+        
+        if (deltaS < 30) {
+            channelID       = kKeyboardChannelID_15_30;
+            totChannelID    = kKeyboardTotalChannelID_15_30;
+        } else {
+            if (deltaS < 60) {
+                channelID       = kKeyboardChannelID_30_60;
+                totChannelID    = kKeyboardTotalChannelID_30_60;
+            } else {
+                if (deltaS < 120) {
+                    channelID       = kKeyboardChannelID_60_120;
+                    totChannelID    = kKeyboardTotalChannelID_60_120;
+                } else {
+                    if (deltaS < 240) {
+                        channelID       = kKeyboardChannelID_120_240;
+                        totChannelID    = kKeyboardTotalChannelID_120_240;
+                    } else {
+                        if (deltaS < 360) {
+                            channelID       = kKeyboardChannelID_240_360;
+                            totChannelID    = kKeyboardTotalChannelID_240_360;
+                        } else {
+                            if (deltaS < 480) {
+                                channelID       = kKeyboardChannelID_360_480;
+                                totChannelID    = kKeyboardTotalChannelID_360_480;
+                            } else {
+                                if (deltaS < 600) {
+                                    channelID       = kKeyboardChannelID_480_600;
+                                    totChannelID    = kKeyboardTotalChannelID_480_600;
+                                } else {
+                                    channelID       = kKeyboardChannelID_600_INF;
+                                    totChannelID    = kKeyboardTotalChannelID_600_INF;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (channelID) {
+            _keyboardIdleReporter->incrementValue(channelID, 1);
+            _keyboardIdleReporter->incrementValue(totChannelID, deltaS);
+            channelID = NULL;
+        }
+    } while (0);
+   
+    return; 
+}
+
+
 bool IOHIDSystem::start(IOService * provider)
 {
     bool            iWasStarted = false;
@@ -847,6 +1221,10 @@ bool IOHIDSystem::start(IOService * provider)
     IOServiceMatchingNotificationHandler iohidNotificationHandler = OSMemberFunctionCast(IOServiceMatchingNotificationHandler, this, &IOHIDSystem::genericNotificationHandler);
     
     require(super::start(provider), exit_early);
+
+    if (!initReporters()) {
+        IOLog("IOHIDSystem: failed to initialize reporters\n");
+    }
     
     _setScrollCountParameters();
     
@@ -1373,6 +1751,7 @@ void IOHIDSystem::free()
         }
 
         OSSafeReleaseNULL(_delayedNotificationArray);
+        OSSafeReleaseNULL(_reporters);
     }
     OSSafeReleaseNULL(cmdGate); // gate is already closed
     OSSafeReleaseNULL(workLoop);
@@ -1391,7 +1770,7 @@ void IOHIDSystem::free()
 
     OSSafeReleaseNULL(_hidKeyboardDevice);
     OSSafeReleaseNULL(_hidPointingDevice);
-
+    
     if (_privateData) {
         _cursorHelper.finalize();
         IOFree((void*)_privateData, sizeof(ExpansionData));
@@ -2409,6 +2788,8 @@ void IOHIDSystem::postEvent(int           what,
     if (EventCodeMask(what) & NX_UNDIMMASK) {
         lastUndimEvent = ts;
     }
+
+    updateIdleReporters(EventCodeMask(what), ts);
 
     wereEvents = EventsInQueue();
 

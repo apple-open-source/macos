@@ -62,8 +62,9 @@ enum SOSCoderUnwrapStatus SOSPeerHandleCoderMessage(SOSPeerRef peer, CFStringRef
                 break;
             case kSOSCoderStaleEvent:   // We received an event we have already processed in the past.
                 secinfo("engine", "%@ engine stale event ignored", peer_id);
+                result = SOSCoderUnwrapHandled;
                 break;
-            case kSOSCoderTooNew:   //We received an event from the future!
+            case kSOSCoderTooNew:       // We received an event from the future!
                 secnotice("engine", "%@ engine received a message too soon, time to restart", peer_id);
                 SOSCoderReset(coder);
                 if(SOSCoderStart(coder, &localError) == kSOSCoderFailure){

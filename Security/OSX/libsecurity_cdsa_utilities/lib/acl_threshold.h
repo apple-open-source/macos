@@ -50,7 +50,7 @@ class ThresholdAclSubject : public SimpleAclSubject {
     typedef ObjectAcl::AclSubjectPointer AclSubjectPointer;
     typedef vector<AclSubjectPointer> AclSubjectVector;
 public:
-    bool validate(const AclValidationContext &baseCtx, const TypedList &sample) const;
+    bool validates(const AclValidationContext &baseCtx, const TypedList &sample) const;
     CssmList toList(Allocator &alloc) const;
     
     ThresholdAclSubject(uint32 n, uint32 k, const AclSubjectVector &subSubjects);

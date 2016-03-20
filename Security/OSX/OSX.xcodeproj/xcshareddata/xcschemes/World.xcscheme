@@ -67,6 +67,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "kc-30-xara"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "ssl-43-ciphers"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -80,7 +84,7 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "ssl-46-SSLGetSupportedCiphers"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "ssl-47-falsestart"
@@ -100,6 +104,14 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "ssl-54-dhe"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "si_33_keychain_backup"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "cms-hash-agility-test"
             isEnabled = "NO">
          </CommandLineArgument>
       </CommandLineArguments>

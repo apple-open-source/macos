@@ -673,6 +673,8 @@ htdocsdir
 logfiledir
 cgidir
 abs_srcdir
+HTTPD_MMN
+HTTPD_VERSION
 EXTRA_INCLUDES
 EXTRA_LIBS
 EXTRA_LDFLAGS
@@ -740,8 +742,6 @@ MOD_OPTIONAL_FN_IMPORT_LDADD
 MOD_OPTIONAL_HOOK_IMPORT_LDADD
 MOD_OPTIONAL_HOOK_EXPORT_LDADD
 MOD_SSL_LDADD
-ab_LDFLAGS
-ab_CFLAGS
 MOD_SLOTMEM_PLAIN_LDADD
 MOD_SLOTMEM_SHM_LDADD
 MOD_SESSION_DBD_LDADD
@@ -778,6 +778,9 @@ MOD_LOG_FORENSIC_LDADD
 MOD_LOG_DEBUG_LDADD
 MOD_LOG_CONFIG_LDADD
 MOD_LDAP_LDADD
+MOD_HTTP2_LDADD
+ab_LDFLAGS
+ab_CFLAGS
 MOD_MIME_LDADD
 MOD_HTTP_LDADD
 MOD_PROXY_HTML_LDADD
@@ -915,7 +918,6 @@ rel_bindir
 exp_bindir
 rel_exec_prefix
 exp_exec_prefix
-HTTPD_VERSION
 target_alias
 host_alias
 build_alias
@@ -1034,6 +1036,9 @@ with_libxml2
 enable_proxy_html
 enable_http
 enable_mime
+enable_http2
+with_nghttp2
+enable_nghttp2_staticlib_deps
 enable_ldap
 enable_log_config
 enable_log_debug
@@ -1847,6 +1852,17 @@ Optional Features:
                           linked statically.
   --disable-mime          mapping of file-extension to MIME. Disabling this
                           module is normally not recommended.
+  --enable-http2          HTTP/2 protocol handling in addition to HTTP
+                          protocol handling. Implemented by mod_http2. This
+                          module requires a libnghttp2 installation. See
+                          --with-nghttp2 on how to manage non-standard
+                          locations. This module is usually linked shared and
+                          requires loading.
+  --enable-nghttp2-staticlib-deps
+                          link mod_http2 with dependencies of libnghttp2's
+                          static libraries (as indicated by "pkg-config
+                          --static"). Must be specified in addition to
+                          --enable-http2.
   --enable-ldap           LDAP caching and connection pooling services
   --disable-log-config    logging configuration. You won't be able to log
                           requests to the server without this module.
@@ -1981,7 +1997,8 @@ Optional Packages:
   --with-distcache=PATH   Distcache installation directory
   --with-z=PATH           use a specific zlib library
   --with-libxml2=PATH     location for libxml2
-  --with-lua=PATH         Path to the Lua 5.1/5.2 prefix
+  --with-nghttp2=PATH     nghttp2 installation directory
+  --with-lua=PATH         Path to the Lua 5.2/5.1 prefix
   --with-ssl=PATH         OpenSSL installation directory
   --with-mpm=MPM          Choose the process model for Apache to use by
                           default. MPM={event|worker|prefork|winnt} This will
@@ -2873,7 +2890,7 @@ abs_srcdir=`(cd $srcdir && pwd)`
 abs_builddir=`pwd`
 
 HTTPD_VERSION=`$abs_srcdir/build/get-version.sh all $abs_srcdir/include/ap_release.h AP_SERVER`
-
+HTTPD_MMN=`$abs_srcdir/build/get-version.sh mmn $abs_srcdir/include/ap_mmn.h MODULE_MAGIC_NUMBER`
 
 
 
@@ -18029,6 +18046,781 @@ EOF
 
 
 
+  current_dir=http2
+  modpath_current=modules/http2
+  modpath_static=
+  modpath_shared=
+  for var in CFLAGS CXXFLAGS CPPFLAGS LDFLAGS LIBS INCLUDES; do
+    eval MOD_$var=
+  done
+  test -d http2 || $srcdir/build/mkdir.sh $modpath_current
+  > $modpath_current/modules.mk
+
+
+http2_objs="mod_http2.lo h2_alt_svc.lo h2_bucket_eoc.lo h2_bucket_eos.lo h2_config.lo h2_conn.lo h2_conn_io.lo h2_ctx.lo h2_from_h1.lo h2_h2.lo h2_io.lo h2_io_set.lo h2_mplx.lo h2_push.lo h2_request.lo h2_response.lo h2_session.lo h2_stream.lo h2_stream_set.lo h2_switch.lo h2_task.lo h2_task_input.lo h2_task_output.lo h2_task_queue.lo h2_util.lo h2_worker.lo h2_workers.lo "
+
+
+
+
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to enable mod_http2" >&5
+$as_echo_n "checking whether to enable mod_http2... " >&6; }
+    # Check whether --enable-http2 was given.
+if test "${enable_http2+set}" = set; then :
+  enableval=$enable_http2; force_http2=$enableval
+else
+  enable_http2=most
+fi
+
+    _apmod_extra_msg=""
+        case "$enable_http2" in
+    yes|static|shared)
+      _apmod_required="yes"
+      ;;
+    *)
+      case "$module_selection" in
+      reallyall|all|most)
+        _apmod_required="no"
+        ;;
+      *)
+        _apmod_required="yes"
+        ;;
+      esac
+  esac
+  if test "$enable_http2" = "static"; then
+    enable_http2=static
+  elif test "$enable_http2" = "yes"; then
+    enable_http2=$module_default
+  elif test "$enable_http2" = "most"; then
+    if test "$module_selection" = "most" -o "$module_selection" = "all" -o \
+            "$module_selection" = "reallyall"
+    then
+      enable_http2=$module_default
+    elif test "$module_selection" = "few" -o "$module_selection" = "none"; then
+      enable_http2=no
+    fi
+    _apmod_extra_msg=" ($module_selection)"
+  elif test "$enable_http2" = "maybe-all"; then
+    if test "$module_selection" = "all" -o "$module_selection" = "reallyall"
+    then
+      enable_http2=$module_default
+      _apmod_extra_msg=" ($module_selection)"
+    else
+      enable_http2=no
+    fi
+  elif test "$enable_http2" = "no" -a "$module_selection" = "reallyall" -a \
+            "$force_http2" != "no" ; then
+      enable_http2=$module_default
+      _apmod_extra_msg=" ($module_selection)"
+  fi
+  if test "$enable_http2" != "no"; then
+            { $as_echo "$as_me:${as_lineno-$LINENO}: result: checking dependencies" >&5
+$as_echo "checking dependencies" >&6; }
+            :
+
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for nghttp2" >&5
+$as_echo_n "checking for nghttp2... " >&6; }
+if ${ac_cv_nghttp2+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ac_cv_nghttp2=no
+    ap_nghttp2_found=""
+    ap_nghttp2_base=""
+    ap_nghttp2_libs=""
+
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for user-provided nghttp2 base directory" >&5
+$as_echo_n "checking for user-provided nghttp2 base directory... " >&6; }
+
+# Check whether --with-nghttp2 was given.
+if test "${with_nghttp2+set}" = set; then :
+  withval=$with_nghttp2;
+            if test "x$withval" != "xyes" -a "x$withval" != "x"; then
+                ap_nghttp2_base="`cd $withval ; pwd`"
+      fi
+
+fi
+
+    if test "x$ap_nghttp2_base" = "x"; then
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: none" >&5
+$as_echo "none" >&6; }
+    else
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ap_nghttp2_base" >&5
+$as_echo "$ap_nghttp2_base" >&6; }
+    fi
+
+        saved_CPPFLAGS="$CPPFLAGS"
+    saved_LIBS="$LIBS"
+    saved_LDFLAGS="$LDFLAGS"
+
+        if test -n "$PKGCONFIG"; then
+      saved_PKG_CONFIG_PATH="$PKG_CONFIG_PATH"
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pkg-config along $PKG_CONFIG_PATH" >&5
+$as_echo_n "checking for pkg-config along $PKG_CONFIG_PATH... " >&6; }
+      if test "x$ap_nghttp2_base" != "x" -a \
+              -f "${ap_nghttp2_base}/lib/pkgconfig/libnghttp2.pc"; then
+                        PKG_CONFIG_PATH="${ap_nghttp2_base}/lib/pkgconfig${PKG_CONFIG_PATH+:}${PKG_CONFIG_PATH}"
+        export PKG_CONFIG_PATH
+      fi
+      # Check whether --enable-nghttp2-staticlib-deps was given.
+if test "${enable_nghttp2_staticlib_deps+set}" = set; then :
+  enableval=$enable_nghttp2_staticlib_deps;
+        if test "$enableval" = "yes"; then
+          PKGCONFIG_LIBOPTS="--static"
+        fi
+
+fi
+
+      ap_nghttp2_libs="`$PKGCONFIG $PKGCONFIG_LIBOPTS --libs-only-l --silence-errors libnghttp2`"
+      if test $? -eq 0; then
+        ap_nghttp2_found="yes"
+        pkglookup="`$PKGCONFIG --cflags-only-I libnghttp2`"
+
+  if test "x$CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"$pkglookup\""
+    CPPFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
+        CPPFLAGS="$CPPFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_CFLAGS to \"$pkglookup\""
+    MOD_CFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_CFLAGS"
+        MOD_CFLAGS="$MOD_CFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$ab_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting ab_CFLAGS to \"$pkglookup\""
+    ab_CFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $ab_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to ab_CFLAGS"
+        ab_CFLAGS="$ab_CFLAGS $i"
+      fi
+    done
+  fi
+
+        pkglookup="`$PKGCONFIG $PKGCONFIG_LIBOPTS --libs-only-L libnghttp2`"
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$pkglookup\""
+    LDFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$pkglookup\""
+    MOD_LDFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+        pkglookup="`$PKGCONFIG $PKGCONFIG_LIBOPTS --libs-only-other libnghttp2`"
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$pkglookup\""
+    LDFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$pkglookup\""
+    MOD_LDFLAGS="$pkglookup"
+  else
+    apr_addto_bugger="$pkglookup"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+      fi
+      PKG_CONFIG_PATH="$saved_PKG_CONFIG_PATH"
+    fi
+
+        if test "x$ap_nghttp2_base" != "x" -a "x$ap_nghttp2_found" = "x"; then
+
+  if test "x$CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"-I$ap_nghttp2_base/include\""
+    CPPFLAGS="-I$ap_nghttp2_base/include"
+  else
+    apr_addto_bugger="-I$ap_nghttp2_base/include"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
+        CPPFLAGS="$CPPFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_CFLAGS to \"-I$ap_nghttp2_base/include\""
+    MOD_CFLAGS="-I$ap_nghttp2_base/include"
+  else
+    apr_addto_bugger="-I$ap_nghttp2_base/include"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_CFLAGS"
+        MOD_CFLAGS="$MOD_CFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$ab_CFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting ab_CFLAGS to \"-I$ap_nghttp2_base/include\""
+    ab_CFLAGS="-I$ap_nghttp2_base/include"
+  else
+    apr_addto_bugger="-I$ap_nghttp2_base/include"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $ab_CFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to ab_CFLAGS"
+        ab_CFLAGS="$ab_CFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"-L$ap_nghttp2_base/lib\""
+    LDFLAGS="-L$ap_nghttp2_base/lib"
+  else
+    apr_addto_bugger="-L$ap_nghttp2_base/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"-L$ap_nghttp2_base/lib\""
+    MOD_LDFLAGS="-L$ap_nghttp2_base/lib"
+  else
+    apr_addto_bugger="-L$ap_nghttp2_base/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+      if test "x$ap_platform_runtime_link_flag" != "x"; then
+
+  if test "x$LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$ap_platform_runtime_link_flag$ap_nghttp2_base/lib\""
+    LDFLAGS="$ap_platform_runtime_link_flag$ap_nghttp2_base/lib"
+  else
+    apr_addto_bugger="$ap_platform_runtime_link_flag$ap_nghttp2_base/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LDFLAGS"
+        LDFLAGS="$LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$ap_platform_runtime_link_flag$ap_nghttp2_base/lib\""
+    MOD_LDFLAGS="$ap_platform_runtime_link_flag$ap_nghttp2_base/lib"
+  else
+    apr_addto_bugger="$ap_platform_runtime_link_flag$ap_nghttp2_base/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+      fi
+    fi
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for nghttp2 version >= 1.2.1" >&5
+$as_echo_n "checking for nghttp2 version >= 1.2.1... " >&6; }
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <nghttp2/nghttp2ver.h>
+int
+main ()
+{
+
+#if !defined(NGHTTP2_VERSION_NUM)
+#error "Missing nghttp2 version"
+#endif
+#if NGHTTP2_VERSION_NUM < 0x010201
+#error "Unsupported nghttp2 version " NGHTTP2_VERSION_TEXT
+#endif
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: OK" >&5
+$as_echo "OK" >&6; }
+       ac_cv_nghttp2=yes
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: FAILED" >&5
+$as_echo "FAILED" >&6; }
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
+    if test "x$ac_cv_nghttp2" = "xyes"; then
+      ap_nghttp2_libs="${ap_nghttp2_libs:--lnghttp2} `$apr_config --libs`"
+
+  if test "x$MOD_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$ap_nghttp2_libs\""
+    MOD_LDFLAGS="$ap_nghttp2_libs"
+  else
+    apr_addto_bugger="$ap_nghttp2_libs"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_LDFLAGS"
+        MOD_LDFLAGS="$MOD_LDFLAGS $i"
+      fi
+    done
+  fi
+
+
+  if test "x$LIBS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LIBS to \"$ap_nghttp2_libs\""
+    LIBS="$ap_nghttp2_libs"
+  else
+    apr_addto_bugger="$ap_nghttp2_libs"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LIBS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LIBS"
+        LIBS="$LIBS $i"
+      fi
+    done
+  fi
+
+
+  test "x$silent" != "xyes" && echo "  forcing ab_LDFLAGS to \"$MOD_LDFLAGS\""
+  ab_LDFLAGS="$MOD_LDFLAGS"
+
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST ab_CFLAGS"
+
+
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST ab_LDFLAGS"
+
+
+
+            liberrors=""
+      for ac_header in nghttp2/nghttp2.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "nghttp2/nghttp2.h" "ac_cv_header_nghttp2_nghttp2_h" "$ac_includes_default"
+if test "x$ac_cv_header_nghttp2_nghttp2_h" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_NGHTTP2_NGHTTP2_H 1
+_ACEOF
+
+fi
+
+done
+
+      for ac_func in nghttp2_session_server_new2
+do :
+  ac_fn_c_check_func "$LINENO" "nghttp2_session_server_new2" "ac_cv_func_nghttp2_session_server_new2"
+if test "x$ac_cv_func_nghttp2_session_server_new2" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_NGHTTP2_SESSION_SERVER_NEW2 1
+_ACEOF
+
+else
+  liberrors="yes"
+fi
+done
+
+      if test "x$liberrors" != "x"; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: nghttp2 library is unusable" >&5
+$as_echo "$as_me: WARNING: nghttp2 library is unusable" >&2;}
+      fi
+      for ac_func in nghttp2_stream_get_weight
+do :
+  ac_fn_c_check_func "$LINENO" "nghttp2_stream_get_weight" "ac_cv_func_nghttp2_stream_get_weight"
+if test "x$ac_cv_func_nghttp2_stream_get_weight" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_NGHTTP2_STREAM_GET_WEIGHT 1
+_ACEOF
+
+  if test "x$MOD_CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_CPPFLAGS to \""-DH2_NG2_STREAM_API"\""
+    MOD_CPPFLAGS=""-DH2_NG2_STREAM_API""
+  else
+    apr_addto_bugger=""-DH2_NG2_STREAM_API""
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_CPPFLAGS"
+        MOD_CPPFLAGS="$MOD_CPPFLAGS $i"
+      fi
+    done
+  fi
+
+fi
+done
+
+      for ac_func in nghttp2_session_change_stream_priority
+do :
+  ac_fn_c_check_func "$LINENO" "nghttp2_session_change_stream_priority" "ac_cv_func_nghttp2_session_change_stream_priority"
+if test "x$ac_cv_func_nghttp2_session_change_stream_priority" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_NGHTTP2_SESSION_CHANGE_STREAM_PRIORITY 1
+_ACEOF
+
+  if test "x$MOD_CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_CPPFLAGS to \""-DH2_NG2_CHANGE_PRIO"\""
+    MOD_CPPFLAGS=""-DH2_NG2_CHANGE_PRIO""
+  else
+    apr_addto_bugger=""-DH2_NG2_CHANGE_PRIO""
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_CPPFLAGS"
+        MOD_CPPFLAGS="$MOD_CPPFLAGS $i"
+      fi
+    done
+  fi
+
+fi
+done
+
+    else
+      { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: nghttp2 version is too old" >&5
+$as_echo "$as_me: WARNING: nghttp2 version is too old" >&2;}
+    fi
+
+        CPPFLAGS="$saved_CPPFLAGS"
+    LIBS="$saved_LIBS"
+    LDFLAGS="$saved_LDFLAGS"
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_nghttp2" >&5
+$as_echo "$ac_cv_nghttp2" >&6; }
+  if test "x$ac_cv_nghttp2" = "xyes"; then
+
+$as_echo "#define HAVE_NGHTTP2 1" >>confdefs.h
+
+  fi
+
+    if test "$ac_cv_nghttp2" = "yes" ; then
+        if test "x$enable_http2" = "xshared"; then
+           # The only symbol which needs to be exported is the module
+           # structure, so ask libtool to hide everything else:
+
+  if test "x$MOD_HTTP2_LDADD" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_HTTP2_LDADD to \"-export-symbols-regex http2_module\""
+    MOD_HTTP2_LDADD="-export-symbols-regex http2_module"
+  else
+    apr_addto_bugger="-export-symbols-regex http2_module"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_HTTP2_LDADD; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_HTTP2_LDADD"
+        MOD_HTTP2_LDADD="$MOD_HTTP2_LDADD $i"
+      fi
+    done
+  fi
+
+        fi
+    else
+        enable_http2=no
+    fi
+
+            :
+            { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to enable mod_http2" >&5
+$as_echo_n "checking whether to enable mod_http2... " >&6; }
+            if test "$enable_http2" = "no"; then
+              if test "$_apmod_required" = "no"; then
+                _apmod_extra_msg=" (disabled)"
+              else
+                as_fn_error $? "mod_http2 has been requested but can not be built due to prerequisite failures" "$LINENO" 5
+              fi
+            fi
+  fi
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_http2$_apmod_extra_msg" >&5
+$as_echo "$enable_http2$_apmod_extra_msg" >&6; }
+  if test "$enable_http2" != "no"; then
+    case "$enable_http2" in
+    static*)
+      MODLIST="$MODLIST http2"
+      if test "http2" = "so"; then
+          sharedobjs=yes
+      fi
+      shared="";;
+    *)
+      enable_http2=`echo $enable_http2|sed 's/shared,*//'`
+      sharedobjs=yes
+      shared=yes
+      DSO_MODULES="$DSO_MODULES http2"
+      if test "most" = "yes" ; then
+        ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},http2"
+      fi
+      ;;
+    esac
+
+
+  if test -z "$http2_objs"; then
+    objects="mod_http2.lo"
+  else
+    objects="$http2_objs"
+  fi
+
+  if test -z "$module_standalone"; then
+    if test -z "$shared"; then
+      # The filename of a convenience library must have a "lib" prefix:
+      libname="libmod_http2.la"
+      BUILTIN_LIBS="$BUILTIN_LIBS $modpath_current/$libname"
+      modpath_static="$modpath_static $libname"
+      cat >>$modpath_current/modules.mk<<EOF
+$libname: $objects
+	\$(MOD_LINK) $objects \$(MOD_HTTP2_LDADD)
+EOF
+      if test ! -z "\$(MOD_HTTP2_LDADD)"; then
+
+  if test "x$AP_LIBS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting AP_LIBS to \"\$(MOD_HTTP2_LDADD)\""
+    AP_LIBS="\$(MOD_HTTP2_LDADD)"
+  else
+    apr_addto_bugger="\$(MOD_HTTP2_LDADD)"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $AP_LIBS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to AP_LIBS"
+        AP_LIBS="$AP_LIBS $i"
+      fi
+    done
+  fi
+
+      fi
+    else
+      apache_need_shared=yes
+      libname="mod_http2.la"
+      shobjects=`echo $objects | sed 's/\.lo/.slo/g'`
+      modpath_shared="$modpath_shared $libname"
+      cat >>$modpath_current/modules.mk<<EOF
+$libname: $shobjects
+	\$(SH_LINK) -rpath \$(libexecdir) -module -avoid-version  $objects \$(MOD_HTTP2_LDADD)
+EOF
+    fi
+  fi
+
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST MOD_HTTP2_LDADD"
+
+
+
+  fi
+
+
+
+  echo "DISTCLEAN_TARGETS = modules.mk" >> $modpath_current/modules.mk
+  echo "static = $modpath_static" >> $modpath_current/modules.mk
+  echo "shared = $modpath_shared" >> $modpath_current/modules.mk
+  for var in CFLAGS CXXFLAGS CPPFLAGS LDFLAGS LIBS INCLUDES; do
+    if eval val=\"\$MOD_$var\"; test -n "$val"; then
+      echo "MOD_$var = $val" >> $modpath_current/modules.mk
+    fi
+  done
+  if test ! -z "$modpath_static" -o ! -z "$modpath_shared"; then
+    MODULE_DIRS="$MODULE_DIRS $current_dir"
+  else
+    MODULE_CLEANDIRS="$MODULE_CLEANDIRS $current_dir"
+  fi
+
+  APACHE_FAST_OUTPUT_FILES="$APACHE_FAST_OUTPUT_FILES $modpath_current/Makefile"
+
+
+
+
+
+
 
   current_dir=ldap
   modpath_current=modules/ldap
@@ -19085,171 +19877,22 @@ if test "x$ac_cv_lib_m_sqrt" = xyes; then :
 fi
 
 for x in $test_paths ; do
-  if test "x$x" = "x."; then
-    ac_fn_c_check_header_mongrel "$LINENO" "lua.h" "ac_cv_header_lua_h" "$ac_includes_default"
-if test "x$ac_cv_header_lua_h" = xyes; then :
-
-        save_CFLAGS=$CFLAGS
-        save_LDFLAGS=$LDFLAGS
-        CFLAGS="$CFLAGS"
-        LDFLAGS="$LDFLAGS $lib_m"
-        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua5.1" >&5
-$as_echo_n "checking for luaL_newstate in -llua5.1... " >&6; }
-if ${ac_cv_lib_lua5_1_luaL_newstate+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-llua5.1  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char luaL_newstate ();
-int
-main ()
-{
-return luaL_newstate ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_lua5_1_luaL_newstate=yes
-else
-  ac_cv_lib_lua5_1_luaL_newstate=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua5_1_luaL_newstate" >&5
-$as_echo "$ac_cv_lib_lua5_1_luaL_newstate" >&6; }
-if test "x$ac_cv_lib_lua5_1_luaL_newstate" = xyes; then :
-
-            LUA_LIBS="-llua5.1 $lib_m"
-
-else
-
-            { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua-5.1" >&5
-$as_echo_n "checking for luaL_newstate in -llua-5.1... " >&6; }
-if ${ac_cv_lib_lua_5_1_luaL_newstate+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-llua-5.1  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char luaL_newstate ();
-int
-main ()
-{
-return luaL_newstate ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_lua_5_1_luaL_newstate=yes
-else
-  ac_cv_lib_lua_5_1_luaL_newstate=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua_5_1_luaL_newstate" >&5
-$as_echo "$ac_cv_lib_lua_5_1_luaL_newstate" >&6; }
-if test "x$ac_cv_lib_lua_5_1_luaL_newstate" = xyes; then :
-
-                LUA_LIBS="-llua-5.1 $lib_m"
-
-else
-
-                { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua" >&5
-$as_echo_n "checking for luaL_newstate in -llua... " >&6; }
-if ${ac_cv_lib_lua_luaL_newstate+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-llua  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char luaL_newstate ();
-int
-main ()
-{
-return luaL_newstate ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_lua_luaL_newstate=yes
-else
-  ac_cv_lib_lua_luaL_newstate=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua_luaL_newstate" >&5
-$as_echo "$ac_cv_lib_lua_luaL_newstate" >&6; }
-if test "x$ac_cv_lib_lua_luaL_newstate" = xyes; then :
-
-                    LUA_LIBS="-llua $lib_m"
-
-fi
-
-
-fi
-
-
-fi
-
-        LUA_CFLAGS=
-        CFLAGS=$save_CFLAGS
-        LDFLAGS=$save_LDFLAGS
-        break
-
-fi
-
-
-  else
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for lua.h in ${x}/include/lua5.1" >&5
-$as_echo_n "checking for lua.h in ${x}/include/lua5.1... " >&6; }
-    if test -f ${x}/include/lua5.1/lua.h; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for lua.h in ${x}/include/lua-5.2" >&5
+$as_echo_n "checking for lua.h in ${x}/include/lua-5.2... " >&6; }
+    if test -f ${x}/include/lua-5.2/lua.h; then
         { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
         save_CFLAGS=$CFLAGS
         save_LDFLAGS=$LDFLAGS
         CFLAGS="$CFLAGS"
-        LDFLAGS="-L$x/lib $LDFLAGS $lib_m"
-        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua5.1" >&5
-$as_echo_n "checking for luaL_newstate in -llua5.1... " >&6; }
-if ${ac_cv_lib_lua5_1_luaL_newstate+:} false; then :
+        LDFLAGS="-L$x/lib/lua-5.2 $LDFLAGS $lib_m"
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua-5.2" >&5
+$as_echo_n "checking for luaL_newstate in -llua-5.2... " >&6; }
+if ${ac_cv_lib_lua_5_2_luaL_newstate+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-llua5.1  $LIBS"
+LIBS="-llua-5.2  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -19269,26 +19912,26 @@ return luaL_newstate ();
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_lua5_1_luaL_newstate=yes
+  ac_cv_lib_lua_5_2_luaL_newstate=yes
 else
-  ac_cv_lib_lua5_1_luaL_newstate=no
+  ac_cv_lib_lua_5_2_luaL_newstate=no
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua5_1_luaL_newstate" >&5
-$as_echo "$ac_cv_lib_lua5_1_luaL_newstate" >&6; }
-if test "x$ac_cv_lib_lua5_1_luaL_newstate" = xyes; then :
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua_5_2_luaL_newstate" >&5
+$as_echo "$ac_cv_lib_lua_5_2_luaL_newstate" >&6; }
+if test "x$ac_cv_lib_lua_5_2_luaL_newstate" = xyes; then :
 
-            LUA_LIBS="-L$x/lib -llua5.1 $lib_m"
+            LUA_LIBS="-L$x/lib/lua-5.2 -llua-5.2 $lib_m"
             if test "x$ap_platform_runtime_link_flag" != "x"; then
 
   if test "x$LUA_LIBS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting LUA_LIBS to \"$ap_platform_runtime_link_flag$x/lib\""
-    LUA_LIBS="$ap_platform_runtime_link_flag$x/lib"
+    test "x$silent" != "xyes" && echo "  setting LUA_LIBS to \"$ap_platform_runtime_link_flag$x/lib/lua-5.2\""
+    LUA_LIBS="$ap_platform_runtime_link_flag$x/lib/lua-5.2"
   else
-    apr_addto_bugger="$ap_platform_runtime_link_flag$x/lib"
+    apr_addto_bugger="$ap_platform_runtime_link_flag$x/lib/lua-5.2"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
       for j in $LUA_LIBS; do
@@ -19305,89 +19948,7 @@ if test "x$ac_cv_lib_lua5_1_luaL_newstate" = xyes; then :
   fi
 
             fi
-            LUA_CFLAGS="-I$x/include/lua5.1"
-
-fi
-
-        CFLAGS=$save_CFLAGS
-        LDFLAGS=$save_LDFLAGS
-        break
-    else
-        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-    fi
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for lua.h in ${x}/include/lua51" >&5
-$as_echo_n "checking for lua.h in ${x}/include/lua51... " >&6; }
-    if test -f ${x}/include/lua51/lua.h; then
-        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-        save_CFLAGS=$CFLAGS
-        save_LDFLAGS=$LDFLAGS
-        CFLAGS="$CFLAGS"
-        LDFLAGS="-L$x/lib/lua51 $LDFLAGS $lib_m"
-        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua" >&5
-$as_echo_n "checking for luaL_newstate in -llua... " >&6; }
-if ${ac_cv_lib_lua_luaL_newstate+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-llua  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char luaL_newstate ();
-int
-main ()
-{
-return luaL_newstate ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_lua_luaL_newstate=yes
-else
-  ac_cv_lib_lua_luaL_newstate=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua_luaL_newstate" >&5
-$as_echo "$ac_cv_lib_lua_luaL_newstate" >&6; }
-if test "x$ac_cv_lib_lua_luaL_newstate" = xyes; then :
-
-            LUA_LIBS="-L$x/lib/lua51 -llua $lib_m"
-            if test "x$ap_platform_runtime_link_flag" != "x"; then
-
-  if test "x$LUA_LIBS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting LUA_LIBS to \"$ap_platform_runtime_link_flag$x/lib/lua51\""
-    LUA_LIBS="$ap_platform_runtime_link_flag$x/lib/lua51"
-  else
-    apr_addto_bugger="$ap_platform_runtime_link_flag$x/lib/lua51"
-    for i in $apr_addto_bugger; do
-      apr_addto_duplicate="0"
-      for j in $LUA_LIBS; do
-        if test "x$i" = "x$j"; then
-          apr_addto_duplicate="1"
-          break
-        fi
-      done
-      if test $apr_addto_duplicate = "0"; then
-        test "x$silent" != "xyes" && echo "  adding \"$i\" to LUA_LIBS"
-        LUA_LIBS="$LUA_LIBS $i"
-      fi
-    done
-  fi
-
-            fi
-            LUA_CFLAGS="-I$x/include/lua51"
+            LUA_CFLAGS="-I$x/include/lua-5.2"
 
 fi
 
@@ -19644,21 +20205,267 @@ fi
         { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
     fi
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for lua.h in ${x}/include/lua-5.1" >&5
+$as_echo_n "checking for lua.h in ${x}/include/lua-5.1... " >&6; }
+    if test -f ${x}/include/lua-5.1/lua.h; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+        save_CFLAGS=$CFLAGS
+        save_LDFLAGS=$LDFLAGS
+        CFLAGS="$CFLAGS"
+        LDFLAGS="-L$x/lib/lua-5.1 $LDFLAGS $lib_m"
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua-5.1" >&5
+$as_echo_n "checking for luaL_newstate in -llua-5.1... " >&6; }
+if ${ac_cv_lib_lua_5_1_luaL_newstate+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-llua-5.1  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char luaL_newstate ();
+int
+main ()
+{
+return luaL_newstate ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_lua_5_1_luaL_newstate=yes
+else
+  ac_cv_lib_lua_5_1_luaL_newstate=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua_5_1_luaL_newstate" >&5
+$as_echo "$ac_cv_lib_lua_5_1_luaL_newstate" >&6; }
+if test "x$ac_cv_lib_lua_5_1_luaL_newstate" = xyes; then :
+
+            LUA_LIBS="-L$x/lib/lua-5.1 -llua-5.1 $lib_m"
+            if test "x$ap_platform_runtime_link_flag" != "x"; then
+
+  if test "x$LUA_LIBS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LUA_LIBS to \"$ap_platform_runtime_link_flag$x/lib/lua-5.1\""
+    LUA_LIBS="$ap_platform_runtime_link_flag$x/lib/lua-5.1"
+  else
+    apr_addto_bugger="$ap_platform_runtime_link_flag$x/lib/lua-5.1"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LUA_LIBS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LUA_LIBS"
+        LUA_LIBS="$LUA_LIBS $i"
+      fi
+    done
   fi
+
+            fi
+            LUA_CFLAGS="-I$x/include/lua-5.1"
+
+fi
+
+        CFLAGS=$save_CFLAGS
+        LDFLAGS=$save_LDFLAGS
+        break
+    else
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+    fi
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for lua.h in ${x}/include/lua5.1" >&5
+$as_echo_n "checking for lua.h in ${x}/include/lua5.1... " >&6; }
+    if test -f ${x}/include/lua5.1/lua.h; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+        save_CFLAGS=$CFLAGS
+        save_LDFLAGS=$LDFLAGS
+        CFLAGS="$CFLAGS"
+        LDFLAGS="-L$x/lib $LDFLAGS $lib_m"
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua5.1" >&5
+$as_echo_n "checking for luaL_newstate in -llua5.1... " >&6; }
+if ${ac_cv_lib_lua5_1_luaL_newstate+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-llua5.1  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char luaL_newstate ();
+int
+main ()
+{
+return luaL_newstate ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_lua5_1_luaL_newstate=yes
+else
+  ac_cv_lib_lua5_1_luaL_newstate=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua5_1_luaL_newstate" >&5
+$as_echo "$ac_cv_lib_lua5_1_luaL_newstate" >&6; }
+if test "x$ac_cv_lib_lua5_1_luaL_newstate" = xyes; then :
+
+            LUA_LIBS="-L$x/lib -llua5.1 $lib_m"
+            if test "x$ap_platform_runtime_link_flag" != "x"; then
+
+  if test "x$LUA_LIBS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LUA_LIBS to \"$ap_platform_runtime_link_flag$x/lib\""
+    LUA_LIBS="$ap_platform_runtime_link_flag$x/lib"
+  else
+    apr_addto_bugger="$ap_platform_runtime_link_flag$x/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LUA_LIBS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LUA_LIBS"
+        LUA_LIBS="$LUA_LIBS $i"
+      fi
+    done
+  fi
+
+            fi
+            LUA_CFLAGS="-I$x/include/lua5.1"
+
+fi
+
+        CFLAGS=$save_CFLAGS
+        LDFLAGS=$save_LDFLAGS
+        break
+    else
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+    fi
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for lua.h in ${x}/include/lua51" >&5
+$as_echo_n "checking for lua.h in ${x}/include/lua51... " >&6; }
+    if test -f ${x}/include/lua51/lua.h; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+        save_CFLAGS=$CFLAGS
+        save_LDFLAGS=$LDFLAGS
+        CFLAGS="$CFLAGS"
+        LDFLAGS="-L$x/lib/lua51 $LDFLAGS $lib_m"
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua" >&5
+$as_echo_n "checking for luaL_newstate in -llua... " >&6; }
+if ${ac_cv_lib_lua_luaL_newstate+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-llua  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char luaL_newstate ();
+int
+main ()
+{
+return luaL_newstate ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_lua_luaL_newstate=yes
+else
+  ac_cv_lib_lua_luaL_newstate=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua_luaL_newstate" >&5
+$as_echo "$ac_cv_lib_lua_luaL_newstate" >&6; }
+if test "x$ac_cv_lib_lua_luaL_newstate" = xyes; then :
+
+            LUA_LIBS="-L$x/lib/lua51 -llua $lib_m"
+            if test "x$ap_platform_runtime_link_flag" != "x"; then
+
+  if test "x$LUA_LIBS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting LUA_LIBS to \"$ap_platform_runtime_link_flag$x/lib/lua51\""
+    LUA_LIBS="$ap_platform_runtime_link_flag$x/lib/lua51"
+  else
+    apr_addto_bugger="$ap_platform_runtime_link_flag$x/lib/lua51"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $LUA_LIBS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to LUA_LIBS"
+        LUA_LIBS="$LUA_LIBS $i"
+      fi
+    done
+  fi
+
+            fi
+            LUA_CFLAGS="-I$x/include/lua51"
+
+fi
+
+        CFLAGS=$save_CFLAGS
+        LDFLAGS=$save_LDFLAGS
+        break
+    else
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+    fi
 done
 
 
 
 
 if test -z "${LUA_LIBS}"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: *** Lua 5.1 library not found." >&5
-$as_echo "$as_me: WARNING: *** Lua 5.1 library not found." >&2;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: *** Lua 5.2 or 5.1 library not found." >&5
+$as_echo "$as_me: WARNING: *** Lua 5.2 or 5.1 library not found." >&2;}
   enable_lua="no"
     if test -z "${lua_path}"; then
-        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Lua 5.1 library is required" >&5
-$as_echo "$as_me: WARNING: Lua 5.1 library is required" >&2;}
+        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Lua 5.2 or 5.1 library is required" >&5
+$as_echo "$as_me: WARNING: Lua 5.2 or 5.1 library is required" >&2;}
     else
-        as_fn_error $? "Lua 5.1 library is required" "$LINENO" 5
+        as_fn_error $? "Lua 5.2 or 5.1 library is required" "$LINENO" 5
     fi
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: using '${LUA_LIBS}' for Lua Library" >&5
@@ -24581,10 +25388,10 @@ fi
 
 
   if test "x$LDFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"-L$ap_openssl_base/lib\""
-    LDFLAGS="-L$ap_openssl_base/lib"
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"-L/usr/lib\""
+    LDFLAGS="-L/usr/lib"
   else
-    apr_addto_bugger="-L$ap_openssl_base/lib"
+    apr_addto_bugger="-L/usr/lib"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
       for j in $LDFLAGS; do
@@ -24602,10 +25409,10 @@ fi
 
 
   if test "x$MOD_LDFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"-L$ap_openssl_base/lib\""
-    MOD_LDFLAGS="-L$ap_openssl_base/lib"
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"-L/usr/lib\""
+    MOD_LDFLAGS="-L/usr/lib"
   else
-    apr_addto_bugger="-L$ap_openssl_base/lib"
+    apr_addto_bugger="-L/usr/lib"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
       for j in $MOD_LDFLAGS; do
@@ -24624,10 +25431,10 @@ fi
       if test "x$ap_platform_runtime_link_flag" != "x"; then
 
   if test "x$LDFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$ap_platform_runtime_link_flag$ap_openssl_base/lib\""
-    LDFLAGS="$ap_platform_runtime_link_flag$ap_openssl_base/lib"
+    test "x$silent" != "xyes" && echo "  setting LDFLAGS to \"$ap_platform_runtime_link_flag/usr/lib\""
+    LDFLAGS="$ap_platform_runtime_link_flag/usr/lib"
   else
-    apr_addto_bugger="$ap_platform_runtime_link_flag$ap_openssl_base/lib"
+    apr_addto_bugger="$ap_platform_runtime_link_flag/usr/lib"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
       for j in $LDFLAGS; do
@@ -24645,10 +25452,10 @@ fi
 
 
   if test "x$MOD_LDFLAGS" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$ap_platform_runtime_link_flag$ap_openssl_base/lib\""
-    MOD_LDFLAGS="$ap_platform_runtime_link_flag$ap_openssl_base/lib"
+    test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$ap_platform_runtime_link_flag/usr/lib\""
+    MOD_LDFLAGS="$ap_platform_runtime_link_flag/usr/lib"
   else
-    apr_addto_bugger="$ap_platform_runtime_link_flag$ap_openssl_base/lib"
+    apr_addto_bugger="$ap_platform_runtime_link_flag/usr/lib"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
       for j in $MOD_LDFLAGS; do
@@ -24697,7 +25504,7 @@ fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 
     if test "x$ac_cv_openssl" = "xyes"; then
-      ap_openssl_libs="${ap_openssl_libs:--lssl -lcrypto} `$apr_config --libs`"
+      ap_openssl_libs="${ap_openssl_libs:--lssl.35 -lcrypto.35} `$apr_config --libs`"
 
   if test "x$MOD_LDFLAGS" = "x"; then
     test "x$silent" != "xyes" && echo "  setting MOD_LDFLAGS to \"$ap_openssl_libs\""
@@ -24780,7 +25587,7 @@ else
 fi
 done
 
-      for ac_func in ENGINE_init ENGINE_load_builtin_engines RAND_egd
+      for ac_func in ENGINE_init ENGINE_load_builtin_engines
 do :
   as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
 ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"
@@ -32597,6 +33404,14 @@ $as_echo "$as_me: " >&6;}
 $as_echo "$as_me: Construct makefiles and header files..." >&6;}
 { $as_echo "$as_me:${as_lineno-$LINENO}: " >&5
 $as_echo "$as_me: " >&6;}
+
+
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST HTTPD_VERSION"
+
+
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST HTTPD_MMN"
 
 
 

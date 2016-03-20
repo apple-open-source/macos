@@ -105,12 +105,7 @@ keychain_unlock(int argc, char * const *argv)
 
     if (!password && use_password)
     {
-		const char *fmt = "password to unlock %s: ";
-		const char *name = keychainName ? keychainName : "default";
-		char *prompt = malloc(strlen(fmt) + strlen(name));
-		sprintf(prompt, fmt, name);
-        password = getpass(prompt);
-		free(prompt);
+        password = prompt_password(keychainName);
 		if (!password)
 		{
 			result = -1;

@@ -205,7 +205,9 @@ void SecCode::checkValidity(SecCSFlags flags)
 	SecStaticCode *hostDisk = this->host()->staticCode();
 
 	// check my static state
-	myDisk->validateDirectory();
+	myDisk->validateNonResourceComponents();	// also validates the CodeDirectory
+	if (flags & kSecCSStrictValidate)
+		myDisk->diskRep()->strictValidate(myDisk->codeDirectory(), DiskRep::ToleratedErrors(), flags);
 
 	// check my own dynamic state
 	if (!(this->host()->getGuestStatus(this) & kSecCodeStatusValid))

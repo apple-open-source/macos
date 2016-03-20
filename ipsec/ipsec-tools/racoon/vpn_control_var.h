@@ -79,5 +79,6 @@ extern int vpncontrol_notify_need_authinfo (phase1_handle_t *, void*, size_t);
 extern int vpncontrol_notify_peer_resp_ph1 (u_int16_t, phase1_handle_t*);
 extern int vpncontrol_notify_peer_resp_ph2 (u_int16_t, phase2_handle_t*);
 extern int vpn_assert (struct sockaddr_storage *, struct sockaddr_storage *);
+extern bool vpncontrol_set_nat64_prefix(nw_nat64_prefix_t *prefix);
 
 #endif /* _VPN_CONTROL_VAR_H */

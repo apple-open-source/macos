@@ -1240,9 +1240,9 @@ static void good_tests(const CipherSuiteName *ciphers, size_t n_ciphers, int min
             test.negotiated_version = (protos[j]==0)? tls_protocol_version_TLS_1_2:protos[j];
 
             test_log_start();
-            test_printf("Test case i=%d, j=%d , csa=%d (%s, %04x)\n", i, j, csa, ciphers[i].name, protos[j]);
+            test_printf("Good Test case i=%d, j=%d , csa=%d (%s, %04x)\n", i, j, csa, ciphers[i].name, protos[j]);
             err = test_one_case(&test);
-            ok(!err, "Test case (i=%d, j=%d , csa=%d  / %s, %04x)", i, j, csa, ciphers[i].name, protos[j]);
+            ok(!err, "Good Test case (i=%d, j=%d , csa=%d  / %s, %04x)", i, j, csa, ciphers[i].name, protos[j]);
             test_log_end(err);
         }
     }

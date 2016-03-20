@@ -260,6 +260,25 @@ SecCertificateGetSHA1Digest(SecCertificateRef certificate)
 	catch (...) { __secapiresult=errSecInternalComponent; }
     return data;
 }
+
+CFDataRef
+SecCertificateCopySHA256Digest(SecCertificateRef certificate)
+{
+    CFDataRef data = NULL;
+    OSStatus __secapiresult = errSecSuccess;
+    try {
+        data = Certificate::required(certificate)->sha256Hash();
+        if (data)
+            CFRetain(data);
+    }
+    catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
+    catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
+    catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
+    catch (...) { __secapiresult=errSecInternalComponent; }
+    return data;
+}
+
+
 #endif
 
 #if !SECTRUST_OSX

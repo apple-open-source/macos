@@ -47,6 +47,7 @@
 #include <security_utilities/cfutilities.h>
 #include <security_utilities/hashing.h>
 #include <Security/CSCommonPriv.h>
+#include <set>
 
 
 namespace Security {
@@ -61,8 +62,9 @@ namespace CodeSigning {
 #define kSecCS_SIGNATUREFILE		"CodeSignature"		// CMS Signature
 #define kSecCS_REQUIREMENTSFILE		"CodeRequirements"	// internal requirements
 #define kSecCS_RESOURCEDIRFILE		"CodeResources"		// resource directory
-#define kSecCS_APPLICATIONFILE		"CodeApplication"	// application-specific resource
 #define kSecCS_ENTITLEMENTFILE		"CodeEntitlements"	// entitlement configuration
+#define kSecCS_REPSPECIFICFILE		"CodeRepSpecific"	// DiskRep-specific use slot
+#define kSecCS_TOPDIRECTORYFILE		"CodeTopDirectory"	// Top-level directory list
 
 
 //
@@ -88,8 +90,9 @@ enum {
 	cdInfoSlot = 1,						// Info.plist
 	cdRequirementsSlot = 2,				// internal requirements
 	cdResourceDirSlot = 3,				// resource directory
-	cdApplicationSlot = 4,				// Application specific slot
+	cdTopDirectorySlot = 4,				// Application specific slot
 	cdEntitlementSlot = 5,				// embedded entitlement configuration
+	cdRepSpecificSlot = 6,				// for use by disk rep
 	// (add further primary slot numbers here)
 
 	cdSlotCount,						// total number of special slots (+1 for slot 0)
@@ -105,8 +108,10 @@ enum {
 	// It's okay to have large gaps in these assignments.
 	//
 	cdCodeDirectorySlot = 0,			// CodeDirectory
+	cdAlternateCodeDirectorySlots = 0x1000, // alternate CodeDirectory array
+	cdAlternateCodeDirectoryLimit = 0x1005,	// 5+1 hashes should be enough for everyone...
 	cdSignatureSlot = 0x10000,			// CMS signature
-	cdIdentificationSlot,				// identification blob
+	cdIdentificationSlot,				// identification blob (detached signatures only)
 	// (add further virtual slot numbers here)
 };
 
@@ -191,23 +196,30 @@ public:
 	Endian<uint32_t> spare2;		// unused (must be zero)
 	Endian<uint32_t> scatterOffset;	// offset of optional scatter vector (zero if absent)
 	Endian<uint32_t> teamIDOffset;	// offset of optional teamID string
+	Endian<uint32_t> spare3;		// unused (most be zero)
+	Endian<uint64_t> codeLimit64;	// limit to main image signature range, 64 bits
 	
 	// works with the version field; see comments above
-	static const uint32_t currentVersion = 0x20200;		// "version 2.2"
+	static const uint32_t currentVersion = 0x20300;		// "version 2.3"
 	static const uint32_t compatibilityLimit = 0x2F000;	// "version 3 with wiggle room"
 	
 	static const uint32_t earliestVersion = 0x20001;	// earliest supported version
 	static const uint32_t supportsScatter = 0x20100;	// first version to support scatter option
-	static const uint32_t supportsTeamID = 0x20200;	// first version to support team ID option
+	static const uint32_t supportsTeamID = 0x20200;		// first version to support team ID option
+	static const uint32_t supportsCodeLimit64 = 0x20300; // first version to support codeLimit64
 	
 	void checkIntegrity() const;	// throws if inconsistent or unsupported version
 
 	typedef uint32_t HashAlgorithm;	// types of internal glue hashes
+	typedef std::set<HashAlgorithm> HashAlgorithms;
 	typedef int Slot;				// slot index (negative for special slots)
 	typedef unsigned int SpecialSlot; // positive special slot index (not for code slots)
 	
 	const char *identifier() const { return at<const char>(identOffset); }
 	char *identifier() { return at<char>(identOffset); }
+	
+	size_t signingLimit() const
+ 		{ return (version >= supportsCodeLimit64 && codeLimit64) ? size_t(codeLimit64) : size_t(codeLimit); }
     
 	// main hash array access
 	SpecialSlot maxSpecialSlot() const;
@@ -257,6 +269,11 @@ public:
 	static DynamicHash *hashFor(HashAlgorithm hashType);		// create a DynamicHash subclass for (hashType) digests
 	DynamicHash *getHash() const { return hashFor(this->hashType); } // make one for me
 	CFDataRef cdhash() const;
+	
+	static void multipleHashFileData(UnixPlusPlus::FileDesc fd, size_t limit, HashAlgorithms types, void (^action)(HashAlgorithm type, DynamicHash* hasher));
+	
+	static bool viableHash(HashAlgorithm type);
+	static HashAlgorithm bestHashOf(const HashAlgorithms& types);
 
 	std::string hexHash(const unsigned char *hash) const;		// encode any canonical-type hash as a hex string
 	

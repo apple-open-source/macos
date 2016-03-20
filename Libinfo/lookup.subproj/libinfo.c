@@ -41,6 +41,7 @@
 #include "netdb_async.h"
 #include <dispatch/dispatch.h>
 #include <mach-o/dyld_priv.h>
+#include <sys/stat.h>
 
 #define SOCK_UNSPEC 0
 #define IPPROTO_UNSPEC 0
@@ -191,8 +192,19 @@ getpwnam(const char *name)
 #ifdef CALL_TRACE
 	fprintf(stderr, "-> %s %s\n", __func__, name);
 #endif
-
-	item = si_user_byname(si_search(), name);
+#if TARGET_OS_EMBEDDED
+    if (strcmp(name,"mobile") == 0) {
+        struct stat buf;
+        struct passwd * pw = NULL;
+        
+        if (lstat("/private/var/mobile",&buf) == 0) {
+            if ((pw = getpwuid(buf.st_uid)) != NULL) {
+                    return(pw);
+                }
+            }
+    }
+#endif /* TARGET_OS_EMBEDDED */
+    item = si_user_byname(si_search(), name);
 	LI_set_thread_item(CATEGORY_USER + 100, item);
 
 	if (item == NULL) return NULL;
@@ -233,12 +245,26 @@ struct passwd *
 getpwuid(uid_t uid)
 {
 	si_item_t *item;
-
+    
 #ifdef CALL_TRACE
 	fprintf(stderr, "-> %s %d\n", __func__, uid);
 #endif
-
-	item = si_user_byuid(si_search(), uid);
+    
+    
+#if TARGET_OS_EMBEDDED
+    uid_t localuid = uid;
+    
+    if (uid == 501) {
+        struct stat buf;
+        
+        if (lstat("/private/var/mobile",&buf) == 0) {
+            localuid = buf.st_uid;
+        }
+    }
+    item = si_user_byuid(si_search(), localuid);
+#else /* TARGET_OS_EMBEDDED */
+    item = si_user_byuid(si_search(), uid);
+#endif /* TARGET_OS_EMBEDDED */
 	LI_set_thread_item(CATEGORY_USER + 200, item);
 
 	if (item == NULL) return NULL;
@@ -3140,6 +3166,18 @@ getpwnam_r(const char *name, struct passwd *pw, char *buffer, size_t bufsize, st
 
 	if ((pw == NULL) || (buffer == NULL) || (result == NULL) || (bufsize == 0)) return ERANGE;
 
+#if TARGET_OS_EMBEDDED
+    if (strcmp(name,"mobile") == 0) {
+        struct stat buf;
+        
+        if (lstat("/private/var/mobile",&buf) == 0) {
+            if ((getpwuid_r(buf.st_uid, pw,buffer, bufsize, result)) == 0) {
+                return(0);
+            }
+        }
+    }
+#endif /* TARGET_OS_EMBEDDED */
+    
 	item = si_user_byname(si_search(), name);
 	if (item == NULL) return 0;
 
@@ -3160,6 +3198,7 @@ getpwuid_r(uid_t uid, struct passwd *pw, char *buffer, size_t bufsize, struct pa
 	si_item_t *item;
 	struct passwd *p;
 	int status;
+    uid_t localuid = uid;
 
 #ifdef CALL_TRACE
 	fprintf(stderr, "-> %s %d\n", __func__, uid);
@@ -3169,7 +3208,17 @@ getpwuid_r(uid_t uid, struct passwd *pw, char *buffer, size_t bufsize, struct pa
 
 	if ((pw == NULL) || (buffer == NULL) || (result == NULL) || (bufsize == 0)) return ERANGE;
 
-	item = si_user_byuid(si_search(), uid);
+#if TARGET_OS_EMBEDDED
+    if (uid == 501) {
+        struct stat buf;
+        
+        if (lstat("/private/var/mobile", &buf) == 0) {
+            localuid = buf.st_uid;
+        }
+    }
+#endif /* TARGET_OS_EMBEDDED*/
+    
+	item = si_user_byuid(si_search(), localuid);
 	if (item == NULL) return 0;
 
 	p = (struct passwd *)((uintptr_t)item + sizeof(si_item_t));

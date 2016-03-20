@@ -240,6 +240,7 @@ log_server_status</a></li>
 <li><a href="mod/mod_headers.html">Apache Module mod_headers</a></li>
 <li><a href="mod/mod_heartbeat.html">Apache Module mod_heartbeat</a></li>
 <li><a href="mod/mod_heartmonitor.html">Apache Module mod_heartmonitor</a></li>
+<li><a href="mod/mod_http2.html">Apache Module mod_http2</a></li>
 <li><a href="mod/mod_ident.html">Apache Module mod_ident</a></li>
 <li><a href="mod/mod_imagemap.html">Apache Module mod_imagemap</a></li>
 <li><a href="mod/mod_include.html">Apache Module mod_include</a></li>

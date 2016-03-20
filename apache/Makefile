@@ -2,7 +2,7 @@ Project    = httpd
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Version    = 2.4.16
+Version    = 2.4.18
 Sources    = $(SRCROOT)/$(Project)
 
 Patch_List = PR-18640257-SDK.diff \
@@ -14,6 +14,7 @@ Patch_List = PR-18640257-SDK.diff \
              PR-5957348.diff \
              patch-docs__conf__httpd.conf.in \
              PR-10154185.diff \
+             PR-24076433 \
              apachectl.diff \
              patch-docs__conf__extra__httpd-mpm.conf.in \
              patch-docs__conf__mime.types \
@@ -30,6 +31,7 @@ Configure_Flags = --prefix=/usr \
                   --with-pcre=$(SRCROOT)/$(Project)/../\
                   --enable-mods-shared=all \
                   --enable-ssl \
+                  --with-ssl=/usr/local/libressl \
                   --enable-cache \
                   --enable-mem-cache \
                   --enable-proxy-balancer \
@@ -56,7 +58,7 @@ install_source::
 build::
 	$(MKDIR) $(OBJROOT)
 	cd $(BuildDirectory) && $(Sources)/configure $(Configure_Flags)
-	cd $(BuildDirectory) && make EXTRA_CFLAGS="$(RC_CFLAGS) -D_FORTIFY_SOURCE=2"
+	cd $(BuildDirectory) && make EXTRA_CFLAGS="$(RC_CFLAGS) -D_FORTIFY_SOURCE=2" MOD_LDFLAGS="-L/usr/lib -lcrypto.35 -lssl.35" HTTPD_LDFLAGS="-sectcreate __TEXT __info_plist  $(SRCROOT)/Info.plist"
 
 install::
 	cd $(BuildDirectory) && make install DESTDIR=$(DSTROOT)

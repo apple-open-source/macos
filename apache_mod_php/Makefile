@@ -95,8 +95,7 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 
 
 # Additional project info used with AEP
-AEP		= YES
-AEP_Version	= 5.5.30
+AEP		= NO
 AEP_LicenseFile	= $(Sources)/LICENSE
 AEP_Patches	=  \
 			MacOSX_build.patch \
@@ -208,6 +207,10 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(Sources)
 	$(_v) $(RM) $(GNUConfigStamp)
 	$(MV) $(AEP_ExtractRoot)/$(AEP_ExtractDir) $(Sources)
+else
+	@echo "Source extraction for $(Project) skipped!"
+	$(_v) $(CP) $(SRCROOT)/$(AEP_ExtractDir) $(Sources)
+endif
 ifdef AEP_Patches
 	for patchfile in $(AEP_Patches); do \
 	   echo "Applying $$patchfile..."; \
@@ -219,9 +222,6 @@ ifneq ($(Sources),$(BuildDirectory))
 	@echo "Copying sources to build directory..."
 	$(_v) $(CP) $(Sources) $(BuildDirectory)
 endif
-endif
-else
-	@echo "Source extraction for $(Project) skipped!"
 endif
 
 # Common.make's recurse doesn't reset SRCROOT and misdefines Sources

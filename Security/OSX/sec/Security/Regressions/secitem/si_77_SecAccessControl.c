@@ -52,7 +52,7 @@
 
 static CFTypeRef kSecAccessControlKeyProtection = CFSTR("prot");
 
-#if USE_KEYSTORE
+#if LA_CONTEXT_IMPLEMENTED
 static bool aks_consistency_test(bool currentAuthDataFormat, kern_return_t expectedAksResult, SecAccessControlRef access_control, CFDataRef acm_context);
 static CFDataRef kc_create_auth_data(SecAccessControlRef access_control, CFDictionaryRef auth_attributes);
 static CFDataRef kc_copy_constraints_data(SecAccessControlRef access_control, CFDictionaryRef auth_attributes);
@@ -274,7 +274,7 @@ static void tests(void)
 
     CFReleaseNull(acl);
 
-#if USE_KEYSTORE
+#if LA_CONTEXT_IMPLEMENTED
     // AKS consistency test:
 
     acl = SecAccessControlCreateWithFlags(allocator, protection, kSecAccessControlUserPresence, &error);
@@ -352,7 +352,7 @@ static void tests(void)
     CFReleaseNull(acl);
 }
 
-#if USE_KEYSTORE
+#if LA_CONTEXT_IMPLEMENTED
 
 static bool aks_consistency_test(bool currentAuthDataFormat, kern_return_t expectedAksResult, SecAccessControlRef access_control, CFDataRef acm_context)
 {
@@ -512,7 +512,7 @@ static CFDataRef kc_copy_constraints_data(SecAccessControlRef access_control, CF
 
 int si_77_SecAccessControl(int argc, char *const *argv)
 {
-#if USE_KEYSTORE
+#if LA_CONTEXT_IMPLEMENTED
     plan_tests(71);
 #else
     plan_tests(63);

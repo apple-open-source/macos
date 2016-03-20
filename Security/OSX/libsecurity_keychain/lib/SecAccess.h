@@ -102,6 +102,10 @@ extern const CFStringRef kSecACLAuthorizationChangeACL
 	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 extern const CFStringRef kSecACLAuthorizationChangeOwner
 	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+extern const CFStringRef kSecACLAuthorizationPartitionID
+    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_NA);
+extern const CFStringRef kSecACLAuthorizationIntegrity
+    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_NA);
 
 /*!
 	@function SecAccessGetTypeID

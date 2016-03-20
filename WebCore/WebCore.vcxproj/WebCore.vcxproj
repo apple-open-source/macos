@@ -2867,6 +2867,20 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\JSHTMLPictureElement.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug_WinCairo|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug_WinCairo|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_WinCairo|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_WinCairo|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="$(ConfigurationBuildDir)\obj$(PlatformArchitecture)\$(ProjectName)\DerivedSources\JSHTMLPreElement.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -6711,6 +6725,20 @@
     <ClCompile Include="..\html\canvas\WebGLVertexArrayObject.cpp" />
     <ClCompile Include="..\html\canvas\WebGLVertexArrayObjectBase.cpp" />
     <ClCompile Include="..\html\canvas\WebGLVertexArrayObjectOES.cpp" />
+    <ClCompile Include="..\html\HTMLPictureElement.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug_WinCairo|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug_WinCairo|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_WinCairo|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_WinCairo|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="..\html\track\AudioTrack.cpp" />
     <ClCompile Include="..\html\track\AudioTrackList.cpp" />
     <ClCompile Include="..\html\track\TextTrackCueGeneric.cpp" />
@@ -8128,6 +8156,7 @@
     <ClCompile Include="..\platform\win\EventLoopWin.cpp" />
     <ClCompile Include="..\platform\win\FileSystemWin.cpp" />
     <ClCompile Include="..\platform\win\GDIObjectCounter.cpp" />
+    <ClCompile Include="..\platform\win\GDIUtilities.cpp" />
     <ClCompile Include="..\platform\win\ImportedFunctionsEnumerator.cpp" />
     <ClCompile Include="..\platform\win\ImportedModulesEnumerator.cpp" />
     <ClCompile Include="..\platform\win\KeyEventWin.cpp" />
@@ -12285,6 +12314,20 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\rendering\style\StyleVisualData.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug_WinCairo|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug_WinCairo|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugSuffix|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_WinCairo|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release_WinCairo|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Production|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\rendering\style\WillChangeData.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug_WinCairo|Win32'">true</ExcludedFromBuild>
@@ -19517,6 +19560,7 @@
     <ClInclude Include="..\ForwardingHeaders\inspector\InspectorProtocolObjects.h" />
     <ClInclude Include="..\ForwardingHeaders\inspector\InspectorProtocolTypes.h" />
     <ClInclude Include="..\ForwardingHeaders\inspector\InspectorValues.h" />
+    <ClInclude Include="..\ForwardingHeaders\inspector\PerGlobalObjectWrapperWorld.h" />
     <ClInclude Include="..\ForwardingHeaders\inspector\ScriptArguments.h" />
     <ClInclude Include="..\ForwardingHeaders\inspector\ScriptBreakpoint.h" />
     <ClInclude Include="..\ForwardingHeaders\inspector\ScriptCallFrame.h" />
@@ -19625,6 +19669,7 @@
     <ClInclude Include="..\html\canvas\WebGLVertexArrayObject.h" />
     <ClInclude Include="..\html\canvas\WebGLVertexArrayObjectBase.h" />
     <ClInclude Include="..\html\canvas\WebGLVertexArrayObjectOES.h" />
+    <ClInclude Include="..\html\HTMLPictureElement.h" />
     <ClInclude Include="..\html\track\AudioTrack.h" />
     <ClInclude Include="..\html\track\AudioTrackList.h" />
     <ClInclude Include="..\html\track\TextTrackCueGeneric.h" />
@@ -20177,6 +20222,7 @@
     <ClInclude Include="..\platform\win\DefWndProcWindowClass.h" />
     <ClInclude Include="..\platform\win\DelayLoadedModulesEnumerator.h" />
     <ClInclude Include="..\platform\win\GDIObjectCounter.h" />
+    <ClInclude Include="..\platform\win\GDIUtilities.h" />
     <ClInclude Include="..\platform\win\HWndDC.h" />
     <ClInclude Include="..\platform\win\ImportedFunctionsEnumerator.h" />
     <ClInclude Include="..\platform\win\ImportedModulesEnumerator.h" />
@@ -21057,6 +21103,7 @@
     <ClInclude Include="..\rendering\style\StyleTransformData.h" />
     <ClInclude Include="..\rendering\style\StyleVariableData.h" />
     <ClInclude Include="..\rendering\style\StyleVisualData.h" />
+    <ClInclude Include="..\rendering\style\WillChangeData.h" />
     <ClInclude Include="..\rendering\style\SVGRenderStyle.h" />
     <ClInclude Include="..\rendering\style\SVGRenderStyleDefs.h" />
     <ClInclude Include="..\rendering\svg\RenderSVGEllipse.h" />

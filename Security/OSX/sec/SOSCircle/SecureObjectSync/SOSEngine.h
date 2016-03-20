@@ -70,10 +70,6 @@ CFMutableArrayRef SOSEngineCopyPersistedManifestArray(SOSEngineRef engine, CFDic
 
 void SOSEngineClearCache(SOSEngineRef engine);
 
-//Set/Get coders
-bool SOSEngineSetCoderData(SOSEngineRef engine, CFStringRef peer_id, CFDataRef data, CFErrorRef *error);
-CFDataRef SOSEngineGetCoderData(SOSEngineRef engine, CFStringRef peer_id);
-
 // Dispose of an engine when it's no longer needed.
 void SOSEngineDispose(SOSEngineRef engine);
 

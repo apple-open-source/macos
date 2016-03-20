@@ -475,6 +475,32 @@ SecKeychainItemSetAccess(SecKeychainItemRef itemRef, SecAccessRef accessRef)
     END_SECAPI
 }
 
+OSStatus SecKeychainItemSetAccessWithPassword(SecKeychainItemRef itemRef, SecAccessRef accessRef, UInt32 passwordLength, const void * password) {
+    BEGIN_SECAPI
+
+    OSStatus result;
+
+    // try to unlock the keychain with this password first
+    SecKeychainRef kc = NULL;
+    result = SecKeychainItemCopyKeychain(itemRef, &kc);
+    if(!result) {
+        SecKeychainUnlock(kc, passwordLength, password, true);
+        if(kc) {
+            CFRelease(kc);
+        }
+    }
+
+    // Create some credentials with this password
+    CssmAutoData data(Allocator::standard(), password, passwordLength);
+    AclFactory::PassphraseUnlockCredentials cred(data, Allocator::standard());
+
+    Access::required(accessRef)->editAccess(*aclBearer(reinterpret_cast<CFTypeRef>(itemRef)), true, cred.getAccessCredentials());
+    ItemImpl::required(itemRef)->postItemEvent (kSecUpdateEvent);
+
+    END_SECAPI
+}
+
+
 /*  Sets an item's data for legacy "KC" CoreServices APIs.
     Note this version sets the data, but doesn't update the item
     as the KC behavior dictates.

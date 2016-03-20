@@ -46,24 +46,9 @@
 
 #include <utilities/debugging.h>
 
-/* Security.framework's bundle id. */
-static CFStringRef kSecFrameworkBundleID = CFSTR("com.apple.Security");
-
 /* Security framework's own bundle used for localized string lookups. */
 static CFBundleRef kSecFrameworkBundle;
 static pthread_once_t kSecFrameworkBundleLookup = PTHREAD_ONCE_INIT;
-
-#if 0
-// copied from SecAsn1Coder.c
-
-bool SecAsn1OidCompare(const SecAsn1Oid *oid1, const SecAsn1Oid *oid2) {
-	if (!oid1 || !oid2)
-		return oid1 == oid2;
-	if (oid1->Length != oid2->Length)
-		return false;
-	return !memcmp(oid1->Data, oid2->Data, oid1->Length);
-}
-#endif
 
 static void SecFrameworkBundleLookup(void) {
 	// figure out the path to our executable

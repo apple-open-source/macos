@@ -92,6 +92,7 @@ void CodeDirectory::Builder::specialSlot(SpecialSlot slot, CFDataRef data)
 	MakeHash<Builder> hash(this);
 	hash->update(CFDataGetBytePtr(data), CFDataGetLength(data));
 	hash->finish(specialSlot(slot));
+	mFilledSpecialSlots.insert(slot);
 	if (slot >= mSpecialSlots)
 		mSpecialSlots = slot;
 }
@@ -109,14 +110,16 @@ CodeDirectory::Scatter *CodeDirectory::Builder::scatter(unsigned count)
 	return mScatter;
 }
 
-// This calculates the fixed size of the code directory
-// Because of <rdar://problem/16102695>, if the team ID
-// field is not used, we leave out the team ID offset
-// as well, to keep cd hashes consistent between
-// versions.
+//
+// Keep the allocated size of the (static) CodeDirectory consistent with
+// the version chosen. We dynamically picked the least-needed version
+// to provide stability of virtual signatures.
+//
 const size_t CodeDirectory::Builder::fixedSize(const uint32_t version)
 {
 	size_t cdSize = sizeof(CodeDirectory);
+	if (version < supportsCodeLimit64)
+		cdSize -= sizeof(mDir->spare3) + sizeof(mDir->codeLimit64);
 	if (version < supportsTeamID)
 		cdSize -= sizeof(mDir->teamIDOffset);
 
@@ -179,26 +182,33 @@ CodeDirectory *CodeDirectory::Builder::build()
 	size_t teamIDLength = mTeamID.size() + 1;
 	
 	// Determine the version
-	if (mTeamID.size()) {
+	if (mExecLength > UINT32_MAX) {
 		version = currentVersion;
+	} else if (mTeamID.size()) {
+		version = supportsTeamID;
 	} else {
 		version = supportsScatter;
 	}
 	
+	if (mCodeSlots > UINT32_MAX)	// (still limited to 32 bits)
+		MacOSError::throwMe(errSecCSTooBig);
+	
 	size_t total = size(version);
 	if (!(mDir = (CodeDirectory *)calloc(1, total)))	// initialize to zero
 		UnixError::throwMe(ENOMEM);
-	
-	if (mExecLength > UINT32_MAX)
-		MacOSError::throwMe(errSecCSTooBig);
-	
+
 	// fill header
 	mDir->initialize(total);
 	mDir->version = version;
 	mDir->flags = mFlags;
 	mDir->nSpecialSlots = (uint32_t)mSpecialSlots;
 	mDir->nCodeSlots = (uint32_t)mCodeSlots;
-	mDir->codeLimit = (uint32_t)mExecLength;
+	if (mExecLength > UINT32_MAX) {
+		mDir->codeLimit = UINT32_MAX;
+		mDir->codeLimit64 = mExecLength;
+	} else {
+		mDir->codeLimit = uint32_t(mExecLength);
+	}
 	mDir->hashType = mHashType;
 	mDir->platform = mPlatform;
 	mDir->hashSize = mDigestLength;
@@ -244,11 +254,14 @@ CodeDirectory *CodeDirectory::Builder::build()
 	mExec.seek(mExecOffset);
 	size_t remaining = mExecLength;
 	for (unsigned int slot = 0; slot < mCodeSlots; ++slot) {
-		size_t thisPage = min(mPageSize, remaining);
+		size_t thisPage = remaining;
+		if (mPageSize)
+			thisPage = min(thisPage, mPageSize);
 		MakeHash<Builder> hasher(this);
 		generateHash(hasher, mExec, (*mDir)[slot], thisPage);
 		remaining -= thisPage;
 	}
+	assert(remaining == 0);
 	
 	// all done. Pass ownership to caller
 	return mDir;

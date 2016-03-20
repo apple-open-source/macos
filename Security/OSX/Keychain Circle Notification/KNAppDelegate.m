@@ -483,7 +483,7 @@ bool isAppleInternal(void)
 		message = [message stringByAppendingString: reason_str];
 	}
 
-	// <rdar://problem/21988060> Improve wording of the iCloud keychain drop/reset error messages
+	// <rdar://problem/21988060> [ui] MONARCH: Improve wording of the iCloud keychain drop/reset error messages
 	// Contrary to HI spec (and I think it makes more sense)
 	// 1. otherButton  == top   : Not Now
 	// 2. actionButton == bottom: Continue
@@ -523,7 +523,7 @@ bool isAppleInternal(void)
 		}
 	}
 
-	// <rdar://problem/21988060> Improve wording of the iCloud keychain drop/reset error messages
+	// <rdar://problem/21988060> [ui] MONARCH: Improve wording of the iCloud keychain drop/reset error messages
 	// Contrary to HI spec (and I think it makes more sense)
 	// 1. otherButton  == top   : Not Now
 	// 2. actionButton == bottom: Continue

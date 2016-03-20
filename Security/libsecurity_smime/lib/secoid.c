@@ -129,6 +129,7 @@
 #define PKCS9_CERT_TYPES	PKCS9, 0x16
 #define PKCS9_CRL_TYPES		PKCS9, 0x17
 #define PKCS9_SMIME_IDS		PKCS9, 0x10
+#define PKCS9_SMIME_CTYPE	PKCS9_SMIME_IDS, 1
 #define PKCS9_SMIME_ATTRS	PKCS9_SMIME_IDS, 2
 #define PKCS9_SMIME_ALGS	PKCS9_SMIME_IDS, 3
 #define PKCS12_VERSION1		PKCS12, 0x0a
@@ -160,6 +161,26 @@
 /* Microsoft Object ID space */
 /* { 1.3.6.1.4.1.311 } */
 #define MICROSOFT_OID 0x2b, 0x6, 0x1, 0x4, 0x1, 0x82, 0x37
+
+/* ECDSA OIDs from X9.62 */
+#define ANSI_X9_62                      0x2A, 0x86, 0x48, 0xCE, 0x3D
+#define ANSI_X9_62_FIELD_TYPE           ANSI_X9_62, 1
+#define ANSI_X9_62_PUBKEY_TYPE          ANSI_X9_62, 2
+#define ANSI_X9_62_SIG_TYPE             ANSI_X9_62, 4
+#define ECDSA_WITH_SHA2                 ANSI_X9_62_SIG_TYPE, 3
+
+/* X9.63 schemes */
+#define ANSI_X9_63                      0x2B, 0x81, 0x05, 0x10, 0x86, 0x48, 0x3F
+#define ANSI_X9_63_SCHEME               ANSI_X9_63, 0
+
+/* ECDH curves */
+#define CERTICOM_ELL_CURVE              0x2B, 0x81, 0x04, 0x00
+
+/* Apple OID sapce */
+/* 1.2.840.113635 */
+#define APPLE_OID                       0x2A, 0x86, 0x48, 0x86, 0xF7, 0x63
+#define APPLE_DATA_SECURITY             APPLE_OID, 0x64
+#define APPLE_CMS_ATTRIBUTES            APPLE_DATA_SECURITY, 0x9
 
 #define CONST_OID static const unsigned char
 
@@ -231,6 +252,10 @@ CONST_OID cmsRC2wrap[]  			= { PKCS9_SMIME_ALGS, 7 };
 /* RFC2633 SMIME message attributes */
 CONST_OID smimeEncryptionKeyPreference[] 	= { PKCS9_SMIME_ATTRS, 11 };
 CONST_OID ms_smimeEncryptionKeyPreference[] 	= { MICROSOFT_OID, 0x10, 0x4 };
+
+CONST_OID smimeSigningCertificate[] 	= { PKCS9_SMIME_ATTRS, 12 };
+CONST_OID smimeTimeStampToken[]         = { PKCS9_SMIME_ATTRS, 14 };
+CONST_OID smimeTimeStampTokenInfo[] 	= { PKCS9_SMIME_CTYPE, 0x04 };
 
 CONST_OID x520CommonName[]          		= { X520_ATTRIBUTE_TYPE, 3 };
 CONST_OID x520CountryName[]         		= { X520_ATTRIBUTE_TYPE, 6 };
@@ -436,6 +461,30 @@ CONST_OID sha384[]                              = { SHAXXX, 2 };
 CONST_OID sha512[]                              = { SHAXXX, 3 };
 CONST_OID sha224[]                              = { SHAXXX, 4 };
 
+CONST_OID ecdsaWithSHA1[]			= { ANSI_X9_62_SIG_TYPE, 1 };
+CONST_OID ecdsaWithSHA256[]			= { ECDSA_WITH_SHA2, 2 };
+CONST_OID ecdsaWithSHA384[]			= { ECDSA_WITH_SHA2, 3 };
+CONST_OID ecdsaWithSHA512[]			= { ECDSA_WITH_SHA2, 4 };
+CONST_OID ecPublicKey[]				= { ANSI_X9_62_PUBKEY_TYPE, 1 };
+/* This OID doesn't appear in a CMS msg */
+CONST_OID ecdsaSig[]				= { ANSI_X9_62_SIG_TYPE };
+
+/* ECDH curves */
+CONST_OID secp256r1[]				= { 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07 };
+CONST_OID secp384r1[]				= { CERTICOM_ELL_CURVE, 0x22 };
+CONST_OID secp521r1[]				= { CERTICOM_ELL_CURVE, 0x23 };
+
+/* RFC 3278 */
+CONST_OID dhSinglePassStdDHsha1kdf[]		= {ANSI_X9_63_SCHEME, 2 };
+CONST_OID dhSinglePassCofactorDHsha1kdf[]	= {ANSI_X9_63_SCHEME, 3 };
+CONST_OID mqvSinglePassSha1kdf[]			= {ANSI_X9_63_SCHEME, 4 };
+
+/* Apple Hash Agility */
+CONST_OID appleHashAgility[]                = {APPLE_CMS_ATTRIBUTES, 1};
+
+/* a special case: always associated with a caller-specified OID */
+CONST_OID noOid[]				= { 0 };
+
 #define OI(x) { sizeof x, (uint8_t *)x }
 #ifndef SECOID_NO_STRINGS
 #if USE_CDSA_CRYPTO
@@ -447,164 +496,8 @@ CONST_OID sha224[]                              = { SHAXXX, 4 };
 #define OD(oid,tag,desc,mech,ext) { OI(oid), tag, 0, mech, ext }
 #endif
 
-#if 0 // !USE_CDSA_CRYPTO
-
-enum {
-	CSSM_ALGID_NONE =					0,
-	CSSM_ALGID_CUSTOM =					CSSM_ALGID_NONE + 1,
-	CSSM_ALGID_DH =						CSSM_ALGID_NONE + 2,
-	CSSM_ALGID_PH =						CSSM_ALGID_NONE + 3,
-	CSSM_ALGID_KEA =					CSSM_ALGID_NONE + 4,
-	CSSM_ALGID_MD2 =					CSSM_ALGID_NONE + 5,
-	CSSM_ALGID_MD4 =					CSSM_ALGID_NONE + 6,
-	CSSM_ALGID_MD5 =					CSSM_ALGID_NONE + 7,
-	CSSM_ALGID_SHA1 =					CSSM_ALGID_NONE + 8,
-	CSSM_ALGID_NHASH =					CSSM_ALGID_NONE + 9,
-	CSSM_ALGID_HAVAL =					CSSM_ALGID_NONE + 10,
-	CSSM_ALGID_RIPEMD =					CSSM_ALGID_NONE + 11,
-	CSSM_ALGID_IBCHASH =				CSSM_ALGID_NONE + 12,
-	CSSM_ALGID_RIPEMAC =				CSSM_ALGID_NONE + 13,
-	CSSM_ALGID_DES =					CSSM_ALGID_NONE + 14,
-	CSSM_ALGID_DESX =					CSSM_ALGID_NONE + 15,
-	CSSM_ALGID_RDES =					CSSM_ALGID_NONE + 16,
-	CSSM_ALGID_3DES_3KEY_EDE =			CSSM_ALGID_NONE + 17,
-	CSSM_ALGID_3DES_2KEY_EDE =			CSSM_ALGID_NONE + 18,
-	CSSM_ALGID_3DES_1KEY_EEE =			CSSM_ALGID_NONE + 19,
-	CSSM_ALGID_3DES_3KEY =           	CSSM_ALGID_3DES_3KEY_EDE,
-	CSSM_ALGID_3DES_3KEY_EEE =       	CSSM_ALGID_NONE + 20,
-	CSSM_ALGID_3DES_2KEY =           	CSSM_ALGID_3DES_2KEY_EDE,
-	CSSM_ALGID_3DES_2KEY_EEE =       	CSSM_ALGID_NONE + 21,
-	CSSM_ALGID_3DES_1KEY =				CSSM_ALGID_3DES_3KEY_EEE,
-	CSSM_ALGID_IDEA =					CSSM_ALGID_NONE + 22,
-	CSSM_ALGID_RC2 =					CSSM_ALGID_NONE + 23,
-	CSSM_ALGID_RC5 =					CSSM_ALGID_NONE + 24,
-	CSSM_ALGID_RC4 =					CSSM_ALGID_NONE + 25,
-	CSSM_ALGID_SEAL =					CSSM_ALGID_NONE + 26,
-	CSSM_ALGID_CAST =					CSSM_ALGID_NONE + 27,
-	CSSM_ALGID_BLOWFISH =				CSSM_ALGID_NONE + 28,
-	CSSM_ALGID_SKIPJACK =				CSSM_ALGID_NONE + 29,
-	CSSM_ALGID_LUCIFER =				CSSM_ALGID_NONE + 30,
-	CSSM_ALGID_MADRYGA =				CSSM_ALGID_NONE + 31,
-	CSSM_ALGID_FEAL =					CSSM_ALGID_NONE + 32,
-	CSSM_ALGID_REDOC =					CSSM_ALGID_NONE + 33,
-	CSSM_ALGID_REDOC3 =					CSSM_ALGID_NONE + 34,
-	CSSM_ALGID_LOKI =					CSSM_ALGID_NONE + 35,
-	CSSM_ALGID_KHUFU =					CSSM_ALGID_NONE + 36,
-	CSSM_ALGID_KHAFRE =					CSSM_ALGID_NONE + 37,
-	CSSM_ALGID_MMB =					CSSM_ALGID_NONE + 38,
-	CSSM_ALGID_GOST =					CSSM_ALGID_NONE + 39,
-	CSSM_ALGID_SAFER =					CSSM_ALGID_NONE + 40,
-	CSSM_ALGID_CRAB =					CSSM_ALGID_NONE + 41,
-	CSSM_ALGID_RSA =					CSSM_ALGID_NONE + 42,
-	CSSM_ALGID_DSA =					CSSM_ALGID_NONE + 43,
-	CSSM_ALGID_MD5WithRSA =				CSSM_ALGID_NONE + 44,
-	CSSM_ALGID_MD2WithRSA =				CSSM_ALGID_NONE + 45,
-	CSSM_ALGID_ElGamal =				CSSM_ALGID_NONE + 46,
-	CSSM_ALGID_MD2Random =				CSSM_ALGID_NONE + 47,
-	CSSM_ALGID_MD5Random =				CSSM_ALGID_NONE + 48,
-	CSSM_ALGID_SHARandom =				CSSM_ALGID_NONE + 49,
-	CSSM_ALGID_DESRandom =				CSSM_ALGID_NONE + 50,
-	CSSM_ALGID_SHA1WithRSA =			CSSM_ALGID_NONE + 51,
-	CSSM_ALGID_CDMF =					CSSM_ALGID_NONE + 52,
-	CSSM_ALGID_CAST3 =					CSSM_ALGID_NONE + 53,
-	CSSM_ALGID_CAST5 =					CSSM_ALGID_NONE + 54,
-	CSSM_ALGID_GenericSecret =			CSSM_ALGID_NONE + 55,
-	CSSM_ALGID_ConcatBaseAndKey =		CSSM_ALGID_NONE + 56,
-	CSSM_ALGID_ConcatKeyAndBase =		CSSM_ALGID_NONE + 57,
-	CSSM_ALGID_ConcatBaseAndData =		CSSM_ALGID_NONE + 58,
-	CSSM_ALGID_ConcatDataAndBase =		CSSM_ALGID_NONE + 59,
-	CSSM_ALGID_XORBaseAndData =			CSSM_ALGID_NONE + 60,
-	CSSM_ALGID_ExtractFromKey =			CSSM_ALGID_NONE + 61,
-	CSSM_ALGID_SSL3PreMasterGen =		CSSM_ALGID_NONE + 62,
-	CSSM_ALGID_SSL3MasterDerive =		CSSM_ALGID_NONE + 63,
-	CSSM_ALGID_SSL3KeyAndMacDerive =	CSSM_ALGID_NONE + 64,
-	CSSM_ALGID_SSL3MD5_MAC =			CSSM_ALGID_NONE + 65,
-	CSSM_ALGID_SSL3SHA1_MAC =			CSSM_ALGID_NONE + 66,
-	CSSM_ALGID_PKCS5_PBKDF1_MD5 =		CSSM_ALGID_NONE + 67,
-	CSSM_ALGID_PKCS5_PBKDF1_MD2 =		CSSM_ALGID_NONE + 68,
-	CSSM_ALGID_PKCS5_PBKDF1_SHA1 =		CSSM_ALGID_NONE + 69,
-	CSSM_ALGID_WrapLynks =				CSSM_ALGID_NONE + 70,
-	CSSM_ALGID_WrapSET_OAEP =			CSSM_ALGID_NONE + 71,
-	CSSM_ALGID_BATON =					CSSM_ALGID_NONE + 72,
-	CSSM_ALGID_ECDSA =					CSSM_ALGID_NONE + 73,
-	CSSM_ALGID_MAYFLY =					CSSM_ALGID_NONE + 74,
-	CSSM_ALGID_JUNIPER =				CSSM_ALGID_NONE + 75,
-	CSSM_ALGID_FASTHASH =				CSSM_ALGID_NONE + 76,
-	CSSM_ALGID_3DES =					CSSM_ALGID_NONE + 77,
-	CSSM_ALGID_SSL3MD5 =				CSSM_ALGID_NONE + 78,
-	CSSM_ALGID_SSL3SHA1 =				CSSM_ALGID_NONE + 79,
-	CSSM_ALGID_FortezzaTimestamp =		CSSM_ALGID_NONE + 80,
-	CSSM_ALGID_SHA1WithDSA =			CSSM_ALGID_NONE + 81,
-	CSSM_ALGID_SHA1WithECDSA =			CSSM_ALGID_NONE + 82,
-	CSSM_ALGID_DSA_BSAFE =				CSSM_ALGID_NONE + 83,
-	CSSM_ALGID_ECDH =					CSSM_ALGID_NONE + 84,
-	CSSM_ALGID_ECMQV =					CSSM_ALGID_NONE + 85,
-	CSSM_ALGID_PKCS12_SHA1_PBE =		CSSM_ALGID_NONE + 86,
-	CSSM_ALGID_ECNRA =					CSSM_ALGID_NONE + 87,
-	CSSM_ALGID_SHA1WithECNRA =			CSSM_ALGID_NONE + 88,
-	CSSM_ALGID_ECES =					CSSM_ALGID_NONE + 89,
-	CSSM_ALGID_ECAES =					CSSM_ALGID_NONE + 90,
-	CSSM_ALGID_SHA1HMAC =				CSSM_ALGID_NONE + 91,
-	CSSM_ALGID_FIPS186Random =			CSSM_ALGID_NONE + 92,
-	CSSM_ALGID_ECC =					CSSM_ALGID_NONE + 93,
-	CSSM_ALGID_MQV =					CSSM_ALGID_NONE + 94,
-	CSSM_ALGID_NRA =					CSSM_ALGID_NONE + 95,
-	CSSM_ALGID_IntelPlatformRandom =	CSSM_ALGID_NONE + 96,
-	CSSM_ALGID_UTC =					CSSM_ALGID_NONE + 97,
-	CSSM_ALGID_HAVAL3 =					CSSM_ALGID_NONE + 98,
-	CSSM_ALGID_HAVAL4 =					CSSM_ALGID_NONE + 99,
-	CSSM_ALGID_HAVAL5 =					CSSM_ALGID_NONE + 100,
-	CSSM_ALGID_TIGER =					CSSM_ALGID_NONE + 101,
-	CSSM_ALGID_MD5HMAC =				CSSM_ALGID_NONE + 102,
-	CSSM_ALGID_PKCS5_PBKDF2 = 			CSSM_ALGID_NONE + 103,
-	CSSM_ALGID_RUNNING_COUNTER =		CSSM_ALGID_NONE + 104,
-	CSSM_ALGID_LAST =					CSSM_ALGID_NONE + 0x7FFFFFFF,
-/* All algorithms IDs that are vendor specific, and not
-   part of the CSSM specification should be defined relative
-   to CSSM_ALGID_VENDOR_DEFINED. */
-	CSSM_ALGID_VENDOR_DEFINED =			CSSM_ALGID_NONE + 0x80000000
-};
-
-enum
-{
-    CSSM_ALGID_APPLE_YARROW = CSSM_ALGID_VENDOR_DEFINED,
-        CSSM_ALGID_AES,                         /* RijnDael */
-        CSSM_ALGID_FEE,                         /* FEE Key Generation */ 
-        CSSM_ALGID_FEE_MD5,                     /* FEE/ElGamal signature w/ MD5 
-hash */
-        CSSM_ALGID_FEE_SHA1,            /* FEE/ElGamal signature w/ SHA1 hash */
-        CSSM_ALGID_FEED,                        /* 1:1 FEE asymmetric encryption
- */
-        CSSM_ALGID_FEEDEXP,                     /* 2:1 FEE asymmetric encryption
- */
-        CSSM_ALGID_ASC,                         /* Apple Secure Compression */
-        CSSM_ALGID_SHA1HMAC_LEGACY,     /* HMAC/SHA1, legacy compatible */
-        CSSM_ALGID_KEYCHAIN_KEY,        /* derive or manipulate keychain master 
-keys */
-        CSSM_ALGID_PKCS12_PBE_ENCR,     /* PKCS12, encrypt/decrypt key */
-        CSSM_ALGID_PKCS12_PBE_MAC,      /* PKCS12, MAC key */
-        CSSM_ALGID_SECURE_PASSPHRASE,   /* passphrase acquired by SecurityServer
- */
-        CSSM_ALGID_PBE_OPENSSL_MD5, /* traditional openssl key derivation */
-        CSSM_ALGID_SHA256,                      /* 256-bit SHA2 */
-        CSSM_ALGID_SHA384,                      /* 384-bit SHA2 */
-        CSSM_ALGID_SHA512,                      /* 512-bit SHA2 */
-        CSSM_ALGID_ENTROPY_DEFAULT,     /* default entropy source of (CSP) devic
-e, if any */
-        CSSM_ALGID_SHA224,                      /* SHA2, 224 bit */
-        CSSM_ALGID_SHA224WithRSA,       /* RSA signature on SHA224 digest */
-        CSSM_ALGID_SHA256WithRSA,       /* RSA signature on SHA256 digest */
-        CSSM_ALGID_SHA384WithRSA,       /* RSA signature on SHA384 digest */
-        CSSM_ALGID_SHA512WithRSA,       /* RSA signature on SHA512 digest */
-        CSSM_ALGID_OPENSSH1,            /* OpenSSH v1 RSA key wrapping */
-    CSSM_ALGID__FIRST_UNUSED
-};
-
-#endif
-
-
 /*
-   NOTE: the order of these entries must mach the SECOidTag enum in secoidt.h!
+   NOTE: the order of these entries must match the SECOidTag enum in secoidt.h!
    @@@ We are sticking a enum type in a field of type SecAsn1AlgId, which is
    defined as:
         typedef struct {
@@ -1186,6 +1079,7 @@ static const SECOidData oids[] = {
 	"AES-256-ECB", CSSM_ALGID_AES, INVALID_CERT_EXTENSION ),
     OD( aes256_CBC, SEC_OID_AES_256_CBC,
 	"AES-256-CBC", CSSM_ALGID_AES, INVALID_CERT_EXTENSION ),
+
     /* More bogus DSA OIDs */
     OD( sdn702DSASignature, SEC_OID_SDN702_DSA_SIGNATURE, 
 	"SDN.702 DSA Signature", CSSM_ALGID_SHA1WithDSA, INVALID_CERT_EXTENSION ),
@@ -1194,6 +1088,8 @@ static const SECOidData oids[] = {
         SEC_OID_MS_SMIME_ENCRYPTION_KEY_PREFERENCE,
 	"Microsoft S/MIME Encryption Key Preference", 
 	CSSM_ALGID_NONE, INVALID_CERT_EXTENSION ),
+
+    OD( sha224, SEC_OID_SHA224, "SHA-224", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
     OD( sha256, SEC_OID_SHA256, "SHA-256", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
     OD( sha384, SEC_OID_SHA384, "SHA-384", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
     OD( sha512, SEC_OID_SHA512, "SHA-512", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
@@ -1215,7 +1111,57 @@ static const SECOidData oids[] = {
     OD( aes256_KEY_WRAP, SEC_OID_AES_256_KEY_WRAP,
 	"AES-256 Key Wrap", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
 
-    OD( sha224, SEC_OID_SHA224, "SHA-224", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
+    /* caller-specified OID for eContentType */
+    OD( noOid, SEC_OID_OTHER,
+       "Caller-specified eContentType", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
+
+    OD( ecPublicKey, SEC_OID_EC_PUBLIC_KEY,
+       "ECDSA Public Key", CSSM_ALGID_NONE,
+       INVALID_CERT_EXTENSION ),
+    OD( ecdsaWithSHA1, SEC_OID_ECDSA_WithSHA1,
+       "SHA-1 With ECDSA", CSSM_ALGID_NONE,
+       INVALID_CERT_EXTENSION ),
+    OD( dhSinglePassStdDHsha1kdf, SEC_OID_DH_SINGLE_STD_SHA1KDF,
+       "ECDH With SHA1 KDF", CSSM_ALGID_NONE,
+       INVALID_CERT_EXTENSION ),
+    OD( secp256r1, SEC_OID_SECP_256_R1,
+       "secp256r1", CSSM_ALGID_NONE,
+       INVALID_CERT_EXTENSION ),
+    OD( secp384r1, SEC_OID_SECP_384_R1,
+       "secp384r1", CSSM_ALGID_NONE,
+       INVALID_CERT_EXTENSION ),
+    OD( secp521r1, SEC_OID_SECP_521_R1,
+       "secp521r1", CSSM_ALGID_NONE,
+       INVALID_CERT_EXTENSION ),
+
+    OD( smimeTimeStampTokenInfo, SEC_OID_PKCS9_ID_CT_TSTInfo,
+       "id-ct-TSTInfo", CSSM_ALGID_NONE,
+       INVALID_CERT_EXTENSION ),
+
+    OD( smimeTimeStampToken, SEC_OID_PKCS9_TIMESTAMP_TOKEN,
+       "id-aa-timeStampToken", CSSM_ALGID_NONE,
+       INVALID_CERT_EXTENSION ),
+
+    OD( smimeSigningCertificate, SEC_OID_PKCS9_SIGNING_CERTIFICATE,
+       "id-aa-signing-certificate", CSSM_ALGID_NONE,
+       INVALID_CERT_EXTENSION ),
+
+    /* ECDSA with SHA2 */
+    OD( ecdsaWithSHA256, SEC_OID_ECDSA_WITH_SHA256,
+       "ECDSA With SHA-256", CSSM_ALGID_SHA256WithECDSA,
+       INVALID_CERT_EXTENSION ),
+    OD( ecdsaWithSHA384, SEC_OID_ECDSA_WITH_SHA384,
+       "ECDSA With SHA-384", CSSM_ALGID_SHA384WithECDSA,
+       INVALID_CERT_EXTENSION ),
+    OD( ecdsaWithSHA512, SEC_OID_ECDSA_WITH_SHA512,
+       "ECDSA With SHA-512", CSSM_ALGID_SHA512WithECDSA,
+       INVALID_CERT_EXTENSION ),
+
+    /* Apple Hash Agility */
+    OD( appleHashAgility, SEC_OID_APPLE_HASH_AGILITY,
+       "appleCodesigningHashAgilityAttribute", CSSM_ALGID_NONE,
+       INVALID_CERT_EXTENSION),
+
 };
 
 /*

@@ -8,7 +8,7 @@
 	<true/>
 	<key>com.apple.private.ids.force-encryption-off</key>
 	<array>
-		<string>com.apple.security.idskeychainsyncingproxy</string>
+		<string>com.apple.private.alloy.keychainsync</string>
 	</array>
 	<key>com.apple.private.ids.messaging.high-priority</key>
 	<array>

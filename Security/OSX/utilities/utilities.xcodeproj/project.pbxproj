@@ -76,6 +76,8 @@
 		E7B183661AAE3FA3006C3392 /* su-08-secbuffer.c in Sources */ = {isa = PBXBuildFile; fileRef = E7B183651AAE3FA3006C3392 /* su-08-secbuffer.c */; };
 		E7CC89D51909E0A2005FFA08 /* su-07-debugging.c in Sources */ = {isa = PBXBuildFile; fileRef = E7CC89D41909E0A2005FFA08 /* su-07-debugging.c */; };
 		E7E0D909158FD9CD002CA176 /* su-10-cfstring-der.c in Sources */ = {isa = PBXBuildFile; fileRef = E7E0D908158FD9CD002CA176 /* su-10-cfstring-der.c */; };
+		EB0BC8F31C3C6E8E00785842 /* SecTrace.c in Sources */ = {isa = PBXBuildFile; fileRef = EB0BC8F11C3C6E8E00785842 /* SecTrace.c */; };
+		EB0BC8F41C3C6E8E00785842 /* SecTrace.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0BC8F21C3C6E8E00785842 /* SecTrace.h */; };
 		EB7193901B0258890066F5E2 /* SecAppleAnchor.c in Sources */ = {isa = PBXBuildFile; fileRef = EB71938E1B0258890066F5E2 /* SecAppleAnchor.c */; };
 		EB7193911B0258890066F5E2 /* SecAppleAnchorPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = EB71938F1B0258890066F5E2 /* SecAppleAnchorPriv.h */; };
 		EB7193941B02606A0066F5E2 /* SecInternalRelease.c in Sources */ = {isa = PBXBuildFile; fileRef = EB7193921B02606A0066F5E2 /* SecInternalRelease.c */; };
@@ -163,6 +165,8 @@
 		E7E0D8F9158FA9A3002CA176 /* libutilitiesRegressions.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libutilitiesRegressions.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		E7E0D908158FD9CD002CA176 /* su-10-cfstring-der.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "su-10-cfstring-der.c"; sourceTree = "<group>"; };
 		E7FC081B161A3038008E0760 /* SecIOFormat.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecIOFormat.h; sourceTree = "<group>"; };
+		EB0BC8F11C3C6E8E00785842 /* SecTrace.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecTrace.c; sourceTree = "<group>"; };
+		EB0BC8F21C3C6E8E00785842 /* SecTrace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecTrace.h; sourceTree = "<group>"; };
 		EB71938E1B0258890066F5E2 /* SecAppleAnchor.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecAppleAnchor.c; sourceTree = "<group>"; };
 		EB71938F1B0258890066F5E2 /* SecAppleAnchorPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecAppleAnchorPriv.h; sourceTree = "<group>"; };
 		EB7193921B02606A0066F5E2 /* SecInternalRelease.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecInternalRelease.c; sourceTree = "<group>"; };
@@ -211,6 +215,8 @@
 				E777C71F15B74024004044A8 /* SecCFError.h */,
 				E7B01B961664031B000485F1 /* SecDispatchRelease.h */,
 				E7FC081B161A3038008E0760 /* SecIOFormat.h */,
+				EB0BC8F11C3C6E8E00785842 /* SecTrace.c */,
+				EB0BC8F21C3C6E8E00785842 /* SecTrace.h */,
 				4C6882C115ABADBC00028C8F /* array_size.h */,
 				4C6882C215ABADBC00028C8F /* comparison.c */,
 				4C6882C315ABADBC00028C8F /* comparison.h */,
@@ -247,12 +253,12 @@
 				52E2E4941738371400E78313 /* SecXPCError.h */,
 				52E2E4961738394C00E78313 /* SecXPCError.c */,
 				E706B78918FC822B00797907 /* simulate_crash.c */,
+				0C95CCC91A609D5F006E176C /* SecSCTUtils.h */,
 				0C95CCC81A609D5F006E176C /* SecSCTUtils.c */,
 				EB71938E1B0258890066F5E2 /* SecAppleAnchor.c */,
 				EB71938F1B0258890066F5E2 /* SecAppleAnchorPriv.h */,
 				EB7193921B02606A0066F5E2 /* SecInternalRelease.c */,
 				EB7193931B02606A0066F5E2 /* SecInternalReleasePriv.h */,
-				0C95CCC91A609D5F006E176C /* SecSCTUtils.h */,
 			);
 			path = src;
 			sourceTree = "<group>";
@@ -350,6 +356,7 @@
 				4C6882E415ABADBC00028C8F /* der_plist.h in Headers */,
 				BEA22A371811E4CF00BE7682 /* SecCertificateTrace.h in Headers */,
 				4C6882E615ABADBC00028C8F /* der_plist_internal.h in Headers */,
+				EB0BC8F41C3C6E8E00785842 /* SecTrace.h in Headers */,
 				4C6882E915ABADBC00028C8F /* fileIo.h in Headers */,
 				0C95CCCB1A609D5F006E176C /* SecSCTUtils.h in Headers */,
 				E7188DF91AAA819400B46156 /* SecBuffer.h in Headers */,
@@ -447,6 +454,7 @@
 				4C6882DF15ABADBC00028C8F /* der_data.c in Sources */,
 				4C6882E015ABADBC00028C8F /* der_date.c in Sources */,
 				E73EB7991B229F3C0095E255 /* SecCoreCrypto.c in Sources */,
+				EB0BC8F31C3C6E8E00785842 /* SecTrace.c in Sources */,
 				E706B78A18FC822B00797907 /* simulate_crash.c in Sources */,
 				E72D462D175FC35500F70B9B /* SecAKSWrappers.c in Sources */,
 				4C6882E115ABADBC00028C8F /* der_dictionary.c in Sources */,

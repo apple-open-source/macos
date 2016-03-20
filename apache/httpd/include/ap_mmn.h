@@ -445,6 +445,18 @@
  * 20120211.46 (2.4.13-dev) Add ap_map_http_request_error()
  * 20120211.47 (2.4.13-dev) Add ap_some_authn_required, ap_force_authn hook.
  *                          Deprecate broken ap_some_auth_required.
+ * 20120211.48 (2.4.17-dev) Added ap_log_mpm_common().
+ * 20120211.49 (2.4.17-dev) Add listener bucket in scoreboard.h's process_score.
+ * 20120211.50 (2.4.17-dev) Add ap_set_listencbratio(), ap_close_listeners_ex(),
+ *                          ap_duplicate_listeners(), ap_num_listen_buckets and
+ *                          ap_have_so_reuseport to ap_listen.h.
+ * 20120211.51 (2.4.17-dev) Add protocols and protocols_honor_order to
+ *                          core_server_config. Add hooks protocol_propose
+ *                          protocol_switch and protocol_get. Add
+ *                          ap_select_protocol(), ap_switch_protocol(),
+ *                          ap_get_protocol(). Add HTTP_MISDIRECTED_REQUEST.
+ *                          Added ap_parse_token_list_strict() to httpd.h
+ * 20120211.52 (2.4.17-dev) Add master conn_rec* member in conn_rec.
  */
 
 #define MODULE_MAGIC_COOKIE 0x41503234UL /* "AP24" */
@@ -452,7 +464,7 @@
 #ifndef MODULE_MAGIC_NUMBER_MAJOR
 #define MODULE_MAGIC_NUMBER_MAJOR 20120211
 #endif
-#define MODULE_MAGIC_NUMBER_MINOR 47                   /* 0...n */
+#define MODULE_MAGIC_NUMBER_MINOR 52                   /* 0...n */
 
 /**
  * Determine if the server's current MODULE_MAGIC_NUMBER is at least a

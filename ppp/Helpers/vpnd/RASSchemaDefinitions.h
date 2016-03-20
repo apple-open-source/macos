@@ -244,6 +244,7 @@
 #define kRASPropIPSecLocalIdentifier			CFSTR("LocalIdentifier") 		/*									CFString */
 #define kRASPropIPSecRemoteIdentifier			CFSTR("RemoteIdentifier") 		/*									CFString */
 #define kRASPropIPSecLocalAddress				CFSTR("LocalAddress")			/*									CFString */
+#define kRASPropIPSecIPv6RemoteAddress			CFSTR("IPv6RemoteAddress")		/*									CFString */
 #define kRASPropIPSecForceLocalAddress			CFSTR("ForceLocalAddress")		/*									CFBoolean */
 #define kRASPropIPSecRemoteAddress				CFSTR("RemoteAddress")			/*									CFString */
 #define kRASPropIPSecSharedSecret				CFSTR("SharedSecret")			/*									CFString */
@@ -310,7 +311,9 @@
 
 /* kRASPropIPSecProposalHashAlgorithm values */
 #define kRASValIPSecProposalHashAlgorithmMD5			CFSTR("MD5")                       
-#define kRASValIPSecProposalHashAlgorithmSHA1			CFSTR("SHA1")                       
+#define kRASValIPSecProposalHashAlgorithmSHA1			CFSTR("SHA1")  
+#define kRASValIPSecProposalHashAlgorithmSHA256			CFSTR("SHA256")
+#define kRASValIPSecProposalHashAlgorithmSHA512			CFSTR("SHA512")
 
 
 /* Policies */
@@ -360,6 +363,8 @@
 
 /* kRASPropIPSecPolicyHashAlgorithm values */
 #define kRASValIPSecPolicyHashAlgorithmSHA1				CFSTR("SHA1")                       
+#define kRASValIPSecPolicyHashAlgorithmSHA256			CFSTR("SHA256")
+#define kRASValIPSecPolicyHashAlgorithmSHA512			CFSTR("SHA512")
 #define kRASValIPSecPolicyHashAlgorithmMD5				CFSTR("MD5")                       
 
 

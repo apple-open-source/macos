@@ -47,7 +47,7 @@
 #include <os/activity.h>
 #include <notify.h>
 
-static CFDataRef data_data_to_data_error_request(enum SecXPCOperation op, CFDataRef keybag, CFDataRef passcode, CFErrorRef *error) {
+static CFDataRef client_data_data_to_data_error_request(enum SecXPCOperation op, SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef *error) {
     __block CFDataRef result = NULL;
     securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
         return SecXPCDictionarySetDataOptional(message, kSecXPCKeyKeybag, keybag, error)
@@ -58,7 +58,7 @@ static CFDataRef data_data_to_data_error_request(enum SecXPCOperation op, CFData
     return result;
 }
 
-static bool data_data_data_to_error_request(enum SecXPCOperation op, CFDataRef backup, CFDataRef keybag, CFDataRef passcode, CFErrorRef *error) {
+static bool data_client_data_data_to_error_request(enum SecXPCOperation op, CFDataRef backup, SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef *error) {
     return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
         return SecXPCDictionarySetData(message, kSecXPCKeyBackup, backup, error)
         && SecXPCDictionarySetData(message, kSecXPCKeyKeybag, keybag, error)
@@ -145,7 +145,7 @@ static int SecItemBackupHandoffFD(CFStringRef backupName, CFErrorRef *error) {
 CFDataRef _SecKeychainCopyOTABackup(void) {
     __block CFDataRef result;
     os_activity_initiate("_SecKeychainCopyOTABackup", OS_ACTIVITY_FLAG_DEFAULT, ^{
-        result = SECURITYD_XPC(sec_keychain_backup, data_data_to_data_error_request, NULL, NULL, NULL);
+        result = SECURITYD_XPC(sec_keychain_backup, client_data_data_to_data_error_request, SecSecurityClientGet(), NULL, NULL, NULL);
     });
     return result;
 }
@@ -153,21 +153,54 @@ CFDataRef _SecKeychainCopyOTABackup(void) {
 CFDataRef _SecKeychainCopyBackup(CFDataRef backupKeybag, CFDataRef password) {
     __block CFDataRef result;
     os_activity_initiate("_SecKeychainCopyBackup", OS_ACTIVITY_FLAG_DEFAULT, ^{
-        result = SECURITYD_XPC(sec_keychain_backup, data_data_to_data_error_request, backupKeybag, password, NULL);
+        result = SECURITYD_XPC(sec_keychain_backup, client_data_data_to_data_error_request, SecSecurityClientGet(), backupKeybag, password, NULL);
     });
     return result;
 }
+
+bool _SecKeychainWriteBackupToFileDescriptor(CFDataRef backupKeybag, CFDataRef password, int fd, CFErrorRef *error) {
+    __block bool result = false;
+    os_activity_initiate("_SecKeychainWriteBackupToFile", OS_ACTIVITY_FLAG_DEFAULT, ^{
+
+        securityd_send_sync_and_do(sec_keychain_backup_id, error, ^bool(xpc_object_t message, CFErrorRef *error) {
+            return SecXPCDictionarySetDataOptional(message, kSecXPCKeyKeybag, backupKeybag, error)
+                && SecXPCDictionarySetDataOptional(message, kSecXPCKeyUserPassword, password, error)
+                && SecXPCDictionarySetFileDescriptor(message, kSecXPCKeyFileDescriptor, fd, error);
+        }, ^bool(xpc_object_t response, CFErrorRef *error) {
+            return (result = SecXPCDictionaryGetBool(response, kSecXPCKeyResult, error));
+        });
+    });
+    return result;
+}
+
+bool
+_SecKeychainRestoreBackupFromFileDescriptor(int fd, CFDataRef backupKeybag, CFDataRef password, CFErrorRef *error)
+{
+    __block bool result;
+    os_activity_initiate("_SecKeychainRestoreBackup", OS_ACTIVITY_FLAG_DEFAULT, ^{
+        securityd_send_sync_and_do(sec_keychain_restore_id, error, ^bool(xpc_object_t message, CFErrorRef *error) {
+            return SecXPCDictionarySetFileDescriptor(message, kSecXPCKeyFileDescriptor, fd, error)
+                && SecXPCDictionarySetData(message, kSecXPCKeyKeybag, backupKeybag, error)
+                && SecXPCDictionarySetDataOptional(message, kSecXPCKeyUserPassword, password, error);
+        }, ^bool(xpc_object_t response, CFErrorRef *error) {
+            return (result = SecXPCDictionaryGetBool(response, kSecXPCKeyResult, error));
+        });
+    });
+    return result;
+}
+
 
 OSStatus _SecKeychainRestoreBackup(CFDataRef backup, CFDataRef backupKeybag,
                                    CFDataRef password) {
     __block OSStatus result;
     os_activity_initiate("_SecKeychainRestoreBackup", OS_ACTIVITY_FLAG_DEFAULT, ^{
         result = SecOSStatusWith(^bool (CFErrorRef *error) {
-            return SECURITYD_XPC(sec_keychain_restore, data_data_data_to_error_request, backup, backupKeybag, password, error);
+            return SECURITYD_XPC(sec_keychain_restore, data_client_data_data_to_error_request, backup, SecSecurityClientGet(), backupKeybag, password, error);
         });
     });
     return result;
 }
+
 
 static int compareDigests(const void *l, const void *r) {
     return memcmp(l, r, CCSHA1_OUTPUT_SIZE);
@@ -197,78 +230,6 @@ CFDataRef SecItemBackupCreateManifest(CFDictionaryRef backup, CFErrorRef *error)
     return manifest;
 }
 
-/*
- client code in CloudServices calls SecItemBackupWithChanges in the loop of SecItemBackupWithRegisteredBackups
- */
-__unused static CFDictionaryRef SecItemBackupSyncable(CFDataRef keybag, CFDataRef password, CFDictionaryRef backup_in, CFErrorRef *error)
-{
-    const CFStringRef backupName = kSOSViewKeychainV0_tomb;
-    __block bool complete = false;
-    __block CFMutableDictionaryRef backup = backup_in ? CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, backup_in) : CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    CFDataRef keybagDigest = CFDataCopySHA1Digest(keybag, NULL); // Used to confirm we are in sync keybag wise.
-    do {
-        CFErrorRef localError = NULL;
-        if (!SecItemBackupWithChanges(backupName, &localError, ^(SecBackupEventType et, CFTypeRef key, CFTypeRef item) {
-            CFStringRef hexDigest = key ? CFDataCopyHexString(key) : NULL;
-            complete = false;
-            switch(et) {
-                case kSecBackupEventReset:
-                    CFDictionaryRemoveAllValues(backup);
-                    break;
-                case kSecBackupEventAdd:
-                    CFDictionarySetValue(backup, hexDigest, item);
-                    break;
-                case kSecBackupEventRemove:
-                    CFDictionaryRemoveValue(backup, hexDigest);
-                    break;
-                case kSecBackupEventComplete:
-                    complete = true;
-                    break;
-            }
-            CFReleaseSafe(hexDigest);
-
-        })) {
-            if (localError && CFEqual(CFErrorGetDomain(localError), kSecErrnoDomain) && CFErrorGetCode(localError) == ENOENT) {
-                // No journal file returned by securityd, nothing left to do, ignore error and exit.
-                CFReleaseNull(localError);
-            } else {
-                CFErrorPropagate(localError, error);
-                CFReleaseNull(backup);
-            }
-            break;
-        }
-
-        CFDataRef mconfirmed = SecItemBackupCreateManifest(backup, error);
-        if (!mconfirmed) {
-            CFReleaseNull(backup);
-            break;
-        }
-        bool ok = SecItemBackupSetConfirmedManifest(backupName, keybagDigest, mconfirmed, error);
-        CFReleaseSafe(mconfirmed);
-        if (!ok) {
-            CFReleaseNull(backup);
-            break;
-        }
-    } while (!complete);
-    CFReleaseSafe(keybagDigest);
-
-    return backup;
-}
-
-#if 0   // interim code to call SecItemBackupSyncable
-OSStatus _SecKeychainBackupSyncable(CFDataRef keybag, CFDataRef password, CFDictionaryRef backup_in, CFDictionaryRef *backup_out)
-{
-    __block OSStatus result;
-    os_activity_initiate("_SecKeychainBackupSyncable", OS_ACTIVITY_FLAG_DEFAULT, ^{
-        result = SecOSStatusWith(^bool (CFErrorRef *error) {
-            *backup_out = SecItemBackupSyncable(keybag, password, backup_in, error);
-            return *backup_out != NULL;
-        });
-    });
-    return result;
-}
-#endif
-
 OSStatus _SecKeychainBackupSyncable(CFDataRef keybag, CFDataRef password, CFDictionaryRef backup_in, CFDictionaryRef *backup_out)
 {
     return SecOSStatusWith(^bool (CFErrorRef *error) {
@@ -296,6 +257,10 @@ static bool SecKeychainWithBackupFile(CFStringRef backupName, CFErrorRef *error,
         secdebug("backup", "SecItemBackupHandoffFD returned %d", fd);
         return false;
     }
+
+    // Rewind file to start
+    lseek(fd, 0, SEEK_SET);
+
     FILE *backup = fdopen(fd, "r");
     if (!backup) {
         close(fd);
@@ -305,8 +270,6 @@ static bool SecKeychainWithBackupFile(CFStringRef backupName, CFErrorRef *error,
         secdebug("backup", "Receiving file for %@ with fd %d of size %llu", backupName, fd, lseek(fd, 0, SEEK_END));
     }
 
-    // Rewind file to start
-    lseek(fd, 0, SEEK_SET);
     with(backup);
     fclose(backup);
     return true;

@@ -157,7 +157,7 @@ TPCertInfo *tpDbFindIssuerCert(
 			 * Handle temporal invalidity - if so and this is the first one
 			 * we've seen, hold on to it while we search for better one.
 			 */
-			if((crtn == CSSM_OK) && (expiredIssuer == NULL)) {
+			if(crtn == CSSM_OK) {
 				if(issuerCert->isExpired() || issuerCert->isNotValidYet()) {
 					/*
 					 * Exact value not important here, this just uniquely identifies
@@ -165,6 +165,11 @@ TPCertInfo *tpDbFindIssuerCert(
 					 */
 					tpDbDebug("tpDbFindIssuerCert: holding expired cert (1)");
 					crtn = CSSM_CERT_STATUS_EXPIRED;
+					/* Delete old stashed expired issuer */
+					if (expiredIssuer) {
+						expiredIssuer->freeUniqueRecord();
+						delete expiredIssuer;
+					}
 					expiredIssuer = issuerCert;
 					expiredIssuer->dlDbHandle(dlDb);
 					expiredIssuer->uniqueRecord(record);
@@ -174,17 +179,32 @@ TPCertInfo *tpDbFindIssuerCert(
 			 * Prefer a root over an intermediate issuer if we can get one
 			 * (in case a cross-signed intermediate and root are both available)
 			 */
-			if((crtn == CSSM_OK) && (nonRootIssuer == NULL)) {
-				if(!issuerCert->isSelfSigned()) {
-					/*
-					 * Exact value not important here, this just uniquely identifies
-					 * this situation in the switch below.
-					 */
-					tpDbDebug("tpDbFindIssuerCert: holding non-root cert (1)");
-					crtn = CSSM_CERT_STATUS_IS_ROOT;
+			if(crtn == CSSM_OK && !issuerCert->isSelfSigned()) {
+				/*
+				 * Exact value not important here, this just uniquely identifies
+				 * this situation in the switch below.
+				 */
+				tpDbDebug("tpDbFindIssuerCert: holding non-root cert (1)");
+				crtn = CSSM_CERT_STATUS_IS_ROOT;
+				/*
+				 * If the old intermediate was temporally invalid, replace it.
+				 * (Regardless of temporal validity of new one we found, because
+				 * as far as this code is concerned they're equivalent.)
+				 */
+				if(!nonRootIssuer ||
+				   (nonRootIssuer && (nonRootIssuer->isExpired() || nonRootIssuer->isNotValidYet()))) {
+					if(nonRootIssuer) {
+						nonRootIssuer->freeUniqueRecord();
+						delete nonRootIssuer;
+					}
 					nonRootIssuer = issuerCert;
 					nonRootIssuer->dlDbHandle(dlDb);
 					nonRootIssuer->uniqueRecord(record);
+				}
+				else {
+					delete issuerCert;
+					CSSM_DL_FreeUniqueRecord(dlDb, record);
+					issuerCert = NULL;
 				}
 			}
 			switch(crtn) {
@@ -248,23 +268,43 @@ TPCertInfo *tpDbFindIssuerCert(
 						}
 
 						/* temporal validity check, again */
-						if((crtn == CSSM_OK) && (expiredIssuer == NULL)) {
+						if(crtn == CSSM_OK) {
 							if(issuerCert->isExpired() || issuerCert->isNotValidYet()) {
 								tpDbDebug("tpDbFindIssuerCert: holding expired cert (2)");
 								crtn = CSSM_CERT_STATUS_EXPIRED;
+								/* Delete old stashed expired issuer */
+								if (expiredIssuer) {
+									expiredIssuer->freeUniqueRecord();
+									delete expiredIssuer;
+								}
 								expiredIssuer = issuerCert;
 								expiredIssuer->dlDbHandle(dlDb);
 								expiredIssuer->uniqueRecord(record);
 							}
 						}
 						/* self-signed check, again */
-						if((crtn == CSSM_OK) && (nonRootIssuer == NULL)) {
-							if(!issuerCert->isSelfSigned()) {
-								tpDbDebug("tpDbFindIssuerCert: holding non-root cert (2)");
-								crtn = CSSM_CERT_STATUS_IS_ROOT;
+						if(crtn == CSSM_OK && !issuerCert->isSelfSigned()) {
+							tpDbDebug("tpDbFindIssuerCert: holding non-root cert (2)");
+							crtn = CSSM_CERT_STATUS_IS_ROOT;
+							/*
+							 * If the old intermediate was temporally invalid, replace it.
+							 * (Regardless of temporal validity of new one we found, because
+							 * as far as this code is concerned they're equivalent.)
+							 */
+							if(!nonRootIssuer ||
+							   (nonRootIssuer && (nonRootIssuer->isExpired() || nonRootIssuer->isNotValidYet()))) {
+								if(nonRootIssuer) {
+									nonRootIssuer->freeUniqueRecord();
+									delete nonRootIssuer;
+								}
 								nonRootIssuer = issuerCert;
 								nonRootIssuer->dlDbHandle(dlDb);
 								nonRootIssuer->uniqueRecord(record);
+							}
+							else {
+								delete issuerCert;
+								CSSM_DL_FreeUniqueRecord(dlDb, record);
+								issuerCert = NULL;
 							}
 						}
 

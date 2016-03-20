@@ -71,6 +71,7 @@
 #include <CoreFoundation/CFBundle.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <sys/un.h>
+#include <network/nat64.h>
 
 
 #include "../../../Controller/ppp_msg.h"
@@ -176,7 +177,7 @@ Echos are not sent during normal operation.
 
 static int	hello_timer_running = 0;
 
-static struct sockaddr_in our_address;		/* our side IP address */
+static struct sockaddr_storage our_address;		/* our side IP address */
 static struct sockaddr_in peer_address;		/* the other side IP address */
 static int                num_alt_peer_address = 0;
 static struct sockaddr_in alt_peer_address[MAX_CONNECT_RETRIES];		/* the other side IP address */
@@ -193,6 +194,10 @@ static int 	peer_route_set = 0;		/* has a route to the peer been set ? */
 //static int	echo_timer_running = 0;
 static int	transport_up = 1;
 static int	wait_interface_timer_running = 0;
+
+static nw_nat64_prefix_t nat64_prefix;
+static struct sockaddr_in6 ipv6_peer_address;
+static struct sockaddr *real_peer_address;
 
 static CFMutableDictionaryRef	ipsec_dict = NULL;
 
@@ -400,7 +405,13 @@ static void l2tp_wait_interface_timeout (void *arg)
 {
     if (wait_interface_timer_running != 0) {
         wait_interface_timer_running = 0;
-		log_vpn_interface_address_event(__FUNCTION__, NULL, scaled_wait_if_timeout, interface, &our_address.sin_addr);
+		struct in_addr address;
+		if (our_address.ss_family == AF_INET) {
+			address.s_addr = ((struct sockaddr_in *)&our_address)->sin_addr.s_addr;
+		} else {
+			address.s_addr = 0;
+		}
+		log_vpn_interface_address_event(__FUNCTION__, NULL, scaled_wait_if_timeout, interface, &address);
 		// our transport interface didn't come back, take down the connection
 		l2tp_link_failure();
     }
@@ -424,10 +435,17 @@ void l2tp_wait_input()
         struct kern_event_msg	*ev_msg;
         struct kev_in_data     	*inetdata;
 
+		struct in_addr address;
+		if (our_address.ss_family == AF_INET) {
+			address.s_addr = ((struct sockaddr_in *)&our_address)->sin_addr.s_addr;
+		} else {
+			address.s_addr = 0;
+		}
+
         if (recv(eventsockfd, &buf, sizeof(buf), 0) != -1) {
             ev_msg = ALIGNED_CAST(struct kern_event_msg *)&buf;
             inetdata = (struct kev_in_data *) &ev_msg->event_data[0];
-			log_vpn_interface_address_event(__FUNCTION__, ev_msg, opt_wait_if_timeout, interface, &our_address.sin_addr);
+			log_vpn_interface_address_event(__FUNCTION__, ev_msg, opt_wait_if_timeout, interface, &address);
             switch (ev_msg->event_code) {
                 case KEV_INET_NEW_ADDR:
                 case KEV_INET_CHANGED_ADDR:
@@ -450,7 +468,7 @@ void l2tp_wait_input()
                                             && ifa->ifa_addr
                                             && !strncmp(ifa->ifa_name, (char*)interface, sizeof(interface))
                                             && ifa->ifa_addr->sa_family == AF_INET
-                                            && (ALIGNED_CAST(struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == our_address.sin_addr.s_addr);
+                                            && (ALIGNED_CAST(struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == address.s_addr);
                                 }
                                 freeifaddrs(ifap);
                             }
@@ -506,7 +524,7 @@ void l2tp_wait_input()
 													       ev_msg,
 													       (char*)interface,
 														   interface_media,
-													       &our_address.sin_addr)) {
+													       &address)) {
 									        error("L2TP: the underlying interface %s address changed\n",
 										      interface);
 										// disconnect immediately
@@ -709,12 +727,13 @@ int l2tp_trigger_ipsec(int listenmode,
 {			
 	int					size=0, state = 0, timeo, err = -1;
 	struct sockaddr_un	sun;
-    struct sockaddr		from;
+    struct sockaddr_storage from;
 	u_int16_t			reliable;
 	struct sockaddr_in	redirect_addr;
 	u_int8_t					data[256] __attribute__ ((aligned(4))); 		// Wcast-align fix - force alignment 
 	struct vpnctl_hdr			*hdr = ALIGNED_CAST(struct vpnctl_hdr *)data;
 	struct vpnctl_cmd_bind		*cmd_bind = ALIGNED_CAST(struct vpnctl_cmd_bind *)data;
+	struct vpnctl_cmd_set_nat64_prefix	*cmd_nat64 = ALIGNED_CAST(struct vpnctl_cmd_set_nat64_prefix *)data;
 	struct vpnctl_status_failed *failed_status = ALIGNED_CAST(struct vpnctl_status_failed *)data;
 	int                          num_ipsec_triggers = 0;
 
@@ -752,6 +771,16 @@ start:
 	cmd_bind->address = peer_address.sin_addr.s_addr;
 	write(racoon_ctrlsockfd, cmd_bind, sizeof(struct vpnctl_cmd_bind));
 
+	// Set the NAT64 prefix if applicable
+	if (nat64_prefix.length) {
+		bzero(cmd_nat64, sizeof(struct vpnctl_cmd_set_nat64_prefix));
+		cmd_nat64->hdr.len = htons(sizeof(struct vpnctl_cmd_set_nat64_prefix) - sizeof(struct vpnctl_hdr));
+		cmd_nat64->hdr.msg_type = htons(VPNCTL_CMD_SET_NAT64_PREFIX);
+		memcpy(&cmd_nat64->nat64_prefix, &nat64_prefix, sizeof(cmd_nat64->nat64_prefix));
+		notice("L2TP: sending SET_NAT64_PREFIX to racoon control socket");
+		write(racoon_ctrlsockfd, cmd_nat64, sizeof(struct vpnctl_cmd_set_nat64_prefix));
+	}
+
 	notice("IPSec connection started\n");
 	state = RACOON_BINDING;
 
@@ -764,15 +793,15 @@ start:
 			default:				timeo = 30; break;
 		}
 		
-		from.sa_len = sizeof(from);
-		err = l2tp_recv(racoon_ctrlsockfd, data, sizeof(struct vpnctl_hdr), &size, &from, timeo, "from racoon control socket");
+		from.ss_len = sizeof(from);
+		err = l2tp_recv(racoon_ctrlsockfd, data, sizeof(struct vpnctl_hdr), &size, (struct sockaddr *)&from, timeo, "from racoon control socket");
 		if (err || size == 0) {	// no reply
 		        // RACOON_TRIGGERED's timeout is actually 5 x 1 second increments.
 		        if (err == -1 &&
 			    state == RACOON_TRIGGERED &&
 			    num_ipsec_triggers < 5) {
 			        // trigger racoon again
-			        l2tp_send_hello_trigger(ctrlsockfd, (struct sockaddr *)&peer_address);
+			        l2tp_send_hello_trigger(ctrlsockfd, real_peer_address);
 				num_ipsec_triggers++;
 				continue;
 			}
@@ -783,8 +812,8 @@ start:
 		
 		/* read end of packet */
 		if (ntohs(hdr->len)) {
-			from.sa_len = sizeof(from);
-			err = l2tp_recv(racoon_ctrlsockfd, data + sizeof(struct vpnctl_hdr), ntohs(hdr->len), &size, &from, timeo, "from racoon control socket");
+			from.ss_len = sizeof(from);
+			err = l2tp_recv(racoon_ctrlsockfd, data + sizeof(struct vpnctl_hdr), ntohs(hdr->len), &size, (struct sockaddr *)&from, timeo, "from racoon control socket");
 			if (err || size == 0) {	// no reply
 				if (err != -2) // cancel
 					notice("IPSec connection failed\n");
@@ -859,7 +888,7 @@ start:
 					/* send L2TP packets to trigger IPSec connection */
 					reliable = 0;
 					setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_RELIABILITY, &reliable, 2);
-					l2tp_send_hello_trigger(ctrlsockfd, (struct sockaddr *)&peer_address);
+					l2tp_send_hello_trigger(ctrlsockfd, real_peer_address);
 					num_ipsec_triggers = 1;
 					state = RACOON_TRIGGERED;
 				}
@@ -909,7 +938,9 @@ static void l2tp_assert_ipsec()
 
 		bzero(&msg, sizeof(msg));
 		msg.hdr.msg_type = htons(VPNCTL_CMD_ASSERT);
-		msg.src_address = our_address.sin_addr.s_addr;
+		if (our_address.ss_family == AF_INET) {
+			msg.src_address = ((struct sockaddr_in *)&our_address)->sin_addr.s_addr;
+		}
 		msg.dst_address = peer_address.sin_addr.s_addr;
 		msg.hdr.len = htons(sizeof(msg) - sizeof(msg.hdr));;
 		write(racoon_ctrlsockfd, &msg, sizeof(msg));
@@ -929,6 +960,21 @@ int l2tp_pre_start_link_check()
     int                      reachable = FALSE;
     SCNetworkReachabilityRef ref;
     SCNetworkConnectionFlags flags;
+
+	nw_nat64_prefix_t *nat64_prefixes = NULL;
+	int nat64_result = nw_nat64_copy_prefixes(NULL, &nat64_prefixes);
+	if (nat64_result > 0 && nat64_prefixes != NULL) {
+		memcpy(&nat64_prefix, &nat64_prefixes[0], sizeof(nat64_prefix));
+		free(nat64_prefixes);
+		notice("L2TP: Found NAT64 prefix with length %d", nat64_prefix.length);
+	} else {
+		memset(&nat64_prefix, 0, sizeof(nat64_prefix));
+		if (nat64_result < 0) {
+			error("L2TP: NAT64 translation error %d", nat64_result);
+		}
+	}
+
+	memset(&ipv6_peer_address, 0, sizeof(ipv6_peer_address));
     
     ref = SCNetworkReachabilityCreateWithName(NULL, remoteaddress);
     if (ref) {        
@@ -939,7 +985,39 @@ int l2tp_pre_start_link_check()
         }
         CFRelease(ref);
     }
-    
+
+	if (nat64_prefix.length != 0) {
+		// Has a NAT64
+		struct sockaddr_in address;
+		address.sin_len = sizeof(address);
+		address.sin_family = AF_INET;
+		address.sin_port = htons(L2TP_UDP_PORT);
+		if (inet_aton(remoteaddress, &address.sin_addr) != 0) {
+			// Is a v4 literal address
+
+			ipv6_peer_address.sin6_len = sizeof(ipv6_peer_address);
+			ipv6_peer_address.sin6_family = AF_INET6;
+			ipv6_peer_address.sin6_port = htons(L2TP_UDP_PORT);
+			if (!nw_nat64_synthesize_v6(&nat64_prefix, &address.sin_addr, &ipv6_peer_address.sin6_addr)) {
+				error("L2TP: NAT64 synthesis error");
+				memset(&ipv6_peer_address, 0, sizeof(ipv6_peer_address));
+			} else {
+				// Retry reachability check
+
+				ref = SCNetworkReachabilityCreateWithAddress(NULL, (const struct sockaddr *)&ipv6_peer_address);
+				if (ref) {
+					if (SCNetworkReachabilityGetFlags(ref, &flags)) {
+						if (REACHABLE_NOW || REACHABLE_AUTOMATICALLY_WITHOUT_USER) {
+							reachable = TRUE;
+							notice("L2TP: NAT64 synthesized address is reachable");
+						}
+					}
+					CFRelease(ref);
+				}
+			}
+		}
+	}
+
     if (reachable) {
         return 0;
     }
@@ -1047,7 +1125,7 @@ static void l2tp_get_router_address_for_interface(void)
     CFIndex             i = 0;
     CFStringRef         serviceID = NULL;
 
-    if (interface == NULL || interface[0] == 0) {
+    if (interface[0] == 0) {
         goto done;
     }
 
@@ -1125,7 +1203,7 @@ done:
 get the socket ready to start doing PPP.
 That is, open the socket and start the L2TP dialog
 ----------------------------------------------------------------------------- */
-int l2tp_connect(int *errorcode)
+static int l2tp_connect_internal(int *errorcode, int *aggressive_mode, int dhgroup2_aggressive)
 {
     char 		dev[32], name[MAXPATHLEN], c; 
     int 		err = 0, rcvlen;  
@@ -1134,7 +1212,7 @@ int l2tp_connect(int *errorcode)
     CFDictionaryRef	dict;
     CFStringRef		string, key;
     struct kev_request	kev_req;
-    struct sockaddr_in	from;
+    struct sockaddr_storage	from;
     struct sockaddr_in 	any_address;
 	u_int32_t baudrate;
 	char				*errstr;
@@ -1165,7 +1243,7 @@ int l2tp_connect(int *errorcode)
     any_address.sin_port = htons(0);
     any_address.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    our_address = any_address;
+	memcpy(&our_address, &any_address, sizeof(any_address));
     peer_address = any_address;
 
     /* init params */
@@ -1289,9 +1367,7 @@ int l2tp_connect(int *errorcode)
     if (!strcmp(opt_mode, MODE_CONNECT)) {
         //-------------------------------------------------
         //	connect mode
-        //-------------------------------------------------  
-
-        struct sockaddr_in orig_our_address, orig_peer_address;
+        //-------------------------------------------------
         
         if (remoteaddress == 0) {
             error("L2TP: No remote address supplied...\n");
@@ -1359,12 +1435,17 @@ int l2tp_connect(int *errorcode)
 
 		}
 #endif
-        
+		real_peer_address = (struct sockaddr *)&peer_address;
+
         /* build the peer address */
         peer_address.sin_len = sizeof(peer_address);
         peer_address.sin_family = AF_INET;
         peer_address.sin_port = htons(L2TP_UDP_PORT);
-        if (inet_aton(remoteaddress, &peer_address.sin_addr) == 0) {
+		if (nat64_prefix.length &&
+			ipv6_peer_address.sin6_len) {
+			real_peer_address = (struct sockaddr *)&ipv6_peer_address;
+			nw_nat64_extract_v4(&nat64_prefix, &ipv6_peer_address.sin6_addr, &peer_address.sin_addr);
+		} else if (inet_aton(remoteaddress, &peer_address.sin_addr) == 0) {
 			
             if (pipe(resolverfds) < 0) {
                 error("L2TP: failed to create pipe for gethostbyname...\n");
@@ -1398,14 +1479,32 @@ int l2tp_connect(int *errorcode)
                 goto fail;
             }
 			host_name_specified = 1;
+
+			if (nat64_prefix.length) {
+				ipv6_peer_address.sin6_len = sizeof(ipv6_peer_address);
+				ipv6_peer_address.sin6_family = AF_INET6;
+				ipv6_peer_address.sin6_port = htons(L2TP_UDP_PORT);
+				if (!nw_nat64_synthesize_v6(&nat64_prefix, &peer_address.sin_addr, &ipv6_peer_address.sin6_addr)) {
+					error("L2TP: NAT64 synthesis error");
+					memset(&ipv6_peer_address, 0, sizeof(ipv6_peer_address));
+				} else {
+					real_peer_address = (struct sockaddr *)&ipv6_peer_address;
+				}
+			}
         }
 
-        notice("L2TP connecting to server '%s' (%s)...\n", remoteaddress, inet_ntoa(peer_address.sin_addr));
+		char addrstring[MAX_ADDRESS_STRLEN];
+		if (ipv6_peer_address.sin6_len) {
+			getnameinfo((struct sockaddr *)&ipv6_peer_address, ipv6_peer_address.sin6_len, addrstring, sizeof(addrstring), NULL, 0, NI_NUMERICHOST | NI_NUMERICSERV);
+		} else {
+			getnameinfo((struct sockaddr *)&peer_address, peer_address.sin_len, addrstring, sizeof(addrstring), NULL, 0, NI_NUMERICHOST | NI_NUMERICSERV);
+		}
+        notice("L2TP connecting to server '%s' (%s)...\n", remoteaddress, addrstring);
 
         set_server_peer(peer_address.sin_addr);
 
         /* get the source address that will be used to reach the peer */
-        if (get_src_address((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address, ifscope, NULL)) {
+        if (get_src_address((struct sockaddr *)&our_address, real_peer_address, ifscope, NULL)) {
             error("L2TP: cannot get our local address...\n");
 			*errorcode = L2TP_RETRY_CONNECT_CODE; /* wait and retry if necessary */
             goto fail;
@@ -1413,15 +1512,11 @@ int l2tp_connect(int *errorcode)
 
         /* bind the socket in the kernel with take an ephemeral port */
         /* on return, it ouraddress will contain actual port selected */
-        our_address.sin_port = htons(opt_udpport);
+        ((struct sockaddr_in *)&our_address)->sin_port = htons(opt_udpport);
         l2tp_set_ouraddress(ctrlsockfd, (struct sockaddr *)&our_address);        
         
         /* set our peer address */
-        l2tp_set_peeraddress(ctrlsockfd, (struct sockaddr *)&peer_address);
-
-        /* remember the original source and dest addresses */
-        orig_our_address = our_address;
-        orig_peer_address = peer_address;
+        l2tp_set_peeraddress(ctrlsockfd, real_peer_address);
 
         err = 0;
 
@@ -1438,7 +1533,7 @@ int l2tp_connect(int *errorcode)
 			CFDictionaryRef			useripsec_dict = NULL;
 			int useripsec_dict_fromsystem = 0;
 			
-            struct sockaddr_in addr = orig_peer_address;
+            struct sockaddr_in addr = peer_address;
             addr.sin_port = htons(0);	// allow port to change
 
 			auth_method = kRASValIPSecAuthenticationMethodSharedSecret;
@@ -1513,15 +1608,17 @@ int l2tp_connect(int *errorcode)
 				ipsec_dict = NULL;
 			}
 			
-			ipsec_dict = IPSecCreateL2TPDefaultConfiguration(&our_address, &peer_address, 
+			ipsec_dict = IPSecCreateL2TPDefaultConfiguration((struct sockaddr *)&our_address, real_peer_address,
 				(host_name_specified ? remoteaddress : NULL),
-				auth_method, 1, 0, verify_id); 
+				auth_method, isString(localidentifier_string), 1, 0, verify_id, dhgroup2_aggressive);
 	
 			if (!ipsec_dict) {
 				error("L2TP: cannot create L2TP configuration.\n");
 				goto fail;
 			}
 			
+            *aggressive_mode = IPSecIsAggressiveMode(auth_method, isString(localidentifier_string), 1);
+
 			if (secret_string) {
 				if (isString(secret_string))
 					CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecret, secret_string);
@@ -1612,7 +1709,7 @@ int l2tp_connect(int *errorcode)
         }
 
 		if (err == 0) {
-			err = l2tp_outgoing_call(ctrlsockfd, (struct sockaddr *)&peer_address, &our_params, &peer_params, opt_recv_timeout);
+			err = l2tp_outgoing_call(ctrlsockfd, (struct sockaddr *)real_peer_address, &our_params, &peer_params, opt_recv_timeout);
 
 			/* setup the specific route */
 			l2tp_set_peer_route();
@@ -1624,6 +1721,8 @@ int l2tp_connect(int *errorcode)
         //	listen or answer mode
         //-------------------------------------------------   
 
+        real_peer_address = (struct sockaddr *)&peer_address;
+
         int 	listenfd = -1;          
         
         if (!strcmp(opt_mode, MODE_LISTEN)) {
@@ -1631,7 +1730,7 @@ int l2tp_connect(int *errorcode)
             //	listen mode
             //		setup listen socket and listen for calls
             //-------------------------------------------------   
-            struct sockaddr_in listen_address;
+            struct sockaddr_storage listen_address;
             
             notice("L2TP listening...\n");
     
@@ -1648,13 +1747,21 @@ int l2tp_connect(int *errorcode)
 
     
             /* bind the socket in the kernel with L2TP port */
-            listen_address.sin_len = sizeof(peer_address);
-            listen_address.sin_family = AF_INET;
-            listen_address.sin_port = htons(L2TP_UDP_PORT);
-            listen_address.sin_addr.s_addr = INADDR_ANY;
+
+			if (real_peer_address->sa_family == AF_INET) {
+				((struct sockaddr_in *)&listen_address)->sin_len = sizeof(struct sockaddr_in);
+				((struct sockaddr_in *)&listen_address)->sin_family = AF_INET;
+				((struct sockaddr_in *)&listen_address)->sin_port = htons(L2TP_UDP_PORT);
+				((struct sockaddr_in *)&listen_address)->sin_addr.s_addr = INADDR_ANY;
+			} else {
+				((struct sockaddr_in6 *)&listen_address)->sin6_len = sizeof(struct sockaddr_in6);
+				((struct sockaddr_in6 *)&listen_address)->sin6_family = AF_INET6;
+				((struct sockaddr_in6 *)&listen_address)->sin6_port = htons(L2TP_UDP_PORT);
+				((struct sockaddr_in6 *)&listen_address)->sin6_addr = (struct in6_addr)IN6ADDR_ANY_INIT;
+			}
             l2tp_set_ouraddress(listenfd, (struct sockaddr *)&listen_address);
-    
-            our_address = listen_address;
+
+			memcpy(&our_address, &listen_address, sizeof(listen_address));
     
             /* add security policies */
             if (!opt_noipsec) {
@@ -1664,9 +1771,11 @@ int l2tp_connect(int *errorcode)
 				if (ipsec_dict) 
 					CFRelease(ipsec_dict);
 
-				ipsec_dict = IPSecCreateL2TPDefaultConfiguration(&our_address, &peer_address, 
+				ipsec_dict = IPSecCreateL2TPDefaultConfiguration((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address,
 					(host_name_specified ? remoteaddress : NULL),
-					kRASValIPSecAuthenticationMethodSharedSecret, 0, 0, 0); 
+					kRASValIPSecAuthenticationMethodSharedSecret, 0, 0, 0, 0, 0); 
+
+                *aggressive_mode = 0;
 
 				/* set the authentication information */
 				secret_string = CFStringCreateWithCString(0, opt_ipsecsharedsecret, kCFStringEncodingUTF8);
@@ -1690,6 +1799,7 @@ int l2tp_connect(int *errorcode)
 			}
 			err = l2tp_trigger_ipsec(1, &ipsec_status);
             /* wait indefinitely and read the duplicated SCCRQ from the listen socket and ignore for now */
+			from.ss_len = sizeof(from);
             if ((err = l2tp_recv(listenfd, control_buf, MAX_CNTL_BUFFER_SIZE, &rcvlen, (struct sockaddr*)&from, -1, "SCCRQ"))){
             	if (err == 0) {
                 	setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_ACCEPT, 0, 0);
@@ -1749,7 +1859,7 @@ int l2tp_connect(int *errorcode)
     l2tp_set_ouraddress(datasockfd, (struct sockaddr *)&our_address);
     /* set the peer address of the data socket */
     /* on a data socket, this will find the socket of the corresponding control connection */
-    l2tp_set_peeraddress(datasockfd, (struct sockaddr *)&peer_address);
+    l2tp_set_peeraddress(datasockfd, (struct sockaddr *)real_peer_address);
 
     l2tp_set_ourparams(datasockfd, &our_params);
     l2tp_set_peerparams(datasockfd, &peer_params);
@@ -1759,7 +1869,13 @@ int l2tp_connect(int *errorcode)
 	l2tp_set_baudrate(datasockfd, baudrate);
 
     if (!strcmp(opt_mode, MODE_CONNECT)) {
-        l2tp_init_session((char *)interface, sizeof(interface), &our_address.sin_addr, ppp_variable_echo_start);
+		struct in_addr address;
+		if (our_address.ss_family == AF_INET) {
+			address.s_addr = ((struct sockaddr_in *)&our_address)->sin_addr.s_addr;
+		} else {
+			address.s_addr = 0;
+		}
+        l2tp_init_session((char *)interface, sizeof(interface), &address, ppp_variable_echo_start);
         l2tp_set_nat_port_mapping();
     }
 
@@ -1771,6 +1887,20 @@ fail:
 fail1:
     l2tp_close_fds();
     return -1;
+}
+
+int l2tp_connect(int *errorcode)
+{
+    int aggressive_mode = 0;
+    int err = l2tp_connect_internal(errorcode, &aggressive_mode, 0);
+
+    // If we failed and it's aggressive mode, try to connect using DH group 2.
+    if (err == -1 && aggressive_mode && strcmp(opt_mode, MODE_ANSWER) != 0) {
+        dbglog("L2TP IPSec aggressive mode retry with DH group 2");
+        return l2tp_connect_internal(errorcode, &aggressive_mode, 1);
+    }
+
+    return err;
 }
 
 /* ----------------------------------------------------------------------------- 
@@ -1834,9 +1964,12 @@ int l2tp_set_ouraddress(int fd, struct sockaddr *addr)
 {
     socklen_t optlen;
 
-    setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_OURADDRESS, addr, sizeof(*addr));
+	if (setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_OURADDRESS, addr, addr->sa_len)) {
+		error("L2TP can't set L2TP local address: %d\n", errno);
+		return -1;
+	}
     /* get the address to retrieve the actual port used */
-    optlen = sizeof(*addr);
+	optlen = addr->sa_len;
     getsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_OURADDRESS, addr, &optlen);
     return 0;
 }
@@ -1846,8 +1979,8 @@ int l2tp_set_ouraddress(int fd, struct sockaddr *addr)
 int l2tp_set_peeraddress(int fd, struct sockaddr *addr)
 {
 
-    if (setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_PEERADDRESS, addr, sizeof(*addr))) {
-        error("L2TP can't set L2TP server address...\n");
+    if (setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_PEERADDRESS, addr, addr->sa_len)) {
+        error("L2TP can't set L2TP server address: %d\n", errno);
         return -1;
     }
     return 0;
@@ -1918,16 +2051,18 @@ int l2tp_change_peeraddress(int fd, struct sockaddr *peer)
         }
         
         /* the path to the peer has changed (beacuse it was unknown or because we use a different server) */
-        if (src.sin_addr.s_addr != our_address.sin_addr.s_addr) {
-            our_address = src;
-            /* outgoing call use ephemeral ports, incoming call reuse L2TP_UDP_PORT */
-            if (!strcmp(opt_mode, MODE_CONNECT))
-                our_address.sin_port = htons(0);
-            else 
-                our_address.sin_port = htons(L2TP_UDP_PORT);
-            l2tp_set_ouraddress(fd, (struct sockaddr *)&our_address);
-        }
-            
+		if (our_address.ss_family == AF_INET) {
+			if (src.sin_addr.s_addr != ((struct sockaddr_in *)&our_address)->sin_addr.s_addr) {
+				memcpy(&our_address, &src, sizeof(our_address));
+				/* outgoing call use ephemeral ports, incoming call reuse L2TP_UDP_PORT */
+				if (!strcmp(opt_mode, MODE_CONNECT))
+					((struct sockaddr_in *)&our_address)->sin_port = htons(0);
+				else 
+					((struct sockaddr_in *)&our_address)->sin_port = htons(L2TP_UDP_PORT);
+				l2tp_set_ouraddress(fd, (struct sockaddr *)&our_address);
+			}
+		}
+
         bcopy(peer, &peer_address, peer->sa_len);        
 
         err = l2tp_set_peeraddress(fd, peer);

@@ -64,13 +64,6 @@ public:
 	AclEntryInput *anyOwner();
 	void release(AclEntryInput *input);
 	
-public:
-	//
-	// Edit ACLs (in external form, as TypedLists)
-	//
-	void comment(TypedList &subject);
-	void uncomment(TypedList &subject);
-	
 private:
 	AutoCredentials nullCred;
 	AutoCredentials kcCred;

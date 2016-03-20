@@ -387,6 +387,81 @@ itemClassFor(CSSM_DB_RECORDTYPE recordType)
     }
 }
 
+bool
+haveAttributeInfo(SecKeychainAttrType attrType)
+{
+switch (attrType)
+{
+case kSecCreationDateItemAttr: return true;
+case kSecModDateItemAttr: return true;
+case kSecDescriptionItemAttr: return true;
+case kSecCommentItemAttr: return true;
+case kSecCreatorItemAttr: return true;
+case kSecTypeItemAttr: return true;
+case kSecScriptCodeItemAttr: return true;
+case kSecLabelItemAttr: return true;
+case kSecAlias: return true;
+case kSecInvisibleItemAttr: return true;
+case kSecNegativeItemAttr: return true;
+case kSecCustomIconItemAttr: return true;
+/* Unique Generic password attributes */
+case kSecAccountItemAttr: return true;
+case kSecServiceItemAttr: return true;
+case kSecGenericItemAttr: return true;
+/* Unique Appleshare password attributes */
+case kSecVolumeItemAttr: return true;
+case kSecAddressItemAttr: return true;
+case kSecSignatureItemAttr: return true;
+/* Unique AppleShare and Internet attributes */
+case kSecServerItemAttr: return true;
+case kSecProtocolItemAttr: return true;
+/* Unique Internet password attributes */
+case kSecSecurityDomainItemAttr: return true;
+case kSecAuthenticationTypeItemAttr: return true;
+case kSecPortItemAttr: return true;
+case kSecPathItemAttr: return true;
+/* Unique Certificate attributes */
+case kSecCertTypeItemAttr: return true;
+case kSecCertEncodingItemAttr: return true;
+case kSecSubjectItemAttr: return true;
+case kSecIssuerItemAttr: return true;
+case kSecSerialNumberItemAttr: return true;
+case kSecSubjectKeyIdentifierItemAttr: return true;
+case kSecPublicKeyHashItemAttr: return true;
+/* Unique UserTrust attributes */
+case kSecTrustCertAttr: return true;
+case kSecTrustPolicyAttr: return true;
+/* Unique UnlockReferral attributes */
+case kSecReferralTypeAttr: return true;
+case kSecReferralDbNameAttr: return true;
+case kSecReferralDbGuidAttr: return true;
+case kSecReferralDbSSIDAttr: return true;
+case kSecReferralDbSSTypeAttr: return true;
+case kSecReferralDbNetnameAttr: return true;
+case kSecReferralKeyLabelAttr: return true;
+case kSecReferralKeyAppTagAttr: return true;
+/* Unique ExtendedAttribute attributes */
+case kExtendedAttrRecordTypeAttr: return true;
+case kExtendedAttrItemIDAttr: return true;
+case kExtendedAttrAttributeNameAttr: return true;
+case kExtendedAttrAttributeValueAttr: return true;
+/* ??? */
+case kSecProtectedDataItemAttr:  return true;
+default:
+{
+if (attrType == 7)
+{
+return true;
+}
+else if (attrType == 8)
+{
+return true;
+}
+return false;
+}
+}
+}
+
 const CSSM_DB_ATTRIBUTE_INFO &
 attributeInfo(SecKeychainAttrType attrType)
 {

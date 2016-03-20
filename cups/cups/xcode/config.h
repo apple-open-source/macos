@@ -1,5 +1,5 @@
 /*
- * "$Id: config.h 12836 2015-08-06 14:13:37Z msweet $"
+ * "$Id: config.h 12992 2015-11-19 15:19:00Z msweet $"
  *
  * Configuration file for CUPS and Xcode.
  *
@@ -22,8 +22,8 @@
  * Version of software...
  */
 
-#define CUPS_SVERSION "CUPS v2.1.0"
-#define CUPS_MINIMAL "CUPS/2.1.0"
+#define CUPS_SVERSION "CUPS v2.1.1"
+#define CUPS_MINIMAL "CUPS/2.1.1"
 
 
 /*
@@ -738,5 +738,5 @@ static __inline int _cups_abs(int i) { return (i < 0 ? -i : i); }
 #endif /* !_CUPS_CONFIG_H_ */
 
 /*
- * End of "$Id: config.h 12836 2015-08-06 14:13:37Z msweet $".
+ * End of "$Id: config.h 12992 2015-11-19 15:19:00Z msweet $".
  */

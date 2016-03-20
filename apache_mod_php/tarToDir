@@ -1,0 +1,48 @@
+#!/bin/sh
+# Untar open source archive file, clean up, and ditto to existing git-managed directory
+if [ $# -lt 2 ]
+then
+        echo "Usage: $0 <archive>.tar.bz2 <gitdir> or $0 <archiver>.tar.gz <gitdir>" 
+        exit 1
+fi
+TMP_DIR=$(mktemp -d /tmp/phpXXXX)
+ARCHIVE=$1
+ext=${ARCHIVE##*.}
+if [ $ext == "gz" ]
+then
+	ARCHIVE_DIR=$(basename $ARCHIVE .tar.gz)
+
+	cp $ARCHIVE $TMP_DIR
+	tar -C $TMP_DIR -xz -f $ARCHIVE
+elif [ $ext == "bz2" ]
+then
+        ARCHIVE_DIR=$(basename $ARCHIVE .tar.bz2)
+        cp $ARCHIVE $TMP_DIR
+        tar -C $TMP_DIR -xj -f $ARCHIVE
+else 
+	echo "Bad suffix $ext"
+	rm -rf "$TMP_DIR"
+	exit 1
+fi
+UNARCHIVED_DIR=$2
+if [ ! -d $UNARCHIVED_DIR ]
+then
+	echo "$UNARCHIVED_DIR is not a directory"
+	rm -rf "$TMP_DIR"
+	exit 1
+fi
+if [ $? -ne 0 ]
+then
+	echo "Could not untar $ARCHIVE"
+       	rm -rf "$TMP_DIR"
+        exit 1
+fi
+echo "Cleaning up $TMP_DIR/$ARCHIVE_DIR"
+rm -rf Zend/zend_language_parser.c
+rm -rf Zend/zend_language_parser.h
+rm -rf Zend/zend_ini_parser.c
+rm -rf Zend/zend_ini_parser.h
+rm -rf $TMP_DIR/$ARCHIVE_DIR/Zend/{zend_language_parser.c,zend_language_parser.h,zend_ini_parser.c,zend_ini_parser.h} $TMP_DIR/$ARCHIVE_DIR/pear/install-pear-nozlib.phar $TMP_DIR/$ARCHIVE_DIR/ext/phar/tests/tar/files/Structures_Graph-1.0.3.tgz
+diff -qr $TMP_DIR/$ARCHIVE_DIR $UNARCHIVED_DIR
+ditto $TMP_DIR/$ARCHIVE_DIR $UNARCHIVED_DIR
+rm -rf "$TMP_DIR"

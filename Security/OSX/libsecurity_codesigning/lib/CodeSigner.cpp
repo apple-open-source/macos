@@ -65,7 +65,7 @@ public:
 // Construct a SecCodeSigner
 //
 SecCodeSigner::SecCodeSigner(SecCSFlags flags)
-	: mOpFlags(flags), mDigestAlgorithm(kSecCodeSignatureDefaultDigestAlgorithm), mLimitedAsync(NULL)
+	: mOpFlags(flags), mLimitedAsync(NULL)
 {
 }
 
@@ -173,30 +173,6 @@ void SecCodeSigner::returnDetachedSignature(BlobCore *blob, Signer &signer)
 
 
 //
-// Our DiskRep::signingContext methods communicate with the signing subsystem
-// in terms those callers can easily understand.
-//
-string SecCodeSigner::sdkPath(const std::string &path) const
-{
-	assert(path[0] == '/');	// need absolute path here
-	if (mSDKRoot)
-		return cfString(mSDKRoot) + path;
-	else
-		return path;
-}
-
-bool SecCodeSigner::isAdhoc() const
-{
-	return mSigner == SecIdentityRef(kCFNull);
-}
-
-SecCSFlags SecCodeSigner::signingFlags() const
-{
-	return mOpFlags;
-}
-
-
-//
 // The actual parsing operation is done in the Parser class.
 //
 // Note that we need to copy or retain all incoming data. The caller has no requirement
@@ -219,8 +195,11 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 		state.mCdFlagsGiven = false;
 	
 	// digest algorithms are specified as a numeric code
-	if (CFNumberRef digestAlgorithm = get<CFNumberRef>(kSecCodeSignerDigestAlgorithm))
-		state.mDigestAlgorithm = cfNumber<unsigned int>(digestAlgorithm);
+	if (CFCopyRef<CFTypeRef> digestAlgorithms = get<CFTypeRef>(kSecCodeSignerDigestAlgorithm)) {
+		CFRef<CFArrayRef> array = cfArrayize(digestAlgorithms);
+		CFToVector<CodeDirectory::HashAlgorithm, CFNumberRef, cfNumber<CodeDirectory::HashAlgorithm> > digests(array);
+		std::copy(digests.begin(), digests.end(), std::inserter(state.mDigestAlgorithms, state.mDigestAlgorithms.begin()));
+	}
 
 	if (CFNumberRef cmsSize = get<CFNumberRef>(CFSTR("cmssize")))
 		state.mCMSSize = cfNumber<size_t>(cmsSize);

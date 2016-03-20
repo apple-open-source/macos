@@ -142,60 +142,60 @@ static const char* really_last_key = "rewrite_really_last";
 #define REDIRECT_ENVVAR_SCRIPT_URL "REDIRECT_" ENVVAR_SCRIPT_URL
 #define ENVVAR_SCRIPT_URI "SCRIPT_URI"
 
-#define CONDFLAG_NONE               1<<0
-#define CONDFLAG_NOCASE             1<<1
-#define CONDFLAG_NOTMATCH           1<<2
-#define CONDFLAG_ORNEXT             1<<3
-#define CONDFLAG_NOVARY             1<<4
+#define CONDFLAG_NONE               (1<<0)
+#define CONDFLAG_NOCASE             (1<<1)
+#define CONDFLAG_NOTMATCH           (1<<2)
+#define CONDFLAG_ORNEXT             (1<<3)
+#define CONDFLAG_NOVARY             (1<<4)
 
-#define RULEFLAG_NONE               1<<0
-#define RULEFLAG_FORCEREDIRECT      1<<1
-#define RULEFLAG_LASTRULE           1<<2
-#define RULEFLAG_NEWROUND           1<<3
-#define RULEFLAG_CHAIN              1<<4
-#define RULEFLAG_IGNOREONSUBREQ     1<<5
-#define RULEFLAG_NOTMATCH           1<<6
-#define RULEFLAG_PROXY              1<<7
-#define RULEFLAG_PASSTHROUGH        1<<8
-#define RULEFLAG_QSAPPEND           1<<9
-#define RULEFLAG_NOCASE             1<<10
-#define RULEFLAG_NOESCAPE           1<<11
-#define RULEFLAG_NOSUB              1<<12
-#define RULEFLAG_STATUS             1<<13
-#define RULEFLAG_ESCAPEBACKREF      1<<14
-#define RULEFLAG_DISCARDPATHINFO    1<<15
-#define RULEFLAG_QSDISCARD          1<<16
-#define RULEFLAG_END                1<<17
+#define RULEFLAG_NONE               (1<<0)
+#define RULEFLAG_FORCEREDIRECT      (1<<1)
+#define RULEFLAG_LASTRULE           (1<<2)
+#define RULEFLAG_NEWROUND           (1<<3)
+#define RULEFLAG_CHAIN              (1<<4)
+#define RULEFLAG_IGNOREONSUBREQ     (1<<5)
+#define RULEFLAG_NOTMATCH           (1<<6)
+#define RULEFLAG_PROXY              (1<<7)
+#define RULEFLAG_PASSTHROUGH        (1<<8)
+#define RULEFLAG_QSAPPEND           (1<<9)
+#define RULEFLAG_NOCASE             (1<<10)
+#define RULEFLAG_NOESCAPE           (1<<11)
+#define RULEFLAG_NOSUB              (1<<12)
+#define RULEFLAG_STATUS             (1<<13)
+#define RULEFLAG_ESCAPEBACKREF      (1<<14)
+#define RULEFLAG_DISCARDPATHINFO    (1<<15)
+#define RULEFLAG_QSDISCARD          (1<<16)
+#define RULEFLAG_END                (1<<17)
 
 /* return code of the rewrite rule
  * the result may be escaped - or not
  */
-#define ACTION_NORMAL               1<<0
-#define ACTION_NOESCAPE             1<<1
-#define ACTION_STATUS               1<<2
+#define ACTION_NORMAL               (1<<0)
+#define ACTION_NOESCAPE             (1<<1)
+#define ACTION_STATUS               (1<<2)
 
 
-#define MAPTYPE_TXT                 1<<0
-#define MAPTYPE_DBM                 1<<1
-#define MAPTYPE_PRG                 1<<2
-#define MAPTYPE_INT                 1<<3
-#define MAPTYPE_RND                 1<<4
-#define MAPTYPE_DBD                 1<<5
-#define MAPTYPE_DBD_CACHE           1<<6
+#define MAPTYPE_TXT                 (1<<0)
+#define MAPTYPE_DBM                 (1<<1)
+#define MAPTYPE_PRG                 (1<<2)
+#define MAPTYPE_INT                 (1<<3)
+#define MAPTYPE_RND                 (1<<4)
+#define MAPTYPE_DBD                 (1<<5)
+#define MAPTYPE_DBD_CACHE           (1<<6)
 
-#define ENGINE_DISABLED             1<<0
-#define ENGINE_ENABLED              1<<1
+#define ENGINE_DISABLED             (1<<0)
+#define ENGINE_ENABLED              (1<<1)
 
-#define OPTION_NONE                 1<<0
-#define OPTION_INHERIT              1<<1
-#define OPTION_INHERIT_BEFORE       1<<2
-#define OPTION_NOSLASH              1<<3
-#define OPTION_ANYURI               1<<4
-#define OPTION_MERGEBASE            1<<5
-#define OPTION_INHERIT_DOWN         1<<6
-#define OPTION_INHERIT_DOWN_BEFORE  1<<7
-#define OPTION_IGNORE_INHERIT       1<<8
-#define OPTION_IGNORE_CONTEXT_INFO  1<<9
+#define OPTION_NONE                 (1<<0)
+#define OPTION_INHERIT              (1<<1)
+#define OPTION_INHERIT_BEFORE       (1<<2)
+#define OPTION_NOSLASH              (1<<3)
+#define OPTION_ANYURI               (1<<4)
+#define OPTION_MERGEBASE            (1<<5)
+#define OPTION_INHERIT_DOWN         (1<<6)
+#define OPTION_INHERIT_DOWN_BEFORE  (1<<7)
+#define OPTION_IGNORE_INHERIT       (1<<8)
+#define OPTION_IGNORE_CONTEXT_INFO  (1<<9)
 
 #ifndef RAND_MAX
 #define RAND_MAX 32767
@@ -1338,6 +1338,13 @@ static char *lookup_map_dbd(request_rec *r, char *key, const char *label)
     char *ret = NULL;
     int n = 0;
     ap_dbd_t *db = dbd_acquire(r);
+    
+    if (db == NULL) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(02963)
+                      "rewritemap: No db handle available! "
+                      "Check your database access");
+        return NULL;
+   }
 
     stmt = apr_hash_get(db->prepared, label, APR_HASH_KEY_STRING);
 
@@ -2478,10 +2485,18 @@ static void add_cookie(request_rec *r, char *s)
 
     char *tok_cntx;
     char *cookie;
+    /* long-standing default, but can't use ':' in a cookie */
+    const char *sep = ":"; 
 
-    var = apr_strtok(s, ":", &tok_cntx);
-    val = apr_strtok(NULL, ":", &tok_cntx);
-    domain = apr_strtok(NULL, ":", &tok_cntx);
+    /* opt-in to ; separator if first character is a ; */
+    if (s && *s == ';') { 
+        sep = ";"; 
+        s++;
+    }
+
+    var = apr_strtok(s, sep, &tok_cntx);
+    val = apr_strtok(NULL, sep, &tok_cntx);
+    domain = apr_strtok(NULL, sep, &tok_cntx);
 
     if (var && val && domain) {
         request_rec *rmain = r;
@@ -2497,10 +2512,10 @@ static void add_cookie(request_rec *r, char *s)
         if (!data) {
             char *exp_time = NULL;
 
-            expires = apr_strtok(NULL, ":", &tok_cntx);
-            path = expires ? apr_strtok(NULL, ":", &tok_cntx) : NULL;
-            secure = path ? apr_strtok(NULL, ":", &tok_cntx) : NULL;
-            httponly = secure ? apr_strtok(NULL, ":", &tok_cntx) : NULL;
+            expires = apr_strtok(NULL, sep, &tok_cntx);
+            path = expires ? apr_strtok(NULL, sep, &tok_cntx) : NULL;
+            secure = path ? apr_strtok(NULL, sep, &tok_cntx) : NULL;
+            httponly = secure ? apr_strtok(NULL, sep, &tok_cntx) : NULL;
 
             if (expires) {
                 apr_time_exp_t tms;

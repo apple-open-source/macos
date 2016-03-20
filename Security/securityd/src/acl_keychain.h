@@ -41,7 +41,9 @@ class KeychainPromptAclSubject : public SimpleAclSubject {
 	static const Version jaguarVersion = 1;	// 10.2 et al -> first version selector
 	static const Version currentVersion = jaguarVersion; // what we write today
 public:
-    bool validate(const AclValidationContext &baseCtx, const TypedList &sample) const;
+    bool validates(const AclValidationContext &ctx) const;
+    bool validates(const AclValidationContext &baseCtx, const TypedList &sample) const;
+	bool validateExplicitly(const AclValidationContext &baseCtx, void (^always)()) const;
     CssmList toList(Allocator &alloc) const;
     bool hasAuthorizedForSystemKeychain() const;
     

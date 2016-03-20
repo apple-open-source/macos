@@ -151,6 +151,7 @@ CF_ENUM(uint32_t) {
 	kSecCSFullReport = 1 << 5,
 	kSecCSCheckGatekeeperArchitectures = (1 << 6) | kSecCSCheckAllArchitectures,
 	kSecCSRestrictSymlinks = 1 << 7,
+	kSecCSRestrictToAppLike = 1 << 8,
 };
 
 OSStatus SecStaticCodeCheckValidity(SecStaticCodeRef staticCode, SecCSFlags flags,

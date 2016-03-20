@@ -513,6 +513,11 @@ public:
 
     const PseudoStyleCache* cachedPseudoStyles() const { return m_cachedPseudoStyles.get(); }
 
+    void setCustomPropertyValue(const AtomicString& name, const RefPtr<CSSValue>& value) { rareInheritedData.access()->m_customProperties.access()->setCustomPropertyValue(name, value); }
+    RefPtr<CSSValue> getCustomPropertyValue(const AtomicString& name) const { return rareInheritedData->m_customProperties->getCustomPropertyValue(name); }
+    bool hasCustomProperty(const AtomicString& name) const { return rareInheritedData->m_customProperties->hasCustomProperty(name); }
+    const CustomPropertyValueMap& customProperties() const { return rareInheritedData->m_customProperties->m_values; }
+
     void setHasViewportUnits(bool hasViewportUnits = true) { noninherited_flags.setHasViewportUnits(hasViewportUnits); }
     bool hasViewportUnits() const { return noninherited_flags.hasViewportUnits(); }
 
@@ -1189,7 +1194,9 @@ public:
 #if ENABLE(CSS_TRAILING_WORD)
     TrailingWord trailingWord() const { return static_cast<TrailingWord>(rareInheritedData->trailingWord); }
 #endif
-        
+    
+    void checkVariablesInCustomProperties();
+
 // attribute setter methods
 
     void setDisplay(EDisplay v) { noninherited_flags.setEffectiveDisplay(v); }
@@ -1777,7 +1784,7 @@ public:
     }
     ClipPathOperation* clipPath() const { return rareNonInheritedData->m_clipPath.get(); }
 
-    static ClipPathOperation* initialClipPath() { return 0; }
+    static ClipPathOperation* initialClipPath() { return nullptr; }
 
     bool hasContent() const { return contentData(); }
     const ContentData* contentData() const { return rareNonInheritedData->m_content.get(); }
@@ -1796,6 +1803,17 @@ public:
 
     QuotesData* quotes() const { return rareInheritedData->quotes.get(); }
     void setQuotes(PassRefPtr<QuotesData>);
+
+    WillChangeData* willChange() const { return rareNonInheritedData->m_willChange.get(); }
+    void setWillChange(PassRefPtr<WillChangeData>);
+
+    bool willChangeCreatesStackingContext() const
+    {
+        if (!willChange())
+            return false;
+        
+        return willChange()->canCreateStackingContext();
+    }
 
     const AtomicString& hyphenString() const;
 
@@ -2003,6 +2021,8 @@ public:
     static PrintColorAdjust initialPrintColorAdjust() { return PrintColorAdjustEconomy; }
     static QuotesData* initialQuotes() { return nullptr; }
     static const AtomicString& initialContentAltText() { return emptyAtom; }
+
+    static WillChangeData* initialWillChange() { return nullptr; }
 
 #if ENABLE(CSS_SCROLL_SNAP)
     static ScrollSnapType initialScrollSnapType() { return ScrollSnapType::None; }

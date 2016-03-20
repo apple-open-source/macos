@@ -29,6 +29,8 @@
 #include "server.h"
 #include "database.h"
 #include <security_cdsa_utilities/acl_any.h>
+#include <security_utilities/cfmunge.h>
+#include <security_utilities/logging.h>
 
 
 //
@@ -86,6 +88,13 @@ void LocalKey::setOwner(const AclEntryPrototype *owner)
 		acl().cssmSetInitial(*owner);					// specified
 	else
 		acl().cssmSetInitial(new AnyAclSubject());		// defaulted
+
+    if (this->database().dbVersion() >= CommonBlob::version_partition) {
+        // put payload into an AclEntry tagged as CSSM_APPLE_ACL_TAG_PARTITION_ID...
+        // ... unless the client has the "converter" entitlement as attested by Apple
+        if (!(process().checkAppleSigned() && process().hasEntitlement(migrationEntitlement)))
+            this->acl().createClientPartitionID(this->process());
+    }
 }
 
 

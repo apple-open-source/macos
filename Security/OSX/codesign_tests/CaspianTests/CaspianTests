@@ -52,7 +52,7 @@ runTest enable-tests spctl --test-devid-enable
 runTest enable-check eval "spctl --test-devid-status | grep enable >/dev/null"
 
 
-runTest exec-ls spctl -a -t exec /bin/ls
+runTest fail-exec-ls spctl -a -t exec /bin/ls
 runTest fail-open-txt spctl -a -t open /usr/local/OpenSourceLicenses/xar.txt
 runTest fail-open-pdf spctl -a -t open /usr/share//cups/ipptool/testfile.pdf
 
@@ -194,8 +194,8 @@ runTest disable-check10 eval "spctl --status | grep disable > /dev/null"
 # check devid is still revoked while caspian is disabled
 #
 
-runTest fail-0-hello-revoked spctl -a -t exec ${ct}/hello-revoked
-runTest 0-hello-expired spctl -a -t exec ${ct}/hello-expired
+runTest fail-0-hello-revoked spctl -a -t exec ${ct}/hello-revoked.app
+runTest 0-hello-expired spctl -a -t exec ${ct}/hello-expired.app
 
 #
 # check enabled w/o devid
@@ -204,7 +204,7 @@ runTest 0-hello-expired spctl -a -t exec ${ct}/hello-expired
 runTest enable-tests11 spctl --master-enable
 runTest enable-check11 eval "spctl --status | grep enable > /dev/null"
 
-runTest fail-1-hello-revoked spctl -a -t exec ${ct}/hello-revoked
+runTest fail-1-hello-revoked spctl -a -t exec ${ct}/hello-revoked.app
 #runTest fail-1-hello-expired spctl -a -t exec ${ct}/hello-expired #### failes because of broken ocsp
 
 #
@@ -214,8 +214,8 @@ runTest fail-1-hello-revoked spctl -a -t exec ${ct}/hello-revoked
 runTest enable-tests11 spctl --test-devid-enable
 runTest enable-check11 eval "spctl --test-devid-status | grep enable > /dev/null"
 
-runTest fail-1id-hello-revoked spctl -a -t exec ${ct}/hello-revoked
-runTest 1id-hello-expired spctl -a -t exec ${ct}/hello-expired
+runTest fail-1id-hello-revoked spctl -a -t exec ${ct}/hello-revoked.app
+runTest 1id-hello-expired spctl -a -t exec ${ct}/hello-expired.app
 
 #
 #

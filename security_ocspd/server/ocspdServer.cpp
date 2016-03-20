@@ -1129,7 +1129,7 @@ kern_return_t ocsp_server_crlFlush(
 
 void OcspdServer::OcspdTimer::action()
 {
-	secdebug("ocspdRefresh", "OcspdTimer firing");
+	ocspdDebug("ocspdRefresh", "OcspdTimer firing");
 	ocspdDbCacheFlushStale();
 	crlCacheRefresh(0,		// stale_days
 					0,		// expire_overlap_seconds,
@@ -1137,7 +1137,7 @@ void OcspdServer::OcspdTimer::action()
 					false,	// full_crypto_verify
 					false);	// do Refresh
 	Time::Interval nextFire = OCSPD_TIMER_INTERVAL;
-	secdebug("ocspdRefresh", "OcspdTimer scheduling");
+	ocspdDebug("ocspdRefresh", "OcspdTimer scheduling");
 	mServer.setTimer(this, nextFire);
 }
 
@@ -1165,7 +1165,37 @@ boolean_t ocspd_server(mach_msg_header_t *, mach_msg_header_t *);
 
 boolean_t OcspdServer::handle(mach_msg_header_t *in, mach_msg_header_t *out)
 {
-	ocspdDebug("OcspdServer::handle msg_id %d", (int)in->msgh_id);
-	return ocspd_server(in, out);
+#ifndef subsystem_to_name_map_ocspd
+#define subsystem_to_name_map_ocspd \
+    { "ocspdFetch", 33003 },\
+    { "ocspdCacheFlush", 33004 },\
+    { "ocspdCacheFlushStale", 33005 },\
+    { "certFetch", 33006 },\
+    { "crlFetch", 33007 },\
+    { "crlRefresh", 33008 },\
+    { "crlFlush", 33009 },\
+    { "trustSettingsRead", 33010 },\
+    { "trustSettingsWrite", 33011 },\
+    { "crlStatus", 33012 }
+#endif
+    char *msg    =   "unknown";
+    char *msgs[] = { "ocspdFetch",
+                     "ocspdCacheFlush",
+                     "ocspdCacheFlushStale",
+                     "certFetch",
+                     "crlFetch",
+                     "crlRefresh",
+                     "crlFlush",
+                     "trustSettingsRead",
+                     "trustSettingsWrite",
+                     "crlStatus" };
+
+    if (in->msgh_id >= 33003 && in->msgh_id <= 33012) {
+        msg = msgs[in->msgh_id - 33003];
+    }
+
+    ocspdDebug("OcspdServer::handle msg_id %d (%s)", (int)in->msgh_id, msg);
+
+    return ocspd_server(in, out);
 }
 

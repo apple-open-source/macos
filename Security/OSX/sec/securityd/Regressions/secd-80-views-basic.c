@@ -89,7 +89,7 @@ static void tests(void)
     CFReleaseNull(error);
     CFReleaseNull(cfpassword);
     
-    ok(SOSAccountJoinCircles(account, &error), "Join Cirlce");
+    ok(SOSAccountJoinCircles(account, &error), "Join circle: %@", error);
     
     ok(NULL != account, "Created");
 

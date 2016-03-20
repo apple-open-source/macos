@@ -476,6 +476,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18A25BEB14752959004F59F8 /* project.xcconfig */;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				HEADER_SEARCH_PATHS = "${CONFIGURATION_BUILD_DIR}/usr/local/include";
+				USER_HEADER_SEARCH_PATHS = "";
 			};
 			name = Debug;
 		};
@@ -483,6 +486,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18A25BEB14752959004F59F8 /* project.xcconfig */;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				HEADER_SEARCH_PATHS = "${CONFIGURATION_BUILD_DIR}/usr/local/include";
+				"HEADER_SEARCH_PATHS[arch=*]" = "";
+				USER_HEADER_SEARCH_PATHS = "";
 			};
 			name = Release;
 		};

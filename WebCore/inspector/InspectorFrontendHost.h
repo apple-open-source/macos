@@ -57,8 +57,10 @@ public:
     void requestSetDockSide(const String&);
     void closeWindow();
     void bringToFront();
-    void setZoomFactor(float);
     void inspectedURLChanged(const String&);
+
+    void setZoomFactor(float);
+    float zoomFactor();
 
     void setAttachedWindowHeight(unsigned);
     void setAttachedWindowWidth(unsigned);
@@ -71,6 +73,7 @@ public:
     String debuggableType();
 
     void copyText(const String& text);
+    void killText(const String& text, bool shouldPrependToKillRing, bool shouldStartNewSequence);
     void openInNewTab(const String& url);
     bool canSave();
     void save(const String& url, const String& content, bool base64Encoded, bool forceSaveAs);

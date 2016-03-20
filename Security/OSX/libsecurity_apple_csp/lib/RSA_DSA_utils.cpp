@@ -100,12 +100,18 @@ RSAKeySizes::RSAKeySizes()
 	maxPubExponentSize = RSA_MAX_PUB_EXPONENT_SIZE;
 	
 	/* now see if there are prefs set for either of these */
-	Dictionary* d = Dictionary::CreateDictionary(kRSAKeySizePrefsDomain, Dictionary::US_System, true);
+    Dictionary* d = NULL;
+    try {
+        d = Dictionary::CreateDictionary(kRSAKeySizePrefsDomain, Dictionary::US_System, true);
+    } catch(...) {
+        return;
+    }
+
 	if (!d)
 	{
 		return;
 	}
-	
+
 	if (d->dict())
 	{
 		auto_ptr<Dictionary>apd(d);

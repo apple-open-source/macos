@@ -20,6 +20,8 @@
 	<true/>
 	<key>com.apple.springboard.wipedevice</key>
 	<true/>
+	<key>com.apple.private.system-keychain</key>
+	<true/>
 	<key>application-identifier</key>
 	<string>com.apple.security.regressions</string>
 	<key>keychain-access-groups</key>

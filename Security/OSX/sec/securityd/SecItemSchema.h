@@ -55,6 +55,7 @@ extern const SecDbAttr v6svce;
 extern const SecDbAttr v7vwht;
 extern const SecDbAttr v7tkid;
 extern const SecDbAttr v7utomb;
+extern const SecDbAttr v8musr;
 
 // TODO: Directly expose other important attributes like
 // kSecItemSyncAttr, kSecItemTombAttr, kSecItemCdatAttr, kSecItemMdatAttr, kSecItemDataAttr

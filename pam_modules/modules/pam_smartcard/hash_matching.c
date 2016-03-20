@@ -30,7 +30,7 @@ CFDataRef createDataFromHexString(CFStringRef str)
     return data;
 }
 
-SecKeychainRef copyHashMatchedKeychain(ODRecordRef odRecord, CFArrayRef certificates)
+SecKeychainRef copyHashMatchedKeychain(ODRecordRef odRecord, CFArrayRef identities, SecIdentityRef* returnedIdentity)
 {
     CFArrayRef authStrings;
     CFDataRef hash = NULL;
@@ -58,29 +58,35 @@ SecKeychainRef copyHashMatchedKeychain(ODRecordRef odRecord, CFArrayRef certific
     
     if (!hash)
         return NULL;
-    
-    SecKeychainRef retval = NULL;
-    
-    CFIndex count = CFArrayGetCount(certificates);
+
+    CFIndex count = CFArrayGetCount(identities);
     uint32_t index;
     bool matches;
-    
+    SecKeychainRef keychain = NULL;
+
     for (index = 0; index < count; ++index)
     {
-        SecCertificateRef candidate = (SecCertificateRef)CFArrayGetValueAtIndex(certificates, index);
+        SecIdentityRef identity = (SecIdentityRef)CFArrayGetValueAtIndex(identities, index);
+        SecCertificateRef candidate;
+        OSStatus status = SecIdentityCopyCertificate(identity, &candidate);
+        if (status != errSecSuccess)
+            continue;
+
         CFDataRef certificateHash = SecCertificateCopyPublicKeySHA1Digest(candidate);
-        if (certificateHash)
+        status = SecKeychainItemCopyKeychain((SecKeychainItemRef)candidate, &keychain);
+        CFRelease(candidate);
+        matches = certificateHash && CFEqual(certificateHash, hash);
+        CFReleaseSafe(certificateHash);
+        if (status == errSecSuccess && matches == true)
         {
-            matches = certificateHash && CFEqual(certificateHash, hash);
-            CFRelease(certificateHash);
-            if (matches)
-            {
-                SecKeychainItemCopyKeychain((SecKeychainItemRef)candidate, &retval); // we do not care about the result a NULL retval means failure
-                break;
-            }
+            if (returnedIdentity)
+                *returnedIdentity = identity;
+            break;
+
         }
+        CFReleaseNull(keychain);
     }
-    
+
     CFRelease(hash);
-    return retval;
+    return keychain;
 }

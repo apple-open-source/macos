@@ -283,6 +283,11 @@ StyleDifference RenderElement::adjustStyleDifference(StyleDifference diff, unsig
             diff = std::max(diff, StyleDifferenceRepaint);
     }
     
+    if (contextSensitiveProperties & ContextSensitivePropertyWillChange) {
+        if (style().willChange() && style().willChange()->canTriggerCompositing())
+            diff = std::max(diff, StyleDifferenceRecompositeLayer);
+    }
+    
     if ((contextSensitiveProperties & ContextSensitivePropertyFilter) && hasLayer()) {
         RenderLayer* layer = downcast<RenderLayerModelObject>(*this).layer();
         if (!layer->isComposited() || layer->paintsWithFilters())

@@ -313,6 +313,13 @@
 /* AppleTV VPN Profile Signing 1.2.840.113635.100.6.43 */
 #define APPLE_CERT_EXT_APPLE_ATV_VPN_PROFILE_SIGNING    APPLE_CERT_EXT, 43
 
+/* AST2 Diagnostics Server Authentication
+ *   Test Marker OID 1.2.840.113635.100.6.27.8.1
+ *   Prod Marker OID 1.2.840.113635.100.6.27.8.2
+ */
+#define APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_TEST    APPLE_SERVER_AUTHENTICATION, 8, 1
+#define APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_PROD    APPLE_SERVER_AUTHENTICATION, 8, 2
+
 /*
  * Netscape OIDs.
  */
@@ -538,7 +545,9 @@ __unused static const DERByte
     _oidAppleCertExtATVAppSigningTest[] = {APPLE_ATV_APP_SIGNING_OID_TEST},
     _oidAppleCertExtATVAppSigningProd[] = {APPLE_ATV_APP_SIGNING_OID},
     _oidAppleCertExtATVVPNProfileSigning[] = {APPLE_CERT_EXT_APPLE_ATV_VPN_PROFILE_SIGNING},
-    _oidAppleCertExtCryptoServicesExtEncryption[] = {APPLE_CERT_EXT_CRYPTO_SERVICES_EXT_ENCRYPTION};
+    _oidAppleCertExtCryptoServicesExtEncryption[] = {APPLE_CERT_EXT_CRYPTO_SERVICES_EXT_ENCRYPTION},
+    _oidAppleCertExtAST2DiagnosticsServerAuthTest[] = {APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_TEST},
+    _oidAppleCertExtAST2DiagnosticsServerAuthProd[] = {APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_PROD};
 
 __unused const DERItem
     oidSubjectKeyIdentifier         = { (DERByte *)_oidSubjectKeyIdentifier,
@@ -725,7 +734,11 @@ __unused const DERItem
     oidAppleCertExtATVVPNProfileSigning = { (DERByte *) _oidAppleCertExtATVVPNProfileSigning,
                                         sizeof(_oidAppleCertExtATVVPNProfileSigning)},
     oidAppleCertExtCryptoServicesExtEncryption  = { (DERByte *)_oidAppleCertExtCryptoServicesExtEncryption,
-                                        sizeof(_oidAppleCertExtCryptoServicesExtEncryption)};
+                                        sizeof(_oidAppleCertExtCryptoServicesExtEncryption)},
+    oidAppleCertExtAST2DiagnosticsServerAuthTest = { (DERByte *)_oidAppleCertExtAST2DiagnosticsServerAuthTest,
+                                        sizeof(_oidAppleCertExtAST2DiagnosticsServerAuthTest)},
+    oidAppleCertExtAST2DiagnosticsServerAuthProd = { (DERByte *)_oidAppleCertExtAST2DiagnosticsServerAuthProd,
+                                        sizeof(_oidAppleCertExtAST2DiagnosticsServerAuthProd)};
 
 
 

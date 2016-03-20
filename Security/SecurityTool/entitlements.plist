@@ -13,6 +13,10 @@
 	<true/>
 	<key>restore-keychain</key>
 	<true/>
+	<key>com.apple.private.syncbubble-keychain</key>
+	<true/>
+	<key>com.apple.private.system-keychain</key>
+	<true/>
 	<key>application-identifier</key>
 	<string>com.apple.security</string>
 </dict>

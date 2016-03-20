@@ -110,6 +110,10 @@
 #define ENABLE_IOS_TOUCH_EVENTS 1
 #endif
 
+#if !defined(ENABLE_MAC_GESTURE_EVENTS) && USE(APPLE_INTERNAL_SDK)
+#define ENABLE_MAC_GESTURE_EVENTS 1
+#endif
+
 #if !defined(ENABLE_METER_ELEMENT)
 #define ENABLE_METER_ELEMENT 0
 #endif
@@ -252,6 +256,10 @@ the public iOS SDK. We will also need to update the FeatureDefines.xcconfig file
 
 #if !defined(ENABLE_PRIMARY_SNAPSHOTTED_PLUGIN_HEURISTIC)
 #define ENABLE_PRIMARY_SNAPSHOTTED_PLUGIN_HEURISTIC 1
+#endif
+
+#if !defined(ENABLE_MAC_GESTURE_EVENTS) && USE(APPLE_INTERNAL_SDK)
+#define ENABLE_MAC_GESTURE_EVENTS 1
 #endif
 
 #endif /* PLATFORM(MAC) */

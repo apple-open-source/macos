@@ -14,6 +14,9 @@
 		052C07F709894AF300E7641D /* CMSDecoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 052C07F409894AF300E7641D /* CMSDecoder.cpp */; };
 		052C07F809894AF300E7641D /* CMSEncoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 052C07F509894AF300E7641D /* CMSEncoder.cpp */; };
 		052C07F909894AF300E7641D /* CMSUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 052C07F609894AF300E7641D /* CMSUtils.cpp */; };
+		D4C334601BE2A2B900D8C1EF /* cms_regressions.h in Headers */ = {isa = PBXBuildFile; fileRef = D4C334571BE29F5200D8C1EF /* cms_regressions.h */; };
+		D4C334631BE2A31200D8C1EF /* cms-hashagility-test.c in Sources */ = {isa = PBXBuildFile; fileRef = D4C334611BE2A31200D8C1EF /* cms-hashagility-test.c */; };
+		D4C334641BE2A31200D8C1EF /* cms-hashagility-test.h in Headers */ = {isa = PBXBuildFile; fileRef = D4C334621BE2A31200D8C1EF /* cms-hashagility-test.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,10 +33,21 @@
 		1844617A146E984400B12992 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
 		4CA1FEBE052A3C8100F22E42 /* libsecurity_cms.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_cms.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CCB008B05800B0B00981D43 /* security_cms.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = security_cms.exp; sourceTree = "<group>"; };
+		D4C334571BE29F5200D8C1EF /* cms_regressions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = cms_regressions.h; path = regressions/cms_regressions.h; sourceTree = "<group>"; };
+		D4C3345C1BE2A2B100D8C1EF /* libsecurity_cms_regressions.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsecurity_cms_regressions.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		D4C334611BE2A31200D8C1EF /* cms-hashagility-test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "cms-hashagility-test.c"; path = "regressions/cms-hashagility-test.c"; sourceTree = "<group>"; };
+		D4C334621BE2A31200D8C1EF /* cms-hashagility-test.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "cms-hashagility-test.h"; path = "regressions/cms-hashagility-test.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D4C334591BE2A2B100D8C1EF /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -73,6 +87,7 @@
 		4CA1FEA7052A3C3800F22E42 = {
 			isa = PBXGroup;
 			children = (
+				D4C334561BE29F1700D8C1EF /* regressions */,
 				4C308388053237100028A8C6 /* lib */,
 				18446176146E984400B12992 /* config */,
 				4CA1FEBF052A3C8100F22E42 /* Products */,
@@ -83,8 +98,19 @@
 			isa = PBXGroup;
 			children = (
 				4CA1FEBE052A3C8100F22E42 /* libsecurity_cms.a */,
+				D4C3345C1BE2A2B100D8C1EF /* libsecurity_cms_regressions.a */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		D4C334561BE29F1700D8C1EF /* regressions */ = {
+			isa = PBXGroup;
+			children = (
+				D4C334571BE29F5200D8C1EF /* cms_regressions.h */,
+				D4C334611BE2A31200D8C1EF /* cms-hashagility-test.c */,
+				D4C334621BE2A31200D8C1EF /* cms-hashagility-test.h */,
+			);
+			name = regressions;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -98,6 +124,15 @@
 				052C07EC09894ADA00E7641D /* CMSPrivate.h in Headers */,
 				052C07EA09894ADA00E7641D /* CMSDecoder.h in Headers */,
 				052C07EB09894ADA00E7641D /* CMSEncoder.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D4C3345A1BE2A2B100D8C1EF /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D4C334641BE2A31200D8C1EF /* cms-hashagility-test.h in Headers */,
+				D4C334601BE2A2B900D8C1EF /* cms_regressions.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -121,6 +156,23 @@
 			productReference = 4CA1FEBE052A3C8100F22E42 /* libsecurity_cms.a */;
 			productType = "com.apple.product-type.library.static";
 		};
+		D4C3345B1BE2A2B100D8C1EF /* libsecurity_cms_regressions */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D4C3345D1BE2A2B100D8C1EF /* Build configuration list for PBXNativeTarget "libsecurity_cms_regressions" */;
+			buildPhases = (
+				D4C334581BE2A2B100D8C1EF /* Sources */,
+				D4C334591BE2A2B100D8C1EF /* Frameworks */,
+				D4C3345A1BE2A2B100D8C1EF /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libsecurity_cms_regressions;
+			productName = libsecurity_cms_regressions;
+			productReference = D4C3345C1BE2A2B100D8C1EF /* libsecurity_cms_regressions.a */;
+			productType = "com.apple.product-type.library.static";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -128,6 +180,11 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 0700;
+				TargetAttributes = {
+					D4C3345B1BE2A2B100D8C1EF = {
+						CreatedOnToolsVersion = 7.1;
+					};
+				};
 			};
 			buildConfigurationList = C263E67909A2971B000043F1 /* Build configuration list for PBXProject "libsecurity_cms" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -142,6 +199,7 @@
 			projectRoot = "";
 			targets = (
 				4CA1FEBD052A3C8100F22E42 /* libsecurity_cms */,
+				D4C3345B1BE2A2B100D8C1EF /* libsecurity_cms_regressions */,
 			);
 		};
 /* End PBXProject section */
@@ -154,6 +212,14 @@
 				052C07F709894AF300E7641D /* CMSDecoder.cpp in Sources */,
 				052C07F809894AF300E7641D /* CMSEncoder.cpp in Sources */,
 				052C07F909894AF300E7641D /* CMSUtils.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D4C334581BE2A2B100D8C1EF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D4C334631BE2A31200D8C1EF /* cms-hashagility-test.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -204,6 +270,71 @@
 			};
 			name = Release;
 		};
+		D4C3345E1BE2A2B100D8C1EF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CODE_SIGN_IDENTITY = "-";
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		D4C3345F1BE2A2B100D8C1EF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CODE_SIGN_IDENTITY = "-";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -221,6 +352,15 @@
 			buildConfigurations = (
 				C263E67A09A2971B000043F1 /* Debug */,
 				C263E67C09A2971B000043F1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D4C3345D1BE2A2B100D8C1EF /* Build configuration list for PBXNativeTarget "libsecurity_cms_regressions" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D4C3345E1BE2A2B100D8C1EF /* Debug */,
+				D4C3345F1BE2A2B100D8C1EF /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

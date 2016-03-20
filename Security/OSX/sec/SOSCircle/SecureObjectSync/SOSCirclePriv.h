@@ -47,4 +47,9 @@ static inline SOSCircleRef SOSCircleConvertAndAssertStable(CFTypeRef circleAsTyp
     return circle;
 }
 
+
+static inline bool SOSCircleIsOffering(SOSCircleRef circle) {
+    return SOSCircleCountRetiredPeers(circle) == 0 &&  SOSCircleCountPeers(circle) == 1;
+}
+
 #endif

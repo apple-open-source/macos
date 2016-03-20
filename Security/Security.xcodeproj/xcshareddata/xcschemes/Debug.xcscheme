@@ -11,7 +11,8 @@
             buildForRunning = "YES"
             buildForProfiling = "YES"
             buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
+            buildForAnalyzing = "YES"
+            hideIssues = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "4C91273D0ADBF46200AF202E"
@@ -25,7 +26,8 @@
             buildForRunning = "YES"
             buildForProfiling = "YES"
             buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
+            buildForAnalyzing = "YES"
+            hideIssues = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "4C711D5813AFCD0900FE865D"
@@ -189,6 +191,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "si_13_item_system"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "si_14_dateparse"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -198,6 +204,10 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "si_16_ec_certificate"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "si_17_item_system_bluetooth"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -298,7 +308,7 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "si_33_keychain_backup"
-            isEnabled = "NO">
+            isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "si_40_seckey"
@@ -446,6 +456,18 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "si_88_sectrust_vpnprofile"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "si_89_cms_hash_agility"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "si_90_emcs"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "si_91_sectrust_ast2"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -690,10 +712,6 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "otr_packetdata"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "pcs_shareprotection"
             isEnabled = "NO">
          </CommandLineArgument>
       </CommandLineArguments>

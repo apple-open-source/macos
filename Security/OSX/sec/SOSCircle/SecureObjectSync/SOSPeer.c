@@ -61,10 +61,6 @@
 // MARK: - SOSPeerPersistence code
 //
 static CFStringRef kSOSPeerSequenceNumberKey = CFSTR("sequence-number");
-static CFStringRef kSOSPeerGetObjectsKey = CFSTR("get-objects");
-static CFStringRef kSOSPeerReceivedUnknownConfirmedDigestKey = CFSTR("received-unknown");
-static CFStringRef kSOSPeerJoinRequestedKey = CFSTR("join-requested");
-static CFStringRef kSOSPeerSkipHelloKey = CFSTR("skip-hello");
 
 CFStringRef kSOSPeerDataLabel = CFSTR("iCloud Peer Data Meta-data");
 
@@ -421,11 +417,7 @@ bool SOSPeerEnsureCoder(SOSPeerRef peer, SOSFullPeerInfoRef myPeerInfo, SOSPeerI
     if (!SOSPeerGetCoder(peer, NULL)) {
         secinfo("peer", "New coder for id %@.", peer->peer_id);
         CFErrorRef localError = NULL;
-        if(SOSPeerInfoShouldUseIDSTransport(SOSFullPeerInfoGetPeerInfo(myPeerInfo), peerInfo))
-            peer->coder = SOSCoderCreate(peerInfo, myPeerInfo, kCFBooleanTrue, &localError);
-        else
-            peer->coder = SOSCoderCreate(peerInfo, myPeerInfo, kCFBooleanFalse, &localError);
-
+        peer->coder = SOSCoderCreate(peerInfo, myPeerInfo, kCFBooleanFalse, &localError);
         if (!peer->coder) {
             secerror("Failed to create coder for %@: %@", peer->peer_id, localError);
             CFErrorPropagate(localError, error);

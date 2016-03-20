@@ -1144,6 +1144,22 @@ ike_sessions_stopped_by_controller (struct sockaddr_storage *remote,
 }
 
 void
+ike_session_purge_ph1s_by_session (ike_session_t *session)
+{
+	phase1_handle_t *iph1;
+	phase1_handle_t *next_iph1 = NULL;
+
+	LIST_FOREACH_SAFE(iph1, &session->ph1tree, ph1ofsession_chain, next_iph1) {
+		plog(ASL_LEVEL_DEBUG, "deleteallph1 of given session: got a ph1 handler...\n");
+
+		vpncontrol_notify_ike_failed(VPNCTL_NTYPE_NO_PROPOSAL_CHOSEN, FROM_REMOTE,
+					    iph1_get_remote_v4_address(iph1), 0, NULL);
+
+		ike_session_unlink_phase1(iph1);
+	}
+}
+
+void
 ike_session_purge_ph2s_by_ph1 (phase1_handle_t *iph1)
 {
 	phase2_handle_t *p, *next;

@@ -43,10 +43,10 @@ namespace CodeSigning {
 // signing stages to cooperate. It is not meant to be API visible; that is
 // SecCodeSigner's job.
 //
-class SecCodeSigner::Signer {
+class SecCodeSigner::Signer : public DiskRep::SigningContext {
 public:
 	Signer(SecCodeSigner &s, SecStaticCode *c) : state(s), code(c), requirements(NULL)
-	{ strict = state.signingFlags() & kSecCSSignStrictPreflight; }
+	{ strict = signingFlags() & kSecCSSignStrictPreflight; }
 	~Signer() { ::free((Requirements *)requirements); }
 
 	void sign(SecCSFlags flags);
@@ -55,7 +55,8 @@ public:
 	SecCodeSigner &state;
 	SecStaticCode * const code;
 	
-	CodeDirectory::HashAlgorithm digestAlgorithm() const { return state.mDigestAlgorithm; }
+	const CodeDirectory::HashAlgorithms& digestAlgorithms() const { return hashAlgorithms; }
+	void setDigestAlgorithms(CodeDirectory::HashAlgorithms types) { hashAlgorithms = types; }
 	
 	std::string path() const { return cfStringRelease(rep->copyCanonicalPath()); }
 	SecIdentityRef signingIdentity() const { return state.mSigner; }
@@ -68,21 +69,32 @@ protected:
 
 	void populate(DiskRep::Writer &writer);		// global
 	void populate(CodeDirectory::Builder &builder, DiskRep::Writer &writer,
-		InternalRequirements &ireqs, size_t offset = 0, size_t length = 0);	// per-architecture
-	CFDataRef signCodeDirectory(const CodeDirectory *cd);
+		InternalRequirements &ireqs, size_t offset, size_t length, unsigned alternateDigestCount);	// per-architecture
+	CFDataRef signCodeDirectory(const CodeDirectory *cd, CFDataRef hashBag);
 
 	uint32_t cdTextFlags(std::string text);		// convert text CodeDirectory flags
 	std::string uniqueName() const;				// derive unique string from rep
+	
+protected:
+	std::string sdkPath(const std::string &path) const;
+	bool isAdhoc() const;
+	SecCSFlags signingFlags() const;
+	
+private:
+	void considerTeamID(const PreSigningContext& context);
+	std::vector<Endian<uint32_t> > topSlots(CodeDirectory::Builder &builder) const;
 
 protected:
 	void buildResources(std::string root, std::string relBase, CFDictionaryRef rules);
 	CFMutableDictionaryRef signNested(const std::string &path, const std::string &relpath);
-	CFDataRef hashFile(const char *path);
-
+	CFDataRef hashFile(const char *path, CodeDirectory::HashAlgorithm type);
+	CFDictionaryRef hashFile(const char *path, CodeDirectory::HashAlgorithms types);
+	
 private:
 	RefPointer<DiskRep> rep;		// DiskRep of Code being signed
 	CFRef<CFDictionaryRef> resourceDirectory;	// resource directory
 	CFRef<CFDataRef> resourceDictData; // XML form of resourceDirectory
+	CodeDirectory::HashAlgorithms hashAlgorithms; // hash algorithm(s) to use
 	std::string identifier;			// signing identifier
 	std::string teamID;             // team identifier
 	CFRef<CFDataRef> entitlements;	// entitlements

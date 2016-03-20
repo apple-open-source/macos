@@ -306,7 +306,11 @@ enum {
     kIOHIDEventFieldAmbientLightSensorRawChannel1,
     kIOHIDEventFieldAmbientLightSensorRawChannel2,
     kIOHIDEventFieldAmbientLightSensorRawChannel3,
-    kIOHIDEventFieldAmbientLightDisplayBrightnessChanged
+    kIOHIDEventFieldAmbientLightDisplayBrightnessChanged,
+    kIOHIDEventFieldAmbientLightColorSpace,
+    kIOHIDEventFieldAmbientLightColorComponent0,
+    kIOHIDEventFieldAmbientLightColorComponent1,
+    kIOHIDEventFieldAmbientLightColorComponent2
 };
 
 enum {
@@ -881,6 +885,8 @@ enum {
 };
 typedef uint64_t IOHIDEventSenderID; // must be the same size as that returned from IORegistryEntry::getRegistryEntryID
 
+typedef double IOHIDDouble;
+
 #ifndef KERNEL
 /*!
     @typedef IOHIDFloat
@@ -900,4 +906,9 @@ typedef struct _IOHID3DPoint {
 } IOHID3DPoint; 
 #endif
 
+enum {
+    kIOHIDEventColorSpaceUndefined                           = 0,
+    kIOHIDEventColorSpaceXYZ                                 = 1
+};
+typedef uint8_t IOHIDEventColorSpace;
 #endif /* _IOKIT_HID_IOHIDEVENTTYPES_H } */

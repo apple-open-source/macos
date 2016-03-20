@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2014-2016 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -107,20 +107,22 @@ bool OpaqueWhitelist::contains(SecStaticCodeRef codeRef, SecAssessmentFeedback f
 	opaque = code->cdHash();
 
 	// lookup current cdhash in whitelist
-	SQLite::Statement lookup(*this, "SELECT opaque FROM whitelist WHERE current=:current"
-		" AND opaque != 'disable override'");
-	lookup.bind(":current") = current.get();
-	while (lookup.nextRow()) {
-		CFRef<CFDataRef> expected = lookup[0].data();
-		if (CFEqual(opaque, expected)) {
-			match = true;	// actual opaque cdhash matches expected
-			break;
+	if (opaque) {
+		SQLite::Statement lookup(*this, "SELECT opaque FROM whitelist WHERE current=:current"
+			" AND opaque != 'disable override'");
+		lookup.bind(":current") = current.get();
+		while (lookup.nextRow()) {
+			CFRef<CFDataRef> expected = lookup[0].data();
+			if (CFEqual(opaque, expected)) {
+				match = true;	// actual opaque cdhash matches expected
+				break;
+			}
 		}
 	}
 
 	// prepare strings for use inside block
 	std::string currentHash = hashString(current);
-	std::string opaqueHash = hashString(opaque);
+	std::string opaqueHash = opaque ? hashString(opaque) : "none";
 
 	// send a trace indicating the result
 	MessageTrace trace("com.apple.security.assessment.whitelist2", code->identifier().c_str());
@@ -224,6 +226,7 @@ void OpaqueWhitelist::add(SecStaticCodeRef codeRef)
 
 //
 // Generate and attach an ad-hoc opaque signature
+// Use SHA-1 digests because that's what the whitelist is made with
 //
 static void attachOpaque(SecStaticCodeRef code, SecAssessmentFeedback feedback)
 {
@@ -240,9 +243,10 @@ static void attachOpaque(SecStaticCodeRef code, SecAssessmentFeedback feedback)
 	"}");
 
 	CFRef<CFDataRef> signature = CFDataCreateMutable(NULL, 0);
-	CFTemp<CFDictionaryRef> arguments("{%O=%O, %O=#N, %O=%O}",
+	CFTemp<CFDictionaryRef> arguments("{%O=%O, %O=#N, %O=%d, %O=%O}",
 		kSecCodeSignerDetached, signature.get(),
 		kSecCodeSignerIdentity, /* kCFNull, */
+		kSecCodeSignerDigestAlgorithm, kSecCodeSignatureHashSHA1,
 		kSecCodeSignerResourceRules, rules.get());
 	CFRef<SecCodeSignerRef> signer;
 	SecCSFlags creationFlags = kSecCSSignOpaque | kSecCSSignNoV1 | kSecCSSignBundleRoot;

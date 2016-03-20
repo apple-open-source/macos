@@ -115,6 +115,9 @@ CF_ENUM(OSStatus) {
 	errSecCSInvalidPlatform =			-67005,	/* invalid platform identifier or platform mismatch */
 	errSecCSTooBig =					-67004,	/* code is too big for current signing format */
 	errSecCSInvalidSymlink =			-67003,	/* invalid destination for symbolic link in bundle */
+	errSecCSNotAppLike =				-67002,	/* the code is valid but does not seem to be an app */
+	errSecCSBadDiskImageFormat =		-67001,	/* disk image format unrecognized, invalid, or unsuitable */
+	errSecCSUnsupportedDigestAlgorithm = -67000, /* signature digest algorithm(s) specified are not supported */
 };
 
 /*
@@ -307,6 +310,27 @@ typedef CF_ENUM(uint32_t, SecRequirementType) {
 	kSecPluginRequirementType =			5,	/* what plug-ins we may load */
 	kSecInvalidRequirementType,				/* invalid type of Requirement (must be last) */
 	kSecRequirementTypeCount = kSecInvalidRequirementType /* number of valid requirement types */
+};
+	
+	
+/*!
+ Types of cryptographic digests (hashes) used to hold code signatures
+ together.
+ 
+ Each combination of type, length, and other parameters is a separate
+ hash type; we don't understand "families" here.
+ 
+ These type codes govern the digest links that connect a CodeDirectory
+ to its subordinate data structures (code pages, resources, etc.)
+ They do not directly control other uses of hashes (such as those used
+ within X.509 certificates and CMS blobs).
+ */
+typedef CF_ENUM(uint32_t, SecCSDigestAlgorithm) {
+	kSecCodeSignatureNoHash							=  0,	/* null value */
+	kSecCodeSignatureHashSHA1						=  1,	/* SHA-1 */
+	kSecCodeSignatureHashSHA256						=  2,	/* SHA-256 */
+	kSecCodeSignatureHashSHA256Truncated			=  3,	/* SHA-256 truncated to first 20 bytes */
+	kSecCodeSignatureHashSHA384						=  4,	/* SHA-384 */
 };
 
 CF_ASSUME_NONNULL_END

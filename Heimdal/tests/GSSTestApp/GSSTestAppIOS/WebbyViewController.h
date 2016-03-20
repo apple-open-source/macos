@@ -2,7 +2,6 @@
 //  WebbyViewController.h
 //  GSSTestApp
 //
-//  Created by Love Hörnquist Åstrand on 2014-08-15.
 //  Copyright (c) 2014 Apple, Inc. All rights reserved.
 //
 

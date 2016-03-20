@@ -715,7 +715,7 @@ ikev1_received_packet(vchar_t *msg, struct sockaddr_storage *local, struct socka
 /* new negotiation of phase 1 for initiator */
 int
 ikev1_ph1begin_i(ike_session_t *session, struct remoteconf *rmconf, struct sockaddr_storage *remote, 
-                 struct sockaddr_storage *local, int started_by_api)
+                 struct sockaddr_storage *local, int started_by_api, nw_nat64_prefix_t *nat64_prefix)
 {
 
 	phase1_handle_t *iph1;
@@ -740,6 +740,9 @@ ikev1_ph1begin_i(ike_session_t *session, struct remoteconf *rmconf, struct socka
     retain_rmconf(iph1->rmconf);
 	iph1->side = INITIATOR;
 	iph1->started_by_api = started_by_api;
+	if (nat64_prefix != NULL) {
+		memcpy(&iph1->nat64_prefix, nat64_prefix, sizeof(*nat64_prefix));
+	}
 	iph1->version = ISAKMP_VERSION_NUMBER_IKEV1;
 	iph1->msgid = 0;
 	iph1->flags = 0;
@@ -978,6 +981,7 @@ ikev1_ph2begin_i(phase1_handle_t *iph1, phase2_handle_t *iph2)
 #endif
 
 	iph2->is_dying = 0;
+	memcpy(&iph2->nat64_prefix, &iph1->nat64_prefix, sizeof(iph2->nat64_prefix));
 	fsm_set_state(&iph2->status, IKEV1_STATE_QUICK_I_START);
 
 	IPSECLOGASLMSG("IPSec Phase 2 started (Initiated by me).\n");
@@ -1080,6 +1084,7 @@ ikev1_ph2begin_r(phase1_handle_t *iph1, vchar_t *msg)
 	if (ike_session_link_ph2_to_ph1(iph1, iph2))
         return -1;    
 	iph2->is_dying = 0;
+	memcpy(&iph2->nat64_prefix, &iph1->nat64_prefix, sizeof(iph2->nat64_prefix));
 
 	plog(ASL_LEVEL_DEBUG, "===\n");
     {
@@ -1476,7 +1481,16 @@ isakmp_open(void)
 
 		/* receive my interface address on inbound packets. */
 		switch (p->addr->ss_family) {
-		case AF_INET:
+		case AF_INET: {
+			int ifindex = if_nametoindex(p->ifname);
+			if (ifindex != 0 &&
+				setsockopt(p->sock, IPPROTO_IP,
+						   IP_BOUND_IF, &ifindex, sizeof(ifindex)) < 0) {
+				plog(ASL_LEVEL_ERR,
+					 "setsockopt IP_BOUND_IF (%s)\n",
+					 strerror(errno));
+				goto err_and_next;
+			}
 			if (setsockopt(p->sock, IPPROTO_IP,
 				       IP_RECVDSTADDR,
 					(const void *)&yes, sizeof(yes)) < 0) {
@@ -1486,13 +1500,23 @@ isakmp_open(void)
 				goto err_and_next;
 			}
 			break;
+		}
 #ifdef INET6
-		case AF_INET6:
+		case AF_INET6: {
 #ifdef INET6_ADVAPI
 			pktinfo = IPV6_RECVPKTINFO;
 #else
 			pktinfo = IPV6_RECVDSTADDR;
 #endif
+			int ifindex = if_nametoindex(p->ifname);
+			if (ifindex != 0 &&
+				setsockopt(p->sock, IPPROTO_IPV6,
+						   IPV6_BOUND_IF, &ifindex, sizeof(ifindex)) < 0) {
+					plog(ASL_LEVEL_ERR,
+						 "setsockopt IPV6_BOUND_IF (%s)\n",
+						 strerror(errno));
+					goto err_and_next;
+				}
 			if (setsockopt(p->sock, IPPROTO_IPV6, pktinfo,
 					(const void *)&yes, sizeof(yes)) < 0)
 			{
@@ -1502,6 +1526,7 @@ isakmp_open(void)
 				goto err_and_next;
 			}
 			break;
+		}
 #endif
 		}
 
@@ -2084,7 +2109,7 @@ int               ignore_sess_drop_policy;
         plog(ASL_LEVEL_DEBUG, "Begin Phase 1 rekey.\n");
 
 		/* start phase 1 negotiation as a initiator. */
-		if (ikev1_ph1begin_i(iph1->parent_session, rmconf, iph1->remote, iph1->local, 0) < 0) {
+		if (ikev1_ph1begin_i(iph1->parent_session, rmconf, iph1->remote, iph1->local, 0, &iph1->nat64_prefix) < 0) {
 			plog(ASL_LEVEL_DEBUG, "Phase 1 rekey Failed.\n");
 		}
 		iph1->is_rekey = TRUE;
@@ -2154,7 +2179,7 @@ phase1_handle_t *iph1;
 		plog(ASL_LEVEL_DEBUG, "begin Phase 1 rekey retry.\n");
 
 		/* start phase 1 negotiation as a initiator. */
-		if (ikev1_ph1begin_i(iph1->parent_session, rmconf, iph1->remote, iph1->local, 0) < 0) {
+		if (ikev1_ph1begin_i(iph1->parent_session, rmconf, iph1->remote, iph1->local, 0, &iph1->nat64_prefix) < 0) {
 			plog(ASL_LEVEL_DEBUG, "Phase 1 rekey retry Failed.\n");
 			return -1;
 		}
@@ -2368,7 +2393,7 @@ isakmp_post_acquire(phase2_handle_t *iph2)
 			return 0;
 		}
 		
-		if (ikev1_ph1begin_i(iph2->parent_session, rmconf, iph2->dst, iph2->src, 0) < 0) {
+		if (ikev1_ph1begin_i(iph2->parent_session, rmconf, iph2->dst, iph2->src, 0, &iph2->nat64_prefix) < 0) {
 			plog(ASL_LEVEL_INFO,
 				 "Request for Phase 1 failed. Will try later.\n");
 		}
@@ -2519,7 +2544,7 @@ isakmp_chkph1there(iph2)
         	struct remoteconf *rmconf = getrmconf(iph2->dst);
 		/* start phase 1 negotiation as a initiator. */
 		if (rmconf) {
-			if (ikev1_ph1begin_i(iph2->parent_session, rmconf, iph2->dst, iph2->src, 0) < 0) {
+			if (ikev1_ph1begin_i(iph2->parent_session, rmconf, iph2->dst, iph2->src, 0, iph1 != NULL ? &iph1->nat64_prefix : NULL) < 0) {
 				plog(ASL_LEVEL_DEBUG, "CHKPH1THERE: no established/negoing ph1 handler found... failed to initiate new one\n");
 			}
 		} else if (rmconf == NULL) {

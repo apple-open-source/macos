@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2015 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -94,9 +94,6 @@ SecStaticCode::SecStaticCode(DiskRep *rep)
 	  mDesignatedReq(NULL), mGotResourceBase(false), mMonitor(NULL), mLimitedAsync(NULL), mEvalDetails(NULL)
 {
 	CODESIGN_STATIC_CREATE(this, rep);
-	CFRef<CFDataRef> codeDirectory = rep->codeDirectory();
-	if (codeDirectory && CFDataGetLength(codeDirectory) <= 0)
-		MacOSError::throwMe(errSecCSSignatureInvalid);
 	checkForSystemSignature();
 }
 
@@ -377,14 +374,15 @@ CFDataRef SecStaticCode::component(CodeDirectory::SpecialSlot slot, OSStatus fai
 // Always throws if the CodeDirectory exists but is invalid.
 // NEVER validates against the signature.
 //
-const CodeDirectory *SecStaticCode::codeDirectory(bool check /* = true */)
+const CodeDirectory *SecStaticCode::codeDirectory(bool check /* = true */) const
 {
 	if (!mDir) {
-		if (mDir.take(mRep->codeDirectory())) {
-			const CodeDirectory *dir = reinterpret_cast<const CodeDirectory *>(CFDataGetBytePtr(mDir));
-			if (!dir->validateBlob(CFDataGetLength(mDir)))
-				MacOSError::throwMe(errSecCSSignatureInvalid);
-			dir->checkIntegrity();
+		// pick our favorite CodeDirectory from the choices we've got
+		CodeDirectoryMap candidates;
+		if (loadCodeDirectories(candidates)) {
+			CodeDirectory::HashAlgorithm type = CodeDirectory::bestHashOf(mHashAlgorithms);
+			mDir = candidates[type];								// and the winner is...
+			candidates.swap(mCodeDirectories);
 		}
 	}
 	if (mDir)
@@ -392,6 +390,41 @@ const CodeDirectory *SecStaticCode::codeDirectory(bool check /* = true */)
 	if (check)
 		MacOSError::throwMe(errSecCSUnsigned);
 	return NULL;
+}
+
+
+//
+// Fetch an array of all available CodeDirectories.
+// Returns false if unsigned (no classic CD slot), true otherwise.
+//
+bool SecStaticCode::loadCodeDirectories(CodeDirectoryMap& cdMap) const
+{
+	__block CodeDirectoryMap candidates;
+	auto add = ^bool (CodeDirectory::SpecialSlot slot){
+		CFRef<CFDataRef> cdData = diskRep()->component(slot);
+		if (!cdData)
+			return false;
+		const CodeDirectory* cd = reinterpret_cast<const CodeDirectory*>(CFDataGetBytePtr(cdData));
+		if (!cd->validateBlob(CFDataGetLength(cdData)))
+			MacOSError::throwMe(errSecCSSignatureFailed);	// no recovery - any suspect CD fails
+		cd->checkIntegrity();
+		auto result = candidates.insert(make_pair(cd->hashType, cdData.get()));
+		if (!result.second)
+			MacOSError::throwMe(errSecCSSignatureFailed);	// duplicate hashType, go to heck
+		mHashAlgorithms.insert(cd->hashType);
+		if (slot == cdCodeDirectorySlot)
+			mBaseDir = cdData;
+		return true;
+	};
+	if (!add(cdCodeDirectorySlot))
+		return false;		// no classic slot CodeDirectory -> unsigned
+	for (CodeDirectory::SpecialSlot slot = cdAlternateCodeDirectorySlots; slot < cdAlternateCodeDirectoryLimit; slot++)
+		if (!add(slot))		// no CodeDirectory at this slot -> end of alternates
+			break;
+	if (candidates.empty())
+		MacOSError::throwMe(errSecCSSignatureFailed);		// no viable CodeDirectory in sight
+	cdMap.swap(candidates);
+	return true;
 }
 
 
@@ -408,6 +441,25 @@ CFDataRef SecStaticCode::cdHash()
 		}
 	}
 	return mCDHash;
+}
+	
+	
+//
+// Get an array of the cdhashes for all digest types in this signature
+// The array is sorted by cd->hashType.
+//
+CFArrayRef SecStaticCode::cdHashes()
+{
+	if (!mCDHashes) {
+		CFRef<CFMutableArrayRef> cdList = makeCFMutableArray(0);
+		for (auto it = mCodeDirectories.begin(); it != mCodeDirectories.end(); ++it) {
+			const CodeDirectory *cd = (const CodeDirectory *)CFDataGetBytePtr(it->second);
+			if (CFRef<CFDataRef> hash = cd->cdhash())
+				CFArrayAppendValue(cdList, hash);
+		}
+		mCDHashes = cdList.get();
+	}
+	return mCDHashes;
 }
 
 
@@ -484,6 +536,33 @@ void SecStaticCode::validateNonResourceComponents()
 			break;
 		}
 }
+	
+	
+//
+// Check that any "top index" sealed into the signature conforms to what's actually here.
+//
+void SecStaticCode::validateTopDirectory()
+{
+	assert(mDir);		// must already have loaded CodeDirectories
+	if (CFDataRef topDirectory = component(cdTopDirectorySlot)) {
+		const auto topData = (const Endian<uint32_t> *)CFDataGetBytePtr(topDirectory);
+		const auto topDataEnd = topData + CFDataGetLength(topDirectory) / sizeof(*topData);
+		std::vector<uint32_t> signedVector(topData, topDataEnd);
+		
+		std::vector<uint32_t> foundVector;
+		foundVector.push_back(cdCodeDirectorySlot);	// mandatory
+		for (CodeDirectory::Slot slot = 1; slot <= cdSlotMax; ++slot)
+			if (component(slot))
+				foundVector.push_back(slot);
+		int alternateCount = int(mCodeDirectories.size() - 1);		// one will go into cdCodeDirectorySlot
+		for (unsigned n = 0; n < alternateCount; n++)
+			foundVector.push_back(cdAlternateCodeDirectorySlots + n);
+		foundVector.push_back(cdSignatureSlot);		// mandatory (may be empty)
+		
+		if (signedVector != foundVector)
+			MacOSError::throwMe(errSecCSSignatureFailed);
+	}
+}
 
 
 //
@@ -508,7 +587,7 @@ CFAbsoluteTime SecStaticCode::signingTimestamp()
 
 
 //
-// Verify the CMS signature on the CodeDirectory.
+// Verify the CMS signature.
 // This performs the cryptographic tango. It returns if the signature is valid,
 // or throws if it is not. As a side effect, a successful return sets up the
 // cached certificate chain for future use.
@@ -531,7 +610,7 @@ bool SecStaticCode::verifySignature()
 	CFDataRef sig = this->signature();
 	MacOSError::check(CMSDecoderUpdateMessage(cms, CFDataGetBytePtr(sig), CFDataGetLength(sig)));
 	this->codeDirectory();	// load CodeDirectory (sets mDir)
-	MacOSError::check(CMSDecoderSetDetachedContent(cms, mDir));
+	MacOSError::check(CMSDecoderSetDetachedContent(cms, mBaseDir));
 	MacOSError::check(CMSDecoderFinalizeMessage(cms));
 	MacOSError::check(CMSDecoderSetSearchKeychain(cms, cfEmptyArray()));
 	CFRef<CFArrayRef> vf_policies = verificationPolicies();
@@ -553,6 +632,24 @@ bool SecStaticCode::verifySignature()
 		Security::Syslog::error("CMSDecoderCopySignerStatus failed with %s error (%d)",
 								reason, (int)status);
 		MacOSError::throwMe(errSecCSSignatureFailed);
+	}
+	
+	// retrieve auxiliary data bag and verify against current state
+	CFRef<CFDataRef> hashBag;
+	switch (OSStatus rc = CMSDecoderCopySignerAppleCodesigningHashAgility(cms, 0, &hashBag.aref())) {
+	case noErr:
+		if (hashBag) {
+			CFRef<CFDictionaryRef> hashDict = makeCFDictionaryFrom(hashBag);
+			CFArrayRef cdList = CFArrayRef(CFDictionaryGetValue(hashDict, CFSTR("cdhashes")));
+			CFArrayRef myCdList = this->cdHashes();
+			if (cdList == NULL || !CFEqual(cdList, myCdList))
+				MacOSError::throwMe(errSecCSSignatureFailed);
+		}
+		break;
+	case -1:	/* CMS used to return this for "no attribute found", so tolerate it. Now returning noErr/NULL */
+		break;
+	default:
+		MacOSError::throwMe(rc);
 	}
 
 	// internal signing time (as specified by the signer; optional)
@@ -776,15 +873,24 @@ void SecStaticCode::validateExecutable()
 			if (Universal *fat = mRep->mainExecutableImage())
 				fd.seek(fat->archOffset());
 			size_t pageSize = cd->pageSize ? (1 << cd->pageSize) : 0;
-			size_t remaining = cd->codeLimit;
+			size_t remaining = cd->signingLimit();
 			for (uint32_t slot = 0; slot < cd->nCodeSlots; ++slot) {
-				size_t size = min(remaining, pageSize);
-				if (!cd->validateSlot(fd, size, slot)) {
+				size_t thisPage = remaining;
+				if (pageSize)
+					thisPage = min(thisPage, pageSize);
+				__block bool good = true;
+				CodeDirectory::multipleHashFileData(fd, thisPage, hashAlgorithms(), ^(CodeDirectory::HashAlgorithm type, Security::DynamicHash *hasher) {
+					const CodeDirectory* cd = (const CodeDirectory*)CFDataGetBytePtr(mCodeDirectories[type]);
+					if (!hasher->verify((*cd)[slot]))
+						good = false;
+				});
+				if (!good) {
 					CODESIGN_EVAL_STATIC_EXECUTABLE_FAIL(this, (int)slot);
 					MacOSError::throwMe(errSecCSSignatureFailed);
 				}
-				remaining -= size;
+				remaining -= thisPage;
 			}
+			assert(remaining == 0);
 			mExecutableValidated = true;
 			mExecutableValidResult = errSecSuccess;
 		} catch (const CommonError &err) {
@@ -889,7 +995,7 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 			// scan through the resources on disk, checking each against the resourceDirectory
 			__block CFRef<CFMutableDictionaryRef> resourceMap = makeCFMutableDictionary(files);
 			string base = cfString(this->resourceBase());
-			ResourceBuilder resources(base, base, rules, codeDirectory()->hashType, strict, mTolerateErrors);
+			ResourceBuilder resources(base, base, rules, strict, mTolerateErrors);
 			this->mResourceScope = &resources;
 			diskRep()->adjustResources(resources);
 
@@ -1096,7 +1202,7 @@ CFDataRef SecStaticCode::resource(string path, ValidationContext &ctx)
 {
 	if (CFDictionaryRef rdict = resourceDictionary()) {
 		if (CFTypeRef file = cfget(rdict, "files.%s", path.c_str())) {
-			ResourceSeal seal = file;
+			ResourceSeal seal(file);
 			if (!resourceBase())	// no resources in DiskRep
 				MacOSError::throwMe(errSecCSResourcesNotFound);
 			if (seal.nested())
@@ -1105,7 +1211,7 @@ CFDataRef SecStaticCode::resource(string path, ValidationContext &ctx)
 			if (CFRef<CFDataRef> data = cfLoadFile(fullpath)) {
 				MakeHash<CodeDirectory> hasher(this->codeDirectory());
 				hasher->update(CFDataGetBytePtr(data), CFDataGetLength(data));
-				if (hasher->verify(seal.hash()))
+				if (hasher->verify(seal.hash(hashAlgorithm())))
 					return data.yield();	// good
 				else
 					ctx.reportProblem(errSecCSBadResource, kSecCFErrorResourceAltered, fullpath); // altered
@@ -1134,7 +1240,8 @@ void SecStaticCode::validateResource(CFDictionaryRef files, string path, bool is
 		MacOSError::throwMe(errSecCSResourcesNotFound);
 	CFRef<CFURLRef> fullpath = makeCFURL(path, false, resourceBase());
 	if (CFTypeRef file = CFDictionaryGetValue(files, CFTempString(path))) {
-		ResourceSeal seal = file;
+		ResourceSeal seal(file);
+		const ResourceSeal& rseal = seal;
 		if (seal.nested()) {
 			if (isSymlink)
 				return ctx.reportProblem(errSecCSBadResource, kSecCFErrorResourceAltered, fullpath); // changed type
@@ -1146,16 +1253,17 @@ void SecStaticCode::validateResource(CFDictionaryRef files, string path, bool is
 			if (!isSymlink)
 				return ctx.reportProblem(errSecCSBadResource, kSecCFErrorResourceAltered, fullpath); // changed type
 			validateSymlinkResource(cfString(fullpath), cfString(seal.link()), ctx, flags);
-		} else if (seal.hash()) {	// genuine file
+		} else if (seal.hash(hashAlgorithm())) {	// genuine file
 			if (isSymlink)
 				return ctx.reportProblem(errSecCSBadResource, kSecCFErrorResourceAltered, fullpath); // changed type
 			AutoFileDesc fd(cfString(fullpath), O_RDONLY, FileDesc::modeMissingOk);	// open optional file
 			if (fd) {
-				MakeHash<CodeDirectory> hasher(this->codeDirectory());
-				hashFileData(fd, hasher.get());
-				if (hasher->verify(seal.hash()))
-					return;			// verify good
-				else
+				__block bool good = true;
+				CodeDirectory::multipleHashFileData(fd, 0, hashAlgorithms(), ^(CodeDirectory::HashAlgorithm type, Security::DynamicHash *hasher) {
+					if (!hasher->verify(rseal.hash(type)))
+						good = false;
+				});
+				if (!good)
 					ctx.reportProblem(errSecCSBadResource, kSecCFErrorResourceAltered, fullpath); // altered
 			} else {
 				if (!seal.optional())
@@ -1174,7 +1282,7 @@ void SecStaticCode::validateResource(CFDictionaryRef files, string path, bool is
 	}
 	ctx.reportProblem(errSecCSBadResource, kSecCFErrorResourceAdded, CFTempURL(path, false, resourceBase()));
 }
-	
+
 void SecStaticCode::validateSymlinkResource(std::string fullpath, std::string seal, ValidationContext &ctx, SecCSFlags flags)
 {
 	static const char* const allowedDestinations[] = {
@@ -1239,7 +1347,7 @@ void SecStaticCode::validateNestedCode(CFURLRef path, const ResourceSeal &seal, 
 			flags |= kSecCSBasicValidateOnly;
 		SecPointer<SecStaticCode> code = new SecStaticCode(DiskRep::bestGuess(cfString(path)));
 		code->initializeFromParent(*this);
-		code->staticValidate(flags, SecRequirement::required(req));
+		code->staticValidate(flags & ~kSecCSRestrictToAppLike, SecRequirement::required(req));
 
 		if (isFramework && (flags & kSecCSStrictValidate))
 			try {
@@ -1384,14 +1492,16 @@ const Requirement *SecStaticCode::defaultDesignatedRequirement()
 		Requirement::Maker::Chain chain(maker, opOr);
 
 		// insert cdhash requirement for all architectures
-		chain.add();
-		maker.cdhash(this->cdHash());
-		handleOtherArchitectures(^(SecStaticCode *subcode) {
-			if (CFDataRef cdhash = subcode->cdHash()) {
-				chain.add();
-				maker.cdhash(cdhash);
-			}
+		__block CFRef<CFMutableArrayRef> allHashes = CFArrayCreateMutableCopy(NULL, 0, this->cdHashes());
+		handleOtherArchitectures(^(SecStaticCode *other) {
+			CFArrayRef hashes = other->cdHashes();
+			CFArrayAppendArray(allHashes, hashes, CFRangeMake(0, CFArrayGetCount(hashes)));
 		});
+		CFIndex count = CFArrayGetCount(allHashes);
+		for (CFIndex n = 0; n < count; ++n) {
+			chain.add();
+			maker.cdhash(CFDataRef(CFArrayGetValueAtIndex(allHashes, n)));
+		}
 		return maker.make();
 	} else {
 		// full signature: Gin up full context and let DRMaker do its thing
@@ -1529,8 +1639,11 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 	CFDictionaryAddValue(dict, kSecCodeInfoFormat, CFTempString(this->format()));
 	CFDictionaryAddValue(dict, kSecCodeInfoSource, CFTempString(this->signatureSource()));
 	CFDictionaryAddValue(dict, kSecCodeInfoUnique, this->cdHash());
+	CFDictionaryAddValue(dict, kSecCodeInfoCdHashes, this->cdHashes());
 	const CodeDirectory* cd = this->codeDirectory(false);
 	CFDictionaryAddValue(dict, kSecCodeInfoDigestAlgorithm, CFTempNumber(cd->hashType));
+	CFRef<CFArrayRef> digests = makeCFArrayFrom(^CFTypeRef(CodeDirectory::HashAlgorithm type) { return CFTempNumber(type); }, hashAlgorithms());
+	CFDictionaryAddValue(dict, kSecCodeInfoDigestAlgorithms, digests);
 	if (cd->platform)
 		CFDictionaryAddValue(dict, kSecCodeInfoPlatformIdentifier, CFTempNumber(cd->platform));
 
@@ -1547,20 +1660,20 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 	//
 	if (flags & kSecCSSigningInformation)
 		try {
-			if (CFArrayRef certs = this->certificates())
-				CFDictionaryAddValue(dict, kSecCodeInfoCertificates, certs);
 			if (CFDataRef sig = this->signature())
 				CFDictionaryAddValue(dict, kSecCodeInfoCMS, sig);
+			if (const char *teamID = this->teamID())
+				CFDictionaryAddValue(dict, kSecCodeInfoTeamIdentifier, CFTempString(teamID));
 			if (mTrust)
 				CFDictionaryAddValue(dict, kSecCodeInfoTrust, mTrust);
+			if (CFArrayRef certs = this->certificates())
+				CFDictionaryAddValue(dict, kSecCodeInfoCertificates, certs);
 			if (CFAbsoluteTime time = this->signingTime())
 				if (CFRef<CFDateRef> date = CFDateCreate(NULL, time))
 					CFDictionaryAddValue(dict, kSecCodeInfoTime, date);
 			if (CFAbsoluteTime time = this->signingTimestamp())
 				if (CFRef<CFDateRef> date = CFDateCreate(NULL, time))
 					CFDictionaryAddValue(dict, kSecCodeInfoTimestamp, date);
-			if (const char *teamID = this->teamID())
-				CFDictionaryAddValue(dict, kSecCodeInfoTeamIdentifier, CFTempString(teamID));
 		} catch (...) { }
 
 	//
@@ -1667,8 +1780,8 @@ void SecStaticCode::CollectingContext::throwMe()
 //
 // SecStaticCode exposes an a la carte menu of topical validators applying
 // to a given object. The static validation API pulls them together reliably,
-// but it also adds two matrix dimensions: architecture (for "fat" Mach-O binaries)
-// and nested code. This function will crawl a suitable cross-section of this
+// but it also adds three matrix dimensions: architecture (for "fat" Mach-O binaries),
+// nested code, and multiple digests. This function will crawl a suitable cross-section of this
 // validation matrix based on which options it is given, creating temporary
 // SecStaticCode objects on the fly to complete the task.
 // (The point, of course, is to do as little duplicate work as possible.)
@@ -1692,7 +1805,7 @@ void SecStaticCode::staticValidate(SecCSFlags flags, const SecRequirement *req)
 				if ((arch.cpuType() & ~CPU_ARCH_MASK) == CPU_TYPE_POWERPC)
 					return;	// irrelevant to Gatekeeper
 			}
-			subcode->detachedSignature(this->mDetachedSig);	// carry over explicit (but not implicit) architecture
+			subcode->detachedSignature(this->mDetachedSig);	// carry over explicit (but not implicit) detached signature
 			subcode->staticValidateCore(flags, req);
 		});
 	reportProgress();
@@ -1706,7 +1819,7 @@ void SecStaticCode::staticValidate(SecCSFlags flags, const SecRequirement *req)
 
 	// perform strict validation if desired
 	if (flags & kSecCSStrictValidate)
-		mRep->strictValidate(codeDirectory(), mTolerateErrors);
+		mRep->strictValidate(codeDirectory(), mTolerateErrors, mValidationFlags);
 	reportProgress();
 
 	// allow monitor intervention
@@ -1722,6 +1835,7 @@ void SecStaticCode::staticValidateCore(SecCSFlags flags, const SecRequirement *r
 {
 	try {
 		this->validateNonResourceComponents();	// also validates the CodeDirectory
+		this->validateTopDirectory();
 		if (!(flags & kSecCSDoNotValidateExecutable))
 			this->validateExecutable();
 		if (req)

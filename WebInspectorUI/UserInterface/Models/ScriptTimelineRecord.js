@@ -73,13 +73,6 @@ WebInspector.ScriptTimelineRecord = class ScriptTimelineRecord extends WebInspec
         if (this._profile || !this._profilePayload)
             return;
 
-        // FIXME: <https://webkit.org/b/147029> Web Inspector: Better share objects generated from timeline events (Records)
-        if (this._profilePayload.__profile) {
-            this._profile = this._profilePayload.__profile;
-            this._profilePayload = undefined;
-            return;
-        }
-
         var payload = this._profilePayload;
         this._profilePayload = undefined;
 
@@ -106,7 +99,7 @@ WebInspector.ScriptTimelineRecord = class ScriptTimelineRecord extends WebInspec
             var type = isProgramCode ? WebInspector.ProfileNode.Type.Program : WebInspector.ProfileNode.Type.Function;
             var functionName = !isProgramCode && !isAnonymousFunction && nodePayload.functionName !== "(unknown)" ? nodePayload.functionName : null;
 
-            // COMPATIBILITY (iOS8): Timeline.CPUProfileNodes used to include an array of complete
+            // COMPATIBILITY (iOS 8): Timeline.CPUProfileNodes used to include an array of complete
             // call information instead of the aggregated "callInfo" data.
             var calls = null;
             if ("calls" in nodePayload) {
@@ -151,7 +144,7 @@ WebInspector.ScriptTimelineRecord = class ScriptTimelineRecord extends WebInspec
             }
         }
 
-        this._profile = payload.__profile = new WebInspector.Profile(rootNodes);
+        this._profile = new WebInspector.Profile(rootNodes);
     }
 };
 
@@ -168,7 +161,7 @@ WebInspector.ScriptTimelineRecord.EventType = {
     ConsoleProfileRecorded: "script-timeline-record-console-profile-recorded"
 };
 
-WebInspector.ScriptTimelineRecord.EventType.displayName = function(eventType, details, includeTimerIdentifierInMainTitle)
+WebInspector.ScriptTimelineRecord.EventType.displayName = function(eventType, details, includeDetailsInMainTitle)
 {
     if (details && !WebInspector.ScriptTimelineRecord._eventDisplayNames) {
         // These display names are not localized because they closely represent
@@ -343,22 +336,28 @@ WebInspector.ScriptTimelineRecord.EventType.displayName = function(eventType, de
             return WebInspector.UIString("“%s” Profile Recorded").format(details);
         return WebInspector.UIString("Console Profile Recorded");
     case WebInspector.ScriptTimelineRecord.EventType.TimerFired:
-        if (details && includeTimerIdentifierInMainTitle)
+        if (details && includeDetailsInMainTitle)
             return WebInspector.UIString("Timer %s Fired").format(details);
         return WebInspector.UIString("Timer Fired");
     case WebInspector.ScriptTimelineRecord.EventType.TimerInstalled:
-        if (details && includeTimerIdentifierInMainTitle)
-            return WebInspector.UIString("Timer %s Installed").format(details);
+        if (details && includeDetailsInMainTitle)
+            return WebInspector.UIString("Timer %s Installed").format(details.timerId);
         return WebInspector.UIString("Timer Installed");
     case WebInspector.ScriptTimelineRecord.EventType.TimerRemoved:
-        if (details && includeTimerIdentifierInMainTitle)
+        if (details && includeDetailsInMainTitle)
             return WebInspector.UIString("Timer %s Removed").format(details);
         return WebInspector.UIString("Timer Removed");
     case WebInspector.ScriptTimelineRecord.EventType.AnimationFrameFired:
+        if (details && includeDetailsInMainTitle)
+            return WebInspector.UIString("Animation Frame %s Fired").format(details);
         return WebInspector.UIString("Animation Frame Fired");
     case WebInspector.ScriptTimelineRecord.EventType.AnimationFrameRequested:
+        if (details && includeDetailsInMainTitle)
+            return WebInspector.UIString("Animation Frame %s Requested").format(details);
         return WebInspector.UIString("Animation Frame Requested");
     case WebInspector.ScriptTimelineRecord.EventType.AnimationFrameCanceled:
+        if (details && includeDetailsInMainTitle)
+            return WebInspector.UIString("Animation Frame %s Canceled").format(details);
         return WebInspector.UIString("Animation Frame Canceled");
     }
 };

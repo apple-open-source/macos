@@ -4559,11 +4559,14 @@ dispatch_mig_server(dispatch_source_t ds, size_t maxmsgsz,
 		bufReply = bufTemp;
 
 #if DISPATCH_USE_IMPORTANCE_ASSERTION
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 		int r = proc_importance_assertion_begin_with_msg(&bufRequest->Head,
 				NULL, &assertion_token);
 		if (r && slowpath(r != EIO)) {
 			(void)dispatch_assume_zero(r);
 		}
+#pragma clang diagnostic pop
 #endif
 		_voucher_replace(voucher_create_with_mach_msg(&bufRequest->Head));
 		demux_success = callback(&bufRequest->Head, &bufReply->Head);

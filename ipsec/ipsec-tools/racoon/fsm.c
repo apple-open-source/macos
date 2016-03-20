@@ -247,13 +247,7 @@ fsm_ikev1_phase1_send_response(phase1_handle_t *iph1, vchar_t *msg)
     }
     
     if (error) {
-        u_int32_t address;
-        if (iph1->remote->ss_family == AF_INET)
-            address = ((struct sockaddr_in *)iph1->remote)->sin_addr.s_addr;
-        else {
-            address = 0;
-        }
-        vpncontrol_notify_ike_failed(error, FROM_LOCAL, address, 0, NULL);
+        vpncontrol_notify_ike_failed(error, FROM_LOCAL, iph1_get_remote_v4_address(iph1), 0, NULL);
     }
     
     return error;

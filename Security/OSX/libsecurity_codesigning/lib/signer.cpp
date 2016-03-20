@@ -58,10 +58,22 @@ void SecCodeSigner::Signer::sign(SecCSFlags flags)
 
 	PreSigningContext context(*this);
 
+	considerTeamID(context);
+
+	if (Universal *fat = state.mNoMachO ? NULL : rep->mainExecutableImage()) {
+		signMachO(fat, context);
+	} else {
+		signArchitectureAgnostic(context);
+	}
+}
+	
+	
+void SecCodeSigner::Signer::considerTeamID(const PreSigningContext& context)
+{
 	/* If an explicit teamID was passed in it must be
 	 the same as what came from the cert */
 	std::string teamIDFromCert = state.getTeamIDFromSigner(context.certs);
-
+	
 	if (state.mPreserveMetadata & kSecCodeSignerPreserveTeamIdentifier) {
 		/* If preserving the team identifier, teamID is set previously when the
 		 code object is still available */
@@ -81,14 +93,8 @@ void SecCodeSigner::Signer::sign(SecCSFlags flags)
 			MacOSError::throwMe(errSecCSInvalidFlags);
 		}
 	}
-
-	if (Universal *fat = state.mNoMachO ? NULL : rep->mainExecutableImage()) {
-		signMachO(fat, context);
-	} else {
-		signArchitectureAgnostic(context);
-	}
 }
-
+	
 
 //
 // Remove any existing code signature from code
@@ -102,7 +108,7 @@ void SecCodeSigner::Signer::remove(SecCSFlags flags)
 	rep = code->diskRep();
 	if (Universal *fat = state.mNoMachO ? NULL : rep->mainExecutableImage()) {
 		// architecture-sensitive removal
-		MachOEditor editor(rep->writer(), *fat, kSecCodeSignatureNoHash, rep->mainExecutablePath());
+		MachOEditor editor(rep->writer(), *fat, digestAlgorithms(), rep->mainExecutablePath());
 		editor.allocate();		// create copy
 		editor.commit();		// commit change
 	} else {
@@ -121,7 +127,7 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 {
 	// make sure the rep passes strict validation
 	if (strict)
-		rep->strictValidate(NULL, MacOSErrorSet());
+		rep->strictValidate(NULL, MacOSErrorSet(), flags);
 	
 	// initialize progress/cancellation state
 	code->prepareProgress(0);			// totally fake workload - we don't know how many files we'll encounter
@@ -138,10 +144,10 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 	if (identifier.empty() && (inherit & kSecCodeSignerPreserveIdentifier))
 		identifier = code->identifier();
 	if (identifier.empty()) {
-		identifier = rep->recommendedIdentifier(state);
+		identifier = rep->recommendedIdentifier(*this);
 		if (identifier.find('.') == string::npos)
 			identifier = state.mIdentifierPrefix + identifier;
-		if (identifier.find('.') == string::npos && state.isAdhoc())
+		if (identifier.find('.') == string::npos && isAdhoc())
 			identifier = identifier + "-" + uniqueName();
 		secdebug("signer", "using default identifier=%s", identifier.c_str());
 	} else
@@ -153,6 +159,11 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 		if (c_id)
 			teamID = c_id;
 	}
+	
+	// Digest algorithms: explicit or preserved. Subject to diskRep defaults or final default later.
+	hashAlgorithms = state.mDigestAlgorithms;
+	if (hashAlgorithms.empty() && (inherit & kSecCodeSignerPreserveDigestAlgorithm))
+		hashAlgorithms = code->hashAlgorithms();
 	
 	entitlements = state.mEntitlementData;
 	if (!entitlements && (inherit & kSecCodeSignerPreserveEntitlements))
@@ -211,9 +222,11 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 	
 	// prepare the resource directory, if any
 	string rpath = rep->resourcesRootPath();
+	string rrpath;
+	CFCopyRef<CFDictionaryRef> resourceRules;
 	if (!rpath.empty()) {
 		// explicitly given resource rules always win
-		CFCopyRef<CFDictionaryRef> resourceRules = state.mResourceRules;
+		resourceRules = state.mResourceRules;
 		
 		// inherited rules come next (overriding embedded ones!)
 		if (!resourceRules && (inherit & kSecCodeSignerPreserveResourceRules))
@@ -240,16 +253,13 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 
 		// finally, ask the DiskRep for its default
 		if (!resourceRules)
-			resourceRules.take(rep->defaultResourceRules(state));
+			resourceRules.take(rep->defaultResourceRules(*this));
 
 		// resource root can optionally be the canonical bundle path,
 		// but sealed resource paths are always relative to rpath
-		string root = rpath;
-		if (state.signingFlags() & kSecCSSignBundleRoot)
-			root = cfStringRelease(rep->copyCanonicalPath());
-
-		// build the resource directory
-		buildResources(root, rpath, resourceRules);
+		rrpath = rpath;
+		if (signingFlags() & kSecCSSignBundleRoot)
+			rrpath = cfStringRelease(rep->copyCanonicalPath());
 	}
 	
 	// screen and set the signing time
@@ -265,10 +275,21 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 		signingTime = time;
 	}
 	
-	pagesize = state.mPageSize ? cfNumber<size_t>(state.mPageSize) : rep->pageSize(state);
-    
-    // Timestamping setup
-    CFRef<SecIdentityRef> mTSAuth;	// identity for client-side authentication to the Timestamp server
+	pagesize = state.mPageSize ? cfNumber<size_t>(state.mPageSize) : rep->pageSize(*this);
+	
+	// Allow the DiskRep to modify the signing parameters. This sees explicit and inherited values but not defaults.
+	rep->prepareForSigning(*this);
+	
+	// apply some defaults after diskRep intervention
+	if (hashAlgorithms.empty()) {	// default to SHA256 + SHA-1
+		hashAlgorithms.insert(kSecCodeSignatureHashSHA1);
+		hashAlgorithms.insert(kSecCodeSignatureHashSHA256);
+	}
+	
+	// build the resource directory (once and for all, using the digests determined above)
+	if (!rpath.empty()) {
+		buildResources(rrpath, rpath, resourceRules);
+	}
 }
 
 
@@ -295,7 +316,7 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 	}
 
 	CFDictionaryRef files2 = NULL;
-	if (!(state.signingFlags() & kSecCSSignV1)) {
+	if (!(signingFlags() & kSecCSSignV1)) {
 		CFCopyRef<CFDictionaryRef> rules2 = cfget<CFDictionaryRef>(rulesDict, "rules2");
 		if (!rules2) {
 			// Clone V1 rules and add default nesting rules at weight 0 (overridden by anything in rules).
@@ -311,7 +332,7 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 		// build the modern (V2) resource seal
 		__block CFRef<CFMutableDictionaryRef> files = makeCFMutableDictionary();
 		CFMutableDictionaryRef filesRef = files.get();	// (into block)
-		ResourceBuilder resourceBuilder(root, relBase, rules2, digestAlgorithm(), strict, MacOSErrorSet());
+		ResourceBuilder resourceBuilder(root, relBase, rules2, strict, MacOSErrorSet());
 		ResourceBuilder	&resources = resourceBuilder;	// (into block)
 		rep->adjustResources(resources);
 
@@ -331,8 +352,7 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 					target[len] = '\0';
 					seal.take(cfmake<CFMutableDictionaryRef>("{symlink=%s}", target));
 				} else {
-					seal.take(cfmake<CFMutableDictionaryRef>("{hash=%O}",
-						CFRef<CFDataRef>(resources.hashFile(accpath.c_str())).get()));
+					seal.take(resources.hashFile(accpath.c_str(), digestAlgorithms()));
 				}
 				if (ruleFlags & ResourceBuilder::optional)
 					CFDictionaryAddValue(seal, CFSTR("optional"), kCFBooleanTrue);
@@ -352,10 +372,10 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 	}
 	
 	CFDictionaryAddValue(result, CFSTR("rules"), rules);	// preserve V1 rules in any case
-	if (!(state.signingFlags() & kSecCSSignNoV1)) {
+	if (!(signingFlags() & kSecCSSignNoV1)) {
 		// build the legacy (V1) resource seal
 		__block CFRef<CFMutableDictionaryRef> files = makeCFMutableDictionary();
-		ResourceBuilder resourceBuilder(root, relBase, rules, digestAlgorithm(), strict, MacOSErrorSet());
+		ResourceBuilder resourceBuilder(root, relBase, rules, strict, MacOSErrorSet());
 		ResourceBuilder	&resources = resourceBuilder;
 		rep->adjustResources(resources);	// DiskRep-specific adjustments
 		resources.scan(^(FTSENT *ent, uint32_t ruleFlags, std::string relpath, Rule *rule) {
@@ -369,7 +389,7 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 							hash = CFDataRef(CFDictionaryGetValue(CFDictionaryRef(seal), CFSTR("hash")));
 					}
 				if (!hash)
-					hash.take(resources.hashFile(ent->fts_accpath));
+					hash.take(resources.hashFile(ent->fts_accpath, kSecCodeSignatureHashSHA1));
 				if (ruleFlags == 0) {	// default case - plain hash
 					cfadd(files, "{%s=%O}", relpath.c_str(), hash.get());
 					secdebug("csresource", "%s added simple (rule %p)", relpath.c_str(), rule);
@@ -396,8 +416,8 @@ CFMutableDictionaryRef SecCodeSigner::Signer::signNested(const std::string &path
 	// sign nested code and collect nesting information
 	try {
 		SecPointer<SecStaticCode> code = new SecStaticCode(DiskRep::bestGuess(path));
-		if (state.signingFlags() & kSecCSSignNestedCode)
-			this->state.sign(code, state.signingFlags());
+		if (signingFlags() & kSecCSSignNestedCode)
+			this->state.sign(code, signingFlags());
 		std::string dr = Dumper::dump(code->designatedRequirement());
 		return cfmake<CFMutableDictionaryRef>("{requirement=%s,cdhash=%O}",
 			Dumper::dump(code->designatedRequirement()).c_str(),
@@ -419,7 +439,7 @@ void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context
 	// Mach-O executable at the core - perform multi-architecture signing
 	auto_ptr<ArchEditor> editor(state.mDetached
 		? static_cast<ArchEditor *>(new BlobEditor(*fat, *this))
-		: new MachOEditor(rep->writer(), *fat, this->digestAlgorithm(), rep->mainExecutablePath()));
+		: new MachOEditor(rep->writer(), *fat, this->digestAlgorithms(), rep->mainExecutablePath()));
 	assert(editor->count() > 0);
 	if (!editor->attribute(writerNoGlobal))	// can store architecture-common components
 		populate(*editor);
@@ -436,11 +456,15 @@ void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context
 			}
 		}
 		
-		arch.ireqs(requirements, rep->defaultRequirements(&arch.architecture, state), context);
+		arch.ireqs(requirements, rep->defaultRequirements(&arch.architecture, *this), context);
 		if (editor->attribute(writerNoGlobal))	// can't store globally, add per-arch
 			populate(arch);
-		populate(arch.cdbuilder, arch, arch.ireqs,
-			arch.source->offset(), arch.source->signingExtent());
+		for (auto type = digestAlgorithms().begin(); type != digestAlgorithms().end(); ++type) {
+			arch.eachDigest(^(CodeDirectory::Builder& builder) {
+				populate(builder, arch, arch.ireqs,
+						 arch.source->offset(), arch.source->signingExtent(), unsigned(digestAlgorithms().size()-1));
+			});
+		}
 	
 		// add identification blob (made from this architecture) only if we're making a detached signature
 		if (state.mDetached) {
@@ -450,8 +474,11 @@ void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context
 		}
 		
 		// prepare SuperBlob size estimate
-		size_t cdSize = arch.cdbuilder.size(CodeDirectory::currentVersion);
-		arch.blobSize = arch.size(cdSize, state.mCMSSize, 0);
+		__block std::vector<size_t> sizes;
+		arch.eachDigest(^(CodeDirectory::Builder& builder){
+			sizes.push_back(builder.size(CodeDirectory::currentVersion));
+		});
+		arch.blobSize = arch.size(sizes, state.mCMSSize, 0);
 	}
 	
 	editor->allocate();
@@ -461,12 +488,19 @@ void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context
 		MachOEditor::Arch &arch = *it->second;
 		editor->reset(arch);
 
-		// finish CodeDirectory (off new binary) and sign it
-		CodeDirectory *cd = arch.cdbuilder.build();
-		CFRef<CFDataRef> signature = signCodeDirectory(cd);
+		// finish CodeDirectories (off new binary) and sign it
+		__block CodeDirectorySet cdSet;
+		arch.eachDigest(^(CodeDirectory::Builder &builder) {
+			CodeDirectory *cd = builder.build();
+			cdSet.add(cd);
+		});
+		CFRef<CFArrayRef> hashes = cdSet.hashBag();
+		CFTemp<CFDictionaryRef> hashDict("{cdhashes=%O}", hashes.get());
+		CFRef<CFDataRef> hashBag = makeCFData(hashDict.get());
+		CFRef<CFDataRef> signature = signCodeDirectory(cdSet.primary(), hashBag);
 		
 		// complete the SuperBlob
-		arch.add(cdCodeDirectorySlot, cd);	// takes ownership
+		cdSet.populate(&arch);
 		arch.add(cdSignatureSlot, BlobWrapper::alloc(
 			CFDataGetBytePtr(signature), CFDataGetLength(signature)));
 		if (!state.mDryRun) {
@@ -490,26 +524,35 @@ void SecCodeSigner::Signer::signArchitectureAgnostic(const Requirement::Context 
 	// non-Mach-O executable - single-instance signing
 	RefPointer<DiskRep::Writer> writer = state.mDetached ?
 		(new DetachedBlobWriter(*this)) : rep->writer();
-	CodeDirectory::Builder builder(state.mDigestAlgorithm);
-	InternalRequirements ireqs;
-	ireqs(requirements, rep->defaultRequirements(NULL, state), context);
-	populate(*writer);
-	populate(builder, *writer, ireqs, rep->signingBase(), rep->signingLimit());
+	
+	CodeDirectorySet cdSet;
+	for (auto type = digestAlgorithms().begin(); type != digestAlgorithms().end(); ++type) {
+		CodeDirectory::Builder builder(*type);
+		InternalRequirements ireqs;
+		ireqs(requirements, rep->defaultRequirements(NULL, *this), context);
+		populate(*writer);
+		populate(builder, *writer, ireqs, rep->signingBase(), rep->signingLimit(), unsigned(digestAlgorithms().size()-1));
+		
+		CodeDirectory *cd = builder.build();
+		if (!state.mDryRun)
+			cdSet.add(cd);
+	}
 	
 	// add identification blob (made from this architecture) only if we're making a detached signature
 	if (state.mDetached) {
 		CFRef<CFDataRef> identification = rep->identification();
 		writer->component(cdIdentificationSlot, identification);
-	}	
-	
-	CodeDirectory *cd = builder.build();
-	CFRef<CFDataRef> signature = signCodeDirectory(cd);
-	if (!state.mDryRun) {
-		writer->codeDirectory(cd);
-		writer->signature(signature);
-		writer->flush();
 	}
-	::free(cd);
+
+	// write out all CodeDirectories
+	cdSet.populate(writer);
+	writer->flush();
+
+	CFRef<CFArrayRef> hashes = cdSet.hashBag();
+	CFTemp<CFDictionaryRef> hashDict("{cdhashes=%O}", hashes.get());
+	CFRef<CFDataRef> hashBag = makeCFData(hashDict.get());
+	CFRef<CFDataRef> signature = signCodeDirectory(cdSet.primary(), hashBag);
+	writer->signature(signature);
 }
 
 
@@ -530,7 +573,7 @@ void SecCodeSigner::Signer::populate(DiskRep::Writer &writer)
 // for the purposes of this call.
 //
 void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::Writer &writer,
-	InternalRequirements &ireqs, size_t offset /* = 0 */, size_t length /* = 0 */)
+	InternalRequirements &ireqs, size_t offset, size_t length, unsigned alternateDigestCount)
 {
 	// fill the CodeDirectory
 	builder.executable(rep->mainExecutablePath(), pagesize, offset, length);
@@ -548,24 +591,39 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 	}
 	if (resourceDirectory)
 		builder.specialSlot(cdResourceDirSlot, resourceDictData);
-#if NOT_YET
-	if (state.mApplicationData)
-		builder.specialSlot(cdApplicationSlot, state.mApplicationData);
-#endif
 	if (entitlements) {
 		writer.component(cdEntitlementSlot, entitlements);
 		builder.specialSlot(cdEntitlementSlot, entitlements);
 	}
+	if (CFRef<CFDataRef> repSpecific = rep->component(cdRepSpecificSlot))
+		builder.specialSlot(cdRepSpecificSlot, repSpecific);
 	
 	writer.addDiscretionary(builder);
+	
+	if ((signingFlags() & (kSecCSSignOpaque|kSecCSSignV1)) == 0) {
+		// calculate sorted list of top SuperBlob keys in this EmbeddedSignatureBlob (if any)
+		// (but not for opaque or V1 construction, which must remain bit-for-bit compatible)
+		std::vector<Endian<uint32_t> > slotVector;
+		slotVector.push_back(cdCodeDirectorySlot);	// mandatory
+		std::set<CodeDirectory::Slot> filledSlots = builder.filledSpecialSlots();
+		filledSlots.insert(cdTopDirectorySlot);		// will be added below
+		copy(filledSlots.begin(), filledSlots.end(), back_inserter(slotVector));
+		for (unsigned n = 0; n < alternateDigestCount; n++)
+			slotVector.push_back(cdAlternateCodeDirectorySlots + n);
+		slotVector.push_back(cdSignatureSlot);
+		CFTempData cfSlotVector(&slotVector[0], slotVector.size() * sizeof(slotVector[0]));
+		writer.component(cdTopDirectorySlot, cfSlotVector);
+		builder.specialSlot(cdTopDirectorySlot, cfSlotVector);
+	}
 }
 
+	
 #include <security_smime/tsaSupport.h>
 
 //
 // Generate the CMS signature for a (finished) CodeDirectory.
 //
-CFDataRef SecCodeSigner::Signer::signCodeDirectory(const CodeDirectory *cd)
+CFDataRef SecCodeSigner::Signer::signCodeDirectory(const CodeDirectory *cd, CFDataRef hashBag)
 {
 	assert(state.mSigner);
 	CFRef<CFMutableDictionaryRef> defaultTSContext = NULL;
@@ -587,10 +645,14 @@ CFDataRef SecCodeSigner::Signer::signCodeDirectory(const CodeDirectory *cd)
 		MacOSError::check(CMSEncoderSetSigningTime(cms, signingTime));
 	}
 	
+	if (hashBag) {
+		MacOSError::check(CMSEncoderAddSignedAttributes(cms, kCMSAttrAppleCodesigningHashAgility));
+		MacOSError::check(CMSEncoderSetAppleCodesigningHashAgility(cms, hashBag));
+	}
+	
 	MacOSError::check(CMSEncoderUpdateContent(cms, cd, cd->length()));
     
     // Set up to call Timestamp server if requested
-    
     if (state.mWantTimeStamp)
     {
         CFRef<CFErrorRef> error = NULL;
@@ -603,15 +665,39 @@ CFDataRef SecCodeSigner::Signer::signCodeDirectory(const CodeDirectory *cd)
                 CFDictionarySetValue(defaultTSContext, kTSAContextKeyURL, state.mTimestampService);
             if (state.mNoTimeStampCerts)
                 CFDictionarySetValue(defaultTSContext, kTSAContextKeyNoCerts, kCFBooleanTrue);
-       }
+		}
             
-        CmsMessageSetTSAContext(cms, defaultTSContext);
+		CmsMessageSetTSAContext(cms, defaultTSContext);
     }
-    
+	
 	CFDataRef signature;
 	MacOSError::check(CMSEncoderCopyEncodedContent(cms, &signature));
 
 	return signature;
+}
+	
+	
+//
+// Our DiskRep::signingContext methods communicate with the signing subsystem
+// in terms those callers can easily understand.
+//
+string SecCodeSigner::Signer::sdkPath(const std::string &path) const
+{
+	assert(path[0] == '/');	// need absolute path here
+	if (state.mSDKRoot)
+		return cfString(state.mSDKRoot) + path;
+	else
+		return path;
+}
+
+bool SecCodeSigner::Signer::isAdhoc() const
+{
+	return state.mSigner == SecIdentityRef(kCFNull);
+}
+
+SecCSFlags SecCodeSigner::Signer::signingFlags() const
+{
+	return state.mOpFlags;
 }
 
 

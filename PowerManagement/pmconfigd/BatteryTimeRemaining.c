@@ -142,7 +142,7 @@ static BatteryControl   control;
 static PSStruct         *iops_newps(int pid, int psid);
 static void             _initializeBatteryCalculations(void);
 static void             checkTimeRemainingValid(IOPMBattery **batts);
-static CFDictionaryRef packageKernelPowerSource(IOPMBattery *b);
+static CFDictionaryRef packageKernelPowerSource(IOPMBattery *b, PSStruct *ps);
 
 static void             _discontinuityOccurred(void);
 static void             _readAndPublishACAdapter(bool, CFDictionaryRef);
@@ -719,9 +719,9 @@ kernelPowerSourcesDidChange(IOPMBattery *b)
 
         _lastExternalConnected = _nowExternalConnected;
     }
+    
     _readAndPublishACAdapter(b->externalConnected,
                              CFDictionaryGetValue(b->properties, CFSTR(kIOPMPSAdapterDetailsKey)));
-
 
 
     checkTimeRemainingValid(_batts);
@@ -744,7 +744,7 @@ kernelPowerSourcesDidChange(IOPMBattery *b)
         if (control.internal->description) {
             CFRelease(control.internal->description);
         }
-        control.internal->description = packageKernelPowerSource(b);
+        control.internal->description = packageKernelPowerSource(b, control.internal);
         updateLogBuffer(control.internal, false);
     }
 
@@ -1210,13 +1210,14 @@ bool isFullyCharged(IOPMBattery *b)
 /*
  * Implicit argument: All the global variables that track battery state
  */
-CFDictionaryRef packageKernelPowerSource(IOPMBattery *b)
+CFDictionaryRef packageKernelPowerSource(IOPMBattery *b, PSStruct *ps)
 {
     CFNumberRef     n, n0;
     CFMutableDictionaryRef  mDict = NULL;
     int             temp;
     int             minutes;
     int             set_capacity, set_charge;
+    int             psID;
 
     if (!b) {
         IOPMBattery **batts = _batteries();
@@ -1377,6 +1378,19 @@ CFDictionaryRef packageKernelPowerSource(IOPMBattery *b)
         CFDictionarySetValue(mDict, CFSTR(kIOPSNameKey), CFSTR("Unnamed"));
     }
 
+#if TARGET_OS_EMBEDDED
+    // Set ID (UPS psID gets set by upsd)
+    if (ps->psType != kPSTypeUPS) {
+        psID = MAKE_UNIQ_SOURCE_ID(ps->pid, ps->psid);
+        
+        n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &psID);
+        if (n) {
+            CFDictionarySetValue(mDict, CFSTR(kIOPSPowerSourceIDKey), n);
+            CFRelease(n);
+        }
+    }
+#endif
+
     return mDict;
 }
 
@@ -1391,7 +1405,7 @@ static void _readAndPublishACAdapter(bool adapterExists, CFDictionaryRef battery
     // Make sure we re-read the adapter on wake from sleep
     if (control.readACAdapterAgain) {
         control.readACAdapterAgain = false;
-
+        
         if (oldACDict) {
             CFRelease(oldACDict);
             oldACDict = NULL;
@@ -1692,6 +1706,8 @@ kern_return_t _io_ps_update_pspowersource(
     CFDictionaryRef     details = NULL;
     int                 callerPID;
     CFStringRef         psTypeStr = NULL;
+    CFNumberRef         psIDKey = NULL;
+    int                 psID = 0;
 
     audit_token_to_au32(token, NULL, NULL, NULL, NULL, NULL,
                         &callerPID, NULL, NULL);
@@ -1709,6 +1725,16 @@ kern_return_t _io_ps_update_pspowersource(
         if (!next) {
             *return_code = kIOReturnNotFound;
         } else {
+            psIDKey = CFDictionaryGetValue(details, CFSTR(kIOPSPowerSourceIDKey));
+            if (!isA_CFNumber(psIDKey)) {
+                psID = MAKE_UNIQ_SOURCE_ID(next->pid, next->psid);
+                
+                psIDKey = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &psID);
+                if (psIDKey) {
+                    CFDictionarySetValue(details, CFSTR(kIOPSPowerSourceIDKey), psIDKey);
+                    CFRelease(psIDKey);
+                }
+            }
 
             if (next->psType == kPSTypeUnknown) {
                 psTypeStr = CFDictionaryGetValue(details, CFSTR(kIOPSTypeKey));

@@ -461,7 +461,6 @@
 		1C0877AD0F72F88700A4C5A8 /* p12_kiss.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3437F50F71AB980045E860 /* p12_kiss.c */; };
 		1C0877AE0F72F88700A4C5A8 /* dh_depr.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3436A50F71AB970045E860 /* dh_depr.c */; };
 		1C0877AF0F72F88700A4C5A8 /* p12_p8e.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3437F90F71AB980045E860 /* p12_p8e.c */; };
-		1C0877B00F72F88700A4C5A8 /* rc5ofb64.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C34386A0F71AB980045E860 /* rc5ofb64.c */; };
 		1C0877B10F72F88700A4C5A8 /* t_req.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C34356E0F71AB970045E860 /* t_req.c */; };
 		1C0877B20F72F88700A4C5A8 /* v3err.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3439280F71AB980045E860 /* v3err.c */; };
 		1C0877B30F72F88700A4C5A8 /* t_bitst.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C34356B0F71AB970045E860 /* t_bitst.c */; };
@@ -474,7 +473,6 @@
 		1C0877BA0F72F88700A4C5A8 /* tb_rand.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3437120F71AB970045E860 /* tb_rand.c */; };
 		1C0877BB0F72F88700A4C5A8 /* m_md5.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C34374C0F71AB970045E860 /* m_md5.c */; };
 		1C0877BC0F72F88700A4C5A8 /* cbc_cksm.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3436610F71AB970045E860 /* cbc_cksm.c */; };
-		1C0877BD0F72F88700A4C5A8 /* rc5_enc.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3438660F71AB980045E860 /* rc5_enc.c */; };
 		1C0877BE0F72F88700A4C5A8 /* a_utctm.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C34354E0F71AB970045E860 /* a_utctm.c */; };
 		1C0877BF0F72F88700A4C5A8 /* ede_cbcm_enc.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3436770F71AB970045E860 /* ede_cbcm_enc.c */; };
 		1C0877C00F72F88700A4C5A8 /* ecs_ossl.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3436F50F71AB970045E860 /* ecs_ossl.c */; };
@@ -608,7 +606,6 @@
 		1C0878400F72F88700A4C5A8 /* t_spki.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C34356F0F71AB970045E860 /* t_spki.c */; };
 		1C0878410F72F88700A4C5A8 /* ui_lib.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3438DC0F71AB980045E860 /* ui_lib.c */; };
 		1C0878420F72F88700A4C5A8 /* v3_crld.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3439130F71AB980045E860 /* v3_crld.c */; };
-		1C0878430F72F88700A4C5A8 /* rc5cfb64.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3438690F71AB980045E860 /* rc5cfb64.c */; };
 		1C0878440F72F88700A4C5A8 /* e_des3.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C34372F0F71AB970045E860 /* e_des3.c */; };
 		1C0878450F72F88700A4C5A8 /* bn_nist.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3435E90F71AB970045E860 /* bn_nist.c */; };
 		1C0878460F72F88700A4C5A8 /* enc_writ.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3436790F71AB970045E860 /* enc_writ.c */; };
@@ -665,7 +662,6 @@
 		1C08787A0F72F88700A4C5A8 /* seed_ecb.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3438970F71AB980045E860 /* seed_ecb.c */; };
 		1C08787B0F72F88700A4C5A8 /* bn_sqrt.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3435F30F71AB970045E860 /* bn_sqrt.c */; };
 		1C08787C0F72F88700A4C5A8 /* tasn_new.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3435750F71AB970045E860 /* tasn_new.c */; };
-		1C08787D0F72F88700A4C5A8 /* rc5_ecb.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3438650F71AB980045E860 /* rc5_ecb.c */; };
 		1C08787E0F72F88700A4C5A8 /* v3_info.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3439180F71AB980045E860 /* v3_info.c */; };
 		1C08787F0F72F88700A4C5A8 /* bf_cfb64.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3435940F71AB970045E860 /* bf_cfb64.c */; };
 		1C0878800F72F88700A4C5A8 /* dyn_lck.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3436CD0F71AB970045E860 /* dyn_lck.c */; };
@@ -695,7 +691,6 @@
 		1C0878990F72F88700A4C5A8 /* tb_cipher.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C34370C0F71AB970045E860 /* tb_cipher.c */; };
 		1C08789A0F72F88700A4C5A8 /* rand_eng.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3438370F71AB980045E860 /* rand_eng.c */; };
 		1C08789B0F72F88700A4C5A8 /* aes_misc.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C34352F0F71AB970045E860 /* aes_misc.c */; };
-		1C08789C0F72F88700A4C5A8 /* rc5_skey.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3438680F71AB980045E860 /* rc5_skey.c */; };
 		1C08789D0F72F88700A4C5A8 /* tb_digest.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C34370E0F71AB970045E860 /* tb_digest.c */; };
 		1C08789E0F72F88700A4C5A8 /* dso_err.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3436C70F71AB970045E860 /* dso_err.c */; };
 		1C08789F0F72F88700A4C5A8 /* v3_int.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3439190F71AB980045E860 /* v3_int.c */; };
@@ -945,7 +940,6 @@
 		1C6C3C330F783DBC005DE0AD /* rand.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 1C3438350F71AB980045E860 /* rand.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		1C6C3C350F783DD0005DE0AD /* rc2.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 1C6C3C340F783DD0005DE0AD /* rc2.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		1C6C3C370F783DE3005DE0AD /* rc4.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 1C6C3C360F783DE3005DE0AD /* rc4.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		1C6C3C390F783DF2005DE0AD /* rc5.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 1C6C3C380F783DF2005DE0AD /* rc5.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		1C6C3C3B0F783E09005DE0AD /* ripemd.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 1C6C3C3A0F783E09005DE0AD /* ripemd.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		1C6C3C3C0F783E17005DE0AD /* rsa.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 1C34387D0F71AB980045E860 /* rsa.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		1C6C3C3D0F783E38005DE0AD /* safestack.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 1C3438B60F71AB980045E860 /* safestack.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -2033,7 +2027,6 @@
 				1C6C3C330F783DBC005DE0AD /* rand.h in Copy Headers */,
 				1C6C3C350F783DD0005DE0AD /* rc2.h in Copy Headers */,
 				1C6C3C370F783DE3005DE0AD /* rc4.h in Copy Headers */,
-				1C6C3C390F783DF2005DE0AD /* rc5.h in Copy Headers */,
 				1C6C3C3B0F783E09005DE0AD /* ripemd.h in Copy Headers */,
 				1C6C3C3C0F783E17005DE0AD /* rsa.h in Copy Headers */,
 				1C6C3C3D0F783E38005DE0AD /* safestack.h in Copy Headers */,
@@ -6003,7 +5996,6 @@
 				1C0877AD0F72F88700A4C5A8 /* p12_kiss.c in Sources */,
 				1C0877AE0F72F88700A4C5A8 /* dh_depr.c in Sources */,
 				1C0877AF0F72F88700A4C5A8 /* p12_p8e.c in Sources */,
-				1C0877B00F72F88700A4C5A8 /* rc5ofb64.c in Sources */,
 				1C0877B10F72F88700A4C5A8 /* t_req.c in Sources */,
 				1C0877B20F72F88700A4C5A8 /* v3err.c in Sources */,
 				1C0877B30F72F88700A4C5A8 /* t_bitst.c in Sources */,
@@ -6016,7 +6008,6 @@
 				1C0877BA0F72F88700A4C5A8 /* tb_rand.c in Sources */,
 				1C0877BB0F72F88700A4C5A8 /* m_md5.c in Sources */,
 				1C0877BC0F72F88700A4C5A8 /* cbc_cksm.c in Sources */,
-				1C0877BD0F72F88700A4C5A8 /* rc5_enc.c in Sources */,
 				1C0877BE0F72F88700A4C5A8 /* a_utctm.c in Sources */,
 				1C0877BF0F72F88700A4C5A8 /* ede_cbcm_enc.c in Sources */,
 				1C0877C00F72F88700A4C5A8 /* ecs_ossl.c in Sources */,
@@ -6150,7 +6141,6 @@
 				1C0878400F72F88700A4C5A8 /* t_spki.c in Sources */,
 				1C0878410F72F88700A4C5A8 /* ui_lib.c in Sources */,
 				1C0878420F72F88700A4C5A8 /* v3_crld.c in Sources */,
-				1C0878430F72F88700A4C5A8 /* rc5cfb64.c in Sources */,
 				1C0878440F72F88700A4C5A8 /* e_des3.c in Sources */,
 				1C0878450F72F88700A4C5A8 /* bn_nist.c in Sources */,
 				1C0878460F72F88700A4C5A8 /* enc_writ.c in Sources */,
@@ -6207,7 +6197,6 @@
 				1C08787A0F72F88700A4C5A8 /* seed_ecb.c in Sources */,
 				1C08787B0F72F88700A4C5A8 /* bn_sqrt.c in Sources */,
 				1C08787C0F72F88700A4C5A8 /* tasn_new.c in Sources */,
-				1C08787D0F72F88700A4C5A8 /* rc5_ecb.c in Sources */,
 				1C08787E0F72F88700A4C5A8 /* v3_info.c in Sources */,
 				1C08787F0F72F88700A4C5A8 /* bf_cfb64.c in Sources */,
 				1C0878800F72F88700A4C5A8 /* dyn_lck.c in Sources */,
@@ -6237,7 +6226,6 @@
 				1C0878990F72F88700A4C5A8 /* tb_cipher.c in Sources */,
 				1C08789A0F72F88700A4C5A8 /* rand_eng.c in Sources */,
 				1C08789B0F72F88700A4C5A8 /* aes_misc.c in Sources */,
-				1C08789C0F72F88700A4C5A8 /* rc5_skey.c in Sources */,
 				1C08789D0F72F88700A4C5A8 /* tb_digest.c in Sources */,
 				1C08789E0F72F88700A4C5A8 /* dso_err.c in Sources */,
 				1C08789F0F72F88700A4C5A8 /* v3_int.c in Sources */,

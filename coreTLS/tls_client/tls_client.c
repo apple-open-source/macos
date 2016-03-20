@@ -699,10 +699,12 @@ logger(void * __unused ctx, const char *scope, const char *function, const char 
 int main(int argc, const char * argv[])
 {
     int reconnects = 0;
+    int reconnect_delay = 0;
     uint16_t cipher_to_use;
     tls_client_params params;
     int err;
     static char get_request[100];
+    bool resume_with_higher_version = false;
 
 
     memset(&params, 0, sizeof(params));
@@ -733,8 +735,17 @@ int main(int argc, const char * argv[])
                 params.ciphersuites = &(cipher_to_use);
                 params.num_ciphersuites = 1;
             }
+            if (strcmp(argv[i], "--resume_with_higher_version") == 0) {
+                reconnects = 1;
+                resume_with_higher_version = true;
+                params.protocol_max = tls_protocol_version_TLS_1_0;
+
+            }
             if (strcmp(argv[i], "--reconnect") == 0 && argv[i+1] != NULL){
                 reconnects = atoi(argv[++i]);
+            }
+            if (strcmp(argv[i], "--reconnect_delay") == 0 && argv[i+1] != NULL){
+                reconnect_delay = atoi(argv[++i]);
             }
             if (strcmp(argv[i], "--no-resumption") == 0){
                 params.allow_resumption = false;
@@ -766,6 +777,13 @@ int main(int argc, const char * argv[])
         err = client_connect(&params);
 
         client_log("***** Connection to  %s:%s (reconnects=%d) ended with err = %d\n\n", params.hostname, params.service, reconnects, err);
+
+        if(resume_with_higher_version) {
+            params.protocol_max = tls_protocol_version_TLS_1_2;
+        }
+
+        if(reconnects)
+            sleep(reconnect_delay);
 
     } while(reconnects--);
 

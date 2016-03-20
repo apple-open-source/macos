@@ -216,12 +216,16 @@ HeimCredAssignMech(HeimCredRef cred, CFDictionaryRef attributes)
 static bool
 sessionExists(pid_t asid)
 {
+#if TARGET_OS_IPHONE
+    return true;
+#else
     auditinfo_addr_t aia;
     aia.ai_asid = asid;
 
     if (audit_get_sinfo_addr(&aia, sizeof(aia)) == 0)
 	return true;
     return false;
+#endif
 }
 
 static void

@@ -128,7 +128,7 @@ public:
 
     virtual bool isClosedCaptions() const { return false; }
     virtual bool isSDH() const { return false; }
-    virtual bool containsOnlyForcedSubtitles() const { return false; }
+    virtual bool containsOnlyForcedSubtitles() const;
     virtual bool isMainProgramContent() const;
     virtual bool isEasyToRead() const { return false; }
 

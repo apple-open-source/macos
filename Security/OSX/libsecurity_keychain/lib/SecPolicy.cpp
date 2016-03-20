@@ -77,6 +77,7 @@ SEC_CONST_DECL (kSecPolicyAppleATVAppSigning, "1.2.840.113625.100.1.37");
 SEC_CONST_DECL (kSecPolicyAppleTestATVAppSigning, "1.2.840.113625.100.1.38");
 SEC_CONST_DECL (kSecPolicyApplePayIssuerEncryption, "1.2.840.113625.100.1.39");
 SEC_CONST_DECL (kSecPolicyAppleOSXProvisioningProfileSigning, "1.2.840.113625.100.1.40");
+SEC_CONST_DECL (kSecPolicyAppleAST2DiagnosticsServerAuth, "1.2.840.113625.100.1.42");
 
 SEC_CONST_DECL (kSecPolicyOid, "SecPolicyOid");
 SEC_CONST_DECL (kSecPolicyName, "SecPolicyName");
@@ -160,33 +161,6 @@ const oidmap_entry_t oidmap[] = {
 	{ kSecPolicyAppleTestMobileStore, &CSSMOID_APPLE_TP_TEST_MOBILE_STORE },
 	{ kSecPolicyApplePCSEscrowService, &CSSMOID_APPLE_TP_PCS_ESCROW_SERVICE },
 	{ kSecPolicyAppleOSXProvisioningProfileSigning, &CSSMOID_APPLE_TP_PROVISIONING_PROFILE_SIGNING },
-};
-
-// TBD: have only one set of policy identifiers in SecPolicy.c so we can get rid of this
-const oidmap_entry_t oidmap_priv[] = {
-	{ CFSTR("basicX509"), &CSSMOID_APPLE_X509_BASIC },
-	{ CFSTR("sslServer"), &CSSMOID_APPLE_TP_SSL },
-	{ CFSTR("sslClient"), &CSSMOID_APPLE_TP_SSL },
-	{ CFSTR("SMIME"), &CSSMOID_APPLE_TP_SMIME },
-	{ CFSTR("eapServer"), &CSSMOID_APPLE_TP_EAP },
-	{ CFSTR("eapClient"), &CSSMOID_APPLE_TP_EAP },
-	{ CFSTR("AppleSWUpdateSigning"), &CSSMOID_APPLE_TP_SW_UPDATE_SIGNING },
-	{ CFSTR("ipsecServer"), &CSSMOID_APPLE_TP_IP_SEC },
-	{ CFSTR("ipsecClient"), &CSSMOID_APPLE_TP_IP_SEC },
-	{ CFSTR("CodeSigning"), &CSSMOID_APPLE_TP_CODE_SIGNING },
-	{ CFSTR("PackageSigning"), &CSSMOID_APPLE_TP_PACKAGE_SIGNING },
-	{ CFSTR("AppleIDAuthority"), &CSSMOID_APPLE_TP_APPLEID_SHARING },
-	{ CFSTR("MacAppStoreReceipt"), &CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT },
-	{ CFSTR("AppleTimeStamping"), &CSSMOID_APPLE_TP_TIMESTAMPING },
-	{ CFSTR("revocation"), &CSSMOID_APPLE_TP_REVOCATION },
-	{ CFSTR("ApplePassbook"), &CSSMOID_APPLE_TP_PASSBOOK_SIGNING },
-	{ CFSTR("AppleMobileStore"), &CSSMOID_APPLE_TP_MOBILE_STORE },
-	{ CFSTR("AppleEscrowService"), &CSSMOID_APPLE_TP_ESCROW_SERVICE },
-	{ CFSTR("AppleProfileSigner"), &CSSMOID_APPLE_TP_PROFILE_SIGNING },
-	{ CFSTR("AppleQAProfileSigner"), &CSSMOID_APPLE_TP_QA_PROFILE_SIGNING },
-	{ CFSTR("AppleTestMobileStore"), &CSSMOID_APPLE_TP_TEST_MOBILE_STORE },
-	{ CFSTR("ApplePCSEscrowService"), &CSSMOID_APPLE_TP_PCS_ESCROW_SERVICE },
-	{ CFSTR("AppleOSXProvisioningProfileSigning"), &CSSMOID_APPLE_TP_PROVISIONING_PROFILE_SIGNING },
 };
 
 //
@@ -878,6 +852,11 @@ SecPolicyRef SecPolicyCreateApplePPQService(CFStringRef hostname, CFDictionaryRe
     return SecPolicyCreateSSL(true, hostname);
 }
 
+SecPolicyRef SecPolicyCreateAppleAST2Service(CFStringRef hostname, CFDictionaryRef __unused context)
+{
+    return SecPolicyCreateSSL(true, hostname);
+}
+
 #if !SECTRUST_OSX
 /* new in 10.11 */
 SecPolicyRef SecPolicyCreateAppleATVAppSigning(void)
@@ -981,7 +960,6 @@ SecPolicyCreateAppleTimeStampingAndRevocationPolicies(CFTypeRef policyOrArray)
         resultPolicyArray=appleTimeStampingPolicies.yield();
     }
     catch (...) {
-        syslog(LOG_ERR, "SecPolicyCreateAppleTimeStampingAndRevocationPolicies: unable to create policy array");
         CFReleaseNull(resultPolicyArray);
     };
 #else

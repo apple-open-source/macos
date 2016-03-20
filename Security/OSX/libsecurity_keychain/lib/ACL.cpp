@@ -57,12 +57,12 @@ const CSSM_ACL_HANDLE ACL::ownerHandle;
 //
 // Create an ACL object from the result of a CSSM ACL query
 //
-ACL::ACL(Access &acc, const AclEntryInfo &info, Allocator &alloc)
-	: allocator(alloc), access(acc), mState(unchanged), mSubjectForm(NULL), mMutex(Mutex::recursive)
+ACL::ACL(const AclEntryInfo &info, Allocator &alloc)
+	: allocator(alloc), mState(unchanged), mSubjectForm(NULL), mIntegrity(alloc), mMutex(Mutex::recursive)
 {
 	// parse the subject
 	parse(info.proto().subject());
-	
+
 	// fill in AclEntryInfo layer information
 	const AclEntryPrototype &proto = info.proto();
 	mAuthorizations = proto.authorization();
@@ -73,8 +73,9 @@ ACL::ACL(Access &acc, const AclEntryInfo &info, Allocator &alloc)
 	mCssmHandle = info.handle();
 }
 
-ACL::ACL(Access &acc, const AclOwnerPrototype &owner, Allocator &alloc)
-	: allocator(alloc), access(acc), mState(unchanged), mSubjectForm(NULL), mMutex(Mutex::recursive)
+
+ACL::ACL(const AclOwnerPrototype &owner, Allocator &alloc)
+	: allocator(alloc), mState(unchanged), mSubjectForm(NULL), mIntegrity(alloc), mMutex(Mutex::recursive)
 {
 	// parse subject
 	parse(owner.subject());
@@ -95,8 +96,8 @@ ACL::ACL(Access &acc, const AclOwnerPrototype &owner, Allocator &alloc)
 // To generate a "standard" form of ANY, use the appListForm constructor below,
 // then change its form to allowAnyForm.
 //
-ACL::ACL(Access &acc, Allocator &alloc)
-	: allocator(alloc), access(acc), mSubjectForm(NULL), mMutex(Mutex::recursive)
+ACL::ACL(Allocator &alloc)
+	: allocator(alloc), mSubjectForm(NULL), mIntegrity(alloc), mMutex(Mutex::recursive)
 {
 	mState = inserted;		// new
 	mForm = allowAllForm;	// everybody
@@ -115,9 +116,9 @@ ACL::ACL(Access &acc, Allocator &alloc)
 // Create a new ACL in standard form.
 // As created, it authorizes all activities.
 //
-ACL::ACL(Access &acc, string description, const CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR &promptSelector,
+ACL::ACL(string description, const CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR &promptSelector,
 		Allocator &alloc)
-	: allocator(alloc), access(acc), mSubjectForm(NULL), mMutex(Mutex::recursive)
+	: allocator(alloc), mSubjectForm(NULL), mIntegrity(alloc), mMutex(Mutex::recursive)
 {
 	mState = inserted;		// new
 	mForm = appListForm;
@@ -129,6 +130,26 @@ ACL::ACL(Access &acc, string description, const CSSM_ACL_KEYCHAIN_PROMPT_SELECTO
 	
 	// randomize the CSSM handle
 	UniformRandomBlobs<DevRandomGenerator>().random(mCssmHandle);
+}
+
+
+//
+// Create an "integrity" ACL
+//
+ACL::ACL(const CssmData &digest, Allocator &alloc)
+: allocator(alloc), mSubjectForm(NULL), mIntegrity(alloc, digest), mMutex(Mutex::recursive)
+{
+    mState = inserted;		// new
+    mForm = integrityForm;
+    mAuthorizations.insert(CSSM_ACL_AUTHORIZATION_INTEGRITY);
+    mEntryTag = CSSM_APPLE_ACL_TAG_INTEGRITY;
+    mDelegate = false;
+
+    //mPromptDescription stays empty
+    //mPromptSelector stays empty
+
+    // randomize the CSSM handle
+    UniformRandomBlobs<DevRandomGenerator>().random(mCssmHandle);
 }
 
 
@@ -153,6 +174,28 @@ bool ACL::authorizes(AclAuthorization right)
 		|| mAuthorizations.empty();
 }
 
+//
+// Does this ACL have a specific authorization for a particular right?
+//
+bool ACL::authorizesSpecifically(AclAuthorization right)
+{
+    StLock<Mutex>_(mMutex);
+    return mAuthorizations.find(right) != mAuthorizations.end();
+}
+
+void ACL::setIntegrity(const CssmData& digest) {
+    if(mForm != integrityForm) {
+        secdebugfunc("integrity", "acl has incorrect form: %d", mForm);
+        CssmError::throwMe(CSSMERR_CSP_INVALID_ACL_SUBJECT_VALUE);
+    }
+
+    mIntegrity = digest;
+    modify();
+}
+
+const CssmData& ACL::integrity() {
+    return mIntegrity.get();
+}
 
 //
 // Add an application to the trusted-app list of this ACL.
@@ -205,6 +248,7 @@ void ACL::remove()
 	StLock<Mutex>_(mMutex);
 	mAppList.clear();
 	mForm = invalidForm;
+    secdebug("SecAccess", "ACL %p marked deleted", this);
 	mState = deleted;
 }
 
@@ -307,10 +351,12 @@ void ACL::setAccess(AclBearer &target, bool update,
 	case inserted:	// insert
 		secdebug("SecAccess", "ACL %p inserted", this);
 		target.addAcl(input, cred);
+        mState = unchanged;
 		break;
 	case modified:	// update
 		secdebug("SecAccess", "ACL %p handle 0x%lx modified", this, entryHandle());
 		target.changeAcl(entryHandle(), input, cred);
+        mState = unchanged;
 		break;
 	default:
 		assert(false);
@@ -330,11 +376,13 @@ void ACL::parse(const TypedList &subject)
 		case CSSM_ACL_SUBJECT_TYPE_ANY:
 			// subsume an "any" as a standard form
 			mForm = allowAllForm;
+            secdebug("SecAccess", "parsed an allowAllForm (%d) (%d)", subject.type(), mForm);
 			return;
 		case CSSM_ACL_SUBJECT_TYPE_KEYCHAIN_PROMPT:
 			// pure keychain prompt - interpret as applist form with no apps
 			parsePrompt(subject);
 			mForm = appListForm;
+            secdebug("SecAccess", "parsed a Keychain Prompt (%d) as an appListForm (%d)", subject.type(), mForm);
 			return;
 		case CSSM_ACL_SUBJECT_TYPE_THRESHOLD:
 			{
@@ -353,22 +401,32 @@ void ACL::parse(const TypedList &subject)
 				TypedList &first = subject[3];
 				if (first.type() == CSSM_ACL_SUBJECT_TYPE_ANY) {
 					mForm = allowAllForm;
+                    secdebug("SecAccess", "parsed a Threshhold (%d) as an allowAllForm (%d)", subject.type(), mForm);
 					return;
 				}
 				
 				// parse other (code signing) elements
-				for (uint32 n = 0; n < count - 1; n++)
-					mAppList.push_back(new TrustedApplication(TypedList(subject[n + 3].list())));
+                for (uint32 n = 0; n < count - 1; n++) {
+                    mAppList.push_back(new TrustedApplication(TypedList(subject[n + 3].list())));
+                    secdebug("SecAccess", "found an application: %s", mAppList.back()->path());
+                }
 			}
 			mForm = appListForm;
+            secdebug("SecAccess", "parsed a Threshhold (%d) as an appListForm (%d)", subject.type(), mForm);
 			return;
-		default:
+        case CSSM_ACL_SUBJECT_TYPE_PARTITION:
+            mForm = integrityForm;
+            mIntegrity.copy(subject.last()->data());
+            secdebug("SecAccess", "parsed a Partition (%d) as an integrityForm (%d)", subject.type(), mForm);
+            return;
+        default:
+            secdebug("SecAccess", "didn't find a type for %d, marking custom (%d)", subject.type(), mForm);
 			mForm = customForm;
 			mSubjectForm = chunkCopy(&subject);
 			return;
 		}
 	} catch (const ParseError &) {
-		secdebug("SecAccess", "acl compile failed; marking custom");
+		secdebug("SecAccess", "acl compile failed for type (%d); marking custom", subject.type());
 		mForm = customForm;
 		mSubjectForm = chunkCopy(&subject);
 		mAppList.clear();
@@ -408,6 +466,7 @@ void ACL::makeSubject()
 				new(allocator) ListElement(allocator, mPromptDescription));
 			*mSubjectForm += new(allocator) ListElement(prompt);
 		}
+        secdebug("SecAccess", "made an allowAllForm (%d) into a subjectForm (%d)", mForm, mSubjectForm->type());
 		return;
 	case appListForm: {
 		// threshold(1 of n+1) of { app1, ..., appn, PROMPT }
@@ -424,10 +483,19 @@ void ACL::makeSubject()
 			new(allocator) ListElement(allocator, mPromptDescription));
 		*mSubjectForm += new(allocator) ListElement(prompt);
 		}
+        secdebug("SecAccess", "made an appListForm (%d) into a subjectForm (%d)", mForm, mSubjectForm->type());
 		return;
+    case integrityForm:
+        chunkFree(mSubjectForm, allocator);
+        mSubjectForm = new(allocator) TypedList(allocator, CSSM_ACL_SUBJECT_TYPE_PARTITION,
+                                                 new(allocator) ListElement(allocator, mIntegrity));
+        secdebug("SecAccess", "made an integrityForm (%d) into a subjectForm (%d)", mForm, mSubjectForm->type());
+        return;
 	case customForm:
 		assert(mSubjectForm);	// already set; keep it
+        secdebug("SecAccess", "have a customForm (%d), already have a subjectForm (%d)", mForm, mSubjectForm->type());
 		return;
+
 	default:
 		assert(false);	// unexpected
 	}

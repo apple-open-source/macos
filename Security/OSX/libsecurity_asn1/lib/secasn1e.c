@@ -40,6 +40,8 @@
 
 #include "secasn1.h"
 
+#include <syslog.h>
+
 typedef enum {
     beforeHeader,
     duringContents,
@@ -1341,13 +1343,16 @@ SEC_ASN1EncoderStart (const void *src, const SecAsn1Template *theTemplate,
     SEC_ASN1EncoderContext *cx;
 
     our_pool = PORT_NewArena (SEC_ASN1_DEFAULT_ARENA_SIZE);
-    if (our_pool == NULL)
-	return NULL;
+    if (our_pool == NULL) {
+        syslog(LOG_ERR,"SEC_ASN1EncoderStart: failed to create new arena");
+        return NULL;
+    }
 
     cx = (SEC_ASN1EncoderContext*)PORT_ArenaZAlloc (our_pool, sizeof(*cx));
     if (cx == NULL) {
-	PORT_FreeArena (our_pool, PR_FALSE);
-	return NULL;
+        syslog(LOG_ERR,"SEC_ASN1EncoderStart: failed to alloc");
+        PORT_FreeArena (our_pool, PR_FALSE);
+        return NULL;
     }
 
     cx->our_pool = our_pool;
@@ -1362,8 +1367,9 @@ SEC_ASN1EncoderStart (const void *src, const SecAsn1Template *theTemplate,
 	 * Trouble initializing (probably due to failed allocations)
 	 * requires that we just give up.
 	 */
-	PORT_FreeArena (our_pool, PR_FALSE);
-	return NULL;
+        syslog(LOG_ERR, "SEC_ASN1EncoderStart: unable to initialize state");
+        PORT_FreeArena (our_pool, PR_FALSE);
+        return NULL;
     }
 
     return cx;
@@ -1462,6 +1468,9 @@ SEC_ASN1Encode (const void *src, const SecAsn1Template *theTemplate,
 	return SECFailure;
 
     rv = SEC_ASN1EncoderUpdate (ecx, NULL, 0);
+
+    if (rv != SECSuccess)
+        syslog(LOG_ERR,"SEC_ASN1Encode: encode failure");
 
     SEC_ASN1EncoderFinish (ecx);
     return rv;
@@ -1564,17 +1573,23 @@ SEC_ASN1EncodeItem (PRArenaPool *poolp, SecAsn1Item *dest, const void *src,
     encoding_length = 0;
     rv = SEC_ASN1Encode (src, theTemplate,
 			 sec_asn1e_encode_item_count, &encoding_length);
-    if (rv != SECSuccess)
-	return NULL;
+    if (rv != SECSuccess) {
+        syslog(LOG_ERR, "SEC_ASN1EncodeItem: Encode failed %d", rv);
+        return NULL;
+    }
 
     dest = sec_asn1e_allocate_item (poolp, dest, encoding_length);
-    if (dest == NULL)
-	return NULL;
+    if (dest == NULL) {
+        syslog(LOG_ERR, "SEC_ASN1EncodeItem: allocate failure");
+        return NULL;
+    }
 
     /* XXX necessary?  This really just checks for a bug in the allocate fn */
     PORT_Assert (dest->Data != NULL);
-    if (dest->Data == NULL)
-	return NULL;
+    if (dest->Data == NULL) {
+        syslog(LOG_ERR, "SEC_ASN1EncodeItem: data allocate failure");
+        return NULL;
+    }
 
     dest->Length = 0;
     (void) SEC_ASN1Encode (src, theTemplate, sec_asn1e_encode_item_store, dest);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,23 +23,19 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.RadioButtonNavigationItem = function(identifier, toolTip, image, imageWidth, imageHeight) {
-    WebInspector.ButtonNavigationItem.call(this, identifier, toolTip, image, imageWidth, imageHeight, null, "tab");
-};
-
-WebInspector.RadioButtonNavigationItem.StyleClassName = "radio";
-WebInspector.RadioButtonNavigationItem.ActiveStyleClassName = "active";
-WebInspector.RadioButtonNavigationItem.SelectedStyleClassName = "selected";
-
-WebInspector.RadioButtonNavigationItem.prototype = {
-    constructor: WebInspector.RadioButtonNavigationItem,
+WebInspector.RadioButtonNavigationItem = class RadioButtonNavigationItem extends WebInspector.ButtonNavigationItem
+{
+    constructor(identifier, toolTip, image, imageWidth, imageHeight)
+    {
+        super(identifier, toolTip, image, imageWidth, imageHeight, null, "tab");
+    }
 
     // Public
 
     get selected()
     {
         return this.element.classList.contains(WebInspector.RadioButtonNavigationItem.SelectedStyleClassName);
-    },
+    }
 
     set selected(flag)
     {
@@ -50,38 +46,19 @@ WebInspector.RadioButtonNavigationItem.prototype = {
             this.element.classList.remove(WebInspector.RadioButtonNavigationItem.SelectedStyleClassName);
             this.element.setAttribute("aria-selected", "false");
         }
-    },
+    }
 
     get active()
     {
         return this.element.classList.contains(WebInspector.RadioButtonNavigationItem.ActiveStyleClassName);
-    },
+    }
 
     set active(flag)
     {
-        if (flag)
-            this.element.classList.add(WebInspector.RadioButtonNavigationItem.ActiveStyleClassName);
-        else
-            this.element.classList.remove(WebInspector.RadioButtonNavigationItem.ActiveStyleClassName);
-    },
+        this.element.classList.toggle(WebInspector.RadioButtonNavigationItem.ActiveStyleClassName, flag);
+    }
 
-    generateStyleText: function(parentSelector)
-    {
-        var classNames = this._classNames.join(".");
-
-        // Default state.
-        var styleText = parentSelector + " ." + classNames + " > .glyph { background-image: -webkit-canvas(" + this._canvasIdentifier() + "); background-size: " + this._imageWidth + "px " + this._imageHeight + "px; }\n";
-
-        // Selected state.
-        styleText += parentSelector + " ." + classNames + ".selected:not(.disabled) > .glyph { background-image: -webkit-canvas(" + this._canvasIdentifier(WebInspector.ButtonNavigationItem.States.Focus) + "); }\n";
-
-        // Selected and pressed state.
-        styleText += parentSelector + " ." + classNames + ".selected:not(.disabled):active > .glyph { background-image: -webkit-canvas(" + this._canvasIdentifier(WebInspector.ButtonNavigationItem.States.ActiveFocus) + "); }\n";
-
-        return styleText;
-    },
-
-    updateLayout: function(expandOnly)
+    updateLayout(expandOnly)
     {
         if (expandOnly)
             return;
@@ -101,11 +78,16 @@ WebInspector.RadioButtonNavigationItem.prototype = {
             this.element.classList.remove(WebInspector.RadioButtonNavigationItem.SelectedStyleClassName);
             this.element.setAttribute("aria-selected", "false");
         }
-    },
+    }
 
-    // Private
+    // Protected
 
-    _additionalClassNames: [WebInspector.RadioButtonNavigationItem.StyleClassName, WebInspector.ButtonNavigationItem.StyleClassName],
+    get additionalClassNames()
+    {
+        return ["radio", "button"];
+    }
 };
 
-WebInspector.RadioButtonNavigationItem.prototype.__proto__ = WebInspector.ButtonNavigationItem.prototype;
+WebInspector.RadioButtonNavigationItem.StyleClassName = "radio";
+WebInspector.RadioButtonNavigationItem.ActiveStyleClassName = "active";
+WebInspector.RadioButtonNavigationItem.SelectedStyleClassName = "selected";

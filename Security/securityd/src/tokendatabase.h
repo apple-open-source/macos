@@ -61,6 +61,9 @@ public:
 	
 	uint32 subservice() const { return token().subservice(); }
 	std::string dbName() const;
+
+    // TokenDbCommons have no real version, return base
+    uint32 dbVersion() { return CommonBlob::version_MacOS_10_0; }
 	
 	Adornable &store();
 	void resetAcls();

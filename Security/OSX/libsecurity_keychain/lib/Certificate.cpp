@@ -58,7 +58,8 @@ Certificate::Certificate(const CSSM_DATA &data, CSSM_CERT_TYPE type, CSSM_CERT_E
 	mV1SubjectPublicKeyCStructValue(NULL),
 	mV1SubjectNameCStructValue(NULL),
 	mV1IssuerNameCStructValue(NULL),
-	mSha1Hash(NULL),
+    mSha1Hash(NULL),
+    mSha256Hash(NULL),
 	mEncodingVerified(false)
 {
 	if (data.Length == 0 || data.Data == NULL)
@@ -75,7 +76,8 @@ Certificate::Certificate(const Keychain &keychain, const PrimaryKey &primaryKey,
 	mV1SubjectPublicKeyCStructValue(NULL),
 	mV1SubjectNameCStructValue(NULL),
 	mV1IssuerNameCStructValue(NULL),
-	mSha1Hash(NULL),
+    mSha1Hash(NULL),
+    mSha256Hash(NULL),
 	mEncodingVerified(false)
 {
 }
@@ -112,6 +114,7 @@ Certificate::Certificate(const Keychain &keychain, const PrimaryKey &primaryKey)
 	mV1SubjectNameCStructValue(NULL),
 	mV1IssuerNameCStructValue(NULL),
 	mSha1Hash(NULL),
+    mSha256Hash(NULL),
 	mEncodingVerified(false)
 {
 	// @@@ In this case we don't know the type...
@@ -129,6 +132,7 @@ Certificate::Certificate(Certificate &certificate) :
 	mV1SubjectNameCStructValue(NULL),
 	mV1IssuerNameCStructValue(NULL),
 	mSha1Hash(NULL),
+    mSha256Hash(NULL),
 	mEncodingVerified(false)
 {
 }
@@ -150,6 +154,8 @@ try
 
 	if (mSha1Hash)
 		CFRelease(mSha1Hash);
+    if (mSha256Hash)
+        CFRelease(mSha256Hash);
 }
 catch (...)
 {
@@ -910,6 +916,28 @@ Certificate::sha1Hash()
 	}
 	return mSha1Hash; /* object is owned by our instance; caller should NOT release it */
 }
+
+CFDataRef
+Certificate::sha256Hash()
+{
+    StLock<Mutex>_(mMutex);
+    if (!mSha256Hash) {
+        SecCertificateRef certRef = handle(false);
+        CFAllocatorRef allocRef = (certRef) ? CFGetAllocator(certRef) : NULL;
+        CSSM_DATA certData = data();
+        if (certData.Length == 0 || !certData.Data) {
+            MacOSError::throwMe(errSecDataNotAvailable);
+        }
+        const UInt8 *dataPtr = (const UInt8 *)certData.Data;
+        CFIndex dataLen = (CFIndex)certData.Length;
+        CFMutableDataRef digest = CFDataCreateMutable(allocRef, CC_SHA256_DIGEST_LENGTH);
+        CFDataSetLength(digest, CC_SHA256_DIGEST_LENGTH);
+        CCDigest(kCCDigestSHA256, dataPtr, dataLen, CFDataGetMutableBytePtr(digest));
+        mSha256Hash = digest;
+    }
+    return mSha256Hash; /* object is owned by our instance; caller should NOT release it */
+}
+
 
 CFStringRef
 Certificate::commonName()

@@ -104,6 +104,8 @@ extern "C" ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
 
 #define arrayCount(x)	(sizeof(x) / sizeof(x[0]))
 
+#define stampPassed(a,b)	(((int32_t)((a)-(b))) >= 0)
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 enum
@@ -241,6 +243,7 @@ struct vtd_unit_t
 
     IOMemoryMap *     qi_map;
     qi_descriptor_t * qi_table;
+    uint32_t *		  qi_table_stamps;
 
 	uint64_t root;
 	uint64_t msi_address;
@@ -251,6 +254,7 @@ struct vtd_unit_t
 	uint32_t qi_mask;
     volatile
     uint32_t qi_stamp;
+    uint32_t qi_stalled_stamp;
 
 	uint32_t msi_data;
     uint32_t num_fault;
@@ -386,7 +390,6 @@ unit_enable(vtd_unit_t * unit)
 //	VTLOG("did iotlb inval\n");
 
 	unit->qi_tail = 0;
-	unit->regs->invalidation_queue_head = 0;
 	unit->regs->invalidation_queue_tail = 0;
     unit->regs->invalidation_queue_address = unit->qi_address;
 
@@ -1355,6 +1358,10 @@ AppleVTD::initHardware(IOService *provider)
 		unit->qi_address = vtd_log2down(kQIPageCount)
 					     | md->getPhysicalSegment(0, NULL, kIOMemoryMapperNone);
 
+		unit->qi_table_stamps = IONew(uint32_t, kQIPageCount * 256);
+		vtassert(unit->qi_table_stamps);
+		bzero(unit->qi_table_stamps, (kQIPageCount * 256) * sizeof(uint32_t));
+
 		ppnum_t stamp_page = pmap_find_phys(kernel_pmap, (uintptr_t) &unit->qi_stamp);
 		vtassert(stamp_page);
 		unit->qi_stamp_address = ptoa_64(stamp_page) | (page_mask & ((uintptr_t) &unit->qi_stamp));
@@ -1741,7 +1748,12 @@ AppleVTD::iovmUnmapMemory(IOMemoryDescriptor * memory,
 		while (unitPages)
 		{
 			next = (idx + 1) & unit->qi_mask;
-			while ((next << 4) == unit->regs->invalidation_queue_head) {}
+
+			if (!stampPassed(unit->qi_stamp, unit->qi_table_stamps[idx]))
+			{
+				unit->qi_stalled_stamp = unit->qi_table_stamps[idx];
+				while (!stampPassed(unit->qi_stamp, unit->qi_table_stamps[idx])) {}
+			}
 			
 			if (unit->selective)
 			{
@@ -1754,6 +1766,7 @@ AppleVTD::iovmUnmapMemory(IOMemoryDescriptor * memory,
 			{
 				unit->qi_table[idx].command = (kTlbDrainReads<<7) | (kTlbDrainWrites<<6) | (1<<4) | (2);
 			}
+			unit->qi_table_stamps[idx] = stamp;
 
 			if (!unit->selective 
 				|| (unitPages <= (1U << unit->rounding)))
@@ -1773,15 +1786,20 @@ AppleVTD::iovmUnmapMemory(IOMemoryDescriptor * memory,
 			}
 			idx = next;
 		}
-//		if (freeCount >= 64)
-//		if (0 == (stamp & 3))		
 		{
 			next = (idx + 1) & unit->qi_mask;
-			while ((next << 4) == unit->regs->invalidation_queue_head) {}
+
+			if (!stampPassed(unit->qi_stamp, unit->qi_table_stamps[idx]))
+			{
+				unit->qi_stalled_stamp = unit->qi_table_stamps[idx];
+				while (!stampPassed(unit->qi_stamp, unit->qi_table_stamps[idx])) {}
+			}
+
 			uint64_t command = (stamp<<32) | (1<<5) | (5);
 //     		command |= (1<<4); // make an int
 			unit->qi_table[idx].command = command;
 			unit->qi_table[idx].address = unit->qi_stamp_address;
+			unit->qi_table_stamps[idx] = stamp;
 		}
 		__mfence();
 		unit->regs->invalidation_queue_tail = (next << 4);
@@ -1796,8 +1814,6 @@ AppleVTD::iovmUnmapMemory(IOMemoryDescriptor * memory,
 
     return (kIOReturnSuccess);
 }
-
-#define stampPassed(a,b)	(((int32_t)((a)-(b))) >= 0)
 
 void 
 AppleVTD::checkFree(uint32_t isLarge)

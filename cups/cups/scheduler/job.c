@@ -1,5 +1,5 @@
 /*
- * "$Id: job.c 12827 2015-07-31 15:21:37Z msweet $"
+ * "$Id: job.c 12992 2015-11-19 15:19:00Z msweet $"
  *
  * Job management routines for the CUPS scheduler.
  *
@@ -441,6 +441,8 @@ cupsdCleanJobs(void)
       {
         cupsdLogJob(job, CUPSD_LOG_DEBUG, "Removing document files.");
         remove_job_files(job);
+
+        cupsdMarkDirty(CUPSD_DIRTY_JOBS);
 
         if (job->history_time < JobHistoryUpdate || !JobHistoryUpdate)
 	  JobHistoryUpdate = job->history_time;
@@ -5339,5 +5341,5 @@ update_job_attrs(cupsd_job_t *job,	/* I - Job to update */
 
 
 /*
- * End of "$Id: job.c 12827 2015-07-31 15:21:37Z msweet $".
+ * End of "$Id: job.c 12992 2015-11-19 15:19:00Z msweet $".
  */

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,41 +23,38 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.ScriptTimelineOverviewGraph = function(timeline)
+WebInspector.ScriptTimelineOverviewGraph = class ScriptTimelineOverviewGraph extends WebInspector.TimelineOverviewGraph
 {
-    WebInspector.TimelineOverviewGraph.call(this, timeline);
+    constructor(timeline, timelineOverview)
+    {
+        super(timelineOverview);
 
-    this.element.classList.add("script");
+        this.element.classList.add("script");
 
-    this._scriptTimeline = timeline;
-    this._scriptTimeline.addEventListener(WebInspector.Timeline.Event.RecordAdded, this._scriptTimelineRecordAdded, this);
+        this._scriptTimeline = timeline;
+        this._scriptTimeline.addEventListener(WebInspector.Timeline.Event.RecordAdded, this._scriptTimelineRecordAdded, this);
 
-    this._timelineRecordBars = [];
+        this._timelineRecordBars = [];
 
-    this.reset();
-};
-
-WebInspector.ScriptTimelineOverviewGraph.prototype = {
-    constructor: WebInspector.ScriptTimelineOverviewGraph,
-    __proto__: WebInspector.TimelineOverviewGraph.prototype,
+        this.reset();
+    }
 
     // Public
 
-    reset: function()
+    reset()
     {
-        WebInspector.TimelineOverviewGraph.prototype.reset.call(this);
+        super.reset();
 
         this._timelineRecordBarMap = new Map;
 
         this.element.removeChildren();
-    },
+    }
 
-    updateLayout: function()
+    // Protected
+
+    layout()
     {
-        WebInspector.TimelineOverviewGraph.prototype.updateLayout.call(this);
-
         var secondsPerPixel = this.timelineOverview.secondsPerPixel;
-
         var recordBarIndex = 0;
 
         function createBar(records, renderMode)
@@ -82,11 +79,11 @@ WebInspector.ScriptTimelineOverviewGraph.prototype = {
             this._timelineRecordBars[recordBarIndex].records = null;
             this._timelineRecordBars[recordBarIndex].element.remove();
         }
-    },
+    }
 
     // Private
 
-    _scriptTimelineRecordAdded: function(event)
+    _scriptTimelineRecordAdded(event)
     {
         this.needsLayout();
     }

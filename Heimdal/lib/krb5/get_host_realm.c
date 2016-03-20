@@ -290,7 +290,6 @@ krb5_get_host_realm(krb5_context context,
 {
     char hostname[MAXHOSTNAMELEN];
     krb5_error_code ret;
-    size_t len;
     heim_array_t array;
     int use_dns;
     krb5_realm *irealm = NULL;
@@ -304,13 +303,7 @@ krb5_get_host_realm(krb5_context context,
     } else
 	strlcpy(hostname, host, sizeof(hostname));
 
-    /*
-     * Squash any trailing .
-     */
-
-    len = strlen(hostname);
-    if (len > 0 && hostname[len - 1] == '.')
-	hostname[len - 1] = '\0';
+    _krb5_remove_trailing_dot(hostname);
 
     array = heim_array_create();
     if (array == NULL)

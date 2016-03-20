@@ -322,6 +322,14 @@
 		3FF08625165AC62000BD1467 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FF08610165AC58000BD1467 /* main.c */; };
 		4254C71212806ECF000EB18F /* IOUserEthernetController.c in Sources */ = {isa = PBXBuildFile; fileRef = 84EC17950EF71A0700885282 /* IOUserEthernetController.c */; };
 		4254C753128070BF000EB18F /* IOUserEthernetController.h in Copy Files N */ = {isa = PBXBuildFile; fileRef = 84EC17930EF719FF00885282 /* IOUserEthernetController.h */; };
+		4893D2261B55D0E900CF3CA0 /* IOUPSPlugIn.h in Headers */ = {isa = PBXBuildFile; fileRef = 4893D2251B55D0DB00CF3CA0 /* IOUPSPlugIn.h */; };
+		4893D2271B55D0EA00CF3CA0 /* IOUPSPlugIn.h in Headers */ = {isa = PBXBuildFile; fileRef = 4893D2251B55D0DB00CF3CA0 /* IOUPSPlugIn.h */; };
+		4893D2281B55D0EA00CF3CA0 /* IOUPSPlugIn.h in Headers */ = {isa = PBXBuildFile; fileRef = 4893D2251B55D0DB00CF3CA0 /* IOUPSPlugIn.h */; };
+		4893D2291B55D0EB00CF3CA0 /* IOUPSPlugIn.h in Headers */ = {isa = PBXBuildFile; fileRef = 4893D2251B55D0DB00CF3CA0 /* IOUPSPlugIn.h */; };
+		4893D22A1B55D1CC00CF3CA0 /* IOUPSPlugIn.h in Copy Files I */ = {isa = PBXBuildFile; fileRef = 4893D2251B55D0DB00CF3CA0 /* IOUPSPlugIn.h */; };
+		4893D22B1B55D1EB00CF3CA0 /* IOUPSPlugIn.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4893D2251B55D0DB00CF3CA0 /* IOUPSPlugIn.h */; };
+		4893D22C1B55D1F800CF3CA0 /* IOUPSPlugIn.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4893D2251B55D0DB00CF3CA0 /* IOUPSPlugIn.h */; };
+		4893D22D1B55D20000CF3CA0 /* IOUPSPlugIn.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4893D2251B55D0DB00CF3CA0 /* IOUPSPlugIn.h */; };
 		5070D9C2126506CF002B3D69 /* OSKextPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24B98E040DDD4DD800E04D36 /* OSKextPrivate.h */; };
 		5070D9C3126506CF002B3D69 /* misc_util.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24F5FE5F0DD1257400AE3585 /* misc_util.h */; };
 		5070D9C5126506CF002B3D69 /* fat_util.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 052114F409D2094D00E51ACA /* fat_util.h */; };
@@ -1282,6 +1290,7 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/Headers/ps";
 			dstSubfolderSpec = 1;
 			files = (
+				4893D22B1B55D1EB00CF3CA0 /* IOUPSPlugIn.h in CopyFiles */,
 				3F116D3F1638DFAD001C6A14 /* IOPSKeys.h in CopyFiles */,
 				3F116D401638DFAD001C6A14 /* IOPowerSources.h in CopyFiles */,
 			);
@@ -1579,6 +1588,7 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/Headers/ps";
 			dstSubfolderSpec = 1;
 			files = (
+				4893D22A1B55D1CC00CF3CA0 /* IOUPSPlugIn.h in Copy Files I */,
 				7238537A087F21A400B36ABB /* IOPSKeys.h in Copy Files I */,
 				7238537B087F21A400B36ABB /* IOPowerSources.h in Copy Files I */,
 			);
@@ -2034,6 +2044,7 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/Headers/ps";
 			dstSubfolderSpec = 1;
 			files = (
+				4893D22C1B55D1F800CF3CA0 /* IOUPSPlugIn.h in CopyFiles */,
 				8472D4AD0CFA100A003111DE /* IOPSKeys.h in CopyFiles */,
 				8472D4AE0CFA100A003111DE /* IOPowerSources.h in CopyFiles */,
 			);
@@ -2200,6 +2211,7 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/Headers/ps";
 			dstSubfolderSpec = 1;
 			files = (
+				4893D22D1B55D20000CF3CA0 /* IOUPSPlugIn.h in CopyFiles */,
 				848E728C15068444006AE483 /* IOPSKeys.h in CopyFiles */,
 				848E728D15068444006AE483 /* IOPowerSources.h in CopyFiles */,
 			);
@@ -2492,6 +2504,7 @@
 		3FF08619165AC5F400BD1467 /* iokitsimd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = iokitsimd; sourceTree = BUILT_PRODUCTS_DIR; };
 		3FF08626165AC64500BD1467 /* com.apple.iokitsimd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.iokitsimd.plist; sourceTree = "<group>"; };
 		4254C71112806E72000EB18F /* IOUserEthernetResourceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOUserEthernetResourceUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/network/IOUserEthernetResourceUserClient.h; sourceTree = SDKROOT; };
+		4893D2251B55D0DB00CF3CA0 /* IOUPSPlugIn.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOUPSPlugIn.h; sourceTree = "<group>"; };
 		603248F218D22ED3000454BC /* en */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		603D2FAA18D9FFEA00A15FF1 /* ioserviceauthorized.xpc */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ioserviceauthorized.xpc; sourceTree = BUILT_PRODUCTS_DIR; };
 		603D2FAD18D9FFEA00A15FF1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -3972,6 +3985,7 @@
 		E1AF60E207B40A71007EADEA /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				4893D2251B55D0DB00CF3CA0 /* IOUPSPlugIn.h */,
 				3E72094B07B4488B00CD795A /* IOPowerSourcesPrivate.h */,
 				E1AF60E307B40A71007EADEA /* IOPSKeys.h */,
 				8CF6001C1A40CA060085E4DC /* IOPSKeysPrivate.h */,
@@ -4039,6 +4053,7 @@
 				3F116D7D1638DFAD001C6A14 /* IOHIDService.h in Headers */,
 				3F116D7E1638DFAD001C6A14 /* IOHIDSession.h in Headers */,
 				3F116D7F1638DFAD001C6A14 /* IOHIDTypes.h in Headers */,
+				4893D2271B55D0EA00CF3CA0 /* IOUPSPlugIn.h in Headers */,
 				3F116D801638DFAD001C6A14 /* IOHIDEventQueue.h in Headers */,
 				3F116D851638DFAD001C6A14 /* IOHIDUserDevice.h in Headers */,
 				3F116D861638DFAD001C6A14 /* IOUserEthernetResourceUserClient.h in Headers */,
@@ -4073,6 +4088,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				72F0C086086C88BA00C78B91 /* IOCFSerialize.h in Headers */,
+				4893D2261B55D0E900CF3CA0 /* IOUPSPlugIn.h in Headers */,
 				84D247CF17825C39008F663C /* IOHIDSessionPrivate.h in Headers */,
 				72F0C087086C88BA00C78B91 /* IOCFUnserialize.h in Headers */,
 				72F0C088086C88BA00C78B91 /* IOCFPlugIn.h in Headers */,
@@ -4143,6 +4159,7 @@
 				8472D4C80CFA100A003111DE /* IOHIDElement.h in Headers */,
 				8472D4C90CFA100A003111DE /* IOHIDBase.h in Headers */,
 				8472D4CA0CFA100A003111DE /* IOHIDDevice.h in Headers */,
+				4893D2281B55D0EA00CF3CA0 /* IOUPSPlugIn.h in Headers */,
 				8472D4CB0CFA100A003111DE /* IOHIDDevicePlugIn.h in Headers */,
 				8472D4CC0CFA100A003111DE /* IOHIDLib.h in Headers */,
 				8472D4CD0CFA100A003111DE /* IOHIDManager.h in Headers */,
@@ -4210,6 +4227,7 @@
 				848E72B115068444006AE483 /* IOKitLibPrivate.h in Headers */,
 				84D247C7177FEBA7008F663C /* IOHIDServiceFilter.h in Headers */,
 				848E72B215068444006AE483 /* IODataQueueClient.h in Headers */,
+				4893D2291B55D0EB00CF3CA0 /* IOUPSPlugIn.h in Headers */,
 				848E72B315068444006AE483 /* IOKitLib.h in Headers */,
 				848E72B415068444006AE483 /* IOSystemConfiguration.h in Headers */,
 				848E72CC15068444006AE483 /* IOUSBDeviceData.h in Headers */,

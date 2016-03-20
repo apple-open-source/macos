@@ -97,6 +97,50 @@ Universal *MachORep::mainExecutableImage()
 	return mExecutable;
 }
 
+	
+//
+// Explicitly default to SHA256 (only) digests if the minimum deployment
+// target is young enough.
+//
+void MachORep::prepareForSigning(SigningContext &context)
+{
+	if (context.digestAlgorithms().empty()) {
+		MachO *macho = mainExecutableImage()->architecture();
+		if (const version_min_command *version = macho->findMinVersion()) {
+			uint32_t limit = 0;
+			switch (macho->flip(version->cmd)) {
+			case LC_VERSION_MIN_MACOSX:
+				limit = (10 << 16 | 11 << 8 | 4 << 0);
+				break;
+#if 0 /* need updated libMIS before we can do this switch */
+			case LC_VERSION_MIN_IPHONEOS:
+				limit = (9 << 16 | 3 << 8);
+				break;
+			case LC_VERSION_MIN_WATCHOS:
+				limit = (2 << 16 | 2 << 8);
+				break;
+			case LC_VERSION_MIN_TVOS:
+				limit = (9 << 16 | 2 << 8);
+				break;
+			default:
+				break;
+#else
+            case LC_VERSION_MIN_IPHONEOS:
+            case LC_VERSION_MIN_WATCHOS:
+            case LC_VERSION_MIN_TVOS:
+                return;
+            default:
+                break;
+#endif
+			}
+			if (macho->flip(version->version) >= limit) {
+				// young enough not to need SHA-1 legacy support
+				context.setDigestAlgorithm(kSecCodeSignatureHashSHA256);
+			}
+		}
+	}
+}
+
 
 //
 // Signing base is the start of the Mach-O architecture we're using
@@ -368,8 +412,10 @@ size_t MachORep::pageSize(const SigningContext &)
 //
 // Strict validation
 //
-void MachORep::strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated)
+void MachORep::strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags)
 {
+	DiskRep::strictValidate(cd, tolerated, flags);
+	
 	// if the constructor found suspicious issues, fail a struct validation now
 	if (mExecutable->isSuspicious() && tolerated.find(errSecCSBadMainExecutable) == tolerated.end())
 		MacOSError::throwMe(errSecCSBadMainExecutable);
@@ -377,7 +423,7 @@ void MachORep::strictValidate(const CodeDirectory* cd, const ToleratedErrors& to
 	// the signature's code extent must be what we would have picked (no funny hand editing)
 	if (cd) {
 		auto_ptr<MachO> macho(mExecutable->architecture());
-		if (cd->codeLimit != macho->signingExtent())
+		if (cd->signingLimit() != macho->signingExtent())
 			MacOSError::throwMe(errSecCSSignatureInvalid);
 	}
 }

@@ -42,7 +42,7 @@ static CFDictionaryRef SOSCopyV0Attributes() {
                                          NULL);
 }
 
-static bool SOSDeleteV0Keybag(CFErrorRef *error) {
+bool SOSDeleteV0Keybag(CFErrorRef *error) {
     CFDictionaryRef attributes = SOSCopyV0Attributes();
     
     OSStatus result = SecItemDelete(attributes);
@@ -236,7 +236,7 @@ bool SOSAccountIsBackupRingEmpty(SOSAccountRef account, CFStringRef viewName) {
     return peercnt == 0;
 }
 
-static bool SOSAccountUpdatePeerInfo(SOSAccountRef account, CFStringRef updateDescription, CFErrorRef *error, bool (^update)(SOSFullPeerInfoRef fpi, CFErrorRef *error)) {
+bool SOSAccountUpdatePeerInfo(SOSAccountRef account, CFStringRef updateDescription, CFErrorRef *error, bool (^update)(SOSFullPeerInfoRef fpi, CFErrorRef *error)) {
     if (account->my_identity == NULL)
         return true;
 
@@ -377,7 +377,6 @@ void SOSAccountForEachBackupRingName(SOSAccountRef account, void (^operation)(CF
     }
 }
 
-static
 void SOSAccountForEachBackupView(SOSAccountRef account,  void (^operation)(const void *value)) {
     SOSPeerInfoRef myPeer = SOSAccountGetMyPeerInfo(account);
     
@@ -396,32 +395,18 @@ bool SOSAccountSetBackupPublicKey(SOSAccountRef account, CFDataRef backupKey, CF
 {
     __block bool result = false;
 
+    secnotice("backup", "setting backup public key");
     require_quiet(SOSAccountIsInCircle(account, error), exit);
 
     if (CFEqualSafe(backupKey, account->backup_key))
         return true;
     
-    require_quiet(SOSBSKBIsGoodBackupPublic(backupKey, error), exit);
-    require_quiet(SOSAccountUpdatePeerInfo(account, CFSTR("Backup public key"), error,
-                                           ^bool(SOSFullPeerInfoRef fpi, CFErrorRef *error) {
-        return SOSFullPeerInfoUpdateBackupKey(fpi, backupKey, error);
-    }), exit);
-
     CFRetainAssign(account->backup_key, backupKey);
 
-    CFErrorRef localError = NULL;
-    if (!SOSDeleteV0Keybag(&localError)) {
-        secerror("Failed to delete v0 keybag: %@", localError);
-    }
-    CFReleaseNull(localError);
-    
+    SOSAccountEnsureBackupStarts(account);
+
     result = true;
     
-    SOSAccountForEachBackupView(account, ^(const void *value) {
-        CFStringRef viewName = (CFStringRef)value;
-        result &= SOSAccountStartNewBackup(account, viewName, error);
-    });
-
 exit:
     if (!result) {
         secnotice("backupkey", "Failed to setup backup public key: %@", error ? (CFTypeRef) *error : (CFTypeRef) CFSTR("No error space provided"));
@@ -564,5 +549,32 @@ bool SOSAccountRemoveBackupPeers(SOSAccountRef account, CFArrayRef peers, CFErro
     
     return result;
     
+}
+
+SOSBackupSliceKeyBagRef SOSAccountBackupSliceKeyBagForView(SOSAccountRef account, CFStringRef viewName, CFErrorRef* error){
+    CFMutableDictionaryRef trusted_rings = NULL;
+    CFDataRef backupSliceData = NULL;
+    CFStringRef ringName = NULL;
+    SOSRingRef ring = NULL;
+    SOSBackupSliceKeyBagRef bskb = NULL;
+
+    trusted_rings = SOSAccountGetRings(account, error);
+    require_action_quiet(trusted_rings, exit, secnotice("keybag", "failed to get trusted rings (%@)", *error));
+
+    ringName = SOSBackupCopyRingNameForView(viewName);
+
+    ring = (SOSRingRef)CFDictionaryGetValue(trusted_rings, ringName);
+    require_action_quiet(ring, exit, SOSCreateErrorWithFormat(kSOSErrorNoCircle, NULL, error, NULL, CFSTR("failed to get ring")));
+
+    //grab the backup slice from the ring
+    backupSliceData = SOSRingGetPayload(ring, error);
+    require_action_quiet(backupSliceData, exit, secnotice("backup", "failed to get backup slice (%@)", *error));
+
+    bskb = SOSBackupSliceKeyBagCreateFromData(kCFAllocatorDefault, backupSliceData, error);
+
+exit:
+    CFReleaseNull(ringName);
+
+    return bskb;
 }
 

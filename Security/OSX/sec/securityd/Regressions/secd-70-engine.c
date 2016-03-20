@@ -62,7 +62,6 @@ __unused static bool SOSCircleHandleCircleWithLock(SOSEngineRef engine, CFString
     CFDataRef coder = CFDataCreate(kCFAllocatorDefault, expected, resultSize);
     CFArrayForEachC(SOSEngineGetPeerIDs(engine), peerID){
         CFArrayAppendValue(trustedPeers, peerID);
-        SOSEngineSetCoderData(engine, peerID, coder, error);
     };
     CFReleaseNull(coder);
 
@@ -302,8 +301,7 @@ SKIP:
             unlink(keychain_path);
         });
 
-        void kc_dbhandle_reset(void);
-        kc_dbhandle_reset();
+        SecKeychainDbReset(NULL);
 #else
         skip("Keychain not reset", kTestTestCount, false);
 #endif

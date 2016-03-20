@@ -120,6 +120,7 @@ OSStatus SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef staticCodeRef, Se
 		| kSecCSStrictValidate
 		| kSecCSCheckGatekeeperArchitectures
 		| kSecCSRestrictSymlinks
+		| kSecCSRestrictToAppLike
 	);
 
 	if (errors)

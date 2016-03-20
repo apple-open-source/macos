@@ -84,8 +84,6 @@ struct __OpaqueSOSFullPeerInfo {
 CFGiblisWithHashFor(SOSFullPeerInfo);
 
 
-static CFStringRef sPublicKeyKey = CFSTR("PublicSigningKey");
-
 CFStringRef kSOSFullPeerInfoDescriptionKey = CFSTR("SOSFullPeerInfoDescription");
 CFStringRef kSOSFullPeerInfoSignatureKey = CFSTR("SOSFullPeerInfoSignature");
 CFStringRef kSOSFullPeerInfoNameKey = CFSTR("SOSFullPeerInfoName");
@@ -130,11 +128,18 @@ SOSFullPeerInfoRef SOSFullPeerInfoCreateWithViews(CFAllocatorRef allocator,
     SOSFullPeerInfoRef result = NULL;
     SOSFullPeerInfoRef fpi = CFTypeAllocate(SOSFullPeerInfo, struct __OpaqueSOSFullPeerInfo, allocator);
 
-    bool useIDS = whichTransportType == kSOSTransportIDS || whichTransportType == kSOSTransportFuture;
-
-    CFStringRef transportType = useIDS ? SOSTransportMessageTypeIDS : SOSTransportMessageTypeKVS;
-    CFBooleanRef preferIDS = useIDS ? kCFBooleanTrue : kCFBooleanFalse;
+    CFStringRef transportType = NULL;
+    CFBooleanRef preferIDS = NULL;
     CFStringRef IDSID = CFSTR("");
+    
+    if (whichTransportType == kSOSTransportFuture || whichTransportType == kSOSTransportIDS){
+        transportType =SOSTransportMessageTypeIDS;
+        preferIDS = kCFBooleanTrue;
+    }
+    else{
+        transportType =SOSTransportMessageTypeKVS;
+        preferIDS = kCFBooleanTrue;
+    }
 
     fpi->peer_info = SOSPeerInfoCreateWithTransportAndViews(allocator, gestalt, backupKey,
                                                             IDSID, transportType, preferIDS,
@@ -150,6 +155,23 @@ SOSFullPeerInfoRef SOSFullPeerInfoCreateWithViews(CFAllocatorRef allocator,
 exit:
     CFReleaseNull(fpi);
     return result;
+}
+
+SOSFullPeerInfoRef SOSFullPeerInfoCopyFullPeerInfo(SOSFullPeerInfoRef toCopy) {
+    SOSFullPeerInfoRef retval = NULL;
+    SOSFullPeerInfoRef fpi = CFTypeAllocate(SOSFullPeerInfo, struct __OpaqueSOSFullPeerInfo, kCFAllocatorDefault);
+    SOSPeerInfoRef piToCopy = SOSFullPeerInfoGetPeerInfo(toCopy);
+    
+    require_quiet(piToCopy, errOut);
+    require_quiet(fpi, errOut);
+    fpi->peer_info = SOSPeerInfoCreateCopy(kCFAllocatorDefault, piToCopy, NULL);
+    require_quiet(fpi->peer_info, errOut);
+    fpi->key_ref = toCopy->key_ref;
+    CFTransferRetained(retval, fpi);
+
+errOut:
+    CFReleaseNull(fpi);
+    return retval;
 }
 
 bool SOSFullPeerInfoUpdateTransportType(SOSFullPeerInfoRef peer, CFStringRef transportType, CFErrorRef* error)

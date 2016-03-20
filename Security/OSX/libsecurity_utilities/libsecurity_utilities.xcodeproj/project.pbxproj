@@ -151,6 +151,8 @@
 		C2EF2B5A066E516600F205D4 /* pcsc++.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2EF2B58066E516600F205D4 /* pcsc++.cpp */; };
 		D65C871405DC11C300B401EF /* cfclass.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D65C871205DC11C300B401EF /* cfclass.cpp */; };
 		D6C5F6BD05DD47EC00722571 /* seccfobject.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D6C5F6BB05DD47EC00722571 /* seccfobject.cpp */; };
+		DC27E9F51BBC589500C9BC39 /* CSPDLTransaction.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DC27E9F31BBC589500C9BC39 /* CSPDLTransaction.cpp */; };
+		DC27E9F61BBC589500C9BC39 /* CSPDLTransaction.h in Headers */ = {isa = PBXBuildFile; fileRef = DC27E9F41BBC589500C9BC39 /* CSPDLTransaction.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -302,6 +304,8 @@
 		D65C871305DC11C300B401EF /* cfclass.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cfclass.h; sourceTree = "<group>"; };
 		D6C5F6BB05DD47EC00722571 /* seccfobject.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = seccfobject.cpp; sourceTree = "<group>"; };
 		D6C5F6BC05DD47EC00722571 /* seccfobject.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = seccfobject.h; sourceTree = "<group>"; };
+		DC27E9F31BBC589500C9BC39 /* CSPDLTransaction.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CSPDLTransaction.cpp; sourceTree = "<group>"; };
+		DC27E9F41BBC589500C9BC39 /* CSPDLTransaction.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CSPDLTransaction.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -349,6 +353,8 @@
 		4CA6847F0525011D00233BF2 /* lib */ = {
 			isa = PBXGroup;
 			children = (
+				DC27E9F31BBC589500C9BC39 /* CSPDLTransaction.cpp */,
+				DC27E9F41BBC589500C9BC39 /* CSPDLTransaction.h */,
 				AAAA49980CC587B50099E9D4 /* crc.c */,
 				AAAA49990CC587B50099E9D4 /* crc.h */,
 				C2B1EBFE06D557B300F68F34 /* adornments.h */,
@@ -569,6 +575,7 @@
 				181EA39B146D1D5A00A6D320 /* powerwatch.h in Headers */,
 				181EA39C146D1D5A00A6D320 /* refcount.h in Headers */,
 				181EA39D146D1D5A00A6D320 /* seccfobject.h in Headers */,
+				DC27E9F61BBC589500C9BC39 /* CSPDLTransaction.h in Headers */,
 				181EA39E146D1D5A00A6D320 /* security_utilities.h in Headers */,
 				181EA39F146D1D5A00A6D320 /* simpleprefs.h in Headers */,
 				181EA3A0146D1D5A00A6D320 /* sqlite++.h in Headers */,
@@ -748,6 +755,7 @@
 				D6C5F6BD05DD47EC00722571 /* seccfobject.cpp in Sources */,
 				C2EF2B5A066E516600F205D4 /* pcsc++.cpp in Sources */,
 				C2A7D0B706AEDB94009A7A1E /* unixchild.cpp in Sources */,
+				DC27E9F51BBC589500C9BC39 /* CSPDLTransaction.cpp in Sources */,
 				C20A206B06B03FDC00979EF3 /* osxcode.cpp in Sources */,
 				C24DAED406B8952E00387C29 /* cfmach++.cpp in Sources */,
 				C2B1EBFF06D557B300F68F34 /* adornments.cpp in Sources */,

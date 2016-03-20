@@ -6,6 +6,7 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<key>com.apple.hid.manager.user-access-device</key>
+	<true/>
 </dict>
 </plist>
-

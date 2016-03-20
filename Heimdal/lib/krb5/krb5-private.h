@@ -932,4 +932,7 @@ _krb5_xunlock (
 #undef KRB5_DEPRECATED_FUNCTION
 #define KRB5_DEPRECATED_FUNCTION(X)
 
+void
+_krb5_remove_trailing_dot(char *hostname);
+
 #endif /* __krb5_private_h__ */

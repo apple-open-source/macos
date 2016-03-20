@@ -124,6 +124,7 @@ SEC_CONST_DECL (kSecPolicyCheckAnchorApple, "AnchorApple");
 
 /* options for kSecPolicyCheckAnchorApple */
 SEC_CONST_DECL (kSecPolicyAppleAnchorIncludeTestRoots, "AnchorAppleTestRoots");
+SEC_CONST_DECL (kSecPolicyAppleAnchorAllowTestRootsOnProduction, "AnchorAppleTestRootsOnProduction");
 
 /********************************************************
  *********** Unverified Certificate Checks **************
@@ -138,6 +139,9 @@ SEC_CONST_DECL (kSecPolicyCheckValidityExpired, "ValidExpired");
 SEC_CONST_DECL (kSecPolicyCheckValidIntermediates, "ValidIntermediates");
 SEC_CONST_DECL (kSecPolicyCheckValidLeaf, "ValidLeaf");
 SEC_CONST_DECL (kSecPolicyCheckValidRoot, "ValidRoot");
+SEC_CONST_DECL (kSecPolicyCheckWeakIntermediates, "WeakIntermediates");
+SEC_CONST_DECL (kSecPolicyCheckWeakLeaf, "WeakLeaf");
+SEC_CONST_DECL (kSecPolicyCheckWeakRoot, "WeakRoot");
 #endif
 
 
@@ -217,7 +221,7 @@ SEC_CONST_DECL (kSecPolicyAppleTestATVAppSigning, "1.2.840.113625.100.1.38");
 SEC_CONST_DECL (kSecPolicyApplePayIssuerEncryption, "1.2.840.113625.100.1.39");
 SEC_CONST_DECL (kSecPolicyAppleOSXProvisioningProfileSigning, "1.2.840.113625.100.1.40");
 SEC_CONST_DECL (kSecPolicyAppleATVVPNProfileSigning, "1.2.840.113625.100.1.41");
-// TODO need confirmation that OID for kSecPolicyAppleATVVPNProfileSigning is reserved
+SEC_CONST_DECL (kSecPolicyAppleAST2DiagnosticsServerAuth, "1.2.840.113625.100.1.42");
 
 SEC_CONST_DECL (kSecPolicyOid, "SecPolicyOid");
 SEC_CONST_DECL (kSecPolicyName, "SecPolicyName");
@@ -271,11 +275,14 @@ static CFStringRef kSecPolicyOIDAppleQAProfileSigner = CFSTR("AppleQAProfileSign
 static CFStringRef kSecPolicyOIDAppleOTAPKIAssetSigner = CFSTR("AppleOTAPKIAssetSigner");
 static CFStringRef kSecPolicyOIDAppleTestOTAPKIAssetSigner = CFSTR("AppleTestOTAPKIAssetSigner");
 static CFStringRef kSecPolicyOIDAppleIDValidationRecordSigningPolicy = CFSTR("AppleIDValidationRecordSigningPolicy");
+#if TARGET_OS_EMBEDDED
 static CFStringRef kSecPolicyOIDAppleATVAppSigning = CFSTR("AppleATVAppSigning");
 static CFStringRef kSecPolicyOIDAppleTestATVAppSigning = CFSTR("AppleTestATVAppSigning");
+#endif
 static CFStringRef kSecPolicyOIDApplePayIssuerEncryption = CFSTR("ApplePayIssuerEncryption");
 static CFStringRef kSecPolicyOIDAppleOSXProvisioningProfileSigning = CFSTR("AppleOSXProvisioningProfileSigning");
 static CFStringRef kSecPolicyOIDAppleATVVPNProfileSigning = CFSTR("AppleATVVPNProfileSigning");
+static CFStringRef kSecPolicyOIDAppleAST2Service = CFSTR("AST2Service");
 
 /* Policies will now change to multiple categories of checks.
 
@@ -644,6 +651,9 @@ SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
     else if (CFEqual(policyIdentifier, kSecPolicyAppleATVVPNProfileSigning)) {
         policy = SecPolicyCreateAppleATVVPNProfileSigning();
     }
+    else if (CFEqual(policyIdentifier, kSecPolicyAppleAST2DiagnosticsServerAuth)) {
+        policy = SecPolicyCreateAppleAST2Service(name, NULL);
+    }
 	else {
 		secerror("ERROR: policy \"%@\" is unsupported", policyIdentifier);
 	}
@@ -724,7 +734,7 @@ CFDictionaryRef SecPolicyCopyProperties(SecPolicyRef policyRef) {
 	else if (CFEqual(oid, kSecPolicyOIDAppleQAProfileSigner)) {
 		outOid = kSecPolicyAppleQAProfileSigner;
 	}
-#if TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_EMBEDDED
 	else if (CFEqual(oid, kSecPolicyOIDAppleOTAPKIAssetSigner)) {
 		outOid = kSecPolicyAppleOTAPKISigner;
 	}
@@ -749,6 +759,9 @@ CFDictionaryRef SecPolicyCopyProperties(SecPolicyRef policyRef) {
 	}
     else if (CFEqual(oid, kSecPolicyOIDAppleATVVPNProfileSigning)) {
         outOid = kSecPolicyAppleATVVPNProfileSigning;
+    }
+    else if (CFEqual(oid, kSecPolicyOIDAppleAST2Service)) {
+        outOid = kSecPolicyAppleAST2DiagnosticsServerAuth;
     }
 
 	// Set kSecPolicyOid
@@ -1149,6 +1162,9 @@ static void SecPolicyAddBasicCertOptions(CFMutableDictionaryRef options)
     CFDictionaryAddValue(options, kSecPolicyCheckBasicContraints, kCFBooleanTrue);
     CFDictionaryAddValue(options, kSecPolicyCheckNonEmptySubject, kCFBooleanTrue);
     CFDictionaryAddValue(options, kSecPolicyCheckQualifiedCertStatements, kCFBooleanTrue);
+    CFDictionaryAddValue(options, kSecPolicyCheckWeakIntermediates, kCFBooleanTrue);
+    CFDictionaryAddValue(options, kSecPolicyCheckWeakLeaf, kCFBooleanTrue);
+    CFDictionaryAddValue(options, kSecPolicyCheckWeakRoot, kCFBooleanTrue);
 }
 
 static void SecPolicyAddBasicX509Options(CFMutableDictionaryRef options)
@@ -2434,10 +2450,10 @@ errOut:
 }
 
 static bool
-allowUATRoot(CFStringRef service, CFDictionaryRef context)
+allowUATRoot(bool allowNonProd, CFStringRef service, CFDictionaryRef context)
 {
     bool UATAllowed = false;
-    if (SecIsInternalRelease()) {
+    if (SecIsInternalRelease() || allowNonProd) {
         CFStringRef setting = CFStringCreateWithFormat(NULL, NULL, CFSTR("AppleServerAuthenticationAllowUAT%@"), service);
         CFTypeRef value = NULL;
         require(setting, fail);
@@ -2460,11 +2476,11 @@ fail:
 }
 
 static bool
-requirePinning(CFStringRef service)
+requirePinning(bool allowNonProd, CFStringRef service)
 {
     bool pinningRequired = true;
 
-    if (SecIsInternalRelease()) {
+    if (SecIsInternalRelease() || allowNonProd) {
         CFStringRef setting = CFStringCreateWithFormat(NULL, NULL, CFSTR("AppleServerAuthenticationNoPinning%@"), service);
         require(setting, fail);
         if (CFPreferencesGetAppBooleanValue(setting, CFSTR("com.apple.Security"), NULL))
@@ -2492,7 +2508,7 @@ fail:
 static SecPolicyRef
 SecPolicyCreateAppleServerAuthCommon(CFStringRef hostname,
                                      CFDictionaryRef __unused context,
-                                     CFStringRef service,
+                                     CFStringRef service, bool allowNonProd,
                                      const DERItem *leafMarkerOID,
                                      const DERItem *UATLeafMarkerOID)
 {
@@ -2513,8 +2529,8 @@ SecPolicyCreateAppleServerAuthCommon(CFStringRef hostname,
 
     add_eku(options, &oidExtendedKeyUsageServerAuth);
 
-    if (requirePinning(service)) {
-        bool allowUAT = allowUATRoot(service, context);
+    if (requirePinning(allowNonProd, service)) {
+        bool allowUAT = allowUATRoot(allowNonProd, service, context);
 
 	/*
 	 * Require pinning to the Apple CA's (and if UAT environment,
@@ -2527,6 +2543,10 @@ SecPolicyCreateAppleServerAuthCommon(CFStringRef hostname,
         if (allowUAT) {
             CFDictionarySetValue(appleAnchorOptions,
                                  kSecPolicyAppleAnchorIncludeTestRoots, kCFBooleanTrue);
+            if (allowNonProd) {
+                CFDictionarySetValue(appleAnchorOptions,
+                                     kSecPolicyAppleAnchorAllowTestRootsOnProduction, kCFBooleanTrue);
+            }
         }
 
         add_element(options, kSecPolicyCheckAnchorApple, appleAnchorOptions);
@@ -2581,7 +2601,7 @@ SecPolicyRef SecPolicyCreateAppleIDSService(CFStringRef hostname)
 #if 1
     return SecPolicyCreateSSL(true, hostname);
 #else
-    return SecPolicyCreateAppleServerAuthCommon(hostname, NULL, CFSTR("IDS"),
+    return SecPolicyCreateAppleServerAuthCommon(hostname, NULL, CFSTR("IDS"), false,
                                                 &oidAppleCertExtAppleServerAuthenticationIDSProd,
                                                 &oidAppleCertExtAppleServerAuthenticationIDSTest);
 #endif
@@ -2593,7 +2613,7 @@ SecPolicyRef SecPolicyCreateAppleIDSService(CFStringRef hostname)
  */
 SecPolicyRef SecPolicyCreateAppleIDSServiceContext(CFStringRef hostname, CFDictionaryRef context)
 {
-    return SecPolicyCreateAppleServerAuthCommon(hostname, context, CFSTR("IDS"),
+    return SecPolicyCreateAppleServerAuthCommon(hostname, context, CFSTR("IDS"), false,
                                                 &oidAppleCertExtAppleServerAuthenticationIDSProd,
                                                 &oidAppleCertExtAppleServerAuthenticationIDSTest);
 }
@@ -2604,7 +2624,7 @@ SecPolicyRef SecPolicyCreateAppleIDSServiceContext(CFStringRef hostname, CFDicti
  */
 SecPolicyRef SecPolicyCreateAppleGSService(CFStringRef hostname, CFDictionaryRef context)
 {
-    return SecPolicyCreateAppleServerAuthCommon(hostname, context, CFSTR("GS"),
+    return SecPolicyCreateAppleServerAuthCommon(hostname, context, CFSTR("GS"), false,
                                                 &oidAppleCertExtAppleServerAuthenticationGS,
                                                 NULL);
 }
@@ -2615,7 +2635,7 @@ SecPolicyRef SecPolicyCreateAppleGSService(CFStringRef hostname, CFDictionaryRef
  */
 SecPolicyRef SecPolicyCreateApplePushService(CFStringRef hostname, CFDictionaryRef context)
 {
-    return SecPolicyCreateAppleServerAuthCommon(hostname, context, CFSTR("APN"),
+    return SecPolicyCreateAppleServerAuthCommon(hostname, context, CFSTR("APN"), false,
                                                 &oidAppleCertExtAppleServerAuthenticationAPNProd,
                                                 &oidAppleCertExtAppleServerAuthenticationAPNTest);
 }
@@ -2626,9 +2646,20 @@ SecPolicyRef SecPolicyCreateApplePushService(CFStringRef hostname, CFDictionaryR
  */
 SecPolicyRef SecPolicyCreateApplePPQService(CFStringRef hostname, CFDictionaryRef context)
 {
-    return SecPolicyCreateAppleServerAuthCommon(hostname, context, CFSTR("PPQ"),
+    return SecPolicyCreateAppleServerAuthCommon(hostname, context, CFSTR("PPQ"), false,
                                                 &oidAppleCertExtAppleServerAuthenticationPPQProd ,
                                                 &oidAppleCertExtAppleServerAuthenticationPPQTest);
+}
+
+/*!
+ @function SecPolicyCreateAppleAST2Service
+ @abstract Ensure we're appropriately pinned to the AST2 Diagnostic service (SSL + Apple restrictions)
+ */
+SecPolicyRef SecPolicyCreateAppleAST2Service(CFStringRef hostname, CFDictionaryRef context)
+{
+    return SecPolicyCreateAppleServerAuthCommon(hostname, context, CFSTR("AST2"), true,
+                                                &oidAppleCertExtAST2DiagnosticsServerAuthProd,
+                                                &oidAppleCertExtAST2DiagnosticsServerAuthTest);
 }
 
 /* should use verbatim copy, but since this is the deprecated way, don't care right now */

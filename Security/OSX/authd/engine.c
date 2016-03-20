@@ -808,7 +808,7 @@ _evaluate_class_mechanism(engine_t engine, rule_t rule)
         CFIndex count = CFArrayGetCount(mechanisms);
         for (CFIndex i = 0; i < count; i++) {
             if (!mechanism_is_privileged((mechanism_t)CFArrayGetValueAtIndex(mechanisms, i))) {
-                LOGV("engine[%i]: authorization denied (in DarkWake)", connection_get_pid(engine->conn));
+                LOGE("engine[%i]: authorization denied (in DW)", connection_get_pid(engine->conn));
                 goto done;
             }
         }
@@ -869,7 +869,7 @@ _evaluate_rule(engine_t engine, rule_t rule, bool *save_pwd)
     
     if (rule_check_flags(rule, RuleFlagRequireAppleSigned)) {
         if (!auth_token_apple_signed(engine->auth)) {
-            LOGV("engine[%i]: rule deny, creator of authorization is not signed by apple", connection_get_pid(engine->conn));
+            LOGE("engine[%i]: rule deny, creator of authorization is not signed by apple", connection_get_pid(engine->conn));
             return errAuthorizationDenied;
         }
     }
@@ -890,7 +890,7 @@ _evaluate_rule(engine_t engine, rule_t rule, bool *save_pwd)
         case RC_MECHANISM:
             return _evaluate_class_mechanism(engine, rule);
         default:
-            LOGV("engine[%i]: invalid class for rule or rule not found", connection_get_pid(engine->conn));
+            LOGE("engine[%i]: invalid class for rule or rule not found", connection_get_pid(engine->conn));
             return errAuthorizationInternal;
     }
 }
@@ -1038,7 +1038,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
             return true;
 
 
-        if (!_verify_sandbox(engine, key)) {
+        if (!_verify_sandbox(engine, key)) { // _verify_sandbox is already logging failures
             status = errAuthorizationDenied;
             return false;
         }
@@ -1125,6 +1125,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
     }
     
     if (engine->dismissed) {
+		LOGE("engine[%i]: engine dismissed");
         status = errAuthorizationDenied;
     }
     

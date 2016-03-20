@@ -78,6 +78,9 @@ const UInt8 *SecCertificateGetBytePtr(SecCertificateRef certificate);
 /* Return the SHA-1 hash of this certificate. */
 CFDataRef SecCertificateGetSHA1Digest(SecCertificateRef certificate);
 
+/* Return the SHA2-256 hash of this certificate. */
+CFDataRef SecCertificateCopySHA256Digest(SecCertificateRef certificate);
+
 /* Return the SHA-1 hash of the public key in this certificate. */
 CFDataRef SecCertificateCopyPublicKeySHA1Digest(SecCertificateRef certificate);
 

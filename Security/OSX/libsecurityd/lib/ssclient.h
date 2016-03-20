@@ -183,6 +183,7 @@ public:
 	DbHandle cloneDbForSync(const CssmData &secretsBlob, DbHandle srcDb, 
 							const CssmData &agentData);
 	DbHandle recodeDbForSync(DbHandle dbToClone, DbHandle srcDb);
+    DbHandle recodeDbToVersion(uint32 newVersion, DbHandle srcDb);
 	DbHandle authenticateDbsForSync(const CssmData &dbHandleArray, const CssmData &agentData);
     void commitDbForSync(DbHandle srcDb, DbHandle cloneDb, CssmData &blob, Allocator &alloc);
 	DbHandle decodeDb(const DLDbIdentifier &dbId,

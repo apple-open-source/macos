@@ -98,6 +98,8 @@ extern const CFStringRef kSecPolicyAppleTestATVAppSigning
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 extern const CFStringRef kSecPolicyAppleOSXProvisioningProfileSigning
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+extern const CFStringRef kSecPolicyAppleAST2DiagnosticsServerAuth
+    __OSX_AVAILABLE_STARTING(__MAC_10_11_4, __IPHONE_9_3);
 
 
 /*!
@@ -518,6 +520,13 @@ SecPolicyRef SecPolicyCreateAppleGSService(CFStringRef hostname, CFDictionaryRef
  */
 SecPolicyRef SecPolicyCreateApplePPQService(CFStringRef hostname, CFDictionaryRef context)
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+
+/*!
+ @function SecPolicyCreateAppleAST2Service
+ @abstract Ensure we're appropriately pinned to the AST2 Diagnostic service (SSL + Apple restrictions)
+ */
+SecPolicyRef SecPolicyCreateAppleAST2Service(CFStringRef hostname, CFDictionaryRef context)
+    __OSX_AVAILABLE_STARTING(__MAC_10_11_4, __IPHONE_9_3);
 
 /*!
  @function SecPolicyCreateAppleSSLService

@@ -221,6 +221,7 @@ status_t OpenUSBByName(unsigned int reader_index, /*@null@*/ char *device)
 #else
 	/* 100 ms delay */
 	struct timespec sleep_time = { 0, 100 * 1000 * 1000 };
+	int count_libusb = 10;
 #endif
 	int interface_number = -1;
 	int i;
@@ -307,15 +308,14 @@ status_t OpenUSBByName(unsigned int reader_index, /*@null@*/ char *device)
 		rv = libusb_init(&ctx);
 		if (rv != 0)
 		{
-			DEBUG_CRITICAL2("libusb_init failed: %d", rv);
+			DEBUG_CRITICAL2("libusb_init failed: %s", libusb_error_name(rv));
 			return_value = STATUS_UNSUCCESSFUL;
 			goto end1;
 		}
 	}
 
 #ifdef __APPLE__
-	/* give some time to libusb to detect the new USB devices on Mac OS X */
-	nanosleep(&sleep_time, NULL);
+again_libusb:
 #endif
 	cnt = libusb_get_device_list(ctx, &devs);
 	if (cnt < 0)
@@ -399,7 +399,8 @@ status_t OpenUSBByName(unsigned int reader_index, /*@null@*/ char *device)
 
 				/* simulate a composite device as when libudev is used */
 				if ((GEMALTOPROXDU == readerID)
-					|| (GEMALTOPROXSU == readerID))
+					|| (GEMALTOPROXSU == readerID)
+					|| (FEITIANR502DUAL == readerID))
 				{
 						/*
 						 * We can't talk to the two CCID interfaces
@@ -496,8 +497,8 @@ status_t OpenUSBByName(unsigned int reader_index, /*@null@*/ char *device)
 				r = libusb_open(dev, &dev_handle);
 				if (r < 0)
 				{
-					DEBUG_CRITICAL4("Can't libusb_open(%d/%d): %d",
-						bus_number, device_address, r);
+					DEBUG_CRITICAL4("Can't libusb_open(%d/%d): %s",
+						bus_number, device_address, libusb_error_name(r));
 
 					continue;
 				}
@@ -522,8 +523,9 @@ again:
 						if (r < 0)
 						{
 							(void)libusb_close(dev_handle);
-							DEBUG_CRITICAL4("Can't set configuration on %d/%d: %d",
-									bus_number, device_address, r);
+							DEBUG_CRITICAL4("Can't set configuration on %d/%d: %s",
+									bus_number, device_address,
+									libusb_error_name(r));
 							continue;
 						}
 					}
@@ -534,8 +536,8 @@ again:
 					{
 #endif
 						(void)libusb_close(dev_handle);
-						DEBUG_CRITICAL4("Can't get config descriptor on %d/%d: %d",
-							bus_number, device_address, r);
+						DEBUG_CRITICAL4("Can't get config descriptor on %d/%d: %s",
+							bus_number, device_address, libusb_error_name(r));
 						continue;
 					}
 #ifdef __APPLE__
@@ -570,7 +572,7 @@ again:
 					/* an interface was specified and it is not the
 					 * current one */
 					DEBUG_INFO3("Found interface %d but expecting %d",
-						interface_number, interface);
+						interface, interface_number);
 					DEBUG_INFO3("Wrong interface for USB device %d/%d."
 						" Checking next one.", bus_number, device_address);
 
@@ -584,8 +586,8 @@ again:
 				if (r < 0)
 				{
 					(void)libusb_close(dev_handle);
-					DEBUG_CRITICAL4("Can't claim interface %d/%d: %d",
-						bus_number, device_address, r);
+					DEBUG_CRITICAL4("Can't claim interface %d/%d: %s",
+						bus_number, device_address, libusb_error_name(r));
 					claim_failed = TRUE;
 					interface_number = -1;
 					continue;
@@ -610,7 +612,7 @@ again:
 
 				/* reset for a next reader */
 				if (static_interface > 2)
-					static_interface = 1;
+					static_interface = (FEITIANR502DUAL == readerID) ? 0: 1;
 #endif
 
 				/* Get Endpoints values*/
@@ -696,6 +698,20 @@ again:
 end:
 	if (usbDevice[reader_index].dev_handle == NULL)
 	{
+		/* free the libusb allocated list & devices */
+		libusb_free_device_list(devs, 1);
+
+#ifdef __APPLE__
+		/* give some time to libusb to detect the new USB devices on Mac OS X */
+		if (count_libusb > 0)
+		{
+			count_libusb--;
+			DEBUG_INFO2("Wait after libusb: %d", count_libusb);
+			nanosleep(&sleep_time, NULL);
+
+			goto again_libusb;
+		}
+#endif
 		close_libusb_if_needed();
 		if (claim_failed)
 			return STATUS_COMM_ERROR;

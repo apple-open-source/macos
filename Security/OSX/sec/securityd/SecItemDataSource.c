@@ -127,7 +127,7 @@ static SOSManifestRef SecItemDataSourceCopyManifestWithQueries(SecItemDataSource
 }
 
 static Query *SecItemDataSourceAppendQuery(CFMutableArrayRef queries, const SecDbClass *qclass, bool noTombstones, CFErrorRef *error) {
-    Query *q = query_create(qclass, NULL, error);
+    Query *q = query_create(qclass, NULL, NULL, error);
     if (q) {
         q->q_return_type = kSecReturnDataMask | kSecReturnAttributesMask;
         q->q_limit = kSecMatchUnlimited;
@@ -156,7 +156,7 @@ static Query *SecItemDataSourceAppendQueryWithClassAndViewHint(CFMutableArrayRef
         // default value of those attributes in the query, since old items
         // will all have that as their values for these new attributes.
         SecDbForEachAttr(qclass, attr) {
-            if ((attr->flags & (kSecDbPrimaryKeyFlag | kSecDbDefaultEmptyFlag | kSecDbDefault0Flag | kSecDbNotNullFlag)) == kSecDbPrimaryKeyFlag) {
+            if (attr == &v7tkid || attr == &v7vwht) {
                 // attr is a primary key attribute added in schema version 7 or later
                 if (!allowTkid || attr != &v7tkid) {
                     if (attr == &v7vwht && viewHint) {
@@ -362,7 +362,7 @@ static bool dsForEachObject(SOSDataSourceRef data_source, SOSManifestRef manifes
         // Setup
         for (size_t class_ix = 0; class_ix < array_size(dsSyncedClasses); ++class_ix) {
             result = (result
-                      && (queries[class_ix] = query_create(dsSyncedClasses[class_ix], NULL, error))
+                      && (queries[class_ix] = query_create(dsSyncedClasses[class_ix], NULL, NULL, error))
                       && (sqls[class_ix] = SecDbItemCopySelectSQL(queries[class_ix], return_attr, use_attr_in_where, NULL))
                       && (stmts[class_ix] = SecDbCopyStmt(dbconn, sqls[class_ix], NULL, error)));
         }
@@ -419,13 +419,6 @@ static CFDataRef copyObjectDigest(SOSObjectRef object, CFErrorRef *error) {
     return digest;
 }
 
-static CFDataRef objectCopyPrimaryKey(SOSObjectRef object, CFErrorRef *error) {
-    SecDbItemRef item = (SecDbItemRef) object;
-    CFDataRef pk = SecDbItemGetPrimaryKey(item, error);
-    CFRetainSafe(pk);
-    return pk;
-}
-
 static CFDictionaryRef objectCopyPropertyList(SOSObjectRef object, CFErrorRef *error) {
     SecDbItemRef item = (SecDbItemRef) object;
     CFMutableDictionaryRef cryptoDataDict = SecDbItemCopyPListWithMask(item, kSecDbInCryptoDataFlag, error);
@@ -472,14 +465,14 @@ static SOSMergeResult dsMergeObject(SOSTransactionRef txn, SOSObjectRef peersObj
         if (!mergedItem) return;
         if (CFEqual(mergedItem, myItem)) {
             // Conflict resolver choose my (local) item
-            secnotice("ds", "Conflict resolver choose my (local) item: %@", myItem);
+            secnotice("ds", "Conflict resolver chose my (local) item: %@", myItem);
             mr = kSOSMergeLocalObject;
         } else {
             CFRetainAssign(replacedItem, myItem);
             *replace = CFRetainSafe(mergedItem);
             if (CFEqual(mergedItem, peersItem)) {
-                // Conflict resolver choose peers item
-                secnotice("ds", "Conflict resolver choose peers item: %@", peersItem);
+                // Conflict resolver chose peer's item
+                secnotice("ds", "Conflict resolver chose peers item: %@", peersItem);
                 mr = kSOSMergePeersObject;
             } else {
                 // Conflict resolver created a new item; return it to our caller
@@ -549,7 +542,7 @@ static CFDataRef dsCopyStateWithKey(SOSDataSourceRef data_source, CFStringRef ke
                                                                           NULL);
     CFReleaseSafe(dataSourceID);
     __block CFDataRef data = NULL;
-    SecDbQueryRef query = query_create(&genp_class, dict, error);
+    SecDbQueryRef query = query_create(&genp_class, NULL, dict, error);
     if (query) {
         if (query->q_item)  CFReleaseSafe(query->q_item);
         query->q_item = dict;
@@ -589,7 +582,7 @@ static CFDataRef dsCopyItemDataWithKeys(SOSDataSourceRef data_source, CFDictiona
     SecItemDataSourceRef ds = (SecItemDataSourceRef)data_source;
     CFMutableDictionaryRef dict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, keys);
     __block CFDataRef data = NULL;
-    SecDbQueryRef query = query_create(&genp_class, dict, error);
+    SecDbQueryRef query = query_create(&genp_class, NULL, dict, error);
     if (query) {
         if (query->q_item)  CFReleaseSafe(query->q_item);
         query->q_item = dict;
@@ -665,7 +658,6 @@ SOSDataSourceRef SecItemDataSourceCreate(SecDbRef db, CFStringRef name, CFErrorR
 
     // Object field accessors
     ds->ds.objectCopyDigest = copyObjectDigest;
-    ds->ds.objectCopyPrimaryKey = objectCopyPrimaryKey;
 
     // Object encode and decode.
     ds->ds.objectCreateWithPropertyList = objectCreateWithPropertyList;

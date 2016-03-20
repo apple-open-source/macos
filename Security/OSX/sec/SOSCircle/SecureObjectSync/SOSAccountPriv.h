@@ -87,6 +87,7 @@ struct __OpaqueSOSAccount {
     
     // Live Notification
     CFMutableArrayRef       change_blocks;
+    CFMutableDictionaryRef  waitForInitialSync_blocks;
 };
 extern const CFStringRef kSOSEscrowRecord;
 
@@ -181,6 +182,9 @@ CFStringRef SOSAccountGetMyPeerID(SOSAccountRef a);
 bool SOSAccountIsMyPeerInBackupAndCurrentInView(SOSAccountRef account, CFStringRef viewname);
 bool SOSAccountUpdateOurPeerInBackup(SOSAccountRef account, SOSRingRef oldRing, CFErrorRef *error);
 bool SOSAccountIsPeerInBackupAndCurrentInView(SOSAccountRef account, SOSPeerInfoRef testPeer, CFStringRef viewname);
+bool SOSDeleteV0Keybag(CFErrorRef *error);
+void SOSAccountForEachBackupView(SOSAccountRef account,  void (^operation)(const void *value));
+bool SOSAccountUpdatePeerInfo(SOSAccountRef account, CFStringRef updateDescription, CFErrorRef *error, bool (^update)(SOSFullPeerInfoRef fpi, CFErrorRef *error));
 
 // Currently permitted backup rings.
 void SOSAccountForEachBackupRingName(SOSAccountRef account, void (^operation)(CFStringRef value));
@@ -272,6 +276,7 @@ bool sosAccountLeaveRing(SOSAccountRef account, SOSRingRef ring, CFErrorRef* err
 CFMutableDictionaryRef SOSAccountGetRings(SOSAccountRef a, CFErrorRef *error);
 CFMutableDictionaryRef SOSAccountGetBackups(SOSAccountRef a, CFErrorRef *error);
 bool SOSAccountUpdateBackUp(SOSAccountRef account, CFStringRef viewname, CFErrorRef *error);
+bool SOSAccountEnsureBackupStarts(SOSAccountRef account);
 
 bool SOSAccountEnsurePeerRegistration(SOSAccountRef account, CFErrorRef *error);
 
@@ -283,6 +288,7 @@ extern const CFStringRef SOSTransportMessageTypeKVS;
 extern const CFStringRef kSOSUnsyncedViewsKey;
 
 typedef enum{
+    kSOSTransportNone = 0,
     kSOSTransportIDS = 1,
     kSOSTransportKVS = 2,
     kSOSTransportFuture = 3,
@@ -319,5 +325,15 @@ bool SOSAccountCheckPeerAvailability(SOSAccountRef account, CFErrorRef *error);
 //
 
 CFStringRef SOSBackupCopyRingNameForView(CFStringRef viewName);
+
+//
+// Security tool test/debug functions
+//
+
+CFDataRef SOSAccountCopyAccountStateFromKeychain(CFErrorRef *error);
+bool SOSAccountDeleteAccountStateFromKeychain(CFErrorRef *error);
+CFDataRef SOSAccountCopyEngineStateFromKeychain(CFErrorRef *error);
+bool SOSAccountDeleteEngineStateFromKeychain(CFErrorRef *error);
+
 
 #endif

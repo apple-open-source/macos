@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2006-2014 Apple Inc. All Rights Reserved.
  *
@@ -57,6 +58,113 @@
 #define QUERY_KEY_LIMIT  (31 + QUERY_KEY_LIMIT_BASE)
 #else
 #define QUERY_KEY_LIMIT  QUERY_KEY_LIMIT_BASE
+#endif
+
+
+static const uint8_t systemKeychainUUID[] = "\xF6\x23\xAE\x5C\xCC\x81\x4C\xAC\x8A\xD4\xF0\x01\x3F\x31\x35\x11";
+
+CFDataRef
+SecMUSRCopySystemKeychainUUID(void)
+{
+    return CFDataCreateWithBytesNoCopy(NULL, (const UInt8 *)systemKeychainUUID, 16, kCFAllocatorNull);
+}
+
+CFDataRef
+SecMUSRGetSystemKeychainUUID(void)
+{
+    static dispatch_once_t onceToken;
+    static CFDataRef systemKeychainData = NULL;
+    dispatch_once(&onceToken, ^{
+        systemKeychainData = CFDataCreateWithBytesNoCopy(NULL, (const UInt8 *)systemKeychainUUID, 16, kCFAllocatorNull);
+    });
+    return systemKeychainData;
+}
+
+CFDataRef
+SecMUSRGetSingleUserKeychainUUID(void)
+{
+    static dispatch_once_t onceToken;
+    static CFDataRef singleUser = NULL;
+    dispatch_once(&onceToken, ^{
+        singleUser = CFDataCreateWithBytesNoCopy(NULL, NULL, 0, kCFAllocatorNull);
+    });
+    return singleUser;
+}
+
+bool
+SecMUSRIsSingleUserView(CFDataRef musr)
+{
+    return CFEqual(musr, SecMUSRGetSingleUserKeychainUUID());
+}
+
+static const uint8_t allKeychainViewsUUID[16] = "\xC8\x60\x07\xEC\x89\x62\x4D\xAF\x85\x65\x1F\xE6\x0F\x50\x5D\xB7";
+
+CFDataRef
+SecMUSRGetAllViews(void)
+{
+    static dispatch_once_t onceToken;
+    static CFDataRef allKeychainViewsData = NULL;
+    dispatch_once(&onceToken, ^{
+        allKeychainViewsData = CFDataCreateWithBytesNoCopy(NULL, (const UInt8 *)allKeychainViewsUUID, 16, kCFAllocatorNull);
+    });
+    return allKeychainViewsData;
+}
+
+bool
+SecMUSRIsViewAllViews(CFDataRef musr)
+{
+    return CFEqual(musr, SecMUSRGetAllViews());
+}
+
+#if TARGET_OS_IPHONE
+
+CFDataRef
+SecMUSRCreateActiveUserUUID(uid_t uid)
+{
+    uint8_t uuid[16] = "\xA7\x5A\x3A\x35\xA5\x57\x4B\x10\xBE\x2E\x83\x94\x7E\x4A\x34\x72";
+    uint32_t num = htonl(uid);
+    memcpy(&uuid[12], &num, sizeof(num));
+    return CFDataCreate(NULL, uuid, sizeof(uuid));
+}
+
+CFDataRef
+SecMUSRCreateSyncBubbleUserUUID(uid_t uid)
+{
+    uint8_t uuid[16] = "\x82\x1A\xAB\x9F\xA3\xC8\x4E\x11\xAA\x90\x4C\xE8\x9E\xA6\xD7\xEC";
+    uint32_t num = htonl(uid);
+    memcpy(&uuid[12], &num, sizeof(num));
+    return CFDataCreate(NULL, uuid, sizeof(uuid));
+}
+
+static const uint8_t bothUserAndSystemUUID[12] = "\x36\xC4\xBE\x2E\x99\x0A\x46\x9A\xAC\x89\x09\xA4";
+
+
+CFDataRef
+SecMUSRCreateBothUserAndSystemUUID(uid_t uid)
+{
+    uint8_t uuid[16];
+    memcpy(uuid, bothUserAndSystemUUID, 12);
+    uint32_t num = htonl(uid);
+    memcpy(&uuid[12], &num, sizeof(num));
+    return CFDataCreate(NULL, uuid, sizeof(uuid));
+}
+
+bool
+SecMUSRGetBothUserAndSystemUUID(CFDataRef musr, uid_t *uid)
+{
+    if (CFDataGetLength(musr) != 16)
+        return false;
+    const uint8_t *uuid = CFDataGetBytePtr(musr);
+    if (memcmp(uuid, bothUserAndSystemUUID, 12) != 0)
+        return false;
+    if (uid) {
+        uint32_t num;
+        memcpy(&num, &uuid[12], sizeof(num));
+        *uid = htonl(num);
+    }
+    return true;
+}
+
 #endif
 
 /* Inline accessors to attr and match values in a query. */
@@ -170,6 +278,9 @@ void query_add_attribute_with_desc(const SecDbAttr *desc, const void *value, Que
         case kSecDbPrimaryKeyAttr:
         case kSecDbEncryptedDataAttr:
         case kSecDbUTombAttr:
+            break;
+        case kSecDbUUIDAttr:
+            attr = copyUUID(value);
             break;
     }
 
@@ -473,12 +584,22 @@ static void query_add_use(const void *key, const void *value, Query *q)
             SecError(errSecItemInvalidValue, &q->q_error, CFSTR("add_use: value %@ for key %@ is not CFString"), value, key);
             return;
         }
-#if defined(MULTIPLE_KEYCHAINS)
-    } else if (CFEqual(key, kSecUseKeychain)) {
-        q->q_use_keychain = value;
-    } else if (CFEqual(key, kSecUseKeychainList)) {
-        q->q_use_keychain_list = value;
-#endif /* !defined(MULTIPLE_KEYCHAINS) */
+#if TARGET_OS_IPHONE
+    } else if (CFEqual(key, kSecUseSystemKeychain)) {
+#if TARGET_OS_EMBEDDED
+        q->q_keybag = KEYBAG_DEVICE;
+#endif
+        q->q_system_keychain = true;
+    } else if (CFEqual(key, kSecUseSyncBubbleKeychain)) {
+        if (isNumber(value) && CFNumberGetValue(value, kCFNumberSInt32Type, &q->q_sync_bubble) && q->q_sync_bubble > 0) {
+#if TARGET_OS_EMBEDDED
+            q->q_keybag = KEYBAG_DEVICE;
+#endif
+        } else {
+            SecError(errSecItemInvalidValue, &q->q_error, CFSTR("add_use: value %@ for key %@ is not valid uid"), value, key);
+            return;
+        }
+#endif
     } else {
         SecError(errSecItemInvalidKey, &q->q_error, CFSTR("add_use: unknown key %@"), key);
         return;
@@ -540,6 +661,11 @@ static void query_update_applier(const void *key, const void *value,
 
     if (!value) {
         SecError(errSecItemInvalidValue, &q->q_error, CFSTR("update_applier: key %@ has NULL value"), key);
+        return;
+    }
+
+    if (CFEqual(key, CFSTR("musr"))) {
+        secnotice("item", "update_applier: refusing to update musr");
         return;
     }
 
@@ -660,6 +786,7 @@ bool query_destroy(Query *q, CFErrorRef *error) {
         CFReleaseSafe(query_attr_at(q, ix).value);
     }
     CFReleaseSafe(q->q_item);
+    CFReleaseSafe(q->q_musrView);
     CFReleaseSafe(q->q_primary_key_digest);
     CFReleaseSafe(q->q_match_issuer);
     CFReleaseSafe(q->q_access_control);
@@ -671,14 +798,16 @@ bool query_destroy(Query *q, CFErrorRef *error) {
 }
 
 bool query_notify_and_destroy(Query *q, bool ok, CFErrorRef *error) {
-    if (ok && !q->q_error && q->q_sync_changed) {
+    if (ok && !q->q_error && (q->q_sync_changed || (q->q_changed && !SecMUSRIsSingleUserView(q->q_musrView)))) {
         SecKeychainChanged(true);
     }
     return query_destroy(q, error) && ok;
 }
 
 /* Allocate and initialize a Query object for query. */
-Query *query_create(const SecDbClass *qclass, CFDictionaryRef query,
+Query *query_create(const SecDbClass *qclass,
+                    CFDataRef musr,
+                    CFDictionaryRef query,
                     CFErrorRef *error)
 {
     if (!qclass) {
@@ -686,6 +815,9 @@ Query *query_create(const SecDbClass *qclass, CFDictionaryRef query,
             SecError(errSecItemClassMissing, error, CFSTR("Missing class"));
         return NULL;
     }
+
+    if (musr == NULL)
+        musr = SecMUSRGetSingleUserKeychainUUID();
 
     /* Number of pairs we need is the number of attributes in this class
      plus the number of keys in the dictionary, minus one for each key in
@@ -720,6 +852,7 @@ Query *query_create(const SecDbClass *qclass, CFDictionaryRef query,
         return NULL;
     }
 
+    q->q_musrView = (CFDataRef)CFRetain(musr);
     q->q_keybag = KEYBAG_DEVICE;
     q->q_class = qclass;
     q->q_match_begin = q->q_match_end = key_count;
@@ -748,9 +881,9 @@ bool query_update_parse(Query *q, CFDictionaryRef update,
     return query_parse_with_applier(q, update, query_update_applier, error);
 }
 
-Query *query_create_with_limit(CFDictionaryRef query, CFIndex limit, CFErrorRef *error) {
+Query *query_create_with_limit(CFDictionaryRef query, CFDataRef musr, CFIndex limit, CFErrorRef *error) {
     Query *q;
-    q = query_create(query_get_class(query, error), query, error);
+    q = query_create(query_get_class(query, error), musr, query, error);
     if (q) {
         q->q_limit = limit;
         if (!query_parse(q, query, error)) {

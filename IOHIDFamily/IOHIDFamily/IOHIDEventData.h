@@ -43,8 +43,9 @@
 //==============================================================================
 
 enum {
-    kIOHIDEventOptionIgnore     = 0xf0000000,
-    kIOHIDEventOptionIsRepeat   = 0x00010000
+    kIOHIDEventOptionIgnore         = 0xf0000000,
+    kIOHIDEventOptionIsRepeat       = 0x00010000,
+    kIOHIDEventOptionIsZeroEvent    = 0x08000000,
 };
 
 #define IOHIDEVENT_BASE             \
@@ -151,6 +152,10 @@ typedef struct _IOHIDAmbientLightSensorEventData {
     uint32_t        ch2;
     uint32_t        ch3;
     Boolean         brightnessChanged;
+    IOHIDEventColorSpace  colorSpace;
+    IOHIDDouble           colorComponent0;
+    IOHIDDouble           colorComponent1;
+    IOHIDDouble           colorComponent2;
 } IOHIDAmbientLightSensorEventData;
 
 typedef struct _IOHIDTemperatureEventData {
@@ -478,15 +483,31 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
 #define IOFixedIsNaN            ((value) == kIOFixedNaN)
 
 #ifdef KERNEL
-    #define IOHIDEventValueFloat(value, isFixed)                (isFixed ? value : (((value) != kIOFixedNaN) ? (value)>>16 : (value)))
-    #define IOHIDEventValueFixed(value, isFixed)                (isFixed ? value : (((value) != kIOFixedNaN) ? (value)<<16 : (value)))
+    #define IOHIDEventValueFloat_1(value)                       value
+    #define IOHIDEventValueFloat_0(value)                       (((value) != kIOFixedNaN) ? (value)>>16 : (value))
+
+    #define IOHIDEventValueFixed_1(value)                       value
+    #define IOHIDEventValueFixed_0(value)                       (((value) != kIOFixedNaN) ? (value)<<16 : (value))
+
     #define IOHIDEventGetEventWithOptions(event, type, options) event->getEvent(type, options)
     #define GET_EVENTDATA(event)                                event->_data
 #else
-    #define IOHIDEventValueFloat(value, isFixed)                (isFixed ? value : (((value) != kIOFixedNaN) ? ((value) / 65536.0) : (NAN)))
-    #define IOHIDEventValueFixed(value, isFixed)                (isFixed ? value : (((value) != kIOFixedNaN) ? ((value) * 65536) : (kIOFixedNaN)))
+    #define IOHIDEventValueFloat_1(value)                       value
+    #define IOHIDEventValueFloat_0(value)                       (((value) != kIOFixedNaN) ? ((value) / 65536.0) : (NAN))
+
+    #define IOHIDEventValueFixed_1(value)                       value
+    #define IOHIDEventValueFixed_0(value)                       (((value) != kIOFixedNaN) ? ((value) * 65536) : (kIOFixedNaN))
+
     #define GET_EVENTDATA(event)                                event->eventData
 #endif
+
+    #define IOHIDEventValueFixed_true  IOHIDEventValueFixed_1
+    #define IOHIDEventValueFixed_false IOHIDEventValueFixed_0
+    #define IOHIDEventValueFloat_true  IOHIDEventValueFloat_1
+    #define IOHIDEventValueFloat_false IOHIDEventValueFloat_0
+    #define IOHIDEventValueFloat(value, isFixed)                IOHIDEventValueFloat_##isFixed (value)
+    #define IOHIDEventValueFixed(value, isFixed)                IOHIDEventValueFixed_##isFixed (value)
+
 
 //==============================================================================
 // IOHIDEventGetValue MACRO
@@ -846,6 +867,18 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightDisplayBrightnessChanged): \
                         value = alsEvent->brightnessChanged; \
                         break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightColorSpace): \
+                        value = alsEvent->colorSpace;   \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightColorComponent0): \
+                        value = alsEvent->colorComponent0; \
+                        break;                             \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightColorComponent1): \
+                        value = alsEvent->colorComponent1; \
+                        break;                           \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightColorComponent2): \
+                        value = alsEvent->colorComponent2; \
+                        break;                           \
                 };                                      \
             }                                           \
             break;                                      \
@@ -1596,6 +1629,18 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightDisplayBrightnessChanged): \
                         alsEvent->brightnessChanged = value; \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightColorSpace): \
+                        alsEvent->colorSpace = value; \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightColorComponent0): \
+                        alsEvent->colorComponent0 = value; \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightColorComponent1): \
+                        alsEvent->colorComponent1 = value; \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightColorComponent2): \
+                        alsEvent->colorComponent2 = value; \
                         break;                          \
                 };                                      \
             }                                           \

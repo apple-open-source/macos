@@ -54,7 +54,7 @@ typedef enum SecBackupEventType {
 bool SecItemBackupWithRegisteredBackups(CFErrorRef *error, void(^backup)(CFStringRef backupName));
 
 /*!
- @function SecBackupWithChanges
+ @function SecItemBackupWithChanges
  @abstract Tell securityd which keybag (via a persistent ref) to use to backup
  items for each of the built in dataSources to.
  @param backupName Name of this backup set.

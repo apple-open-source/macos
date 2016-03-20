@@ -240,6 +240,7 @@ HPUX betreiben</a></li>
 <li><a href="mod/mod_headers.html">Apache-Modul mod_headers</a></li>
 <li><a href="mod/mod_heartbeat.html">Apache-Modul mod_heartbeat</a></li>
 <li><a href="mod/mod_heartmonitor.html">Apache-Modul mod_heartmonitor</a></li>
+<li><a href="mod/mod_http2.html">Apache-Modul mod_http2</a></li>
 <li><a href="mod/mod_ident.html">Apache-Modul mod_ident</a></li>
 <li><a href="mod/mod_imagemap.html">Apache-Modul mod_imagemap</a></li>
 <li><a href="mod/mod_include.html">Apache-Modul mod_include</a></li>

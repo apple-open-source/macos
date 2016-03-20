@@ -20,9 +20,22 @@
 
 #include "internal.h"
 
+#if !defined(VOUCHER_EXPORT_PERSONA_SPI)
+#if TARGET_OS_IPHONE
+#define VOUCHER_EXPORT_PERSONA_SPI 1
+#else
+#define VOUCHER_EXPORT_PERSONA_SPI 0
+#endif
+#endif
+
+#ifndef PERSONA_ID_NONE
+#define PERSONA_ID_NONE ((uid_t)-1)
+#endif
+
 #if VOUCHER_USE_MACH_VOUCHER
 
 #include <mach/mach_voucher.h>
+#include <sys/kauth.h>
 
 // <rdar://16363550>
 #ifndef VM_MEMORY_GENEALOGY
@@ -273,6 +286,15 @@ _voucher_create_mach_voucher(const mach_voucher_attr_recipe_data_t *recipes,
 mach_voucher_t _voucher_default_task_mach_voucher;
 #endif
 
+#if !defined(VOUCHER_USE_PERSONA)
+#if VOUCHER_USE_ATTR_BANK && defined(BANK_PERSONA_TOKEN) && \
+		!TARGET_IPHONE_SIMULATOR
+#define VOUCHER_USE_PERSONA 1
+#else
+#define VOUCHER_USE_PERSONA 0
+#endif
+#endif
+
 void
 _voucher_task_mach_voucher_init(void* ctxt DISPATCH_UNUSED)
 {
@@ -355,9 +377,10 @@ _voucher_get_mach_voucher(voucher_t voucher)
 	_voucher_base_recipe(voucher).previous_voucher = kvb;
 	_voucher_atm_recipe(voucher).previous_voucher =
 			_voucher_get_atm_mach_voucher(voucher);
-	kr = _voucher_create_mach_voucher(voucher->v_recipes,
-			_voucher_recipes_size() + _voucher_extra_size(voucher) +
-			_voucher_bits_recipe(voucher).content_size, &kv);
+	size_t recipes_size = _voucher_recipes_size() +
+			_voucher_extra_size(voucher) +
+			_voucher_bits_recipe(voucher).content_size;
+	kr = _voucher_create_mach_voucher(voucher->v_recipes, recipes_size, &kv);
 	if (dispatch_assume_zero(kr) || !kv){
 		return MACH_VOUCHER_NULL;
 	}
@@ -418,42 +441,20 @@ _voucher_create_with_mach_voucher(mach_voucher_t kv)
 {
 	if (!kv) return NULL;
 	kern_return_t kr;
-	mach_voucher_t rkv;
 	mach_voucher_attr_recipe_t vr;
 	size_t vr_size;
 	mach_voucher_attr_recipe_size_t kvr_size = 0;
-	const mach_voucher_attr_recipe_data_t redeem_recipe[] = {
-		[0] = {
-			.key = MACH_VOUCHER_ATTR_KEY_ALL,
-			.command = MACH_VOUCHER_ATTR_COPY,
-			.previous_voucher = kv,
-		},
-#if VOUCHER_USE_ATTR_BANK
-		[1] = {
-			.key = MACH_VOUCHER_ATTR_KEY_BANK,
-			.command = MACH_VOUCHER_ATTR_REDEEM,
-		},
-#endif
-	};
-	kr = _voucher_create_mach_voucher(redeem_recipe, sizeof(redeem_recipe),
-			&rkv);
-	if (!dispatch_assume_zero(kr)) {
-		_voucher_dealloc_mach_voucher(kv);
-	} else {
-		_dispatch_voucher_debug_machport(kv);
-		rkv = kv;
-	}
-	voucher_t v = _voucher_find_and_retain(rkv);
+	voucher_t v = _voucher_find_and_retain(kv);
 	if (v) {
-		_dispatch_voucher_debug("kvoucher[0x%08x] find with 0x%08x", v, rkv,kv);
-		_voucher_dealloc_mach_voucher(rkv);
+		_dispatch_voucher_debug("kvoucher[0x%08x] found", v, kv);
+		_voucher_dealloc_mach_voucher(kv);
 		return v;
 	}
 	vr_size = sizeof(*vr) + _voucher_bits_size(_voucher_max_activities);
 	vr = alloca(vr_size);
-	if (rkv) {
+	if (kv) {
 		kvr_size = (mach_voucher_attr_recipe_size_t)vr_size;
-		kr = mach_voucher_extract_attr_recipe(rkv,
+		kr = mach_voucher_extract_attr_recipe(kv,
 				MACH_VOUCHER_ATTR_KEY_USER_DATA, (void*)vr, &kvr_size);
 		DISPATCH_VERIFY_MIG(kr);
 		if (dispatch_assume_zero(kr)) kvr_size = 0;
@@ -483,7 +484,7 @@ _voucher_create_with_mach_voucher(mach_voucher_t kv)
 	_voucher_atm_t vatm = NULL;
 	if (activities) {
 		va_id = *(voucher_activity_id_t*)content;
-		act = _voucher_activity_copy_from_mach_voucher(rkv, va_id);
+		act = _voucher_activity_copy_from_mach_voucher(kv, va_id);
 		if (!act && _voucher_activity_default) {
 			activities++;
 			// default to _voucher_activity_default base activity
@@ -507,9 +508,9 @@ _voucher_create_with_mach_voucher(mach_voucher_t kv)
 	if (activities) {
 		memcpy(activity_ids, content, content_size);
 	}
-	v->v_ipc_kvoucher = v->v_kvoucher = rkv;
+	v->v_ipc_kvoucher = v->v_kvoucher = kv;
 	_voucher_insert(v);
-	_dispatch_voucher_debug("kvoucher[0x%08x] create with 0x%08x", v, rkv, kv);
+	_dispatch_voucher_debug("kvoucher[0x%08x] create", v, kv);
 	return v;
 }
 
@@ -780,6 +781,92 @@ _voucher_atfork_child(void)
 	// TODO: voucher/activity inheritance on fork ?
 }
 
+#if VOUCHER_EXPORT_PERSONA_SPI
+#if VOUCHER_USE_PERSONA
+static kern_return_t
+_voucher_get_current_persona_token(struct persona_token *token)
+{
+	kern_return_t kr = KERN_FAILURE;
+	voucher_t v = _voucher_get();
+
+	if (v && v->v_kvoucher) {
+		mach_voucher_t kv = v->v_ipc_kvoucher ?: v->v_kvoucher;
+		mach_voucher_attr_content_t kvc_in = NULL;
+		mach_voucher_attr_content_size_t kvc_in_size = 0;
+		mach_voucher_attr_content_t kvc_out =
+			(mach_voucher_attr_content_t)token;
+		mach_voucher_attr_content_size_t kvc_out_size = sizeof(*token);
+
+		kr = mach_voucher_attr_command(kv, MACH_VOUCHER_ATTR_KEY_BANK,
+				BANK_PERSONA_TOKEN, kvc_in, kvc_in_size,
+				kvc_out, &kvc_out_size);
+		if (kr != KERN_NOT_SUPPORTED
+				// Voucher doesn't have a PERSONA_TOKEN
+				&& kr != KERN_INVALID_VALUE
+				// Kernel doesn't understand BANK_PERSONA_TOKEN
+				&& kr != KERN_INVALID_ARGUMENT) {
+			(void)dispatch_assume_zero(kr);
+		}
+	}
+	return kr;
+}
+#endif
+
+uid_t
+voucher_get_current_persona(void)
+{
+	uid_t persona_id = PERSONA_ID_NONE;
+
+#if VOUCHER_USE_PERSONA
+	struct persona_token token;
+	int err;
+
+	if (_voucher_get_current_persona_token(&token) == KERN_SUCCESS) {
+		return token.originator.persona_id;
+	}
+
+	// falling back to the process persona if there is no adopted voucher
+	if (kpersona_get(&persona_id) < 0) {
+		err = errno;
+		if (err != ESRCH) {
+			(void)dispatch_assume_zero(err);
+		}
+	}
+#endif
+	return persona_id;
+}
+
+int
+voucher_get_current_persona_originator_info(struct proc_persona_info *persona_info)
+{
+#if VOUCHER_USE_PERSONA
+	struct persona_token token;
+	if (_voucher_get_current_persona_token(&token) == KERN_SUCCESS) {
+		*persona_info = token.originator;
+		return 0;
+	}
+#else
+	(void)persona_info;
+#endif
+	return -1;
+}
+
+int
+voucher_get_current_persona_proximate_info(struct proc_persona_info *persona_info)
+{
+#if VOUCHER_USE_PERSONA
+	struct persona_token token;
+	if (_voucher_get_current_persona_token(&token) == KERN_SUCCESS) {
+		*persona_info = token.proximate;
+		return 0;
+	}
+#else
+	(void)persona_info;
+#endif
+	return -1;
+}
+#endif
+
 #pragma mark -
 #pragma mark _voucher_init
 
@@ -991,7 +1078,7 @@ _voucher_heap_buffer_limit()
 		return _voucher_activity_buffers_per_heap;
 	}
 #if TARGET_OS_EMBEDDED
-	// Low-profile modes: 3 activities, each of which can use 2 buffers;
+	// Low-profile modes: 3 activities, each of which can use 2 buffers;
 	// plus the default activity, which can use 3; plus 3 buffers of overhead.
 	return 12;
 #else
@@ -2417,6 +2504,13 @@ _voucher_dealloc_mach_voucher(mach_voucher_t kv)
 }
 
 mach_voucher_t
+_voucher_get_mach_voucher(voucher_t voucher)
+{
+	(void)voucher;
+	return MACH_VOUCHER_NULL;
+}
+
+mach_voucher_t
 _voucher_create_mach_voucher_with_priority(voucher_t voucher,
 		pthread_priority_t priority)
 {
@@ -2466,6 +2560,28 @@ _voucher_dispose(voucher_t voucher)
 {
 	(void)voucher;
 }
+
+#if VOUCHER_EXPORT_PERSONA_SPI
+uid_t
+voucher_get_current_persona(void)
+{
+	return PERSONA_ID_NONE;
+}
+
+int
+voucher_get_current_persona_originator_info(struct proc_persona_info *persona_info)
+{
+	(void)persona_info;
+	return -1;
+}
+
+int
+voucher_get_current_persona_proximate_info(struct proc_persona_info *persona_info)
+{
+	(void)persona_info;
+	return -1;
+}
+#endif
 
 void
 _voucher_atfork_child(void)

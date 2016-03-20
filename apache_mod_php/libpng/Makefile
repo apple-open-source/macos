@@ -24,8 +24,7 @@ Install_Man	= $(Install_Prefix)/share/man
 Install_Info	= $(Install_Prefix)/info
 
 # Automatic Extract & Patch
-AEP			= YES
-AEP_Version		= 1.6.16
+AEP			= NO
 # License file must be empty as this is a subproject.
 AEP_LicenseFile		=
 AEP_Patches		=
@@ -140,6 +139,10 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(Sources)
 	$(_v) $(RM) $(GNUConfigStamp)
 	$(MV) $(AEP_ExtractRoot)/$(AEP_ExtractDir) $(Sources)
+else
+	@echo "Source extraction for $(Project) skipped!"
+	$(_v) $(CP) $(SRCROOT)/$(AEP_ExtractDir) $(Sources)
+endif
 ifdef AEP_Patches
 	for patchfile in $(AEP_Patches); do \
 	   echo "Applying $$patchfile..."; \
@@ -151,9 +154,6 @@ ifneq ($(Sources),$(BuildDirectory))
 	@echo "Copying sources to build directory..."
 	$(_v) $(CP) $(Sources) $(BuildDirectory)
 endif
-endif
-else
-	@echo "Source extraction for $(Project) skipped!"
 endif
 
 # Common.make's recurse doesn't reset SRCROOT and misdefines Sources

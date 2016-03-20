@@ -216,6 +216,18 @@ IOReturn IOI2CInterfaceUserClient::extIO(
                 request->commFlags            = requestV1->commFlags;
                 request->minReplyDelay        = requestV1->minReplyDelay;
         }
+        else
+        {
+            /*
+             <rdar://problem/23955672> ZDI-CAN-3453: Apple OS X IOGraphicsFamily Untrusted Pointer Dereference Privilege Escalation Vulnerability IOI2CInterfaceUserClient::extIO
+             <rdar://problem/24172232> ZDI-CAN-3453: Apple OS X IOGraphicsFamily Untrusted Pointer Dereference Privilege Escalation Vulnerability IOI2CInterfaceUserClient::extIO
+             <rdar://problem/24065934> ZDI- CAN-3489: Apple OS X IOGraphicsFamily Untrusted Pointer Dereference Privilege Escalation Vulnerability
+             <rdar://problem/24172270> ZDI- CAN-3489: Apple OS X IOGraphicsFamily Untrusted Pointer Dereference Privilege Escalation Vulnerability
+
+             Force completion to NULL if passed in from user land (V1 only case), V2 case handled by the bzero of the V2 structure (above).
+             */
+            request->completion = NULL;
+        }
 
     if ((provider = (IOI2CInterface *) copyParentEntry(gIOServicePlane)))
         do

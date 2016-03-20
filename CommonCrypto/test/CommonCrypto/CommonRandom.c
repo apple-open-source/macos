@@ -104,7 +104,7 @@ int CommonRandom(int argc, char *const *argv)
     isnt(devRandom,NULL, "Dev random first state ok");
     drbg = ccDRBGGetRngState();
     isnt(drbg,NULL, "DRBG first state ok");
-
+    if (devRandom==NULL || drbg==NULL) return 1;
     for(i=0; i < kTestTestCount; i++) {
         size_t len = i+16;
         is(CCRandomCopyBytes(kCCRandomDefault, buf1, len),0, "Random success");

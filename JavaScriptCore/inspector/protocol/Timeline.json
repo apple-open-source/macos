@@ -16,13 +16,10 @@
                 "Composite",
                 "RenderingFrame",
                 "ScrollLayer",
-                "ParseHTML",
                 "TimerInstall",
                 "TimerRemove",
                 "TimerFire",
                 "EvaluateScript",
-                "MarkLoad",
-                "MarkDOMContent",
                 "TimeStamp",
                 "Time",
                 "TimeEnd",
@@ -110,10 +107,16 @@
         },
         {
             "name": "recordingStarted",
+            "parameters": [
+                { "name": "startTime", "type": "number", "description": "Start time of this new recording." }
+            ],
             "description": "Fired when recording has started."
         },
         {
             "name": "recordingStopped",
+            "parameters": [
+                { "name": "endTime", "type": "number", "description": "End time of this recording." }
+            ],
             "description": "Fired when recording has stopped."
         }
     ]

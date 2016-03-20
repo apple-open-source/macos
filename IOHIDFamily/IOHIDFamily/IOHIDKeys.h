@@ -105,6 +105,7 @@ __BEGIN_DECLS
 #define kIOHIDCategoryKey                   "Category"
 #define kIOHIDMaxResponseLatencyKey         "MaxResponseLatency"
 #define kIOHIDUniqueIDKey                   "UniqueID"
+#define kIOHIDPhysicalDeviceUniqueIDKey     "PhysicalDeviceUniqueID"
 
 
 #define kIOHIDTransportUSBValue                 "USB"

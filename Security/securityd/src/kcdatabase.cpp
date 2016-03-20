@@ -168,6 +168,56 @@ change_secret_on_keybag(KeychainDatabase & db, const void * secret, int secret_l
     }
 }
 
+// Attempt to unlock the keybag with a AccessCredentials password.
+// Honors UI disabled flags from clients set in the cred before prompt.
+static bool
+unlock_keybag_with_cred(KeychainDatabase &db, const AccessCredentials *cred){
+    list<CssmSample> samples;
+    if (cred && cred->samples().collect(CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK, samples)) {
+        for (list<CssmSample>::iterator it = samples.begin(); it != samples.end(); it++) {
+            TypedList &sample = *it;
+            sample.checkProper();
+            switch (sample.type()) {
+                // interactively prompt the user - no additional data
+                case CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT: {
+                    StSyncLock<Mutex, Mutex> uisync(db.common().uiLock(), db.common());
+                    // Once we get the ui lock, check whether another thread has already unlocked keybag
+                    bool locked = false;
+                    service_context_t context = db.common().session().get_current_service_context();
+                    if ((service_client_kb_is_locked(&context, &locked, NULL) == 0) && locked) {
+                        QueryKeybagPassphrase keybagQuery(db.common().session(), 3);
+                        keybagQuery.inferHints(Server::process());
+                        if (keybagQuery.query() == SecurityAgent::noReason) {
+                            return true;
+                        }
+                    }
+                    else {
+                        // another thread already unlocked the keybag
+                        return true;
+                    }
+                    break;
+                }
+                // try to use an explicitly given passphrase - Data:passphrase
+                case CSSM_SAMPLE_TYPE_PASSWORD: {
+                    if (sample.length() != 2)
+                        CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
+                    secdebug("KCdb", "%p attempting passphrase unlock of keybag");
+                    if (unlock_keybag(db, sample[1].data().data(), (int)sample[1].data().length())) {
+                        return true;
+                    }
+                    break;
+                }
+                default: {
+                    // Unknown sub-sample for unlocking.
+                    secdebug("KCdb", "keybag: unknown sub-sample unlock (%d) ignored", sample.type());
+                    break;
+                }
+            }
+        }
+    }
+    return false;
+}
+
 //
 // Create a Database object from initial parameters (create operation)
 //
@@ -309,6 +359,60 @@ KeychainDatabase::KeychainDatabase(KeychainDatabase &src, Process &proc, DbHandl
 	proc.addReference(*this);
 	secdebug("SSdb", "database %s(%p) created as copy, common at %p",
 			 common().dbName(), this, &common());
+}
+
+
+// Make a new KeychainDatabase from an old one, but have entirely new operational secrets
+KeychainDatabase::KeychainDatabase(KeychainDatabase &src, Process &proc)
+: LocalDatabase(proc), mValidData(false), mSecret(Allocator::standard(Allocator::sensitive)), mSaveSecret(false), version(0), mBlob(NULL)
+{
+    mCred = DataWalkers::copy(src.mCred, Allocator::standard());
+
+    // Give this KeychainDatabase a temporary name
+    // this must canonicalize to a different path than the original DB, otherwise another process opening the existing DB wil find this new KeychainDbCommon
+    // and call decodeCore with the old blob, overwriting the new secrets and wreaking havoc
+    std::string newDbName = std::string("////") + std::string(src.identifier().dbName()) + std::string("_com.apple.security.keychain.migrating");
+    DLDbIdentifier newDLDbIdent(src.identifier().dlDbIdentifier().ssuid(), newDbName.c_str(), src.identifier().dlDbIdentifier().dbLocation());
+    DbIdentifier ident(newDLDbIdent, src.identifier());
+
+    // create common block and initialize
+    RefPointer<KeychainDbCommon> newCommon = new KeychainDbCommon(proc.session(), ident);
+    StLock<Mutex> _(*newCommon);
+    parent(*newCommon);
+
+    // We want to re-use the master secrets from the source database (and so the
+    // same password), but reroll new operational secrets.
+
+    // Copy the master secret over...
+    src.unlockDb(); // precaution
+
+    common().setup(src.blob(), src.common().masterKey(), false); // keep the new common's version intact
+
+    // set initial database parameters from the source keychain
+    common().mParams = src.common().mParams;
+
+    // and make new operational secrets
+    common().makeNewSecrets();
+
+    // import source keychain's ACL
+    CssmData pubAcl, privAcl;
+    src.acl().exportBlob(pubAcl, privAcl);
+    importBlob(pubAcl.data(), privAcl.data());
+    src.acl().allocator.free(pubAcl);
+    src.acl().allocator.free(privAcl);
+
+    // indicate that this keychain should be allowed to do some otherwise
+    // risky things required for copying, like re-encoding keys
+    mRecodingSource = &src;
+
+    common().setUnlocked();
+    mValidData = true;
+
+    encode();
+
+    proc.addReference(*this);
+    secdebug("SSdb", "database %s(%p) created as expected copy, common at %p",
+             common().dbName(), this, &common());
 }
 
 //
@@ -580,10 +684,7 @@ void KeychainDatabase::makeUnlocked(const AccessCredentials *cred)
         bool locked = false;
         service_context_t context = common().session().get_current_service_context();
         if ((service_client_kb_is_locked(&context, &locked, NULL) == 0) && locked) {
-            StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
-            QueryKeybagPassphrase keybagQuery(common().session(), 3);
-            keybagQuery.inferHints(Server::process());
-            if (keybagQuery.query() != SecurityAgent::noReason) {
+            if (!unlock_keybag_with_cred(*this, cred)) {
                 syslog(LOG_NOTICE, "failed to unlock iCloud keychain");
             }
         }
@@ -843,6 +944,59 @@ void KeychainDatabase::establishOldSecrets(const AccessCredentials *creds)
 	
 	// out of options - no secret obtained
 	CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
+}
+
+//
+// This function is almost identical to establishOldSecrets, but:
+//   1. It will never prompt the user; these credentials either work or they don't
+//   2. It will not change the secrets of this database
+//   3. Things that are "system keychains" are checked against the system keychain file.
+//
+// TODO: These two functions should probably be refactored to something nicer.
+bool KeychainDatabase::checkCredentials(const AccessCredentials *creds) {
+    // attempt system-keychain unlock
+    if (this->belongsToSystem()) {
+        SystemKeychainKey systemKeychain(kSystemUnlockFile);
+
+        // We can unlock this keychain only if we match the signature and have
+        // the same master key
+        CssmClient::Key systemKey(Server::csp(), systemKeychain.key(), true);
+        return (systemKeychain.matches(mBlob->randomSignature) &&
+                common().masterKey() == systemKey);
+    }
+
+    list<CssmSample> samples;
+    if (creds && creds->samples().collect(CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK, samples)) {
+        for (list<CssmSample>::iterator it = samples.begin(); it != samples.end(); it++) {
+            TypedList &sample = *it;
+            sample.checkProper();
+            switch (sample.type()) {
+                // interactively prompt the user - no additional data
+                case CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT:
+                    // do nothing, because this function will never prompt the user
+                    secdebug("integrity", "%p ignoring keychain prompt", this);
+                    break;
+                    // try to use an explicitly given passphrase - Data:passphrase
+                case CSSM_SAMPLE_TYPE_PASSWORD:
+                    if (sample.length() != 2)
+                        CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
+                    secdebug("integrity", "%p checking passphrase", this);
+                    return validatePassphrase(sample[1]);
+                    // try to open with a given master key - Data:CSP or KeyHandle, Data:CssmKey
+                case CSSM_SAMPLE_TYPE_SYMMETRIC_KEY:
+                case CSSM_SAMPLE_TYPE_ASYMMETRIC_KEY:
+                    assert(mBlob);
+                    secdebug("integrity", "%p attempting explicit key unlock", this);
+                    CssmClient::Key checkKey = keyFromCreds(sample, 4);
+                    return common().masterKey() == checkKey;
+                    break;
+                    // explicitly defeat the default action but don't try anything in particular
+            }
+        }
+    }
+
+    // out of options - credentials don't match
+    return false;
 }
 
 bool KeychainDatabase::interactiveUnlock()
@@ -1278,6 +1432,8 @@ void KeychainDatabase::validateBlob(const DbBlob *blob)
 			break;
 #endif
 		case DbBlob::version_MacOS_10_1:
+			break;
+		case DbBlob::version_partition:
 			break;
 		default:
 			CssmError::throwMe(CSSMERR_APPLEDL_INCOMPATIBLE_DATABASE_BLOB);

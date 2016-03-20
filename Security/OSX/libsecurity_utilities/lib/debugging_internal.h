@@ -43,8 +43,10 @@ typedef const void *DTException;
 //
 
 void secdebug_internal(const char* scope, const char* format, ...);
+void secdebugfunc_internal(const char* scope, const char* functionname, const char* format, ...);
 
 #define secdebug(scope, format...) secdebug_internal(scope, format)
+#define secdebugfunc(scope, format...) secdebugfunc_internal(scope, __PRETTY_FUNCTION__, format)
 #define secdebugf(scope, __msg)	SECURITY_DEBUG_LOG((char *)(scope), (__msg))
 
 //

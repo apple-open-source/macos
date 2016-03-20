@@ -33,7 +33,7 @@
 #include <MobileKeyBag/MobileKeyBag.h>
 #endif
 
-void kc_dbhandle_reset(void);
+#if LA_CONTEXT_IMPLEMENTED
 static keybag_handle_t test_keybag;
 static const char *passcode1 = "passcode1";
 static const char *passcode2 = "passcode2";
@@ -53,6 +53,7 @@ static bool changePasscode(const char *old_passcode, const char *new_passcode)
     return status == 0;
 }
 
+#endif
 #endif
 
 
@@ -193,7 +194,7 @@ static void fillItem(CFMutableDictionaryRef item, uint32_t num)
     });
 }
 
-#if USE_KEYSTORE
+#if LA_CONTEXT_IMPLEMENTED
 CF_RETURNS_RETAINED
 static CFErrorRef createCFError(CFStringRef message, CFIndex code)
 {
@@ -464,7 +465,7 @@ static void item_with_skip_auth_ui(uint32_t *item_num)
 int secd_81_item_acl(int argc, char *const *argv)
 {
     uint32_t item_num = 1;
-#if USE_KEYSTORE
+#if LA_CONTEXT_IMPLEMENTED
     secd_test_setup_temp_keychain(__FUNCTION__, ^{
         keybag_state_t state;
         int passcode_len=(int)strlen(passcode1);
@@ -489,7 +490,7 @@ int secd_81_item_acl(int argc, char *const *argv)
     item_with_skip_auth_ui(&item_num);
 #endif
 
-#if USE_KEYSTORE
+#if LA_CONTEXT_IMPLEMENTED
     SecItemServerResetKeychainKeybag();
 #endif
 

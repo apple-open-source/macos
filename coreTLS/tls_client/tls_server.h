@@ -21,6 +21,7 @@ typedef struct {
     const uint16_t *ciphersuites;
     int num_ciphersuites;
     bool allow_resumption;
+    bool allow_renegotiation;
     uintptr_t session_id;
     SSLCertificate cert1;
     SSLCertificate cert2;

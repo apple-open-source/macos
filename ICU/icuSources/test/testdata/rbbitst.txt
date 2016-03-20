@@ -986,8 +986,8 @@ Bangkok)•</data>
 <data>•\U0001F469\u200D•\U0001F476\U0001F3FC•\U0001F475\U0001F3FE•\U0001F3C3\U0001F3FD•\u270A\U0001F3FC•\u26FD•\U0001F3FC•</data>
 # man zwj  hvy_blk_heart zwj  man, woman, man zwj hvy_blk_heart esel zwj  man, woman
 <data>•\U0001F468\u200D\u2764\u200D\U0001F468•\U0001F469•\U0001F468\u200D\u2764\uFE0F\u200D\U0001F468•\U0001F469•</data>
-# woman zwj hvy_blk_heart/esel zwj kiss_mark zwj woman, man
-<data>•\U0001F469\u200D\u2764\uFE0F\u200D\U0001F48B\u200D\U0001F469•\U0001F468•</data>
+# woman zwj hvy_blk_heart/esel zwj kiss_mark zwj woman, sleuth/fitz-4, horseRacing, fitz-5
+<data>•\U0001F469\u200D\u2764\uFE0F\u200D\U0001F48B\u200D\U0001F469•\U0001F575\U0001F3FD•\U0001F3C7•\U0001F3FE•</data>
 # victory_hand esel, victory_hand/esel/fitz-1-2, victory_hand/fitz-1-2, rowboat/fitz-4, vulcan_salute/fitz-5, space, 
 <data>•\u270C\uFE0F•\u270C\uFE0F\U0001F3FB•\u270C\U0001F3FB•\U0001F6A3\U0001F3FD•\U0001F596\U0001F3FE•\u0020•</data>
 # writing_hand fitz-1-2, splayed_hand/fitz-3, middle_finger/fitz-4, sign_of_horns/fitz-5, eye zwj left_speech_bubble, space
@@ -1036,8 +1036,8 @@ Bangkok)•</data>
 <data>•\U0001F469\u200D•\U0001F476\U0001F3FC•\U0001F475\U0001F3FE•\U0001F3C3\U0001F3FD•\u270A\U0001F3FC•\u26FD•\U0001F3FC•</data>
 # man zwj  hvy_blk_heart zwj  man, woman, man zwj hvy_blk_heart esel zwj  man, woman
 <data>•\U0001F468\u200D\u2764\u200D\U0001F468•\U0001F469•\U0001F468\u200D\u2764\uFE0F\u200D\U0001F468•\U0001F469•</data>
-# woman zwj hvy_blk_heart esel zwj kiss mark zwj woman, man
-<data>•\U0001F469\u200D\u2764\uFE0F\u200D\U0001F48B\u200D\U0001F469•\U0001F468•</data>
+# woman zwj hvy_blk_heart/esel zwj kiss_mark zwj woman, sleuth/fitz-4, horseRacing, fitz-5
+<data>•\U0001F469\u200D\u2764\uFE0F\u200D\U0001F48B\u200D\U0001F469•\U0001F575\U0001F3FD•\U0001F3C7•\U0001F3FE•</data>
 # victory_hand esel, victory_hand/esel/fitz-1-2, victory_hand/fitz-1-2, rowboat/fitz-4, vulcan_salute/fitz-5, space, 
 <data>•\u270C\uFE0F•\u270C\uFE0F\U0001F3FB•\u270C\U0001F3FB•\U0001F6A3\U0001F3FD•\U0001F596\U0001F3FE•\u0020•</data>
 # writing_hand fitz-1-2, splayed_hand/fitz-3, middle_finger/fitz-4, sign_of_horns/fitz-5, eye zwj left_speech_bubble, space
@@ -1086,8 +1086,8 @@ Bangkok)•</data>
 <data>•\U0001F469\u200D•\U0001F476\U0001F3FC•\U0001F475\U0001F3FE•\U0001F3C3\U0001F3FD•\u270A\U0001F3FC•\u26FD•\U0001F3FC•</data>
 # man zwj  hvy_blk_heart zwj  man, woman, man zwj hvy_blk_heart esel zwj  man, woman
 <data>•\U0001F468\u200D\u2764\u200D\U0001F468•\U0001F469•\U0001F468\u200D\u2764\uFE0F\u200D\U0001F468•\U0001F469•</data>
-# woman zwj hvy_blk_heart esel zwj kiss mark zwj woman, man
-<data>•\U0001F469\u200D\u2764\uFE0F\u200D\U0001F48B\u200D\U0001F469•\U0001F468•</data>
+# woman zwj hvy_blk_heart/esel zwj kiss_mark zwj woman, sleuth/fitz-4, horseRacing, fitz-5
+<data>•\U0001F469\u200D\u2764\uFE0F\u200D\U0001F48B\u200D\U0001F469•\U0001F575\U0001F3FD•\U0001F3C7•\U0001F3FE•</data>
 # victory_hand esel, victory_hand/esel/fitz-1-2, victory_hand/fitz-1-2, rowboat/fitz-4, vulcan_salute/fitz-5 space, 
 <data>•\u270C\uFE0F•\u270C\uFE0F\U0001F3FB•\u270C\U0001F3FB•\U0001F6A3\U0001F3FD•\U0001F596\U0001F3FE\u0020•</data>
 # writing_hand fitz-1-2, splayed_hand/fitz-3, middle_finger/fitz-4, sign_of_horns/fitz-5, eye zwj left_speech_bubble, space
@@ -1102,8 +1102,8 @@ Bangkok)•</data>
 <data>•\U0001F469\u200D•\U0001F476\U0001F3FC•\U0001F475\U0001F3FE•\U0001F3C3\U0001F3FD•\u270A\U0001F3FC•\u26FD•\U0001F3FC•</data>
 # man zwj  hvy_blk_heart zwj  man, woman, man zwj hvy_blk_heart esel zwj  man, woman
 <data>•\U0001F468\u200D\u2764\u200D\U0001F468•\U0001F469•\U0001F468\u200D\u2764\uFE0F\u200D\U0001F468•\U0001F469•</data>
-# woman zwj hvy_blk_heart esel zwj kiss mark zwj woman, man
-<data>•\U0001F469\u200D\u2764\uFE0F\u200D\U0001F48B\u200D\U0001F469•\U0001F468•</data>
+# woman zwj hvy_blk_heart/esel zwj kiss_mark zwj woman, sleuth/fitz-4, horseRacing, fitz-5
+<data>•\U0001F469\u200D\u2764\uFE0F\u200D\U0001F48B\u200D\U0001F469•\U0001F575\U0001F3FD•\U0001F3C7•\U0001F3FE•</data>
 # victory_hand esel, victory_hand/esel/fitz-1-2, victory_hand/fitz-1-2, rowboat/fitz-4, vulcan_salute/fitz-5 space, 
 <data>•\u270C\uFE0F•\u270C\uFE0F\U0001F3FB•\u270C\U0001F3FB•\U0001F6A3\U0001F3FD•\U0001F596\U0001F3FE\u0020•</data>
 # writing_hand fitz-1-2, splayed_hand/fitz-3, middle_finger/fitz-4, sign_of_horns/fitz-5, eye zwj left_speech_bubble, space

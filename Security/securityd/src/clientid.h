@@ -43,12 +43,16 @@ public:
 	
 	SecCodeRef processCode() const;
 	SecCodeRef currentGuest() const;
+	
+	std::string partitionId() const;
 
 	// CodeSignatures::Identity personality
 	string getPath() const;
 	const CssmData getHash() const;
     const bool checkAppleSigned() const;
+	bool hasEntitlement(const char *name) const;
 	
+
 protected:
 	void setup(pid_t pid);
 
@@ -71,7 +75,11 @@ private:
 	typedef std::map<SecGuestRef, GuestState> GuestMap;
 	mutable GuestMap mGuests;
 	
+	mutable std::string mClientPartitionId;
+	mutable bool mGotPartitionId;
+	
 	GuestState *current() const;
+	static std::string partitionIdForProcess(SecStaticCodeRef code);
 };
 
 

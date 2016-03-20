@@ -426,6 +426,7 @@ IOReturn AppleRAID::updateSet(char * setInfoBuffer, uint32_t setInfoBufferSize, 
 
     if (!isOpen()) return kIOReturnNotOpen;
     if (!setInfoBuffer || !setInfoBufferSize) return kIOReturnBadArgument;
+    if (setInfoBuffer[setInfoBufferSize - 1]) return kIOReturnBadArgument;;
     if (!retBuffer || !retBufferSize) return kIOReturnBadArgument;
 
     // this code is running under the global raid lock        
@@ -623,6 +624,7 @@ IOReturn AppleRAID::getSetProperties(char * setString, uint32_t setStringSize, c
 
     if (!isOpen()) return kIOReturnNotOpen;
     if (!setString || !outProp || !outPropSize) return kIOReturnBadArgument;
+    if (setString[kAppleRAIDUUIDStringSize]) return kIOReturnBadArgument;
 
     outProp[0] = 0;
 
@@ -686,6 +688,7 @@ IOReturn AppleRAID::getMemberProperties(char * memberString, uint32_t memberStri
 
     if (!isOpen()) return kIOReturnNotOpen;
     if (!memberString || !outProp || !outPropSize) return kIOReturnBadArgument;
+    if (memberString[kAppleRAIDUUIDStringSize]) return kIOReturnBadArgument;
 
     outProp[0] = 0;
 
@@ -741,6 +744,9 @@ IOReturn AppleRAID::getMemberProperties(char * memberString, uint32_t memberStri
 IOReturn AppleRAID::getVolumesForGroup(char * lvgString, uint32_t lvgStringSize, char * arrayString, uint32_t * outArraySize)
 {
     IOReturn rc = kIOReturnError;
+    
+#ifdef RADAR23262902
+    
     const OSString * lvgName = 0;
     AppleLVMGroup * lvg = 0;
     const OSString * memberName = 0;
@@ -807,12 +813,17 @@ IOReturn AppleRAID::getVolumesForGroup(char * lvgString, uint32_t lvgStringSize,
 
     gAppleRAIDGlobals.unlock();
 
+#endif
+    
     return rc;
 }
 
 IOReturn AppleRAID::getVolumeProperties(char * lvString, uint32_t lvStringSize, char * outProp, uint32_t * outPropSize)
 {
     IOReturn rc = kIOReturnError;
+
+#ifdef RADAR23262902
+
     const OSString * lvName = 0;
     AppleLVMVolume * lv = 0;
     OSDictionary * props = 0;
@@ -867,6 +878,8 @@ IOReturn AppleRAID::getVolumeProperties(char * lvString, uint32_t lvStringSize, 
 
     gAppleRAIDGlobals.unlock();
 
+#endif    
+
     return rc;
 }
 
@@ -874,6 +887,9 @@ IOReturn AppleRAID::getVolumeProperties(char * lvString, uint32_t lvStringSize, 
 IOReturn AppleRAID::getVolumeExtents(char * lvString, uint32_t lvStringSize, char * extentsBuffer, uint32_t * extentsSize)
 {
     IOReturn rc = kIOReturnError;
+
+#ifdef RADAR23262902
+
     const OSString * lvName = 0;
     AppleLVMVolume * lv = 0;
     AppleLVMGroup * lvg = 0;
@@ -882,7 +898,7 @@ IOReturn AppleRAID::getVolumeExtents(char * lvString, uint32_t lvStringSize, cha
 
     if (!isOpen()) return kIOReturnNotOpen;
     if (!lvString || !extentsBuffer || !extentsSize) return kIOReturnBadArgument;
-
+    
     // this code is running under the global raid lock        
     gAppleRAIDGlobals.lock();
 
@@ -938,6 +954,8 @@ IOReturn AppleRAID::getVolumeExtents(char * lvString, uint32_t lvStringSize, cha
     if (rc) *extentsSize = 0;
 
     gAppleRAIDGlobals.unlock();
+
+#endif    
 
     return rc;
 }
@@ -1005,7 +1023,10 @@ IOReturn AppleRAID::updateLogicalVolume(char * lveBuffer, uint32_t lveBufferSize
 IOReturn AppleRAID::destroyLogicalVolume(char * lvString, uint32_t lvStringSize, char * retBuffer, uint32_t * retBufferSize)
 {
     IOReturn rc = kIOReturnBadArgument;
+
     IOLog1("AppleRAID::destroyLogicalVolume() entered\n");
+
+#ifdef RADAR23262902
 
     if (!isOpen()) return kIOReturnNotOpen;
     if (!lvString || !lvStringSize) return kIOReturnBadArgument;
@@ -1036,6 +1057,8 @@ IOReturn AppleRAID::destroyLogicalVolume(char * lvString, uint32_t lvStringSize,
     }
     
     gAppleRAIDGlobals.unlock();
+
+#endif    
 
     IOLog1("AppleRAID::destroyLogicalVolume() was %ssuccessful.\n", rc ? "un" : "");
     return rc;

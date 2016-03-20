@@ -1258,7 +1258,7 @@ static int balancer_handler(request_rec *r)
             ap_rputs("    <httpd:balancer>\n", r);
             /* Start proxy_balancer */
             ap_rvputs(r, "      <httpd:name>", balancer->s->name, "</httpd:name>\n", NULL);
-            if (balancer->s->sticky) {
+            if (*balancer->s->sticky) {
                 ap_rvputs(r, "      <httpd:stickysession>", balancer->s->sticky,
                           "</httpd:stickysession>\n", NULL);
                 ap_rprintf(r,
@@ -1275,7 +1275,7 @@ static int balancer_handler(request_rec *r)
             }
             ap_rvputs(r, "      <httpd:lbmethod>", balancer->lbmethod->name,
                       "</httpd:lbmethod>\n", NULL);
-            if (balancer->s->sticky) {
+            if (*balancer->s->sticky) {
                 ap_rprintf(r,
                            "      <httpd:scolonpathdelim>%s</httpd:scolonpathdelim>\n",
                            (balancer->s->scolonsep ? "On" : "Off"));
@@ -1512,7 +1512,7 @@ static int balancer_handler(request_rec *r)
             ap_rprintf(r, "<td>%s</td>\n",
                        balancer->s->lbpname);
             ap_rputs("<td>", r);
-            if (balancer->s->vhost && *(balancer->s->vhost)) {
+            if (*balancer->s->vhost) {
                 ap_rvputs(r, balancer->s->vhost, " -> ", NULL);
             }
             ap_rvputs(r, balancer->s->vpath, "</td>\n", NULL);

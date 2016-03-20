@@ -55,7 +55,7 @@ WebInspector.DOMTreeUpdater.prototype = {
 
     _attributesUpdated: function(event)
     {
-        this._recentlyModifiedNodes.push({node: event.data.node, updated: true});
+        this._recentlyModifiedNodes.push({node: event.data.node, updated: true, attribute: event.data.name});
         if (this._treeOutline._visible)
             this._updateModifiedNodesSoon();
     },
@@ -99,20 +99,26 @@ WebInspector.DOMTreeUpdater.prototype = {
     {
         if (this._updateModifiedNodesTimeout) {
             clearTimeout(this._updateModifiedNodesTimeout);
-            delete this._updateModifiedNodesTimeout;
+            this._updateModifiedNodesTimeout = null;
         }
 
         var updatedParentTreeElements = [];
+        for (var recentlyModifiedNode of this._recentlyModifiedNodes) {
+            var parent = recentlyModifiedNode.parent;
+            var node = recentlyModifiedNode.node;
+            var changeInfo = null;
+            if (recentlyModifiedNode.attribute)
+                changeInfo = {type: WebInspector.DOMTreeElement.ChangeType.Attribute, attribute: recentlyModifiedNode.attribute};
 
-        for (var i = 0; i < this._recentlyModifiedNodes.length; ++i) {
-            var parent = this._recentlyModifiedNodes[i].parent;
-            var node = this._recentlyModifiedNodes[i].node;
+            if (recentlyModifiedNode.updated) {
+                var nodeTreeElement = this._treeOutline.findTreeElement(node);
+                if (!nodeTreeElement)
+                    continue;
 
-            if (this._recentlyModifiedNodes[i].updated) {
-                var nodeItem = this._treeOutline.findTreeElement(node);
-                if (nodeItem)
-                    nodeItem.updateTitle();
-                continue;
+                if (changeInfo)
+                    nodeTreeElement.nodeStateChanged(changeInfo);
+
+                nodeTreeElement.updateTitle();
             }
 
             if (!parent)
@@ -128,7 +134,7 @@ WebInspector.DOMTreeUpdater.prototype = {
         }
 
         for (var i = 0; i < updatedParentTreeElements.length; ++i)
-            delete updatedParentTreeElements[i].alreadyUpdatedChildren;
+            updatedParentTreeElements[i].alreadyUpdatedChildren = null;
 
         this._recentlyModifiedNodes = [];
     },

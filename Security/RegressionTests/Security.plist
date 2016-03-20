@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Project</key>
+	<string>Security</string>
+	<key>TestSpecificLogs</key>
+	<array>
+		<string>/var/log/system.log</string>
+		<string>/var/log/module/com.apple.securityd/.*</string>
+		<string>/var/mobile/Library/Logs/CrashReporter/DiagnosticLogs/.*security.log.*</string>
+	</array>
+	<key>Tests</key>
+	<array>
+		<dict>
+			<key>TestName</key>
+			<string>BackupNegativeTest</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secbackupntest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>BackupTest</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secbackuptest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>EduModeTest</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secedumodetest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>secd_02_upgrade_while_locked</string>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/secdtests</string>
+				<string>-1</string>
+				<string>secd_02_upgrade_while_locked </string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>secd_35_keychain_migrate_inet</string>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/secdtests</string>
+				<string>-1</string>
+				<string>secd_35_keychain_migrate_inet</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

@@ -29,6 +29,8 @@
 #include <Security/SecKeychain.h>
 
 #include <stdio.h>
+#include <CoreFoundation/CFData.h>
+#include <CoreFoundation/CFDictionary.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,19 +48,33 @@ extern int print_keychain_name(FILE *stream, SecKeychainRef keychain);
 
 extern int print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean show_data, Boolean show_raw_data, Boolean show_acl, Boolean interactive);
 
+extern void print_cfstring(FILE *stream, CFStringRef string);
+
 extern void print_buffer(FILE *stream, UInt32 length, const void *data);
 
 extern void print_buffer_pem(FILE *stream, const char *headerString, UInt32 length, const void *data);
 
 extern void print_uint32(FILE* stream, uint32 n);
-	
+
 extern unsigned char hexValue(char c);
 
 extern void fromHex(const char *hexDigits, CSSM_DATA *data);
-	
+
+extern CFDataRef cfFromHex(CFStringRef hex);
+
+extern CFStringRef cfToHex(CFDataRef bin);
+
+extern CFDictionaryRef makeCFDictionaryFromData(CFDataRef data);
+
+extern void GetCStringFromCFString(CFStringRef cfstring, char** cstr, size_t* len);
+
+extern void print_partition_id_list(FILE *stream, CFStringRef description);
+
 extern void safe_CFRelease(void *cfTypeRefPtr);
 
 extern void check_obsolete_keychain(const char *kcName);
+
+extern char* prompt_password(const char* keychainName);
 
 #ifdef __cplusplus
 }

@@ -143,6 +143,16 @@ SecCmsSignerInfoGetTimestampTimeWithPolicy(SecCmsSignerInfoRef sinfo, CFTypeRef 
 
 /*!
     @function
+    @abstract Return the data in the signed Codesigning Hash Agility attribute.
+    @param sinfo SignerInfo data for this signer, pointer to a CFDataRef for attribute value
+    @discussion Returns a CFDataRef containing the value of the attribute
+    @result A return value of SECFailure is an error.
+ */
+OSStatus
+SecCmsSignerInfoGetAppleCodesigningHashAgility(SecCmsSignerInfoRef sinfo, CFDataRef *sdata);
+
+/*!
+    @function
     @abstract Return the signing cert of a CMS signerInfo.
     @discussion The certs in the enclosing SignedData must have been imported already.
  */
@@ -222,6 +232,14 @@ SecCmsSignerInfoAddTimeStamp(SecCmsSignerInfoRef signerinfo, CSSM_DATA *tstoken)
 extern OSStatus
 SecCmsSignerInfoAddCounterSignature(SecCmsSignerInfoRef signerinfo,
 				    SECOidTag digestalg, SecIdentityRef identity);
+
+/*!
+     @function
+     @abstract Add the Apple Codesigning Hash Agility attribute to the authenticated (i.e. signed) attributes of "signerinfo".
+     @discussion This is expected to be included in outgoing signed Apple code signatures.
+ */
+ OSStatus
+ SecCmsSignerInfoAddAppleCodesigningHashAgility(SecCmsSignerInfoRef signerinfo, CFDataRef attrValue);
 
 /*!
     @function

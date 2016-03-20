@@ -47,6 +47,7 @@
 #include <Security/SecAsn1Templates.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <pthread.h>
+#include <utilities/SecCFRelease.h>
 
 #include <security_smime/tsaSupport.h>
 #include <security_smime/cmspriv.h>
@@ -96,6 +97,7 @@ struct _CMSEncoder {
 	SECOidTag		digestalgtag;
 
 	CMSCertificateChainMode chainMode;
+    CFDataRef           hashAgilityAttrValue;
 };
 
 static void cmsEncoderInit(CFTypeRef enc);
@@ -525,6 +527,16 @@ static OSStatus cmsSetupForSignedData(
 				break;
 			}
 		}
+        if(cmsEncoder->signedAttributes & kCMSAttrAppleCodesigningHashAgility) {
+            ortn = SecCmsSignerInfoAddAppleCodesigningHashAgility(signerInfo, cmsEncoder->hashAgilityAttrValue);
+            /* libsecurity_smime made a copy of the attribute value. We don't need it anymore. */
+            CFReleaseNull(cmsEncoder->hashAgilityAttrValue);
+            if(ortn) {
+                ortn = cmsRtnToOSStatus(ortn);
+                CSSM_PERROR("SecCmsSignerInfoAddAppleCodesigningHashAgility", ortn);
+                break;
+            }
+        }
 		
 		ortn = SecCmsSignedDataAddSignerInfo(signedData, signerInfo);
 		if(ortn) {
@@ -982,7 +994,7 @@ OSStatus CMSEncoderAddSignedAttributes(
 	if(cmsEncoder->encState != ES_Init) {
 		return errSecParam;
 	}
-	cmsEncoder->signedAttributes = signedAttributes;
+	cmsEncoder->signedAttributes |= signedAttributes;
 	return errSecSuccess;
 }
 
@@ -1004,6 +1016,21 @@ OSStatus CMSEncoderSetSigningTime(
 	return errSecSuccess;
 }
 
+/*
+ * Set the hash agility attribute for a CMSEncoder.
+ * This is only used if the kCMSAttrAppleCodesigningHashAgility attribute
+ * is included.
+ */
+OSStatus CMSEncoderSetAppleCodesigningHashAgility(
+    CMSEncoderRef   cmsEncoder,
+    CFDataRef       hashAgilityAttrValue)
+{
+    if (cmsEncoder == NULL || cmsEncoder->encState != ES_Init) {
+        return errSecParam;
+    }
+    cmsEncoder->hashAgilityAttrValue = CFRetainSafe(hashAgilityAttrValue);
+    return errSecSuccess;
+}
 
 OSStatus CMSEncoderSetCertificateChainMode(
 	CMSEncoderRef			cmsEncoder,

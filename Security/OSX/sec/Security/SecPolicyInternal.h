@@ -58,6 +58,9 @@ struct __SecPolicy {
 	@constant kSecPolicyCheckExtendedKeyUsage @@@
 	@constant kSecPolicyCheckIdLinkage Fails if the AuthorityKeyID -> SubjectKeyID chaining isn't right.
 	@constant kSecPolicyCheckKeyUsage @@@
+	@constant kSecPolicyCheckWeakIntermediates Fails if any certificates in the chain (other than the leaf and root) have a too small key size.
+	@constant kSecPolicyCheckWeakLeaf Fails if the leaf has a too small key size.
+	@constant kSecPolicyCheckWeakRoot Fails fi the root has a too small key size.
 	@constant kSecPolicyCheckNonEmptySubject Perform the following check: RFC 3280, 4.1.2.6, says that an empty subject name can only appear in a leaf cert, and only if subjectAltName is present and marked critical.
 	@constant kSecPolicyCheckQualifiedCertStatements Perform the following check: RFC 3739: if this cert has a Qualified Cert Statements extension, and it's Critical, make sure we understand all of the extension's statementIds.
 	@constant kSecPolicyCheckValidIntermediates Fails if any certificates in the chain are not valid at the verify time other than the leaf and the root.
@@ -83,6 +86,9 @@ extern const CFStringRef kSecPolicyCheckBasicContraints;
 extern const CFStringRef kSecPolicyCheckCriticalExtensions;
 extern const CFStringRef kSecPolicyCheckExtendedKeyUsage;
 extern const CFStringRef kSecPolicyCheckIdLinkage;
+extern const CFStringRef kSecPolicyCheckWeakIntermediates;
+extern const CFStringRef kSecPolicyCheckWeakLeaf;
+extern const CFStringRef kSecPolicyCheckWeakRoot;
 extern const CFStringRef kSecPolicyCheckKeyUsage;
 extern const CFStringRef kSecPolicyCheckNonEmptySubject;
 extern const CFStringRef kSecPolicyCheckQualifiedCertStatements;
@@ -92,7 +98,6 @@ extern const CFStringRef kSecPolicyCheckValidRoot;
 extern const CFStringRef kSecPolicyCheckAnchorTrusted;
 extern const CFStringRef kSecPolicyCheckAnchorSHA1;
 extern const CFStringRef kSecPolicyCheckAnchorApple;
-extern const CFStringRef kSecPolicyAppleAnchorIncludeTestRoots;
 extern const CFStringRef kSecPolicyCheckSSLHostname;
 extern const CFStringRef kSecPolicyCheckEmail;
 extern const CFStringRef kSecPolicyCheckIssuerCommonName;
@@ -118,6 +123,10 @@ extern const CFStringRef kSecPolicyCheckIntermediateMarkerOid;
 extern const CFStringRef kSecPolicyCheckIntermediateSPKISHA256;
 extern const CFStringRef kSecPolicyCheckGrayListedKey;
 extern const CFStringRef kSecPolicyCheckCertificateTransparency;
+
+/*  Special options for checking Apple Anchors */
+extern const CFStringRef kSecPolicyAppleAnchorIncludeTestRoots;
+extern const CFStringRef kSecPolicyAppleAnchorAllowTestRootsOnProduction;
 
 SecPolicyRef SecPolicyCreate(CFStringRef oid, CFDictionaryRef options);
 

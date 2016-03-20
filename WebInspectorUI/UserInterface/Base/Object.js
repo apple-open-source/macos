@@ -23,7 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.Object = class Object
+WebInspector.Object = class WebInspectorObject
 {
     // Static
 
@@ -53,6 +53,17 @@ WebInspector.Object = class Object
         }
 
         listeners.push({thisObject, listener});
+    }
+
+    static singleFireEventListener(eventType, listener, thisObject)
+    {
+        var wrappedCallback = function() {
+            this.removeEventListener(eventType, wrappedCallback, null);
+            listener.apply(thisObject, arguments);
+        }.bind(this);
+
+        this.addEventListener(eventType, wrappedCallback, null);
+        return wrappedCallback;
     }
 
     static removeEventListener(eventType, listener, thisObject)
@@ -100,12 +111,28 @@ WebInspector.Object = class Object
         return true;
     }
 
+    // This should only be used within regression tests to detect leaks.
+    static retainedObjectsWithPrototype(proto)
+    {
+        var results = new Set;
+        for (var eventType in this._listeners) {
+            var recordsForEvent = this._listeners[eventType];
+            for (var listener of recordsForEvent) {
+                if (listener.thisObject instanceof proto)
+                    results.add(listener.thisObject);
+            }
+        }
+        return results;
+    }
+
     // Public
 
     addEventListener() { return WebInspector.Object.addEventListener.apply(this, arguments); }
+    singleFireEventListener() { return WebInspector.Object.singleFireEventListener.apply(this, arguments); }
     removeEventListener() { return WebInspector.Object.removeEventListener.apply(this, arguments); }
     removeAllListeners() { return WebInspector.Object.removeAllListeners.apply(this, arguments); }
     hasEventListeners() { return WebInspector.Object.hasEventListeners.apply(this, arguments); }
+    retainedObjectsWithPrototype() { return WebInspector.Object.retainedObjectsWithPrototype.apply(this, arguments); }
 
     dispatchEventToListeners(eventType, eventData)
     {
@@ -113,11 +140,15 @@ WebInspector.Object = class Object
 
         function dispatch(object)
         {
-            if (!object || !object._listeners || !object._listeners[eventType] || event._stoppedPropagation)
+            if (!object || !object.hasOwnProperty("_listeners") || event._stoppedPropagation)
+                return;
+
+            var listenersForThisEvent = object._listeners[eventType];
+            if (!listenersForThisEvent)
                 return;
 
             // Make a copy with slice so mutations during the loop doesn't affect us.
-            var listenersForThisEvent = object._listeners[eventType].slice(0);
+            listenersForThisEvent = listenersForThisEvent.slice(0);
 
             // Iterate over the listeners and call them. Stop if stopPropagation is called.
             for (var i = 0; i < listenersForThisEvent.length; ++i) {
@@ -145,21 +176,6 @@ WebInspector.Object = class Object
         }
 
         return event.defaultPrevented;
-    }
-};
-
-// FIXME: Uses arguments.callee, so it cannot be in the class.
-WebInspector.Object.deprecatedAddConstructorFunctions = function(subclassConstructor)
-{
-    // Copies the relevant functions to the subclass constructor.
-    var list = ["addEventListener", "removeEventListener", "removeAllListeners", "hasEventListeners"];
-    for (var property of list) {
-        var value = WebInspector.Object[property];
-        if (typeof value !== "function")
-            continue;
-        if (value === arguments.callee)
-            continue;
-        subclassConstructor[property] = value;
     }
 };
 

@@ -517,6 +517,11 @@ void DocumentLoader::willSendRequest(ResourceRequest& newRequest, const Resource
             cancelMainResourceLoad(frameLoader()->cancelledError(newRequest));
             return;
         }
+        if (!portAllowed(newRequest.url())) {
+            FrameLoader::reportBlockedPortFailed(m_frame, newRequest.url().string());
+            cancelMainResourceLoad(frameLoader()->blockedError(newRequest));
+            return;
+        }
         timing().addRedirect(redirectResponse.url(), newRequest.url());
     }
 
@@ -656,6 +661,10 @@ void DocumentLoader::responseReceived(CachedResource* resource, const ResourceRe
     m_response = response;
 
     if (m_identifierForLoadWithoutResourceLoader) {
+        if (m_mainResource && m_mainResource->wasRedirected()) {
+            ASSERT(m_mainResource->status() == CachedResource::Status::Cached);
+            frameLoader()->client().dispatchDidReceiveServerRedirectForProvisionalLoad();
+        }
         addResponse(m_response);
         frameLoader()->notifier().dispatchDidReceiveResponse(this, m_identifierForLoadWithoutResourceLoader, m_response, 0);
     }
@@ -955,7 +964,8 @@ void DocumentLoader::detachFromFrame()
     if (m_mainResource && m_mainResource->hasClient(this))
         m_mainResource->removeClient(this);
 #if ENABLE(CONTENT_FILTERING)
-    m_contentFilter = nullptr;
+    if (m_contentFilter)
+        m_contentFilter->stopFilteringMainResource();
 #endif
 
     m_applicationCacheHost->setDOMApplicationCache(nullptr);
@@ -1505,7 +1515,8 @@ void DocumentLoader::clearMainResource()
     if (m_mainResource && m_mainResource->hasClient(this))
         m_mainResource->removeClient(this);
 #if ENABLE(CONTENT_FILTERING)
-    m_contentFilter = nullptr;
+    if (m_contentFilter)
+        m_contentFilter->stopFilteringMainResource();
 #endif
 
     m_mainResource = 0;

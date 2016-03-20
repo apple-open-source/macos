@@ -766,17 +766,21 @@ static inline bool ShouldPostDisplayActivityTickles(IOService *device, OSSet * c
 static inline bool ShouldPostDisplayActivityTicklesForWakeDevice(
     IOService *device, OSSet * clientSet, bool isSeized)
 {
+    bool        returnValue = false;
     OSNumber *  primaryUsagePage = OSDynamicCast(OSNumber, device->copyProperty(kIOHIDPrimaryUsagePageKey));
-    if (!primaryUsagePage)
-        return false;
+    if (primaryUsagePage == NULL) {
+        goto exit;
+    }
 
-    if (primaryUsagePage->unsigned32BitValue() == kHIDPage_Consumer)
-        return true;
+    if (primaryUsagePage->unsigned32BitValue() == kHIDPage_Consumer) {
+        returnValue = true;
+        goto exit;
+    }
 
-    if (!clientSet->getCount() ||
-         (primaryUsagePage->unsigned32BitValue() != kHIDPage_GenericDesktop))
-        return false;
-    OSSafeReleaseNULL(primaryUsagePage);
+    if (!clientSet->getCount() || (primaryUsagePage->unsigned32BitValue() != kHIDPage_GenericDesktop)) {
+        goto exit;
+    }
+    
 
     // We have clients and this device is generic desktop.
     // Probe the client list to make sure that we are
@@ -784,7 +788,7 @@ static inline bool ShouldPostDisplayActivityTicklesForWakeDevice(
 
     OSCollectionIterator *  iterator;
     OSObject *              object;
-    bool                    returnValue = false;
+    
 
     if ( !isSeized && (iterator = OSCollectionIterator::withCollection(clientSet)) )
     {
@@ -804,6 +808,8 @@ static inline bool ShouldPostDisplayActivityTicklesForWakeDevice(
         }
         iterator->release();
     }
+exit:
+    OSSafeReleaseNULL(primaryUsagePage);
     return returnValue;
 }
 

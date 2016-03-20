@@ -189,6 +189,7 @@ __BEGIN_DECLS
 #define SEC_HOSTNAME_MISMATCH_KEY   SecStringWithDefaultValue("Hostname mismatch.", "Certificate", 0, "Hostname mismatch.", "")
 #define SEC_POLICY__REQ_NOT_MET_KEY SecStringWithDefaultValue("Policy requirements not met.", "Certificate", 0, "Policy requirements not met.", "")
 #define SEC_CHAIN_VALIDITY_ERR_KEY  SecStringWithDefaultValue("One or more certificates have expired or are not valid yet.", "Certificate", 0, "One or more certificates have expired or are not valid yet.", "")
+#define SEC_WEAK_KEY_ERR_KEY        SecStringWithDefaultValue("One or more certificates is using a weak key size.", "Certificate", 0, "One or more certificates is using a weak key size.", "")
 
 #define SEC_CK_PASSWORD_INCORRECT   SecStringWithDefaultValue("Incorrect Password For “%@”", "CloudKeychain", 0, "Incorrect Password For “%@”", "Title for alert when password has been entered incorrectly")
 #define SEC_CK_TRY_AGAIN            SecStringWithDefaultValue("Try Again", "CloudKeychain", 0, "Try Again", "Button for try again after incorrect password")
@@ -214,7 +215,7 @@ __BEGIN_DECLS
 
 #define SEC_CK_APPROVAL_TITLE_OSX		SecStringWithDefaultValue("Apple ID Sign In Alert", "CloudKeychain", 0, "Apple ID Sign In Alert", "Title for alert when approving another device")
 #define SEC_CK_APPROVAL_BODY_OSX		SecStringWithDefaultValue("“%@” wants to use your iCloud account.", "CloudKeychain", 0, "“%@” wants to use your iCloud account.", "Body text when approving another device")
-#define SEC_CK_APPROVAL_TITLE_IOS		SecStringWithDefaultValue("Allow “%@” to Use iCloud?", "CloudKeychain", 0, "Allow “%@” to Use iCloud?", "Title for alert when approving another device")
+#define SEC_CK_APPROVAL_TITLE_IOS		SecStringWithDefaultValue("Allow “%@” to use iCloud?", "CloudKeychain", 0, "Allow “%@” to use iCloud?", "Title for alert when approving another device")
 #define SEC_CK_APPROVAL_BODY_IOS_IPAD	SecStringWithDefaultValue("Enter the password for “%@” to allow this new iPad to use your iCloud account.", "CloudKeychain", 0, "Enter the password for “%@” to allow this new iPad to use your iCloud account.", "Body text when approving an iPad")
 #define SEC_CK_APPROVAL_BODY_IOS_IPHONE	SecStringWithDefaultValue("Enter the password for “%@” to allow this new iPhone to use your iCloud account.", "CloudKeychain", 0, "Enter the password for “%@” to allow this new iPhone to use your iCloud account.", "Body text when approving an iPhone")
 #define SEC_CK_APPROVAL_BODY_IOS_IPOD	SecStringWithDefaultValue("Enter the password for “%@” to allow this new iPod to use your iCloud account.", "CloudKeychain", 0, "Enter the password for “%@” to allow this new iPod to use your iCloud account.", "Body text when approving an iPod")

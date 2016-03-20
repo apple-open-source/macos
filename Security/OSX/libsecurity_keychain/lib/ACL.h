@@ -53,19 +53,25 @@ class ACL : public SecCFObject {
 public:
 	SECCFFUNCTIONS(ACL, SecACLRef, errSecInvalidItemRef, gTypes().ACL)
 
+    // Query AclBearer for ACL entry matching tag. Will throw if there is not exactly 1 entry.
+    ACL(const AclBearer &aclBearer, const char *selectionTag,
+             Allocator &alloc = Allocator::standard());
 	// create from CSSM layer ACL entry
-	ACL(Access &acc, const AclEntryInfo &info,
+	ACL(const AclEntryInfo &info,
 		Allocator &alloc = Allocator::standard());
 	// create from CSSM layer owner prototype
-	ACL(Access &acc, const AclOwnerPrototype &owner,
+	ACL(const AclOwnerPrototype &owner,
 		Allocator &alloc = Allocator::standard());
 	// create an "any" ACL
-	ACL(Access &acc, Allocator &alloc = Allocator::standard());
+	ACL(Allocator &alloc = Allocator::standard());
 	// create from "standard form" arguments (with empty application list)
-	ACL(Access &acc, string description, const CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR &promptSelector,
+	ACL(string description, const CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR &promptSelector,
 		Allocator &alloc = Allocator::standard());
+    // create an "integrity" ACL
+    ACL(const CssmData &digest, Allocator &alloc = Allocator::standard());
+    
     virtual ~ACL();
-	
+
 	Allocator &allocator;
 	
 	enum State {
@@ -80,16 +86,19 @@ public:
 		invalidForm,				// invalid
 		customForm,					// not a recognized format (but valid)
 		allowAllForm,				// indiscriminate
-		appListForm					// list of apps + prompt confirm
+		appListForm,				// list of apps + prompt confirm
+        integrityForm               // hashed integrity of item attributes
 	};
 	Form form() const { return mForm; }
 	void form(Form f) { mForm = f; }
 	
-	Access &access;					// we belong to this Access
-	
+    void setIntegrity(const CssmData& integrity);
+    const CssmData& integrity();
+
 public:
 	AclAuthorizationSet &authorizations()	{ return mAuthorizations; }
 	bool authorizes(AclAuthorization right);
+    bool authorizesSpecifically(AclAuthorization right);
 	void setAuthorization(CSSM_ACL_AUTHORIZATION_TAG auth)
 	{ mAuthorizations.clear(); mAuthorizations.insert(auth); }
 	
@@ -145,6 +154,7 @@ private:
 	
 	// following values valid only if form() == appListForm
 	ApplicationList mAppList;		// list of trusted applications
+    CssmAutoData mIntegrity;          // digest for integrityForm ACL entries
 	CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR mPromptSelector; // selector field of PROMPT subject
 	string mPromptDescription;		// description field of PROMPT subject
 	Mutex mMutex;

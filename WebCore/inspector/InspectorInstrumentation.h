@@ -75,9 +75,9 @@ class DOMWindow;
 class DOMWrapperWorld;
 class Database;
 class Document;
-class Element;
 class DocumentLoader;
 class DocumentStyleSheetCollection;
+class Element;
 class GraphicsContext;
 class HTTPHeaderMap;
 class InspectorCSSAgent;
@@ -85,7 +85,6 @@ class InspectorCSSOMWrappers;
 class InspectorInstrumentation;
 class InspectorTimelineAgent;
 class InstrumentingAgents;
-class URL;
 class Node;
 class PseudoElement;
 class RenderLayer;
@@ -100,6 +99,7 @@ class StorageArea;
 class StyleResolver;
 class StyleRule;
 class ThreadableLoaderClient;
+class URL;
 class WorkerGlobalScope;
 class WorkerGlobalScopeProxy;
 class XMLHttpRequest;
@@ -122,10 +122,14 @@ public:
     static void didRemoveDOMAttr(Document&, Element&, const AtomicString& name);
     static void characterDataModified(Document&, CharacterData&);
     static void didInvalidateStyleAttr(Document&, Node&);
+    static void documentDetached(Document&);
     static void frameWindowDiscarded(Frame*, DOMWindow*);
     static void mediaQueryResultChanged(Document&);
+    static void activeStyleSheetsUpdated(Document&);
     static void didPushShadowRoot(Element& host, ShadowRoot&);
     static void willPopShadowRoot(Element& host, ShadowRoot&);
+    static void pseudoElementCreated(Page*, PseudoElement&);
+    static void pseudoElementDestroyed(Page*, PseudoElement&);
     static void didCreateNamedFlow(Document*, WebKitNamedFlow&);
     static void willRemoveNamedFlow(Document*, WebKitNamedFlow&);
     static void didChangeRegionOverset(Document&, WebKitNamedFlow&);
@@ -206,9 +210,6 @@ public:
     static void didRunJavaScriptDialog(const InspectorInstrumentationCookie&);
     static void willDestroyCachedResource(CachedResource&);
 
-    static InspectorInstrumentationCookie willWriteHTML(Document*, unsigned startLine);
-    static void didWriteHTML(const InspectorInstrumentationCookie&, unsigned endLine);
-
     static void addMessageToConsole(Page&, std::unique_ptr<Inspector::ConsoleMessage>);
 
     // FIXME: Convert to ScriptArguments to match non-worker context.
@@ -275,7 +276,6 @@ public:
 
     static void layerTreeDidChange(Page*);
     static void renderLayerDestroyed(Page*, const RenderLayer&);
-    static void pseudoElementDestroyed(Page*, PseudoElement&);
 
     static void frontendCreated() { s_frontendCounter += 1; }
     static void frontendDeleted() { s_frontendCounter -= 1; }
@@ -302,10 +302,14 @@ private:
     static void didRemoveDOMAttrImpl(InstrumentingAgents&, Element&, const AtomicString& name);
     static void characterDataModifiedImpl(InstrumentingAgents&, CharacterData&);
     static void didInvalidateStyleAttrImpl(InstrumentingAgents&, Node&);
+    static void documentDetachedImpl(InstrumentingAgents&, Document&);
     static void frameWindowDiscardedImpl(InstrumentingAgents&, DOMWindow*);
     static void mediaQueryResultChangedImpl(InstrumentingAgents&);
+    static void activeStyleSheetsUpdatedImpl(InstrumentingAgents&, Document&);
     static void didPushShadowRootImpl(InstrumentingAgents&, Element& host, ShadowRoot&);
     static void willPopShadowRootImpl(InstrumentingAgents&, Element& host, ShadowRoot&);
+    static void pseudoElementCreatedImpl(InstrumentingAgents&, PseudoElement&);
+    static void pseudoElementDestroyedImpl(InstrumentingAgents&, PseudoElement&);
     static void didCreateNamedFlowImpl(InstrumentingAgents&, Document*, WebKitNamedFlow&);
     static void willRemoveNamedFlowImpl(InstrumentingAgents&, Document*, WebKitNamedFlow&);
     static void didChangeRegionOversetImpl(InstrumentingAgents&, Document&, WebKitNamedFlow&);
@@ -389,9 +393,6 @@ private:
     static void didRunJavaScriptDialogImpl(const InspectorInstrumentationCookie&);
     static void willDestroyCachedResourceImpl(CachedResource&);
 
-    static InspectorInstrumentationCookie willWriteHTMLImpl(InstrumentingAgents&, unsigned startLine, Frame*);
-    static void didWriteHTMLImpl(const InspectorInstrumentationCookie&, unsigned endLine);
-
     static void addMessageToConsoleImpl(InstrumentingAgents&, std::unique_ptr<Inspector::ConsoleMessage>);
 
     static void consoleCountImpl(InstrumentingAgents&, JSC::ExecState*, RefPtr<Inspector::ScriptArguments>&&);
@@ -449,7 +450,6 @@ private:
 
     static void layerTreeDidChangeImpl(InstrumentingAgents&);
     static void renderLayerDestroyedImpl(InstrumentingAgents&, const RenderLayer&);
-    static void pseudoElementDestroyedImpl(InstrumentingAgents&, PseudoElement&);
 
     static InstrumentingAgents* instrumentingAgentsForPage(Page&);
     static InstrumentingAgents* instrumentingAgentsForFrame(Frame&);
@@ -540,6 +540,13 @@ inline void InspectorInstrumentation::didInvalidateStyleAttr(Document& document,
         didInvalidateStyleAttrImpl(*instrumentingAgents, node);
 }
 
+inline void InspectorInstrumentation::documentDetached(Document& document)
+{
+    FAST_RETURN_IF_NO_FRONTENDS(void());
+    if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForDocument(document))
+        documentDetachedImpl(*instrumentingAgents, document);
+}
+
 inline void InspectorInstrumentation::frameWindowDiscarded(Frame* frame, DOMWindow* domWindow)
 {
     if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForFrame(frame))
@@ -551,6 +558,13 @@ inline void InspectorInstrumentation::mediaQueryResultChanged(Document& document
     FAST_RETURN_IF_NO_FRONTENDS(void());
     if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForDocument(document))
         mediaQueryResultChangedImpl(*instrumentingAgents);
+}
+
+inline void InspectorInstrumentation::activeStyleSheetsUpdated(Document& document)
+{
+    FAST_RETURN_IF_NO_FRONTENDS(void());
+    if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForDocument(document))
+        activeStyleSheetsUpdatedImpl(*instrumentingAgents, document);
 }
 
 inline void InspectorInstrumentation::didPushShadowRoot(Element& host, ShadowRoot& root)
@@ -565,6 +579,20 @@ inline void InspectorInstrumentation::willPopShadowRoot(Element& host, ShadowRoo
     FAST_RETURN_IF_NO_FRONTENDS(void());
     if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForDocument(host.document()))
         willPopShadowRootImpl(*instrumentingAgents, host, root);
+}
+
+inline void InspectorInstrumentation::pseudoElementCreated(Page* page, PseudoElement& pseudoElement)
+{
+    FAST_RETURN_IF_NO_FRONTENDS(void());
+    if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForPage(page))
+        pseudoElementCreatedImpl(*instrumentingAgents, pseudoElement);
+}
+
+inline void InspectorInstrumentation::pseudoElementDestroyed(Page* page, PseudoElement& pseudoElement)
+{
+    FAST_RETURN_IF_NO_FRONTENDS(void());
+    if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForPage(page))
+        pseudoElementDestroyedImpl(*instrumentingAgents, pseudoElement);
 }
 
 inline void InspectorInstrumentation::didCreateNamedFlow(Document* document, WebKitNamedFlow& namedFlow)
@@ -1087,21 +1115,6 @@ inline void InspectorInstrumentation::willDestroyCachedResource(CachedResource& 
     willDestroyCachedResourceImpl(cachedResource);
 }
 
-inline InspectorInstrumentationCookie InspectorInstrumentation::willWriteHTML(Document* document, unsigned startLine)
-{
-    FAST_RETURN_IF_NO_FRONTENDS(InspectorInstrumentationCookie());
-    if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForDocument(document))
-        return willWriteHTMLImpl(*instrumentingAgents, startLine, document->frame());
-    return InspectorInstrumentationCookie();
-}
-
-inline void InspectorInstrumentation::didWriteHTML(const InspectorInstrumentationCookie& cookie, unsigned endLine)
-{
-    FAST_RETURN_IF_NO_FRONTENDS(void());
-    if (cookie.isValid())
-        didWriteHTMLImpl(cookie, endLine);
-}
-
 inline void InspectorInstrumentation::didDispatchDOMStorageEvent(const String& key, const String& oldValue, const String& newValue, StorageType storageType, SecurityOrigin* securityOrigin, Page* page)
 {
     FAST_RETURN_IF_NO_FRONTENDS(void());
@@ -1308,20 +1321,16 @@ inline void InspectorInstrumentation::didFireAnimationFrame(const InspectorInstr
 
 inline void InspectorInstrumentation::layerTreeDidChange(Page* page)
 {
+    FAST_RETURN_IF_NO_FRONTENDS(void());
     if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForPage(page))
         layerTreeDidChangeImpl(*instrumentingAgents);
 }
 
 inline void InspectorInstrumentation::renderLayerDestroyed(Page* page, const RenderLayer& renderLayer)
 {
+    FAST_RETURN_IF_NO_FRONTENDS(void());
     if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForPage(page))
         renderLayerDestroyedImpl(*instrumentingAgents, renderLayer);
-}
-
-inline void InspectorInstrumentation::pseudoElementDestroyed(Page* page, PseudoElement& pseudoElement)
-{
-    if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForPage(page))
-        pseudoElementDestroyedImpl(*instrumentingAgents, pseudoElement);
 }
 
 inline InstrumentingAgents* InspectorInstrumentation::instrumentingAgentsForContext(ScriptExecutionContext* context)

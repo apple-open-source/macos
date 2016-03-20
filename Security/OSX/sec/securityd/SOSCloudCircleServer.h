@@ -106,7 +106,10 @@ bool SOSCCRegisterSingleRecoverySecret_Server(CFDataRef backupSlice, bool setupV
 bool SOSCCWaitForInitialSync_Server(CFErrorRef*);
 CFArrayRef SOSCCCopyYetToSyncViewsList_Server(CFErrorRef*);
 
+bool SOSWrapToBackupSliceKeyBagForView_Server(CFStringRef viewName, CFDataRef input, CFDataRef* output, CFDataRef* bskbEncoded, CFErrorRef* error);
 
+SOSBackupSliceKeyBagRef SOSBackupSliceKeyBagForView(CFStringRef viewName, CFErrorRef* error);
+CF_RETURNS_RETAINED CFDataRef SOSWrapToBackupSliceKeyBag(SOSBackupSliceKeyBagRef bskb, CFDataRef input, CFErrorRef* error);
 
 //
 // MARK: Internal kicks.
@@ -132,6 +135,10 @@ bool SOSKeychainAccountSetFactoryForAccount(SOSCCAccountDataSourceFactoryBlock f
 // MARK: Internal SPIs for testing
 //
 CFStringRef CopyOSVersion(void);
+CFDataRef SOSCCCopyAccountState_Server(CFErrorRef* error);
+CFDataRef SOSCCCopyEngineData_Server(CFErrorRef* error);
+bool SOSCCDeleteEngineState_Server(CFErrorRef* error);
+bool SOSCCDeleteAccountState_Server(CFErrorRef* error);
 
 
 //

@@ -158,6 +158,8 @@ static const CipherSuiteName tls_ciphers[] = {
     CIPHER(TLS_RSA_WITH_AES_256_CBC_SHA256)
     CIPHER(TLS_RSA_WITH_AES_128_GCM_SHA256)
     CIPHER(TLS_RSA_WITH_AES_256_GCM_SHA384)
+    CIPHER(TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256)
+    CIPHER(TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384)
 };
 static int n_tls_ciphers = sizeof(tls_ciphers)/sizeof(tls_ciphers[0]);
 
@@ -170,9 +172,11 @@ static int protos[]={
 static int n_protos = sizeof(protos)/sizeof(protos[0]);
 
 
-static size_t wsizes[] = { 0, 1, 2, 3, 4,
-                            16384, 16385, 16386, 16387, 16388,
-                            32768, 32769, 32770, 32771, 32772, 32773};
+static size_t wsizes[] = {
+                            0, 1, 2, 3, 4,
+                           16384, 16385, 16386, 16387, 16388,
+                           32768, 32769, 32770, 32771, 32772, 32773
+};
 
 static int nwsizes = sizeof(wsizes)/sizeof(wsizes[0]);
 

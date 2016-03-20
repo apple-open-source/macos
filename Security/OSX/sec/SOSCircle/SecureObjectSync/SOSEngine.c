@@ -89,7 +89,6 @@ struct __OpaqueSOSEngine {
     CFDataRef localMinusUnreadableDigest;   // or a digest (CFDataRef of the right size).
 
     CFMutableDictionaryRef manifestCache;       // digest -> ( refcount, manifest )
-    //CFMutableDictionaryRef peerState;         // peerId -> mutable array of digests
     CFMutableDictionaryRef peerMap;             // peerId -> SOSPeerRef
     CFDictionaryRef viewNameSet2ChangeTracker;  // CFSetRef of CFStringRef -> SOSChangeTrackerRef
     CFDictionaryRef viewName2ChangeTracker;     // CFStringRef -> SOSChangeTrackerRef
@@ -211,6 +210,7 @@ static SOSPeerRef SOSEngineCopyPeerWithID_locked(SOSEngineRef engine, CFStringRe
         peer = SOSEngineCopyPeerWithMapEntry_locked(engine, peerID, mapEntry, error);
     } else {
         peer = NULL;
+        secerror("peer: %@ not found, peerMap: %@, engine: %@", peerID, engine->peerMap, engine);
         SOSErrorCreate(kSOSErrorPeerNotFound, error, NULL, CFSTR("peer: %@ not found"), peerID);
     }
     return peer;
@@ -432,21 +432,23 @@ static void SOSEngineShouldSave(SOSEngineRef engine) {
     }
 
     // Schedule the timer to fire on a concurrent queue, so we can follow
-    // the proper procedure of aquiring a dataSource and then engine queues.
+    // the proper procedure of acquiring a dataSource and then engine queues.
     engine->save_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0));
     dispatch_source_set_event_handler(engine->save_timer, ^{
         CFErrorRef dsWithError = NULL;
-        if (!SOSDataSourceWith(engine->dataSource, &dsWithError, ^(SOSTransactionRef txn, bool *commit) {
-            dispatch_sync(engine->queue, ^{
-                CFErrorRef saveError = NULL;
-                if (!SOSEngineDoSave(engine, txn, &saveError)) {
-                    secerrorq("Failed to save engine state: %@", saveError);
-                    CFReleaseNull(saveError);
-                }
-            });
-        })) {
-            secerrorq("Failed to open dataSource to save engine state: %@", dsWithError);
-            CFReleaseNull(dsWithError);
+        if (engine->dataSource) {
+            if (!SOSDataSourceWith(engine->dataSource, &dsWithError, ^(SOSTransactionRef txn, bool *commit) {
+                dispatch_sync(engine->queue, ^{
+                    CFErrorRef saveError = NULL;
+                    if (!SOSEngineDoSave(engine, txn, &saveError)) {
+                        secerrorq("Failed to save engine state: %@", saveError);
+                        CFReleaseNull(saveError);
+                    }
+                });
+            })) {
+                secerrorq("Failed to open dataSource to save engine state: %@", dsWithError);
+                CFReleaseNull(dsWithError);
+            }
         }
         xpc_transaction_end();
     });
@@ -462,6 +464,9 @@ static void SOSEngineShouldSave(SOSEngineRef engine) {
 #endif
 
 static bool SOSEngineSave(SOSEngineRef engine, SOSTransactionRef txn, CFErrorRef *error) {
+    // Don't save engine state from tests
+    if (!engine->dataSource)
+        return true;
 #if (TARGET_IPHONE_SIMULATOR)
     return SOSEngineDoSave(engine, txn, error);
 #else
@@ -1056,7 +1061,7 @@ static void SOSEngineApplyPeerState(SOSEngineRef engine, CFDictionaryRef peerSta
                 secerror("peer: %@: bad state: %@ in engine state: %@", peerID, localError, stateHex);
                 CFReleaseSafe(stateHex);
                 CFReleaseNull(localError);
-                // Possibly ask for an ensurePeerRegistration so we have a good list or peers again.
+                // Possibly ask for an ensurePeerRegistration so we have a good list of peers again.
             }
         } else {
             // Just record the state for non inflated peers for now.
@@ -1214,8 +1219,6 @@ static bool SOSEngineLoad(SOSEngineRef engine, CFErrorRef *error) {
     return ok;
 }
 
-static CFStringRef accountStatusFileName = CFSTR("accountStatus.plist");
-
 static bool SOSEngineCircleChanged_locked(SOSEngineRef engine, SOSPeerMetaRef myPeerMeta, CFArrayRef trustedPeers, CFArrayRef untrustedPeers) {
     // Sanity check params
 //    SOSEngineCircleChanged_sanitycheck(engine, myPeerID, trustedPeers, untrustedPeers);
@@ -1298,6 +1301,7 @@ static bool SOSEngineDoTxnOnQueue(SOSEngineRef engine, CFErrorRef *error, void(^
 
 void SOSEngineDispose(SOSEngineRef engine) {
     // NOOP Engines stick around forever to monitor dataSource changes.
+    engine->dataSource = NULL;
 }
 
 void SOSEngineForEachPeer(SOSEngineRef engine, void (^with)(SOSPeerRef peer)) {
@@ -1901,8 +1905,19 @@ CFDataRef SOSEngineCreateMessage_locked(SOSEngineRef engine, SOSPeerRef peer,
         CFReleaseNull(allExtra);
     }
 
-    if (!SOSMessageSetManifests(message, local, confirmed, proposed, proposed, confirmed ? objectsSent : NULL, error))
+    SOSManifestRef sender = local;
+    // We actually send the remote peer its own digest.
+    // Note that both pendingObjects and unwanted may have been changed, so we get them again
+    if (SOSManifestGetCount(SOSPeerGetPendingObjects(peer))==0 && SOSManifestGetCount(extra)==0 &&
+        SOSManifestGetCount(missing)==0 && SOSManifestGetCount(SOSPeerGetUnwantedManifest(peer))!=0) {
+        secnoticeq("engine", "%@:%@: only have differences in unwanted set; lying to peer to stop sync",engine->myID, SOSPeerGetID(peer));
+        sender = confirmed;
+    }
+
+    if (!SOSMessageSetManifests(message, sender, confirmed, proposed, proposed, confirmed ? objectsSent : NULL, error)) {
+        secnoticeq("engine", "%@:%@: failed to set message manifests",engine->myID, SOSPeerGetID(peer));
         CFReleaseNull(message);
+    }
 
     CFReleaseNull(objectsSent);
 

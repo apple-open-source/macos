@@ -1618,12 +1618,6 @@ pk_recvadd(mhp)
 	
 #ifdef ENABLE_VPNCONTROL_PORT
 		{
-			u_int32_t address;
-			
-			if (iph2->dst->ss_family == AF_INET)
-				address = ((struct sockaddr_in *)iph2->dst)->sin_addr.s_addr;
-			else
-				address = 0;
 			vpncontrol_notify_phase_change(0, FROM_LOCAL, NULL, iph2);
 		}	
 #endif
@@ -1904,6 +1898,7 @@ pk_recvacquire(mhp)
 
 	iph2->satype = msg->sadb_msg_satype;
 	iph2->seq = msg->sadb_msg_seq;
+	vpncontrol_set_nat64_prefix(&iph2->nat64_prefix);
 	/* set end addresses of SA */
                                                 // Wcast_align fix (void*) - mhp contains pointers to aligned structs in malloc'd msg buffer
 	iph2->src = dupsaddr(ALIGNED_CAST(struct sockaddr_storage *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]));

@@ -340,7 +340,10 @@ OSStatus SecCodeCopyDesignatedRequirement(SecStaticCodeRef code, SecCSFlags flag
 	@constant kSecCodeInfoFormat A CFString characterizing the type and format of
 		the code. Suitable for display to a (knowledeable) user.
 	@constant kSecCodeInfoDigestAlgorithm A CFNumber indicating the kind of cryptographic
-		hash function used within the signature to seal its pieces together.
+		hash function actually used to establish integrity of the signature.
+	@constant kSecCodeInfoDigestAlgorithms A CFArray of CFNumbers indicating the kinds of
+ 		cryptographic hash functions available within the signature. The ordering of those items
+ 		has no significance.
  	@constant kSecCodeInfoPlatformIdentifier If this code was signed as part of an operating
  		system release, this value identifies that release.
 	@constant kSecCodeInfoIdentifier A CFString with the actual signing identifier
@@ -406,6 +409,7 @@ extern const CFStringRef kSecCodeInfoEntitlementsDict; /* Requirement */
 extern const CFStringRef kSecCodeInfoFlags;		/* generic */
 extern const CFStringRef kSecCodeInfoFormat;		/* generic */
 extern const CFStringRef kSecCodeInfoDigestAlgorithm; /* generic */
+extern const CFStringRef kSecCodeInfoDigestAlgorithms; /* generic */
 extern const CFStringRef kSecCodeInfoPlatformIdentifier; /* generic */
 extern const CFStringRef kSecCodeInfoIdentifier;	/* generic */
 extern const CFStringRef kSecCodeInfoImplicitDesignatedRequirement; /* Requirement */
@@ -420,6 +424,7 @@ extern const CFStringRef kSecCodeInfoTime;			/* Signing */
 extern const CFStringRef kSecCodeInfoTimestamp;		/* Signing */
 extern const CFStringRef kSecCodeInfoTrust;			/* Signing */
 extern const CFStringRef kSecCodeInfoUnique;		/* generic */
+extern const CFStringRef kSecCodeInfoCdHashes;		/* generic */
 
 OSStatus SecCodeCopySigningInformation(SecStaticCodeRef code, SecCSFlags flags,
 	CFDictionaryRef * __nonnull CF_RETURNS_RETAINED information);

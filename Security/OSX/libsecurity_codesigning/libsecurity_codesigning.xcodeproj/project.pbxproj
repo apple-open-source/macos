@@ -134,6 +134,8 @@
 		C2C3BCD30BA1E47E00E869D1 /* singlediskrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2C3BCD10BA1E47E00E869D1 /* singlediskrep.cpp */; };
 		C2C931B40AB8BA1200F83950 /* SecCodeHost.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2C931B30AB8BA1200F83950 /* SecCodeHost.cpp */; };
 		C2CC310F0B852424005FA59D /* SecIntegrityLib.c in Sources */ = {isa = PBXBuildFile; fileRef = C2CC310E0B852424005FA59D /* SecIntegrityLib.c */; };
+		C2D2967A1BCF16C000B0A29B /* diskimagerep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D296781BCF16C000B0A29B /* diskimagerep.cpp */; settings = {ASSET_TAGS = (); }; };
+		C2D2967B1BCF16C000B0A29B /* diskimagerep.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D296791BCF16C000B0A29B /* diskimagerep.h */; settings = {ASSET_TAGS = (); }; };
 		C2D3833C0A237F47005C63A2 /* bundlediskrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383120A237F47005C63A2 /* bundlediskrep.cpp */; };
 		C2D3833E0A237F47005C63A2 /* cdbuilder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383140A237F47005C63A2 /* cdbuilder.cpp */; };
 		C2D383400A237F47005C63A2 /* codedirectory.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383160A237F47005C63A2 /* codedirectory.cpp */; };
@@ -452,6 +454,8 @@
 		C2CC310E0B852424005FA59D /* SecIntegrityLib.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = SecIntegrityLib.c; sourceTree = "<group>"; };
 		C2CC31130B85254F005FA59D /* antlrplugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = antlrplugin.cpp; path = lib/antlrplugin.cpp; sourceTree = "<group>"; };
 		C2CC31140B85254F005FA59D /* antlrplugin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = antlrplugin.h; path = lib/antlrplugin.h; sourceTree = "<group>"; };
+		C2D296781BCF16C000B0A29B /* diskimagerep.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = diskimagerep.cpp; sourceTree = "<group>"; };
+		C2D296791BCF16C000B0A29B /* diskimagerep.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = diskimagerep.h; sourceTree = "<group>"; };
 		C2D383120A237F47005C63A2 /* bundlediskrep.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = bundlediskrep.cpp; sourceTree = "<group>"; };
 		C2D383130A237F47005C63A2 /* bundlediskrep.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bundlediskrep.h; sourceTree = "<group>"; };
 		C2D383140A237F47005C63A2 /* cdbuilder.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cdbuilder.cpp; sourceTree = "<group>"; };
@@ -861,6 +865,8 @@
 				C2BD519A0A9392FD000FE43D /* machorep.cpp */,
 				C2A436140F2133B2007A41A6 /* slcrep.h */,
 				C2A436130F2133B2007A41A6 /* slcrep.cpp */,
+				C2D296791BCF16C000B0A29B /* diskimagerep.h */,
+				C2D296781BCF16C000B0A29B /* diskimagerep.cpp */,
 				C2C3BCD20BA1E47E00E869D1 /* singlediskrep.h */,
 				C2C3BCD10BA1E47E00E869D1 /* singlediskrep.cpp */,
 				C28342EC0E36719D00E54360 /* detachedrep.h */,
@@ -1170,6 +1176,7 @@
 				18B965891472FC5B005A4D2E /* reqreader.h in Headers */,
 				18B9658A1472FC5B005A4D2E /* reqinterp.h in Headers */,
 				18B9658B1472FC5B005A4D2E /* reqparser.h in Headers */,
+				C2D2967B1BCF16C000B0A29B /* diskimagerep.h in Headers */,
 				18B9658C1472FC9E005A4D2E /* codedirectory.h in Headers */,
 				18B965951472FE30005A4D2E /* cdbuilder.h in Headers */,
 				EB68B133150DB04400B4013D /* RequirementKeywords.h in Headers */,
@@ -1556,6 +1563,7 @@
 				C27360D51436866D00A9A5FF /* xpcengine.cpp in Sources */,
 				C2DC2DCA145F594000AD2A3A /* xar++.cpp in Sources */,
 				C2DC2DCB145F5CD000AD2A3A /* policyengine.cpp in Sources */,
+				C2D2967A1BCF16C000B0A29B /* diskimagerep.cpp in Sources */,
 				C2F4439A14C626D4000A01E6 /* quarantine++.cpp in Sources */,
 				C26763D714FD9EBE00A46EDF /* drmaker.cpp in Sources */,
 				EB68B111150DAEEA00B4013D /* RequirementLexer.cpp in Sources */,
@@ -1730,6 +1738,7 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				HEADER_SEARCH_PATHS = (
@@ -1760,6 +1769,7 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				HEADER_SEARCH_PATHS = (

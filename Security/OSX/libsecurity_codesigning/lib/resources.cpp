@@ -61,9 +61,8 @@ static string removeTrailingSlash(string path)
 // Construction and maintainance
 //
 ResourceBuilder::ResourceBuilder(const std::string &root, const std::string &relBase,
-	CFDictionaryRef rulesDict, CodeDirectory::HashAlgorithm hashType, bool strict, const MacOSErrorSet& toleratedErrors)
-	: mHashType(hashType),
-	  mCheckUnreadable(strict && toleratedErrors.find(errSecCSSignatureNotVerifiable) == toleratedErrors.end()),
+	CFDictionaryRef rulesDict, bool strict, const MacOSErrorSet& toleratedErrors)
+	: mCheckUnreadable(strict && toleratedErrors.find(errSecCSSignatureNotVerifiable) == toleratedErrors.end()),
 	  mCheckUnknownType(strict && toleratedErrors.find(errSecCSResourceNotSupported) == toleratedErrors.end())
 {
 	assert(!root.empty());
@@ -274,15 +273,47 @@ ResourceBuilder::Rule *ResourceBuilder::findRule(string path) const
 //
 // Hash a file and return a CFDataRef with the hash
 //
-CFDataRef ResourceBuilder::hashFile(const char *path) const
+CFDataRef ResourceBuilder::hashFile(const char *path, CodeDirectory::HashAlgorithm type)
 {
 	UnixPlusPlus::AutoFileDesc fd(path);
 	fd.fcntl(F_NOCACHE, true);		// turn off page caching (one-pass)
-	MakeHash<ResourceBuilder> hasher(this);
+	RefPointer<DynamicHash> hasher(CodeDirectory::hashFor(type));
 	hashFileData(fd, hasher.get());
 	Hashing::Byte digest[hasher->digestLength()];
 	hasher->finish(digest);
 	return CFDataCreate(NULL, digest, sizeof(digest));
+}
+
+
+//
+// Hash a file to multiple hash types and return a dictionary suitable to form a resource seal
+//
+CFMutableDictionaryRef ResourceBuilder::hashFile(const char *path, CodeDirectory::HashAlgorithms types)
+{
+	UnixPlusPlus::AutoFileDesc fd(path);
+	fd.fcntl(F_NOCACHE, true);		// turn off page caching (one-pass)
+	CFRef<CFMutableDictionaryRef> result = makeCFMutableDictionary();
+	CFMutableDictionaryRef resultRef = result;
+	CodeDirectory::multipleHashFileData(fd, 0, types, ^(CodeDirectory::HashAlgorithm type, Security::DynamicHash *hasher) {
+		size_t length = hasher->digestLength();
+		Hashing::Byte digest[length];
+		hasher->finish(digest);
+		CFDictionaryAddValue(resultRef, CFTempString(hashName(type)), CFTempData(digest, length));
+	});
+	return result.yield();
+}
+	
+	
+std::string ResourceBuilder::hashName(CodeDirectory::HashAlgorithm type)
+{
+	switch (type) {
+	case kSecCodeSignatureHashSHA1:
+		return "hash";
+	default:
+		char name[20];
+		snprintf(name, sizeof(name), "hash%d", int(type));
+		return name;
+	}
 }
 
 
@@ -333,29 +364,41 @@ std::string ResourceBuilder::escapeRE(const std::string &s)
 // Resource Seals
 //
 ResourceSeal::ResourceSeal(CFTypeRef it)
-	: mDict(NULL), mHash(NULL), mRequirement(NULL), mLink(NULL), mFlags(0)
+	: mDict(NULL), mRequirement(NULL), mLink(NULL), mFlags(0)
 {
 	if (it == NULL)
 		MacOSError::throwMe(errSecCSResourcesInvalid);
-	if (CFGetTypeID(it) == CFDataGetTypeID()) {
-		mHash = CFDataRef(it);
-	} else {
-		int optional = 0;
+	if (CFGetTypeID(it) == CFDataGetTypeID())	// old-style form with just a hash
+		mDict.take(cfmake<CFDictionaryRef>("{hash=%O}", it));
+	else if (CFGetTypeID(it) == CFDictionaryGetTypeID())
 		mDict = CFDictionaryRef(it);
-		bool err;
-		if (CFDictionaryGetValue(mDict, CFSTR("requirement")))
-			err = !cfscan(mDict, "{requirement=%SO,?optional=%B}", &mRequirement, &optional);
-		else if (CFDictionaryGetValue(mDict, CFSTR("symlink")))
-			err = !cfscan(mDict, "{symlink=%SO,?optional=%B}", &mLink, &optional);
-		else
-			err = !cfscan(mDict, "{hash=%XO,?optional=%B}", &mHash, &optional);
-		if (err)
-			MacOSError::throwMe(errSecCSResourcesInvalid);
-		if (optional)
-			mFlags |= ResourceBuilder::optional;
-		if (mRequirement)
-			mFlags |= ResourceBuilder::nested;
-	}
+	else
+		MacOSError::throwMe(errSecCSResourcesInvalid);
+
+	int optional = 0;
+	bool err;
+	if (CFDictionaryGetValue(mDict, CFSTR("requirement")))
+		err = !cfscan(mDict, "{requirement=%SO,?optional=%B}", &mRequirement, &optional);
+	else if (CFDictionaryGetValue(mDict, CFSTR("symlink")))
+		err = !cfscan(mDict, "{symlink=%SO,?optional=%B}", &mLink, &optional);
+	else
+		err = !cfscan(mDict, "{?optional=%B}", &optional);
+	if (err)
+		MacOSError::throwMe(errSecCSResourcesInvalid);
+	if (optional)
+		mFlags |= ResourceBuilder::optional;
+	if (mRequirement)
+		mFlags |= ResourceBuilder::nested;
+}
+	
+	
+const Hashing::Byte *ResourceSeal::hash(CodeDirectory::HashAlgorithm type) const
+{
+	std::string name = ResourceBuilder::hashName(type);
+	CFTypeRef hash = CFDictionaryGetValue(mDict, CFTempString(name));
+	if (hash == NULL || CFGetTypeID(hash) != CFDataGetTypeID())
+		MacOSError::throwMe(errSecCSResourcesInvalid);
+	return CFDataGetBytePtr(CFDataRef(hash));
 }
 
 

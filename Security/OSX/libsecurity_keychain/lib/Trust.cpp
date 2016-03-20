@@ -35,6 +35,7 @@
 #include "TrustAdditions.h"
 #include "TrustKeychains.h"
 #include <security_cdsa_client/dlclient.h>
+#include <security_keychain/Keychains.h>
 
 
 using namespace Security;
@@ -65,29 +66,6 @@ ModuleNexus<TrustStore> Trust::gStore;
 
 #pragma mark -- TrustKeychains --
 
-static const CSSM_DL_DB_HANDLE nullCSSMDLDBHandle = {0,};
-//
-// TrustKeychains maintains a global reference to standard system keychains,
-// to avoid having them be opened anew for each Trust instance.
-//
-class TrustKeychains
-{
-public:
-	TrustKeychains();
-	~TrustKeychains()	{}
-	CSSM_DL_DB_HANDLE	rootStoreHandle()	{ return mRootStoreHandle; }
-	CSSM_DL_DB_HANDLE	systemKcHandle()	{ return mSystem ? mSystem->database()->handle() : nullCSSMDLDBHandle; }
-	Keychain			&systemKc()			{ return mSystem; }
-	Keychain			&rootStore()		{ return *mRootStore; }
-
-private:
-	DL*					mRootStoreDL;
-	Db*					mRootStoreDb;
-	Keychain*			mRootStore;
-	CSSM_DL_DB_HANDLE	mRootStoreHandle;
-	Keychain			mSystem;
-};
-
 //
 // Singleton maintaining open references to standard system keychains,
 // to avoid having them be opened anew every time SecTrust is used.
@@ -102,19 +80,20 @@ TrustKeychains::TrustKeychains() :
 	mRootStoreHandle(nullCSSMDLDBHandle),
 	mSystem(globals().storageManager.make(ADMIN_CERT_STORE_PATH, false))
 {
-	if (GetServerMode()) // in server mode?  Don't make a keychain for the root store
+	if (GetServerMode()) // in server mode?  Don't go through StorageManager to make a keychain
 	{
 		mRootStoreDL = new DL(gGuidAppleFileDL),
 		mRootStoreDb = new Db(*mRootStoreDL, SYSTEM_ROOT_STORE_PATH),
-		(*mRootStoreDb)->activate();
-		mRootStoreHandle = (*mRootStoreDb)->handle();
+        mRootStore = new Keychain(*mRootStoreDb);
 	}
 	else
 	{
+        mRootStoreDL = NULL;
+        mRootStoreDb = NULL;
 		mRootStore = new Keychain(globals().storageManager.make(SYSTEM_ROOT_STORE_PATH, false));
-		(*mRootStore)->database()->activate();
-		mRootStoreHandle = (*mRootStore)->database()->handle();
 	}
+    (*mRootStore)->database()->activate();
+    mRootStoreHandle = (*mRootStore)->database()->handle();
 }
 
 RecursiveMutex& SecTrustKeychainsGetMutex()
@@ -505,7 +484,7 @@ void Trust::evaluate(bool disableEV)
     }
 
 	/* do post-processing for the evaluated certificate chain */
-	CFArrayRef fullChain = makeCFArray(convert, mCertChain);
+	CFArrayRef fullChain = makeCFArrayFrom(convert, mCertChain);
 	CFDictionaryRef etResult = extendedTrustResults(fullChain, mResult, mTpReturn, isEVCandidate);
 	mExtendedResult = etResult; // assignment to CFRef type is an implicit retain
 	if (etResult) {
@@ -758,7 +737,7 @@ void Trust::buildEvidence(CFArrayRef &certChain, TPEvidenceInfo * &statusChain)
 	if (mResult == kSecTrustResultInvalid)
 		MacOSError::throwMe(errSecTrustNotAvailable);
     certChain = mEvidenceReturned =
-        makeCFArray(convert, mCertChain);
+        makeCFArrayFrom(convert, mCertChain);
 	if(mTpResult.count() >= 3) {
 		statusChain = mTpResult[2].as<TPEvidenceInfo>();
 	}

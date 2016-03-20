@@ -41,6 +41,7 @@
 #include <asl_core.h>
 #include <asl_msg.h>
 #include "asl_common.h"
+#include <pwd.h>
 
 #define _PATH_ASL_CONF "/etc/asl.conf"
 #define _PATH_ASL_CONF_DIR "/etc/asl"
@@ -1215,6 +1216,17 @@ _dst_add_uid(asl_out_dst_data_t *dst, char *s)
 
 	uid = atoi(s);
 
+#if TARGET_OS_IPHONE
+	if (uid == 501)
+	{
+		struct passwd * pw = getpwnam("mobile");
+		if (pw)
+		{
+			uid = pw->pw_uid;
+		}
+	}
+#endif
+
 	for (i = 0 ; i < dst->nuid; i++)
 	{
 		if (dst->uid[i] == uid) return;
@@ -1240,6 +1252,17 @@ _dst_add_gid(asl_out_dst_data_t *dst, char *s)
 	if (s == NULL) return;
 
 	gid = atoi(s);
+
+#if TARGET_OS_IPHONE
+	if (gid == 501)
+	{
+		struct passwd * pw = getpwnam("mobile");
+		if (pw)
+		{
+			gid = pw->pw_gid;
+		}
+	}
+#endif
 
 	for (i = 0 ; i < dst->ngid; i++)
 	{

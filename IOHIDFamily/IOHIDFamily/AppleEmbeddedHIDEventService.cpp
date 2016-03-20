@@ -124,6 +124,21 @@ void AppleEmbeddedHIDEventService::dispatchAmbientLightSensorEvent(AbsoluteTime 
 }
 
 //====================================================================================================
+// AppleEmbeddedHIDEventService::dispatchAmbientLightSensorEvent
+//====================================================================================================
+
+void AppleEmbeddedHIDEventService::dispatchAmbientLightSensorEvent(AbsoluteTime timestamp, UInt32 level, IOHIDEventColorSpace colorSpace, IOHIDDouble colorComponent0, IOHIDDouble colorComponent1, IOHIDDouble colorComponent2, IOOptionBits options)
+{
+    IOHIDEvent * event = IOHIDEvent::ambientLightSensorEvent(timestamp, level, colorSpace, colorComponent0, colorComponent1, colorComponent2, options);
+    
+    if ( event ) {
+        dispatchEvent(event);
+        event->release();
+    }
+}
+
+
+//====================================================================================================
 // AppleEmbeddedHIDEventService::dispatchTemperatureEvent
 //====================================================================================================
 void AppleEmbeddedHIDEventService::dispatchTemperatureEvent(AbsoluteTime timestamp, IOFixed temperature, IOOptionBits options)

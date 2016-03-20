@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -574,13 +574,6 @@ void WebGLRenderingContextBase::setupFlags()
         m_isDepthStencilSupported = m_context->getExtensions()->isEnabled("GL_EXT_packed_depth_stencil");
     }
     m_isRobustnessEXTSupported = m_context->getExtensions()->isEnabled("GL_EXT_robustness");
-}
-
-bool WebGLRenderingContextBase::allowPrivilegedExtensions() const
-{
-    if (Page* page = canvas()->document().page())
-        return page->settings().privilegedWebGLExtensionsEnabled();
-    return false;
 }
 
 void WebGLRenderingContextBase::addCompressedTextureFormat(GC3Denum format)
@@ -1743,6 +1736,10 @@ bool WebGLRenderingContextBase::validateVertexAttributes(unsigned elementCount, 
     if (!sawNonInstancedAttrib && sawEnabledAttrib)
         return false;
 
+    // Guard against access into non-existent buffers.
+    if (elementCount && !sawEnabledAttrib && !m_currentProgram->isUsingVertexAttrib0())
+        return false;
+
     return true;
 }
 
@@ -1815,10 +1812,10 @@ bool WebGLRenderingContextBase::validateDrawArrays(const char* functionName, GC3
 bool WebGLRenderingContextBase::validateDrawElements(const char* functionName, GC3Denum mode, GC3Dsizei count, GC3Denum type, long long offset, unsigned& numElements, GC3Dsizei primitiveCount)
 {
     if (isContextLostOrPending() || !validateDrawMode(functionName, mode))
-    return false;
+        return false;
     
     if (!validateStencilSettings(functionName))
-    return false;
+        return false;
     
     switch (type) {
     case GraphicsContext3D::UNSIGNED_BYTE:

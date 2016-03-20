@@ -236,6 +236,7 @@ void IOHIDEventDriver::free ()
     OSSafeReleaseNULL(_unicode.legacyElements);
     OSSafeReleaseNULL(_unicode.gesturesCandidates);
     OSSafeReleaseNULL(_unicode.gestureStateElement);
+    OSSafeReleaseNULL(_gameController.elements);
 
     OSSafeReleaseNULL(_supportedElements);
 

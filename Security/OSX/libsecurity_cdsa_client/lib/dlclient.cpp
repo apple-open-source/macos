@@ -24,6 +24,7 @@
 #include <Security/cssmapple.h>
 #include <Security/cssmapplePriv.h>
 #include <Security/SecBase.h>
+#include <security_cdsa_utilities/Schema.h>
 
 using namespace CssmClient;
 
@@ -472,6 +473,38 @@ void DbImpl::setBatchMode(Boolean mode, Boolean rollback)
 	}
 }
 
+uint32 DbImpl::dbBlobVersion() {
+    uint32 dbBlobVersion = 0;
+    uint32* dbBlobVersionPtr = &dbBlobVersion;
+
+    // We only have a blob version if we're an apple CSPDL
+    if(dl()->guid() == gGuidAppleCSPDL) {
+        check(CSSM_DL_PassThrough(handle(), CSSM_APPLECSPDL_DB_GET_BLOB_VERSION, NULL, (void**) &dbBlobVersionPtr));
+    } else {
+        secdebugfunc("integrity", "Non-Apple CSPDL keychains don't have keychain versions");
+    }
+    return dbBlobVersion;
+}
+
+uint32 DbImpl::recodeDbToVersion(uint32 version) {
+    uint32 newDbVersion;
+    uint32* newDbVersionPtr = &newDbVersion;
+    check(CSSM_DL_PassThrough(handle(), CSSM_APPLECSPDL_DB_RECODE_TO_BLOB_VERSION, &version, (void**) &newDbVersionPtr));
+    return newDbVersion;
+}
+
+void DbImpl::takeFileLock() {
+    passThrough(CSSM_APPLECSPDL_DB_TAKE_FILE_LOCK, NULL, NULL);
+}
+
+void DbImpl::releaseFileLock(bool success) {
+    passThrough(CSSM_APPLECSPDL_DB_RELEASE_FILE_LOCK, &success, NULL);
+}
+
+void DbImpl::makeBackup() {
+    passThrough(CSSM_APPLECSPDL_DB_MAKE_BACKUP, NULL, NULL);
+}
+
 //
 // DbCursorMaker
 //
@@ -902,4 +935,35 @@ DbAttributes::DbAttributes()
 DbAttributes::DbAttributes(const Db &db, uint32 capacity, Allocator &allocator)
 :  CssmAutoDbRecordAttributeData(capacity, db->allocator(), allocator)
 {
+}
+
+void DbAttributes::updateWithDbAttributes(DbAttributes* newValues) {
+    if(!newValues) {
+        return;
+    }
+
+    canonicalize();
+    newValues->canonicalize();
+
+    updateWith(newValues);
+}
+
+void
+DbAttributes::canonicalize() {
+    for(int i = 0; i < size(); i++) {
+        CssmDbAttributeData& data = attributes()[i];
+        CssmDbAttributeInfo& datainfo = data.info();
+
+        // Calling Schema::attributeInfo is the best way to canonicalize.
+        // There's no way around the try-catch structure, since it throws if it
+        // can't find something.
+
+        try {
+            if(datainfo.nameFormat() == CSSM_DB_ATTRIBUTE_NAME_AS_INTEGER) {
+                data.info() = Security::KeychainCore::Schema::attributeInfo(datainfo.intName());
+            }
+        } catch(...) {
+            // Don't worry about it
+        }
+    }
 }

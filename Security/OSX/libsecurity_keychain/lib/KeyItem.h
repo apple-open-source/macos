@@ -126,6 +126,11 @@ public:
 	
 	virtual CFHashCode hash();
 
+    virtual void setIntegrity(bool force = false);
+    virtual bool checkIntegrity();
+
+    static void modifyUniqueId(Keychain keychain, SSDb ssDb, DbUniqueRecord& uniqueId, DbAttributes& newDbAttributes, CSSM_DB_RECORDTYPE recordType);
+
 protected:
 	virtual PrimaryKey add(Keychain &keychain);
 private:

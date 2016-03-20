@@ -96,6 +96,19 @@ __BEGIN_DECLS
 /* Entitlement needed to call swcd and swcagent processes. */
 #define kSecEntitlementPrivateAssociatedDomains CFSTR("com.apple.private.associated-domains")
 
+/* Entitlement to control usage of system keychain */
+#define kSecEntitlementPrivateSystemKeychain CFSTR("com.apple.private.system-keychain")
+
+/* Entitlement to control usage of syncbubble keychain migration */
+#define kSecEntitlementPrivateKeychainSyncBubble CFSTR("com.apple.private.syncbubble-keychain")
+
+/* Entitlement to control usage of system keychain migration */
+#define kSecEntitlementPrivateKeychainMigrateSystemKeychain CFSTR("com.apple.private.migrate-musr-system-keychain")
+
+/* Entitlement to control usage of system keychain migration */
+#define kSecEntitlementPrivateNetworkExtension CFSTR("com.apple.developer.networking.networkextension")
+
+
 __END_DECLS
 
 #endif /* !_SECURITY_SECENTITLEMENTS_H_ */

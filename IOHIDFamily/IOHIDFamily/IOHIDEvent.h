@@ -159,7 +159,16 @@ public:
                                         UInt32                  channel2    = 0,
                                         UInt32                  channel3    = 0,
                                         IOOptionBits            options     = 0);
-                                        
+
+    static IOHIDEvent *  ambientLightSensorEvent(
+                                        AbsoluteTime            timeStamp,
+                                        UInt32                  level,
+                                        UInt8                   colorSpace,
+                                        IOHIDDouble             colorComponent0,
+                                        IOHIDDouble             colorComponent1,
+                                        IOHIDDouble             colorComponent2,
+                                        IOOptionBits            options);
+  
     static IOHIDEvent *     proximityEvent (
                                         AbsoluteTime                timeStamp,
                                         IOHIDProximityDetectionMask    mask,
@@ -382,6 +391,9 @@ public:
     virtual void            setSenderID(uint64_t senderID);
     
     virtual uint64_t        getLatency(uint32_t scaleFactor);
+
+    virtual IOHIDDouble     getDoubleValue( IOHIDEventField  key,  IOOptionBits  options);
+    virtual void            setDoubleValue( IOHIDEventField  key, IOHIDDouble value, IOOptionBits  options);
     
     inline  IOOptionBits    getOptions() { return _options; };
 

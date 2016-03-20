@@ -208,8 +208,6 @@ public:
 	void removeAttr(const std::string &name, int options = 0)
 	{ return removeAttr(name.c_str(), options); }
 	size_t listAttr(char *value, size_t length, int options = 0);
-	size_t listAttr(const std::string &name, size_t length, int options = 0)
-	{ return listAttr(name.c_str(), length, options); }
 	
 	// xattrs with string values (not including trailing null bytes)
 	void setAttr(const std::string &name, const std::string &value, int options = 0);

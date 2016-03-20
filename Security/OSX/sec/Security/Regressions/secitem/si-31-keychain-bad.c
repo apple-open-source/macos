@@ -25,6 +25,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecBase.h>
 #include <Security/SecItem.h>
+#include <securityd/SecItemServer.h>
 
 #include <stdlib.h>
 #include <fcntl.h>
@@ -52,8 +53,6 @@ const uint8_t keychain_data[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x8a
 };
 
-void kc_dbhandle_reset(void);
-
 /* Test basic add delete update copy matching stuff. */
 static void tests(void)
 {
@@ -72,7 +71,7 @@ static void tests(void)
         (ssize_t)sizeof(keychain_data), "write garbage to keychain file");
     ok_unix(close(fd), "close keychain file");
 
-    kc_dbhandle_reset();
+    SecKeychainDbReset(NULL);
 
     int v_eighty = 80;
     CFNumberRef eighty = CFNumberCreate(NULL, kCFNumberSInt32Type, &v_eighty);

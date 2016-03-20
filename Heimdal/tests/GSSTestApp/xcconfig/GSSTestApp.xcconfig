@@ -1,0 +1,16 @@
+
+SAFARI_SERVICES_FRAMEWORK = 
+SAFARI_SERVICES_FRAMEWORK[sdk=iphoneos*] = -framework SafariServices
+SAFARI_SERVICES_FRAMEWORK[sdk=macosx*] = -framework SafariServices
+SAFARI_SERVICES_FRAMEWORK[sdk=iphonesimulator*] = -framework SafariServices
+SAFARI_SERVICES_FRAMEWORK[sdk=watch*] =
+SAFARI_SERVICES_FRAMEWORK[sdk=appletv*] =
+
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos  watchsimulator 
+
+GSSTEST_APP_INFO_PLIST = 
+GSSTEST_APP_INFO_PLIST[sdk=iphoneos*] = GSSTestAppIOS/GSSTestApp-Info.plist 
+GSSTEST_APP_INFO_PLIST[sdk=appletv*] = GSSTestAppIOS/GSSTestApp-tvOS-Info.plist
+
+EXCLUDED_SOURCE_FILE_NAMES[sdk=iphone*] = *tvOS.storyboard
+EXCLUDED_SOURCE_FILE_NAMES[sdk=appletv*] = *iPhone.storyboard *iPad.storyboard

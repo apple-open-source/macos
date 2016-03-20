@@ -24,6 +24,10 @@
 #ifndef __IPSEC_UTILS_H__
 #define __IPSEC_UTILS_H__
 
+#import <net/if_var.h>
+#import <netdb.h>
+#define MAX_ADDRESS_STRLEN (sizeof("0000:0000:0000:0000:0000:0000:0000:0000%") + IFNAMSIZ)
+
 #include <sys/kern_event.h>
 #include "scnc_main.h"
 
@@ -51,11 +55,12 @@ int IPSecSetSecurityAssociationsPreference(int *oldval, int newval);
 
 /* Functions to manipulate well known configurations */
 CFMutableDictionaryRef 
-IPSecCreateL2TPDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in *dst, char *dst_hostName, 
-		CFStringRef authenticationMethod, int isClient, int natt_multiple_users, CFStringRef identifierVerification);
+IPSecCreateL2TPDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, char *dst_hostName, 
+		CFStringRef authenticationMethod, uint hasLocalIdentifier, int isClient, int natt_multiple_users, CFStringRef identifierVerification, int dhgroup2_aggressive);
 CFMutableDictionaryRef 
-IPSecCreateCiscoDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in *dst, CFStringRef dst_hostName, 
-		CFStringRef authenticationMethod, int isClient, int natt_multiple_users, CFStringRef identifierVerification);
+IPSecCreateCiscoDefaultConfiguration(struct sockaddr *src, struct sockaddr_in *dst, CFStringRef dst_hostName, 
+		CFStringRef authenticationMethod, uint hasLocalIdentifier, int isClient, int natt_multiple_users, CFStringRef identifierVerification, int dhgroup2_aggressive);
+int IPSecIsAggressiveMode(CFStringRef authenticationMethod, int hasLocalIdentifier, int isClient);
 
 /* Miscellaneous */
 int get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *ifscope, char *if_name);

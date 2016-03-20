@@ -158,14 +158,15 @@ bool SOSPeerInfoUpdateToV2(SOSPeerInfoRef pi, CFErrorRef *error) {
     if(serialNumber) CFDictionaryAddValue(v2Dictionary, sSerialNumberKey, serialNumber);
     CFDictionaryAddValue(v2Dictionary, sViewsKey, views);
     CFDictionaryAddValue(v2Dictionary, sSecurityPropertiesKey, secproperties);
-    if(whichTransportType == kSOSTransportPresent){
-        CFDictionaryAddValue(v2Dictionary, sDeviceID, CFSTR(""));
-        CFDictionaryAddValue(v2Dictionary, sTransportType, SOSTransportMessageTypeKVS);
-        CFDictionaryAddValue(v2Dictionary, sPreferIDS, kCFBooleanTrue);
-    }
-    else if (whichTransportType == kSOSTransportFuture || whichTransportType == kSOSTransportIDS){
+   
+    if (whichTransportType == kSOSTransportFuture || whichTransportType == kSOSTransportIDS){
         CFDictionaryAddValue(v2Dictionary, sDeviceID, CFSTR(""));
         CFDictionaryAddValue(v2Dictionary, sTransportType, SOSTransportMessageTypeIDS);
+        CFDictionaryAddValue(v2Dictionary, sPreferIDS, kCFBooleanTrue);
+    }
+    else{
+        CFDictionaryAddValue(v2Dictionary, sDeviceID, CFSTR(""));
+        CFDictionaryAddValue(v2Dictionary, sTransportType, SOSTransportMessageTypeKVS);
         CFDictionaryAddValue(v2Dictionary, sPreferIDS, kCFBooleanTrue);
     }
     require_action_quiet((v2data = SOSCreateDERFromDictionary(v2Dictionary, error)), out, SOSCreateError(kSOSErrorAllocationFailure, CFSTR("No Memory"), NULL, error));

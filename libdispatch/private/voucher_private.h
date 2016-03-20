@@ -24,7 +24,7 @@
 #include <os/base.h>
 #include <os/object.h>
 
-#define OS_VOUCHER_SPI_VERSION 20141203
+#define OS_VOUCHER_SPI_VERSION 20150630
 
 #if OS_VOUCHER_WEAK_IMPORT
 #define OS_VOUCHER_EXPORT OS_EXPORT OS_WEAK_IMPORT
@@ -423,6 +423,96 @@ __OSX_AVAILABLE_STARTING(__MAC_10_10,__IPHONE_8_0)
 OS_VOUCHER_EXPORT OS_OBJECT_RETURNS_RETAINED OS_WARN_RESULT OS_NOTHROW
 voucher_t
 voucher_create_with_mach_msg(mach_msg_header_t *msg);
+
+/*!
+ * @group Voucher Persona SPI
+ * SPI intended for clients that need to interact with personas.
+ */
+
+#if __has_include(<bank/bank_types.h>)
+#include <bank/bank_types.h>
+#endif
+#if __has_include(<sys/persona.h>)
+#include <sys/persona.h>
+#endif
+
+struct proc_persona_info;
+
+/*!
+ * @function voucher_get_current_persona
+ *
+ * @abstract
+ * Retrieve the persona identifier of the 'originator' process for the current
+ * voucher.
+ *
+ * @discussion
+ * Retrieve the persona identifier of the ’originator’ process possibly stored
+ * in the PERSONA_TOKEN attribute of the currently adopted voucher.
+ *
+ * If the thread has not adopted a voucher, or the current voucher does not
+ * contain a PERSONA_TOKEN attribute, this function returns the persona
+ * identifier of the current process.
+ *
+ * If the process is not running under a persona, then this returns
+ * PERSONA_ID_NONE.
+ *
+ * @result
+ * The persona identifier of the 'originator' process for the current voucher,
+ * or the persona identifier of the current process
+ * or PERSONA_ID_NONE
+ */
+__OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_9_2)
+OS_VOUCHER_EXPORT OS_WARN_RESULT OS_NOTHROW
+uid_t
+voucher_get_current_persona(void);
+
+/*!
+ * @function voucher_get_current_persona_originator_info
+ *
+ * @abstract
+ * Retrieve the ’originator’ process persona info for the currently adopted
+ * voucher.
+ *
+ * @discussion
+ * If there is no currently adopted voucher, or no PERSONA_TOKEN attribute
+ * in that voucher, this function fails.
+ *
+ * @param persona_info
+ * The proc_persona_info structure to fill in case of success
+ *
+ * @result
+ * 0 on success: currently adopted voucher has a PERSONA_TOKEN
+ * -1 on failure: persona_info is untouched/uninitialized
+ */
+__OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_9_2)
+OS_VOUCHER_EXPORT OS_WARN_RESULT OS_NOTHROW OS_NONNULL1
+int
+voucher_get_current_persona_originator_info(
+	struct proc_persona_info *persona_info);
+
+/*!
+ * @function voucher_get_current_persona_proximate_info
+ *
+ * @abstract
+ * Retrieve the ’proximate’ process persona info for the currently adopted
+ * voucher.
+ *
+ * @discussion
+ * If there is no currently adopted voucher, or no PERSONA_TOKEN attribute
+ * in that voucher, this function fails.
+ *
+ * @param persona_info
+ * The proc_persona_info structure to fill in case of success
+ *
+ * @result
+ * 0 on success: currently adopted voucher has a PERSONA_TOKEN
+ * -1 on failure: persona_info is untouched/uninitialized
+ */
+__OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_9_2)
+OS_VOUCHER_EXPORT OS_WARN_RESULT OS_NOTHROW OS_NONNULL1
+int
+voucher_get_current_persona_proximate_info(
+	struct proc_persona_info *persona_info);
 
 __END_DECLS
 

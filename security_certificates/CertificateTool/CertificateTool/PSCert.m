@@ -258,7 +258,7 @@ static CFDataRef GetSubjectKeyID(SecCertificateRefP cert)
         }
 
 
-        if ( (isGrayListed & assetFlags) || (isBlackListed & assetFlags) )
+        if ( (isGrayListed & assetFlags) || (isBlocked & assetFlags) )
         {
             _public_key_hash = [self getPublicKeyHash:certRef];
             if (NULL == _public_key_hash)

@@ -34,64 +34,15 @@
 #include <pwd.h>
 #endif
 #include <utilities/SecCFWrappers.h>
+#include <utilities/SecTrace.h>
 
-
-/* --------------------------------------------------------------------------
-	Function:		Bucket
-	
-	Description:	In order to preserve annominity of a user, take an
-					absolute value and return back the most significant 
-					value in base 10 
-   -------------------------------------------------------------------------- */
-static	int64_t Bucket(int64_t value)
-{
-    if (value < 10)
-    {
-       return value;
-    }
-
-    if (value < 100)
-    {
-        return (value / 10) * 10;
-    }
-
-    if (value < 1000)
-    {
-        return (value / 100) * 100;
-    }
-
-    if (value < 10000)
-    {
-        return (value / 1000) * 1000;
-    }
-
-    if (value < 100000)
-    {
-        return (value / 10000) * 10000;
-    }
-
-    if (value < 1000000)
-    {
-        return (value / 100000) * 10000;
-    }
-
-    return value;
-}
-
-static int64_t
-Bucket2Significant(int64_t value)
-{
-    if (value < 100)
-	return value;
-    return 10 * Bucket2Significant(value / 10);
-}
 
 static void
 TraceKeyClassItem(void *token, CFStringRef keyclass, CFStringRef name, int64_t num)
 {
     CFStringRef key = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@.%@"), keyclass, name);
     if (key) {
-	num = Bucket2Significant(num);
+	num = SecBucket2Significant(num);
 	AddKeyValuePairToKeychainLoggingTransaction(token, key, num);
 	CFReleaseNull(key);
     }
@@ -119,7 +70,7 @@ void CloudKeychainTrace(CFIndex num_peers, size_t num_items,
 {
 	void *token = BeginCloudKeychainLoggingTransaction();
     AddKeyValuePairToKeychainLoggingTransaction(token, kNumberOfiCloudKeychainPeers, (int64_t)num_peers);
-    AddKeyValuePairToKeychainLoggingTransaction(token, kNumberOfiCloudKeychainItemsBeingSynced, Bucket((int64_t)num_items));
+    AddKeyValuePairToKeychainLoggingTransaction(token, kNumberOfiCloudKeychainItemsBeingSynced, SecBucket1Significant((int64_t)num_items));
     TraceKeyClass(token, CFSTR("genp"), genpStats);
     TraceKeyClass(token, CFSTR("inet"), inetStats);
     TraceKeyClass(token, CFSTR("keys"), keysStats);

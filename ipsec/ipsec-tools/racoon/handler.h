@@ -52,6 +52,7 @@
 #include <sys/socket.h>
 
 #include <schedule.h>
+#include <network/nat64.h>
 
 /* About address semantics in each case.
  *			initiator(addr=I)	responder(addr=R)
@@ -79,9 +80,10 @@ struct phase1handle {
 	int status;			/* status of this SA */
 	int side;			/* INITIATOR or RESPONDER */
 	int started_by_api;		/* connection started by VPNControl API */
-    
-	struct sockaddr_storage *remote;	/* remote address to negosiate ph1 */
-	struct sockaddr_storage *local;		/* local address to negosiate ph1 */
+
+	nw_nat64_prefix_t nat64_prefix;		/* nat64 prefix to apply to addresses. */
+	struct sockaddr_storage *remote;	/* remote address to negotiate ph1 */
+	struct sockaddr_storage *local;		/* local address to negotiate ph1 */
     /* XXX copy from rmconf due to anonymous configuration.
      * If anonymous will be forbidden, we do delete them. */
     
@@ -195,7 +197,8 @@ struct phase1handle {
 struct phase2handle {
 	struct sockaddr_storage *src;		/* my address of SA. */
 	struct sockaddr_storage *dst;		/* peer's address of SA. */
-    
+    nw_nat64_prefix_t nat64_prefix;		/* nat64 prefix to apply to addresses. */
+
     /*
      * copy ip address from ID payloads when ID type is ip address.
      * In other case, they must be null.
@@ -445,5 +448,9 @@ extern void                 ike_session_init_recvdpkt (void);
 #endif
 
 extern void                 sweep_sleepwake (void);
+
+extern uint32_t             iph1_get_remote_v4_address(phase1_handle_t *iph1);
+
+extern uint32_t             iph2_get_remote_v4_address(phase2_handle_t *iph2);
 
 #endif /* _HANDLER_H */

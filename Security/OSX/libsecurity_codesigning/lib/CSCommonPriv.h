@@ -86,28 +86,6 @@ enum {
 	
 	kSecCodeMagicByte = 0xfa					/* shared first byte */
 };
-
-
-/*!
-	Types of cryptographic digests (hashes) used to hold code signatures
-	together.
-
-	Each combination of type, length, and other parameters is a separate
-	hash type; we don't understand "families" here.
-
-	These type codes govern the digest links that connect a CodeDirectory
-	to its subordinate data structures (code pages, resources, etc.)
-	They do not directly control other uses of hashes (such as the
-	hash-of-CodeDirectory identifiers used in requirements).
- */
-enum {
-	kSecCodeSignatureNoHash							=  0,	/* null value */
-	kSecCodeSignatureHashSHA1						=  1,	/* SHA-1 */
-	kSecCodeSignatureHashSHA256						=  2,	/* SHA-256 */
-	kSecCodeSignatureHashSHA256Truncated			=  3,	/* SHA-256 truncated to first 20 bytes */
-	
-	kSecCodeSignatureDefaultDigestAlgorithm = kSecCodeSignatureHashSHA1
-};
 	
 	
 /*

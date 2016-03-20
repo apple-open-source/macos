@@ -3515,7 +3515,10 @@ void HTMLMediaElement::addTextTrack(PassRefPtr<TextTrack> track)
 
     if (!m_requireCaptionPreferencesChangedCallbacks) {
         m_requireCaptionPreferencesChangedCallbacks = true;
-        document().registerForCaptionPreferencesChangedCallbacks(this);
+        Document& document = this->document();
+        document.registerForCaptionPreferencesChangedCallbacks(this);
+        if (Page* page = document.page())
+            m_captionDisplayMode = page->group().captionPreferences()->captionDisplayMode();
     }
 
     textTracks()->append(track);
@@ -3780,30 +3783,32 @@ void HTMLMediaElement::configureTextTrackGroup(const TrackGroup& group)
         }
     }
 
-    if (!trackToEnable && defaultTrack)
-        trackToEnable = defaultTrack;
-    
-    // If no track matches the user's preferred language, none was marked as 'default', and there is a forced subtitle track
-    // in the same language as the language of the primary audio track, enable it.
-    if (!trackToEnable && forcedSubitleTrack)
-        trackToEnable = forcedSubitleTrack;
+    if (displayMode != CaptionUserPreferences::Manual) {
+        if (!trackToEnable && defaultTrack)
+            trackToEnable = defaultTrack;
 
-    // If no track matches, don't disable an already visible track unless preferences say they all should be off.
-    if (group.kind != TrackGroup::CaptionsAndSubtitles || displayMode != CaptionUserPreferences::ForcedOnly) {
-        if (!trackToEnable && !defaultTrack && group.visibleTrack)
-            trackToEnable = group.visibleTrack;
+        // If no track matches the user's preferred language, none was marked as 'default', and there is a forced subtitle track
+        // in the same language as the language of the primary audio track, enable it.
+        if (!trackToEnable && forcedSubitleTrack)
+            trackToEnable = forcedSubitleTrack;
+
+        // If no track matches, don't disable an already visible track unless preferences say they all should be off.
+        if (group.kind != TrackGroup::CaptionsAndSubtitles || displayMode != CaptionUserPreferences::ForcedOnly) {
+            if (!trackToEnable && !defaultTrack && group.visibleTrack)
+                trackToEnable = group.visibleTrack;
+        }
+
+        // If no track matches the user's preferred language and non was marked 'default', enable the first track
+        // because the user has explicitly stated a preference for this kind of track.
+        if (!trackToEnable && fallbackTrack)
+            trackToEnable = fallbackTrack;
+
+        if (trackToEnable)
+            m_subtitleTrackLanguage = trackToEnable->language();
+        else
+            m_subtitleTrackLanguage = emptyString();
     }
-    
-    // If no track matches the user's preferred language and non was marked 'default', enable the first track
-    // because the user has explicitly stated a preference for this kind of track.
-    if (!trackToEnable && fallbackTrack)
-        trackToEnable = fallbackTrack;
 
-    if (trackToEnable)
-        m_subtitleTrackLanguage = trackToEnable->language();
-    else
-        m_subtitleTrackLanguage = emptyString();
-    
     if (currentlyEnabledTracks.size()) {
         for (size_t i = 0; i < currentlyEnabledTracks.size(); ++i) {
             RefPtr<TextTrack> textTrack = currentlyEnabledTracks[i];
@@ -6434,7 +6439,6 @@ void HTMLMediaElement::updateMediaState(UpdateMediaState updateState)
 
 MediaProducer::MediaStateFlags HTMLMediaElement::mediaState() const
 {
-
     MediaStateFlags state = IsNotPlaying;
 
     bool hasActiveVideo = isVideo() && hasVideo();
@@ -6443,12 +6447,18 @@ MediaProducer::MediaStateFlags HTMLMediaElement::mediaState() const
     if (m_player && m_player->isCurrentPlaybackTargetWireless())
         state |= IsPlayingToExternalDevice;
 
-    if (m_player && m_hasPlaybackTargetAvailabilityListeners && !m_mediaSession->wirelessVideoPlaybackDisabled(*this))
-        state |= RequiresPlaybackTargetMonitoring;
+    if (m_hasPlaybackTargetAvailabilityListeners) {
+        state |= HasPlaybackTargetAvailabilityListener;
+        if (!m_mediaSession->wirelessVideoPlaybackDisabled(*this))
+            state |= RequiresPlaybackTargetMonitoring;
+    }
 
     bool requireUserGesture = m_mediaSession->hasBehaviorRestriction(MediaElementSession::RequireUserGestureToAutoplayToExternalDevice);
     if (m_readyState >= HAVE_METADATA && !requireUserGesture && !m_failedToPlayToWirelessTarget)
         state |= ExternalDeviceAutoPlayCandidate;
+
+    if (hasActiveVideo || hasAudio)
+        state |= HasAudioOrVideo;
 
     if (hasActiveVideo && endedPlayback())
         state |= DidPlayToEnd;

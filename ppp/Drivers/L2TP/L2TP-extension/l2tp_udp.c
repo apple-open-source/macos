@@ -306,9 +306,9 @@ void l2tp_udp_input(socket_t so, void *arg, int waitflag)
 {
     mbuf_t mp = 0;
 	size_t recvlen = 1000000000;
-    struct sockaddr from;
+    struct sockaddr_in6 from;
     struct msghdr msg;
-		
+
     do {
     
 		bzero(&from, sizeof(from));
@@ -323,7 +323,7 @@ void l2tp_udp_input(socket_t so, void *arg, int waitflag)
             break;
 
 		lck_mtx_lock(ppp_domain_mutex);
-		l2tp_rfc_lower_input(so, mp, &from);
+		l2tp_rfc_lower_input(so, mp, (struct sockaddr *)&from);
 		lck_mtx_unlock(ppp_domain_mutex);
 		
     } while (1);
@@ -447,9 +447,9 @@ int l2tp_udp_attach(socket_t *socket, struct sockaddr *addr, int *thread, int no
 	u_int32_t		i, min;
 	
 	lck_mtx_unlock(ppp_domain_mutex);
-    
-    /* open a UDP socket for use by the L2TP client */
-    if ((err = sock_socket(AF_INET, SOCK_DGRAM, 0, l2tp_udp_input, 0, &so)))
+
+	/* open a UDP socket for use by the L2TP client */
+	if ((err = sock_socket(addr->sa_family, SOCK_DGRAM, 0, l2tp_udp_input, 0, &so)))
         goto fail;
 
     /* configure the socket to reuse port */

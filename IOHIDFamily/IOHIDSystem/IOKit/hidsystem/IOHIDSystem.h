@@ -58,6 +58,7 @@ class IOGraphicsDevice;
 #include <IOKit/IODataQueue.h>
 #include <IOKit/hidsystem/ev_keymap.h>		/* For NX_NUM_SCANNED_SPECIALKEYS */
 
+#include <IOKit/IOReporter.h>
 
 // The following messages should be unique across the entire system
 #ifndef sub_iokit_hidsystem
@@ -71,6 +72,77 @@ class IOGraphicsDevice;
 #define kIOHIDSystemActivityTickle              iokit_family_msg(sub_iokit_hidsystem, 5)
 #define kIOHIDSystemUserHidActivity             iokit_family_msg(sub_iokit_hidsystem, 6)
 
+#define kKeyboardChannelID_15_30                IOREPORT_MAKEID('K', '0', '1', '5', '-', '0', '3', '0')
+#define kKeyboardChannelID_30_60                IOREPORT_MAKEID('K', '0', '3', '0', '-', '0', '6', '0')
+#define kKeyboardChannelID_60_120               IOREPORT_MAKEID('K', '0', '6', '0', '-', '1', '2', '0')
+#define kKeyboardChannelID_120_240              IOREPORT_MAKEID('K', '1', '2', '0', '-', '2', '4', '0')
+#define kKeyboardChannelID_240_360              IOREPORT_MAKEID('K', '2', '4', '0', '-', '3', '6', '0')
+#define kKeyboardChannelID_360_480              IOREPORT_MAKEID('K', '3', '6', '0', '-', '4', '8', '0')
+#define kKeyboardChannelID_480_600              IOREPORT_MAKEID('K', '4', '8', '0', '-', '6', '0', '0')
+#define kKeyboardChannelID_600_INF              IOREPORT_MAKEID('K', '6', '0', '0', '-', '<', 'x', '>')
+
+#define kPointingChannelID_15_30                IOREPORT_MAKEID('P', '0', '1', '5', '-', '0', '3', '0')
+#define kPointingChannelID_30_60                IOREPORT_MAKEID('P', '0', '3', '0', '-', '0', '6', '0')
+#define kPointingChannelID_60_120               IOREPORT_MAKEID('P', '0', '6', '0', '-', '1', '2', '0')
+#define kPointingChannelID_120_240              IOREPORT_MAKEID('P', '1', '2', '0', '-', '2', '4', '0')
+#define kPointingChannelID_240_360              IOREPORT_MAKEID('P', '2', '4', '0', '-', '3', '6', '0')
+#define kPointingChannelID_360_480              IOREPORT_MAKEID('P', '3', '6', '0', '-', '4', '8', '0')
+#define kPointingChannelID_480_600              IOREPORT_MAKEID('P', '4', '8', '0', '-', '6', '0', '0')
+#define kPointingChannelID_600_INF              IOREPORT_MAKEID('P', '6', '0', '0', '-', '<', 'x', '>')
+
+#define kCombinedChannelID_15_30                IOREPORT_MAKEID('C', '0', '1', '5', '-', '0', '3', '0')
+#define kCombinedChannelID_30_60                IOREPORT_MAKEID('C', '0', '3', '0', '-', '0', '6', '0')
+#define kCombinedChannelID_60_120               IOREPORT_MAKEID('C', '0', '6', '0', '-', '1', '2', '0')
+#define kCombinedChannelID_120_240              IOREPORT_MAKEID('C', '1', '2', '0', '-', '2', '4', '0')
+#define kCombinedChannelID_240_360              IOREPORT_MAKEID('C', '2', '4', '0', '-', '3', '6', '0')
+#define kCombinedChannelID_360_480              IOREPORT_MAKEID('C', '3', '6', '0', '-', '4', '8', '0')
+#define kCombinedChannelID_480_600              IOREPORT_MAKEID('C', '4', '8', '0', '-', '6', '0', '0')
+#define kCombinedChannelID_600_INF              IOREPORT_MAKEID('C', '6', '0', '0', '-', '<', 'x', '>')
+
+#define kKeyboardTotalChannelID_15_30                IOREPORT_MAKEID('k', '0', '1', '5', '-', '0', '3', '0')
+#define kKeyboardTotalChannelID_30_60                IOREPORT_MAKEID('k', '0', '3', '0', '-', '0', '6', '0')
+#define kKeyboardTotalChannelID_60_120               IOREPORT_MAKEID('k', '0', '6', '0', '-', '1', '2', '0')
+#define kKeyboardTotalChannelID_120_240              IOREPORT_MAKEID('k', '1', '2', '0', '-', '2', '4', '0')
+#define kKeyboardTotalChannelID_240_360              IOREPORT_MAKEID('k', '2', '4', '0', '-', '3', '6', '0')
+#define kKeyboardTotalChannelID_360_480              IOREPORT_MAKEID('k', '3', '6', '0', '-', '4', '8', '0')
+#define kKeyboardTotalChannelID_480_600              IOREPORT_MAKEID('k', '4', '8', '0', '-', '6', '0', '0')
+#define kKeyboardTotalChannelID_600_INF              IOREPORT_MAKEID('k', '6', '0', '0', '-', '<', 'x', '>')
+
+#define kPointingTotalChannelID_15_30                IOREPORT_MAKEID('p', '0', '1', '5', '-', '0', '3', '0')
+#define kPointingTotalChannelID_30_60                IOREPORT_MAKEID('p', '0', '3', '0', '-', '0', '6', '0')
+#define kPointingTotalChannelID_60_120               IOREPORT_MAKEID('p', '0', '6', '0', '-', '1', '2', '0')
+#define kPointingTotalChannelID_120_240              IOREPORT_MAKEID('p', '1', '2', '0', '-', '2', '4', '0')
+#define kPointingTotalChannelID_240_360              IOREPORT_MAKEID('p', '2', '4', '0', '-', '3', '6', '0')
+#define kPointingTotalChannelID_360_480              IOREPORT_MAKEID('p', '3', '6', '0', '-', '4', '8', '0')
+#define kPointingTotalChannelID_480_600              IOREPORT_MAKEID('p', '4', '8', '0', '-', '6', '0', '0')
+#define kPointingTotalChannelID_600_INF              IOREPORT_MAKEID('p', '6', '0', '0', '-', '<', 'x', '>')
+
+#define kCombinedTotalChannelID_15_30                IOREPORT_MAKEID('c', '0', '1', '5', '-', '0', '3', '0')
+#define kCombinedTotalChannelID_30_60                IOREPORT_MAKEID('c', '0', '3', '0', '-', '0', '6', '0')
+#define kCombinedTotalChannelID_60_120               IOREPORT_MAKEID('c', '0', '6', '0', '-', '1', '2', '0')
+#define kCombinedTotalChannelID_120_240              IOREPORT_MAKEID('c', '1', '2', '0', '-', '2', '4', '0')
+#define kCombinedTotalChannelID_240_360              IOREPORT_MAKEID('c', '2', '4', '0', '-', '3', '6', '0')
+#define kCombinedTotalChannelID_360_480              IOREPORT_MAKEID('c', '3', '6', '0', '-', '4', '8', '0')
+#define kCombinedTotalChannelID_480_600              IOREPORT_MAKEID('c', '4', '8', '0', '-', '6', '0', '0')
+#define kCombinedTotalChannelID_600_INF              IOREPORT_MAKEID('c', '6', '0', '0', '-', '<', 'x', '>')
+
+#define kChannelName_15_30              "Idle       15 -  30s"
+#define kChannelName_30_60              "Idle       30 -  60s"
+#define kChannelName_60_120             "Idle       60 - 120s"
+#define kChannelName_120_240            "Idle      120 - 240s"
+#define kChannelName_240_360            "Idle      240 - 360s"
+#define kChannelName_360_480            "Idle      360 - 480s"
+#define kChannelName_480_600            "Idle      480 - 600s"
+#define kChannelName_600_INF            "Idle      600 - ...s"
+
+#define kChannelTotalName_15_30              "Total      15 -  30s"
+#define kChannelTotalName_30_60              "Total      30 -  60s"
+#define kChannelTotalName_60_120             "Total      60 - 120s"
+#define kChannelTotalName_120_240            "Total     120 - 240s"
+#define kChannelTotalName_240_360            "Total     240 - 360s"
+#define kChannelTotalName_360_480            "Total     360 - 480s"
+#define kChannelTotalName_480_600            "Total     480 - 600s"
+#define kChannelTotalName_600_INF            "Total     600 - ...s"
 
 class IOHIDKeyboardDevice;
 class IOHIDPointingDevice;
@@ -362,6 +434,19 @@ public:
 
   /* Set if display sleep is driven by IOPMrootDomain */
   void setDisplaySleepDrivenByPM(bool val);
+
+  bool initReporters();
+
+    
+  virtual IOReturn configureReport(IOReportChannelList   *channels,
+                                     IOReportConfigureAction action,
+                                     void                  *result,
+                                     void                  *destination);
+    
+  virtual IOReturn updateReport(IOReportChannelList      *channels,
+                                  IOReportUpdateAction      action,
+                                  void                     *result,
+                                  void                     *destination);
 private:
     static IOReturn doSetEventPort(IOHIDSystem *self, void *port_void, void *arg1, void *arg2, void *arg3);
     void            setEventPortGated(mach_port_t port);
@@ -824,6 +909,8 @@ public:
 
     static IOReturn getUserHidActivityState(IOHIDSystem *self, void *arg0);
     IOReturn getUserHidActivityStateGated(void *state);
+
+    void updateIdleReporters(uint32_t mask, AbsoluteTime ts);
 };
 
 #endif /* !_IOHIDSYSTEM_H */

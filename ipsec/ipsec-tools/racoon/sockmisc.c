@@ -363,7 +363,7 @@ struct sockaddr_storage *
 getlocaladdr(struct sockaddr *remote)
 {
 	struct sockaddr_storage *local;
-	u_int local_len = sizeof(struct sockaddr);
+	u_int local_len = sizeof(struct sockaddr_storage);
 	int s;	/* for dummy connection */
 
 	/* allocate buffer */

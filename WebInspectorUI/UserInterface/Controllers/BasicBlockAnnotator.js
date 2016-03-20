@@ -67,7 +67,17 @@ WebInspector.BasicBlockAnnotator = class BasicBlockAnnotator extends WebInspecto
 
             var {startOffset, endOffset} = this.sourceCodeTextEditor.visibleRangeOffsets();
             basicBlocks = basicBlocks.filter(function(block) {
-                return (block.startOffset >= startOffset && block.startOffset <= endOffset) || (block.startOffset <= startOffset && block.endOffset >= endOffset);
+                // Viewport: [--]
+                // Block:         [--]
+                if (block.startOffset > endOffset)
+                    return false;
+
+                // Viewport:      [--]
+                // Block:    [--]
+                if (block.endOffset < startOffset)
+                    return false;
+
+                return true;
             });
 
             for (var block of basicBlocks) {
@@ -79,11 +89,11 @@ WebInspector.BasicBlockAnnotator = class BasicBlockAnnotator extends WebInspecto
                 else if (!hasKey && !hasExecuted) {
                     var marker = this._highlightTextForBasicBlock(block);
                     this._basicBlockMarkers.set(key, marker);
-                } 
+                }
             }
 
             var totalTime = Date.now() - startTime;
-            var timeoutTime = Math.min(Math.max(6500, totalTime), 30 * totalTime);
+            var timeoutTime = Number.constrain(30 * totalTime, 500, 5000);
             this._timeoutIdentifier = setTimeout(this.insertAnnotations.bind(this), timeoutTime);
         }.bind(this));
     }

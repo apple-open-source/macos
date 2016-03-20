@@ -76,6 +76,8 @@ _kSecPolicyAppleATVAppSigning
 _kSecPolicyAppleTestATVAppSigning
 _kSecPolicyAppleATVVPNProfileSigning
 _kSecPolicyApplePayIssuerEncryption
+_kSecPolicyAppleAST2DiagnosticsServerAuth
+_kSecPolicyAppleAnchorAllowTestRootsOnProduction
 _kSecPolicyAppleAnchorIncludeTestRoots
 _kSecPolicyCheckAnchorSHA1
 _kSecPolicyCheckAnchorApple
@@ -98,6 +100,9 @@ _kSecPolicyCheckIdLinkage
 _kSecPolicyCheckIntermediateMarkerOid
 _kSecPolicyCheckIntermediateSPKISHA256
 _kSecPolicyCheckIssuerCommonName
+_kSecPolicyCheckWeakIntermediates
+_kSecPolicyCheckWeakLeaf
+_kSecPolicyCheckWeakRoot
 _kSecPolicyCheckKeyUsage
 _kSecPolicyCheckLeafMarkerOid
 _kSecPolicyCheckNoNetworkAccess
@@ -143,6 +148,7 @@ _SecPolicyCreateApplePushService
 _SecPolicyCreateApplePushServiceLegacy
 _SecPolicyCreateAppleMMCSService
 _SecPolicyCreateApplePPQService
+_SecPolicyCreateAppleAST2Service
 _SecPolicyCreateAppleSSLService
 _SecPolicyCreateApplePackageSigning
 _SecPolicyCreateAppleSWUpdateSigning
@@ -329,6 +335,7 @@ _SecCertificateHasUnknownCriticalExtension
 _SecCertificateIsSelfSigned
 _SecCertificateIsSelfSignedCA
 _SecCertificateIsValid
+_SecCertificateIsWeak
 _SecCertificateNotValidAfter
 _SecCertificateNotValidBefore
 _SecCertificateParseGeneralNameContentProperty
@@ -557,6 +564,7 @@ _SecCmsSignerInfoAddMSSMIMEEncKeyPrefs
 _SecCmsSignerInfoAddSMIMECaps
 _SecCmsSignerInfoAddSMIMEEncKeyPrefs
 _SecCmsSignerInfoAddSigningTime
+_SecCmsSignerInfoAddAppleCodesigningHashAgility
 _SecCmsSignerInfoCreate
 _SecCmsSignerInfoCreateWithSubjKeyID
 _SecCmsSignerInfoGetCertList
@@ -566,6 +574,7 @@ _SecCmsSignerInfoGetSignerCommonName
 _SecCmsSignerInfoGetSignerEmailAddress
 _SecCmsSignerInfoGetSigningCertificate
 _SecCmsSignerInfoGetSigningTime
+_SecCmsSignerInfoGetAppleCodesigningHashAgility
 _SecCmsSignerInfoGetVerificationStatus
 _SecCmsSignerInfoIncludeCerts
 _SecCmsSignerInfoSaveSMIMEProfile
@@ -712,6 +721,8 @@ _kSecAttrKeyTypeEC
 _kSecAttrKeyTypeRSA
 _kSecAttrLabel
 _kSecAttrModificationDate
+_kSecAttrMultiUser
+_kSecAttrNoLegacy
 _kSecAttrPath
 _kSecAttrPort
 _kSecAttrProtocol
@@ -793,6 +804,7 @@ _kSecImportItemLabel
 _kSecImportItemTrust
 _kSecUseItemList
 _kSecUseTombstones
+_kSecUseSystemKeychain
 _kSecValueData
 _kSecValuePersistentRef
 _kSecValueRef
@@ -826,6 +838,8 @@ __SecKeychainRestoreBackup
 __SecKeychainSyncUpdateMessage
 __SecKeychainBackupSyncable
 __SecKeychainRestoreSyncable
+__SecKeychainRestoreBackupFromFileDescriptor
+__SecKeychainWriteBackupToFileDescriptor
 _SecItemBackupWithRegisteredBackups
 _SecItemBackupSetConfirmedManifest
 _SecItemBackupRestore
@@ -836,6 +850,10 @@ _SecAddSharedWebCredential
 _SecRequestSharedWebCredential
 _SecCreateSharedWebCredentialPassword
 _kSecSharedPassword
+__SecSecuritydCopyWhoAmI
+__SecSyncBubbleTransfer
+__SecSystemKeychainTransfer
+__SecSyncDeleteUserViews
 
 _kSecXPCKeyAttributesToUpdate
 _kSecXPCKeyBackup
@@ -881,3 +899,10 @@ _CFPropertyListCreateWithDERData
 // DER
 //
 _DERDecodeItem
+
+//
+// EMCS
+//
+
+_SecEMCSCreateDerivedEMCSKey
+_SecEMCSCreateNewiDMSKey

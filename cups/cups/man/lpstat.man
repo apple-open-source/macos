@@ -1,5 +1,5 @@
 .\"
-.\" "$Id: lpstat.man 11934 2014-06-17 18:58:29Z msweet $"
+.\" "$Id: lpstat.man 12992 2015-11-19 15:19:00Z msweet $"
 .\"
 .\" lpstat man page for CUPS.
 .\"
@@ -146,7 +146,7 @@ The Solaris \fI\-f\fR, \fI\-P\fR, and \fI\-S\fR options are silently ignored.
 .BR lprm (1),
 CUPS Online Help (http://localhost:631/help)
 .SH COPYRIGHT
-Copyright \[co] 2007-2014 by Apple Inc.
+Copyright \[co] 2007-2015 by Apple Inc.
 .\"
-.\" End of "$Id: lpstat.man 11934 2014-06-17 18:58:29Z msweet $".
+.\" End of "$Id: lpstat.man 12992 2015-11-19 15:19:00Z msweet $".
 .\"

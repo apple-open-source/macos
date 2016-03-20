@@ -418,34 +418,57 @@ initWithTask(task_t owningTask, void * /* security_id */, UInt32 /* type */)
         return false;
     }
 
-
-    client = owningTask;
-    task_reference (client);
-
     return true;
 }
 
-bool IOHIDEventSystemUserClient::start( IOService * _owner )
+bool IOHIDEventSystemUserClient::start( IOService * provider )
 {
-    if( !super::start( _owner ))
-	return( false);
-
-    owner = (IOHIDSystem *) _owner;
+    if( !super::start( provider )) {
+      return( false);
+    }
+  
+    owner = (IOHIDSystem *) provider;
+    if (owner) {
+        owner->retain();
+    }
+  
+  
+    IOWorkLoop * workLoop = getWorkLoop();
+    if (workLoop == NULL)
+    {
+       return false;
+    }
+  
+    commandGate = IOCommandGate::commandGate(this);
+    if (commandGate == NULL)
+    {
+       return false;
+    }
+  
+    if (workLoop->addEventSource(commandGate) != kIOReturnSuccess) {
+       return false;
+    }
 
     return( true );
 }
 
+
+void IOHIDEventSystemUserClient::stop( IOService * provider )
+{
+    IOWorkLoop * workLoop = getWorkLoop();
+    if (workLoop && commandGate)
+    {
+        workLoop->removeEventSource(commandGate);
+    }
+}
+
 IOReturn IOHIDEventSystemUserClient::clientClose( void )
 {
-   if (client) {
-        task_deallocate(client);
-        client = 0;
-    }
 
-    if (owner)
-        detach(owner);
-    owner = NULL;
-
+//    if (owner)
+//        detach(owner);
+//    owner = NULL;
+    terminate();
     return( kIOReturnSuccess);
 }
 
@@ -506,12 +529,21 @@ IOExternalMethod * IOHIDEventSystemUserClient::getTargetAndMethodForIndex(
     return( (IOExternalMethod *)(methodTemplate + index) );
 }
 
-IOReturn IOHIDEventSystemUserClient::createEventQueue(void*p1,void*p2,void*p3,void*,void*,void*)
+
+IOReturn IOHIDEventSystemUserClient::createEventQueue(void*p1,void*p2,void*p3,void*,void*,void*) {
+  IOReturn status = kIOReturnSuccess;
+  if (!isInactive() && commandGate) {
+    status = commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventSystemUserClient::createEventQueueGated),p1, p2, p3, NULL);
+  }
+  return status;
+}
+
+IOReturn IOHIDEventSystemUserClient::createEventQueueGated(void*p1,void*p2,void*p3, void*)
 {
     UInt32          type        = (uintptr_t)p1;
     IOByteCount     size        = (uintptr_t)p2;
     UInt32 *        pToken      = (UInt32 *)p3;
-	UInt32			token       = 0;
+    UInt32          token       = 0;
     IODataQueue *   eventQueue  = NULL;
 
     if( !size )
@@ -557,7 +589,15 @@ IOReturn IOHIDEventSystemUserClient::createEventQueue(void*p1,void*p2,void*p3,vo
     return kIOReturnSuccess;
 }
 
-IOReturn IOHIDEventSystemUserClient::destroyEventQueue(void*p1,void*p2,void*,void*,void*,void*)
+IOReturn IOHIDEventSystemUserClient::destroyEventQueue(void*p1,void*p2,void*,void*,void*,void*) {
+  IOReturn status = kIOReturnSuccess;
+  if (!isInactive() && commandGate) {
+    status = commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventSystemUserClient::destroyEventQueue),p1, p2);
+  }
+  return status;
+}
+
+IOReturn IOHIDEventSystemUserClient::destroyEventQueueGated(void*p1,void*p2,void*,void*)
 {
     UInt32          type       = (uintptr_t) p1;
     UInt32          queueID    = (uintptr_t) p2;
@@ -625,14 +665,17 @@ void IOHIDEventSystemUserClient::free()
     }
 
     if ( userQueues ) {
-		OSObject * obj;
-		while ((obj = userQueues->getAnyObject()))
-		{
-			removeIDForDataQueue(OSDynamicCast(IODataQueue, obj));
-			userQueues->removeObject(obj);
-		}
+        OSObject * obj;
+        while ((obj = userQueues->getAnyObject()))
+        {
+            removeIDForDataQueue(OSDynamicCast(IODataQueue, obj));
+            userQueues->removeObject(obj);
+        }
         userQueues->release();
     }
+  
+    OSSafeReleaseNULL(commandGate);
+    OSSafeReleaseNULL(owner);
 
     super::free();
 }

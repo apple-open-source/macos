@@ -50,7 +50,7 @@ class ResourceBuilder {
 	NOCOPY(ResourceBuilder)
 public:
 	ResourceBuilder(const std::string &root, const std::string &relBase,
-		CFDictionaryRef rulesDict, CodeDirectory::HashAlgorithm hashType, bool strict, const MacOSErrorSet& toleratedErrors);
+		CFDictionaryRef rulesDict, bool strict, const MacOSErrorSet& toleratedErrors);
 	~ResourceBuilder();
 
 	std::string root() const { return mRoot; }
@@ -87,8 +87,10 @@ public:
 	bool includes(string path) const;
 	Rule *findRule(string path) const;
 
-	DynamicHash *getHash() const { return CodeDirectory::hashFor(this->mHashType); }
-	CFDataRef hashFile(const char *path) const;
+	static CFDataRef hashFile(const char *path, CodeDirectory::HashAlgorithm type);
+	static CFMutableDictionaryRef hashFile(const char *path, CodeDirectory::HashAlgorithms types);
+	
+	static std::string hashName(CodeDirectory::HashAlgorithm type);
 	
 	CFDictionaryRef rules() const { return mRawRules; }
 
@@ -101,7 +103,6 @@ private:
 	CFCopyRef<CFDictionaryRef> mRawRules;
 	typedef std::vector<Rule *> Rules;
 	Rules mRules;
-	CodeDirectory::HashAlgorithm mHashType;
 	bool mCheckUnreadable;
 	bool mCheckUnknownType;
 };
@@ -111,14 +112,12 @@ private:
 // The "seal" on a single resource.
 //
 class ResourceSeal {
+	NOCOPY(ResourceSeal)
 public:
 	ResourceSeal(CFTypeRef ref);
 
 public:
-	operator bool () const { return mHash; }
-	bool operator ! () const { return mHash == NULL; }
-	
-	const Hashing::Byte *hash() const { return CFDataGetBytePtr(mHash); }
+	const Hashing::Byte *hash(CodeDirectory::HashAlgorithm type) const;
 	bool nested() const { return mFlags & ResourceBuilder::nested; }
 	bool optional() const { return mFlags & ResourceBuilder::optional; }
 	CFDictionaryRef dict() const { return mDict; }
@@ -126,8 +125,7 @@ public:
 	CFStringRef link() const { return mLink; }
 
 private:
-	CFDictionaryRef mDict;
-	CFDataRef mHash;
+	CFRef<CFDictionaryRef> mDict;
 	CFStringRef mRequirement;
 	CFStringRef mLink;
 	uint32_t mFlags;

@@ -60,13 +60,6 @@ const CFStringRef kSecCodeSignerPreserveMetadata = CFSTR("preserve-metadata");
 const CFStringRef kSecCodeSignerTeamIdentifier =	CFSTR("teamidentifier");
 const CFStringRef kSecCodeSignerPlatformIdentifier = CFSTR("platform-identifier");
 
-// temporary add-back to bridge B&I build dependencies -- remove soon
-const CFStringRef kSecCodeSignerTSAUse = CFSTR("timestamp-required");
-const CFStringRef kSecCodeSignerTSAURL = CFSTR("timestamp-url");
-const CFStringRef kSecCodeSignerTSAClientAuth = CFSTR("timestamp-authentication");
-const CFStringRef kSecCodeSignerTSANoCerts =	CFSTR("timestamp-omit-certificates");
-
-
 //
 // CF-standard type code functions
 //

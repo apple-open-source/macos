@@ -1218,6 +1218,7 @@ CFStringRef kSecPolicyCheckAnchorSHA1 = CFSTR("AnchorSHA1");
 
 CFStringRef kSecPolicyCheckAnchorApple = CFSTR("AnchorApple");
 CFStringRef kSecPolicyAppleAnchorIncludeTestRoots = CFSTR("AnchorAppleTestRoots");
+CFStringRef kSecPolicyAppleAnchorAllowTestRootsOnProduction = CFSTR("AnchorAppleTestRootsOnProduction");
 
 /* Binding.
    Only applies to leaf
@@ -1279,6 +1280,7 @@ struct TrustFailures {
     bool hostnameMismatch;
     bool policyFail;
     bool invalidCert;
+    bool weakKey;
 };
 
 static void applyDetailProperty(const void *_key, const void *_value,
@@ -1313,6 +1315,10 @@ static void applyDetailProperty(const void *_key, const void *_value,
         || CFEqual(key, kSecPolicyCheckValidLeaf)
         || CFEqual(key, kSecPolicyCheckValidRoot)) {
         tf->invalidCert = true;
+    } else if (CFEqual(key, kSecPolicyCheckWeakIntermediates)
+               || CFEqual(key, kSecPolicyCheckWeakLeaf)
+               || CFEqual(key, kSecPolicyCheckWeakRoot)) {
+        tf->weakKey = true;
     } else
     /* Anything else is a policy failure. */
 #if 0
@@ -1379,6 +1385,9 @@ CFArrayRef SecTrustCopyProperties(SecTrustRef trust) {
         }
         if (tf.invalidCert) {
             appendError(properties, CFSTR("One or more certificates have expired or are not valid yet."));
+        }
+        if (tf.weakKey) {
+            appendError(properties, CFSTR("One or more certificates is using a weak key size."));
         }
     }
 

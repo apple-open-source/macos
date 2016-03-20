@@ -424,6 +424,7 @@ struct _tls_handshake_s {
     /* RFC 5746: Secure renegotiation */
     bool                secure_renegotiation;
     bool                secure_renegotiation_received;
+    bool                empty_renegotation_info_scsv;
     tls_buffer           ownVerifyData;
     tls_buffer           peerVerifyData;
 

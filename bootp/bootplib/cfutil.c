@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2002, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -516,3 +516,14 @@ my_CFStringToCString(CFStringRef cfstr, CFStringEncoding encoding)
     return ((char *)str);
 }
 
+PRIVATE_EXTERN CFStringRef
+my_CFUUIDStringCreate(CFAllocatorRef alloc)
+{
+    CFUUIDRef 	uuid;
+    CFStringRef	uuid_str;
+
+    uuid = CFUUIDCreate(alloc);
+    uuid_str = CFUUIDCreateString(alloc, uuid);
+    CFRelease(uuid);
+    return (uuid_str);
+}

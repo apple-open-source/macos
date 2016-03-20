@@ -45,7 +45,7 @@
 #include <membership.h>				/* for mbr_uid_to_uuid() */
 
 /* One lock for all accesses to TrustSettings files */
-static ModuleNexus<Mutex> gTrustSettingsLock;
+static ReadWriteLock gTrustSettingsLock;
 
 /*
  * The auth rights we use.
@@ -216,7 +216,8 @@ kern_return_t ocsp_server_trustSettingsRead(
 	ocspdDebug("Processing trustSettingsRead request");
 	ServerActivity();
 
-	StLock<Mutex> _(gTrustSettingsLock());
+	/* take read lock (blocks writers but not other readers) */
+	StReadWriteLock _(gTrustSettingsLock, StReadWriteLock::Read);
 	char path[MAXPATHLEN + 1];
 
 	trustSettingsPath(auditToken, domain, path);
@@ -257,6 +258,8 @@ kern_return_t ocsp_server_trustSettingsWrite(
 {
 	ocspdDebug("Processing trustSettingsWrite request");
 	ServerActivity();
+	/* Handling this will likely cause us to be re-entered. */
+	OcspdServer::active().longTermActivity();
 
 	const char *authRight = NULL;
 	CFStringRef authRule = NULL;
@@ -346,9 +349,9 @@ kern_return_t ocsp_server_trustSettingsWrite(
 	}
 
 	/*
-	 * Take the trust settings lock only after we've confirmed our authorization
+	 * Take the trust settings write lock only after we've confirmed our authorization
 	 */
-	StLock<Mutex> _(gTrustSettingsLock());
+	StReadWriteLock _(gTrustSettingsLock, StReadWriteLock::Write);
 
 	char path[MAXPATHLEN + 1];
 

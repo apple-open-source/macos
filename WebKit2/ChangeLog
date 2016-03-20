@@ -1,3 +1,896 @@
+2016-02-03  Jeff Miller  <jeffm@apple.com>
+
+        Update WebKit2.framework copyright string to include 2016.
+
+        This framework no longer exists on trunk, so we missed this as part of the merge of r194479.
+
+        * mac/Info-WebKit2.plist:
+
+2016-01-29  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r194479.
+
+    2016-01-01  Jeff Miller  <jeffm@apple.com>
+
+            Update user-visible copyright strings to include 2016
+            https://bugs.webkit.org/show_bug.cgi?id=152531
+
+            Reviewed by Alexey Proskuryakov.
+
+            * DatabaseProcess/EntryPoint/mac/LegacyProcess/Info.plist:
+            * DatabaseProcess/EntryPoint/mac/XPCService/DatabaseService.Development/Info.plist:
+            * DatabaseProcess/EntryPoint/mac/XPCService/DatabaseService/Info.plist:
+            * Info.plist:
+            * NetworkProcess/EntryPoint/mac/LegacyProcess/Info.plist:
+            * NetworkProcess/EntryPoint/mac/XPCService/NetworkService.Development/Info-OSX.plist:
+            * NetworkProcess/EntryPoint/mac/XPCService/NetworkService.Development/Info-iOS.plist:
+            * NetworkProcess/EntryPoint/mac/XPCService/NetworkService/Info-OSX-10.9-10.10.plist:
+            * NetworkProcess/EntryPoint/mac/XPCService/NetworkService/Info-OSX.plist:
+            * NetworkProcess/EntryPoint/mac/XPCService/NetworkService/Info-iOS.plist:
+            * PluginProcess/EntryPoint/mac/LegacyProcess/Info.plist:
+            * PluginProcess/EntryPoint/mac/XPCService/PluginService.32-64-10.9-10.10.Info.plist:
+            * PluginProcess/EntryPoint/mac/XPCService/PluginService.32-64.Info.plist:
+            * PluginProcess/EntryPoint/mac/XPCService/PluginService.Development/Info.plist:
+            * WebProcess/EntryPoint/mac/LegacyProcess/Info.plist:
+            * WebProcess/EntryPoint/mac/XPCService/WebContentService.Development/Info-OSX.plist:
+            * WebProcess/EntryPoint/mac/XPCService/WebContentService.Development/Info-iOS.plist:
+            * WebProcess/EntryPoint/mac/XPCService/WebContentService/Info-OSX-10.9-10.10.plist:
+            * WebProcess/EntryPoint/mac/XPCService/WebContentService/Info-OSX.plist:
+            * WebProcess/EntryPoint/mac/XPCService/WebContentService/Info-iOS.plist:
+
+2016-01-27  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r194559. rdar://problem/24269083
+
+    2016-01-04  Tim Horton  <timothy_horton@apple.com>
+
+            Turn on gesture events when building for Yosemite
+            https://bugs.webkit.org/show_bug.cgi?id=152704
+            rdar://problem/24042472
+
+            Reviewed by Anders Carlsson.
+
+            * Configurations/FeatureDefines.xcconfig:
+
+2016-01-20  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Roll out r189135 via r195066. rdar://problem/24154288
+
+2016-01-20  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Roll out r192200 via r195067. rdar://problem/24154288
+
+2016-01-20  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r195067. rdar://problem/24154288
+
+    2016-01-14  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r189135. rdar://problem/24154288
+
+        2015-08-28  Eric Carlson  <eric.carlson@apple.com>
+
+                [Mac] Restructure WebMediaSessionManager for testing
+                https://bugs.webkit.org/show_bug.cgi?id=148593
+
+                Reviewed by Jer Noble.
+
+                * UIProcess/mac/PageClientImpl.mm:
+                (WebKit::PageClientImpl::mediaSessionManager): Call WebMediaSessionManager::singleton, not
+                  WebMediaSessionManagerMac::singleton.
+
+2015-12-18  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r188606. rdar://problem/23905024
+
+    2015-08-18  Anders Carlsson  <andersca@apple.com>
+
+            Fix build, and fix the version check.
+
+            * UIProcess/API/C/WKPage.cpp:
+            (WKPageSetPageUIClient):
+
+2015-12-18  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r188602. rdar://problem/23905024
+
+    2015-08-18  Anders Carlsson  <andersca@apple.com>
+
+            REGRESSION: Playing audio causes near-instant crash
+            https://bugs.webkit.org/show_bug.cgi?id=148059
+            rdar://problem/22282680
+
+            Reviewed by Sam Weinig.
+
+            The version of WebKit that Safari 6.2.8, 7.1.8 and 8.0.8 built against
+            had an ABI incompatible WKPageUIClientV4 struct. Thankfully we're not going to ship any
+            versions of Safari that use the "normal" WKPageUIClientV4 struct so just assume that it's always the
+            broken one and fix it up by converting it to a WKPageUIClientV5 struct and setting that as the page UI client.
+
+            * UIProcess/API/C/WKPage.cpp:
+            (fixUpBotchedPageUIClient):
+            (WKPageSetPageUIClient):
+
+2015-12-17  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r191343.
+
+    2015-10-20  Tim Horton  <timothy_horton@apple.com>
+
+            Try to fix the build by disabling MAC_GESTURE_EVENTS on 10.9 and 10.10
+
+            * Configurations/FeatureDefines.xcconfig:
+
+2015-12-17  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r191305.
+
+    2015-10-19  Tim Horton  <timothy_horton@apple.com>
+
+            Try to fix the iOS build
+
+            * Configurations/FeatureDefines.xcconfig:
+
+2015-12-16  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r194205.
+
+    2015-12-16  Tim Horton  <timothy_horton@apple.com>
+
+            REGRESSION (r191299): Zoom gestures are enabled even if allowsMagnification=NO
+            https://bugs.webkit.org/show_bug.cgi?id=152373
+            <rdar://problem/23931998>
+
+            Reviewed by Simon Fraser.
+
+            * UIProcess/Cocoa/WebViewImpl.mm:
+            (WebKit::WebViewImpl::gestureEventWasNotHandledByWebCoreFromViewOnly):
+            Don't pass the event on to ViewGestureController if we shouldn't handle it,
+            just like we would have done in magnifyWithEvent before.
+
+2015-12-16  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r194186.
+
+    2015-12-16  Tim Horton  <timothy_horton@apple.com>
+
+            REGRESSION (r194125): Crashes in touchesEndedWithEvent on occasion when interacting with the page
+            https://bugs.webkit.org/show_bug.cgi?id=152366
+            <rdar://problem/23929672>
+
+            Reviewed by Beth Dakin.
+
+            * UIProcess/Cocoa/WebViewImpl.mm:
+            (WebKit::WebViewImpl::touchesEndedWithEvent):
+            (WebKit::WebViewImpl::touchesCancelledWithEvent):
+            NSTouch identifiers aren't pointer-comparable. We need to use isEqual to
+            compare them and find the ones to remove.
+
+2015-12-16  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r194125.
+
+    2015-12-15  Tim Horton  <timothy_horton@apple.com>
+
+            [Mac] Gesture Events should not have negative scale
+            https://bugs.webkit.org/show_bug.cgi?id=151065
+            <rdar://problem/23474123>
+
+            Reviewed by Anders Carlsson.
+
+            * Shared/NativeWebGestureEvent.h:
+            * Shared/mac/NativeWebGestureEventMac.mm:
+            (WebKit::distanceForTouches):
+            (WebKit::NativeWebGestureEvent::NativeWebGestureEvent):
+            Compute the distance between the two oldest touches, and use that as
+            the scale (really the gesture diameter) on the event, instead of
+            passing through AppKit's magnification (which is computed differently).
+            This matches the documented behavior of the existing gesture events on iOS.
+
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView touchesBeganWithEvent:]):
+            (-[WKWebView touchesMovedWithEvent:]):
+            (-[WKWebView touchesEndedWithEvent:]):
+            (-[WKWebView touchesCancelledWithEvent:]):
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView touchesBeganWithEvent:]):
+            (-[WKView touchesMovedWithEvent:]):
+            (-[WKView touchesEndedWithEvent:]):
+            (-[WKView touchesCancelledWithEvent:]):
+            Plumb touch events through to WebViewImpl.
+
+            * UIProcess/Cocoa/WebViewImpl.h:
+            * UIProcess/Cocoa/WebViewImpl.mm:
+            (WebKit::WebViewImpl::WebViewImpl):
+            (WebKit::WebViewImpl::magnifyWithEvent):
+            (WebKit::WebViewImpl::touchesOrderedByAge):
+            (WebKit::WebViewImpl::touchesBeganWithEvent):
+            (WebKit::WebViewImpl::touchesMovedWithEvent):
+            (WebKit::WebViewImpl::touchesEndedWithEvent):
+            (WebKit::WebViewImpl::touchesCancelledWithEvent):
+            (WebKit::WebViewImpl::rotateWithEvent):
+            Keep track of the most recent incoming touches, by identifier, in age order.
+            Pass them through to NativeWebGestureEvent so it can determine the gesture diameter.
+
+2015-12-16  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r191299.
+
+    2015-10-19  Tim Horton  <timothy_horton@apple.com>
+
+            Add magnify and rotate gesture event support for Mac
+            https://bugs.webkit.org/show_bug.cgi?id=150179
+            <rdar://problem/8036240>
+
+            Reviewed by Darin Adler.
+
+            * Configurations/FeatureDefines.xcconfig:
+            New feature flag.
+
+            * Shared/NativeWebGestureEvent.h: Added.
+            (WebKit::NativeWebGestureEvent::nativeEvent):
+            * Shared/WebEvent.h:
+            * Shared/WebEventConversion.cpp:
+            (WebKit::WebKit2PlatformGestureEvent::WebKit2PlatformGestureEvent):
+            (WebKit::platform):
+            * Shared/WebEventConversion.h:
+            * Shared/mac/NativeWebGestureEventMac.mm: Added.
+            (WebKit::webEventTypeForNSEvent):
+            (WebKit::pointForEvent):
+            (WebKit::NativeWebGestureEvent::NativeWebGestureEvent):
+            Add and plumb a new native event that wraps a NSEvent of type
+            NSEventTypeMagnify or NSEventTypeRotate (gesture events).
+
+            * Shared/mac/WebGestureEvent.cpp: Added.
+            (WebKit::WebGestureEvent::encode):
+            (WebKit::WebGestureEvent::decode):
+            (WebKit::WebGestureEvent::isGestureEventType):
+            * Shared/mac/WebGestureEvent.h: Added.
+            (WebKit::WebGestureEvent::WebGestureEvent):
+            (WebKit::WebGestureEvent::position):
+            (WebKit::WebGestureEvent::gestureScale):
+            (WebKit::WebGestureEvent::gestureRotation):
+            Add IPC plumbing for WebGestureEvent, which becomes a WebCore::PlatformGestureEvent.
+
+            * UIProcess/API/Cocoa/WKViewPrivate.h:
+            Remove unnecessary iPhone-only WKView code.
+            Add _gestureEventWasNotHandledByWebCore, SPI which can be overridden
+            to react when WebCore decides not to handle a gesture event.
+
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView magnifyWithEvent:]):
+            Route magnification gesture events to the page, unless we're already
+            in an active view zoom gesture, in which case we'll bypass the page
+            and send the event straight to ViewGestureController.
+
+            (-[WKView rotateWithEvent:]):
+            Route rotation gesture events to the page.
+
+            (-[WKView _gestureEventWasNotHandledByWebCore:]):
+            Let ViewGestureController know that WebCore didn't handle a gesture event.
+            We always give WebCore the first crack at the event if we're not in a zoom,
+            because it could preventDefault() on the Begin phase event, and that should
+            prevent pinch-zoom from starting.
+
+            * UIProcess/PageClient.h:
+            * UIProcess/mac/PageClientImpl.h:
+            * UIProcess/mac/PageClientImpl.mm:
+            (WebKit::PageClientImpl::gestureEventWasNotHandledByWebCore):
+            Plumb gestureEventWasNotHandledByWebCore back from WebPageProxy to WKView.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::handleGestureEvent):
+            (WebKit::WebPageProxy::didReceiveEvent):
+            * UIProcess/WebPageProxy.h:
+            Forward gesture events to EventDispatcher, and let WKView know when WebCore
+            passes on handling them.
+
+            * UIProcess/mac/ViewGestureController.h:
+            (WebKit::ViewGestureController::hasActiveMagnificationGesture):
+            * UIProcess/mac/ViewGestureControllerMac.mm:
+            (WebKit::ViewGestureController::gestureEventWasNotHandledByWebCore):
+            (WebKit::ViewGestureController::handleMagnificationGestureEvent):
+            Don't try to start a zoom with anything other than a Begin phase event.
+            Try to start a zoom with any events that WebCore doesn't handle.
+            Move dispatch of endMagnificationGesture into ViewGestureController;
+            there is no reason for that to be in WKView anymore.
+
+            * WebKit2.xcodeproj/project.pbxproj:
+            * WebProcess/WebPage/EventDispatcher.cpp:
+            (WebKit::EventDispatcher::gestureEvent):
+            (WebKit::EventDispatcher::dispatchGestureEvent):
+            * WebProcess/WebPage/EventDispatcher.h:
+            * WebProcess/WebPage/EventDispatcher.messages.in:
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::handleGestureEvent):
+            (WebKit::WebPage::gestureEvent):
+            * WebProcess/WebPage/WebPage.h:
+            Dispatch to the main thread and hand off the gesture event to WebCore,
+            asynchronously informing the UI process of whether the event was handled or not.
+
+2015-12-08  Harris Papadopoulos  <cpapadopoulos@apple.com>
+
+        Merge r193380. rdar://problem/23816165
+
+    2015-12-03  Sam Weinig  <sam@webkit.org>
+
+            It should be possible to use version 6 of the WKPageUIClient without adopting the new createNewPage
+            https://bugs.webkit.org/show_bug.cgi?id=151826
+
+            Reviewed by Anders Carlsson.
+
+            * UIProcess/API/C/WKPage.cpp:
+            (WKPageSetPageUIClient):
+            Pick which variant of createNewPage to use based on which function pointer is available,
+            not the version number.
+
+2015-12-08  Harris Papadopoulos  <cpapadopoulos@apple.com>
+
+        Merge r193367. rdar://problem/23816165
+
+    2015-12-03  Sam Weinig  <sam@webkit.org>
+
+            Need completionHandler-based WebKit C SPI for alert, confirm, and prompt
+            <rdar://problem/23320863>
+            https://bugs.webkit.org/show_bug.cgi?id=151708
+
+            (Add missing function definitions)
+
+            * UIProcess/API/C/WKPage.cpp:
+            (WKPageRunJavaScriptAlertResultListenerGetTypeID):
+            (WKPageRunJavaScriptAlertResultListenerCall):
+            (WKPageRunJavaScriptConfirmResultListenerGetTypeID):
+            (WKPageRunJavaScriptConfirmResultListenerCall):
+            (WKPageRunJavaScriptPromptResultListenerGetTypeID):
+            (WKPageRunJavaScriptPromptResultListenerCall):
+
+2015-12-08  Harris Papadopoulos  <cpapadopoulos@apple.com>
+
+        Merge r192911. rdar://problem/23816165
+
+    2015-12-01  Sam Weinig  <sam@webkit.org>
+
+            Need completionHandler-based WebKit C SPI for alert, confirm, and prompt
+            <rdar://problem/23320863>
+            https://bugs.webkit.org/show_bug.cgi?id=151708
+
+            Reviewed by Anders Carlsson.
+
+            Add listener based versions of alert, confirm and prompt.
+
+            * Shared/API/APIObject.h:
+            * Shared/API/c/WKBase.h:
+            * UIProcess/API/C/WKPage.cpp:
+            (WebKit::RunJavaScriptAlertResultListener::create):
+            (WebKit::RunJavaScriptAlertResultListener::~RunJavaScriptAlertResultListener):
+            (WebKit::RunJavaScriptAlertResultListener::call):
+            (WebKit::RunJavaScriptAlertResultListener::RunJavaScriptAlertResultListener):
+            (WebKit::RunJavaScriptConfirmResultListener::create):
+            (WebKit::RunJavaScriptConfirmResultListener::~RunJavaScriptConfirmResultListener):
+            (WebKit::RunJavaScriptConfirmResultListener::call):
+            (WebKit::RunJavaScriptConfirmResultListener::RunJavaScriptConfirmResultListener):
+            (WebKit::RunJavaScriptPromptResultListener::create):
+            (WebKit::RunJavaScriptPromptResultListener::~RunJavaScriptPromptResultListener):
+            (WebKit::RunJavaScriptPromptResultListener::call):
+            (WebKit::RunJavaScriptPromptResultListener::RunJavaScriptPromptResultListener):
+            (WKPageSetPageUIClient):
+            * UIProcess/API/C/WKPageUIClient.h:
+
+2015-12-08  Harris Papadopoulos  <cpapadopoulos@apple.com>
+
+        Merge r188553. rdar://problem/23816165
+
+    2015-08-13  Anders Carlsson  <andersca@apple.com>
+
+            Add WKWindowFeaturesRef and a new modern createNewPage UI client callback
+            https://bugs.webkit.org/show_bug.cgi?id=147989
+
+            Reviewed by Tim Horton.
+
+            Re-land this and make sure we actually allocate a WKWindowFeatures object.
+
+            * Platform/IPC/mac/ConnectionMac.mm:
+            * Shared/API/APIObject.h:
+            * Shared/API/c/WKBase.h:
+            * UIProcess/API/APIWindowFeatures.cpp: Added.
+            * UIProcess/API/APIWindowFeatures.h: Added.
+            * UIProcess/API/C/WKAPICast.h:
+            * UIProcess/API/C/WKPage.cpp:
+            (WKPageSetPageUIClient):
+            * UIProcess/API/C/WKPageUIClient.h:
+            * UIProcess/API/C/WKWindowFeaturesRef.cpp: Added.
+            (WKWindowFeaturesGetTypeID):
+            * UIProcess/API/C/WKWindowFeaturesRef.h: Added.
+            * UIProcess/API/Cocoa/WKWindowFeatures.mm:
+            (-[WKWindowFeatures dealloc]):
+            (-[WKWindowFeatures menuBarVisibility]):
+            (-[WKWindowFeatures statusBarVisibility]):
+            (-[WKWindowFeatures toolbarsVisibility]):
+            (-[WKWindowFeatures allowsResizing]):
+            (-[WKWindowFeatures x]):
+            (-[WKWindowFeatures y]):
+            (-[WKWindowFeatures width]):
+            (-[WKWindowFeatures height]):
+            (-[WKWindowFeatures _apiObject]):
+            (-[WKWindowFeatures _initWithWindowFeatures:]): Deleted.
+            * UIProcess/API/Cocoa/WKWindowFeaturesInternal.h:
+            (WebKit::wrapper):
+            * UIProcess/Cocoa/UIDelegate.mm:
+            (WebKit::UIDelegate::UIClient::createNewPage):
+            * WebKit2.xcodeproj/project.pbxproj:
+
+2015-12-08  Harris Papadopoulos  <cpapadopoulos@apple.com>
+
+        Merge r188386. rdar://problem/23816165
+
+    2015-08-12  Anders Carlsson  <andersca@apple.com>
+
+            Use WTF::Optional in WindowFeatures
+            https://bugs.webkit.org/show_bug.cgi?id=147956
+
+            Reviewed by Sam Weinig.
+
+            * Shared/WebCoreArgumentCoders.cpp:
+            (IPC::ArgumentCoder<WindowFeatures>::encode): Deleted.
+            (IPC::ArgumentCoder<WindowFeatures>::decode): Deleted.
+            * UIProcess/API/C/WKPage.cpp:
+            (WKPageSetPageUIClient):
+            * UIProcess/API/Cocoa/WKWindowFeatures.mm:
+            (-[WKWindowFeatures _initWithWindowFeatures:]):
+
+2015-12-08  Harris Papadopoulos  <cpapadopoulos@apple.com>
+
+        Merge r188228. rdar://problem/23816165
+
+    2015-08-08  Sam Weinig  <sam@webkit.org>
+
+            Replace WebPageConfiguration with API::PageConfiguration and expose a C-SPI accessor for it
+            https://bugs.webkit.org/show_bug.cgi?id=147811
+
+            Reviewed by Darin Adler.
+
+            - Adds the missing pieces from WebPageConfiguration into API::PageConfiguration.
+            - Adds C-SPI to set and get the WebsiteDataStore on the WKPageConfigurationRef.
+            - Uses API::PageConfiguration to pass configuration information from WKWebView/WKView
+              to WebPageProxy.
+            - Stores the API::PageConfiguration on the WebPageProxy and exposes a new C-SPI function,
+              WKPageCopyPageConfiguration, to get a copy of it.
+
+            * UIProcess/API/APIPageConfiguration.cpp:
+            (API::PageConfiguration::create):
+            (API::PageConfiguration::PageConfiguration):
+            (API::PageConfiguration::~PageConfiguration):
+            (API::PageConfiguration::copy):
+            (API::PageConfiguration::processPool):
+            (API::PageConfiguration::setRelatedPage):
+            (API::PageConfiguration::visitedLinkProvider):
+            (API::PageConfiguration::setVisitedLinkProvider):
+            (API::PageConfiguration::websiteDataStore):
+            (API::PageConfiguration::setWebsiteDataStore):
+            (API::PageConfiguration::sessionID):
+            (API::PageConfiguration::setSessionID):
+            (API::PageConfiguration::webPageConfiguration): Deleted.
+            * UIProcess/API/APIPageConfiguration.h:
+            (API::PageConfiguration::preferenceValues):
+            (API::PageConfiguration::treatsSHA1SignedCertificatesAsInsecure):
+            (API::PageConfiguration::setTreatsSHA1SignedCertificatesAsInsecure):
+            (API::PageConfiguration::alwaysRunsAtForegroundPriority):
+            (API::PageConfiguration::setAlwaysRunsAtForegroundPriority):
+            (API::PageConfiguration::create): Deleted.
+            * UIProcess/API/C/WKPage.cpp:
+            (WKPageGetPageGroup):
+            (WKPageCopyPageConfiguration):
+            (WKPageLoadURL):
+            * UIProcess/API/C/WKPage.h:
+            * UIProcess/API/C/WKPageConfigurationRef.cpp:
+            (WKPageConfigurationSetRelatedPage):
+            (WKPageConfigurationGetWebsiteDataStore):
+            (WKPageConfigurationSetWebsiteDataStore):
+            * UIProcess/API/C/WKPageConfigurationRef.h:
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView initWithFrame:configuration:]):
+            * UIProcess/API/ios/WKViewIOS.mm:
+            (-[WKView _commonInitializationWithContextRef:pageGroupRef:relatedToPage:]):
+            * UIProcess/API/mac/WKView.mm:
+            (-[WKView _setPrimaryTrackingArea:]):
+            (-[WKView initWithFrame:processPool:configuration:webView:]):
+            (-[WKView initWithFrame:contextRef:pageGroupRef:relatedToPage:]):
+            (-[WKView initWithFrame:configurationRef:]):
+            (-[WKView wantsUpdateLayer]):
+            * UIProcess/API/mac/WKViewInternal.h:
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::create):
+            (WebKit::WebPageProxy::WebPageProxy):
+            (WebKit::WebPageProxy::~WebPageProxy):
+            (WebKit::WebPageProxy::configuration):
+            (WebKit::WebPageProxy::processIdentifier):
+            * UIProcess/WebPageProxy.h:
+            (WebKit::WebPageProxy::pageID):
+            (WebKit::WebPageProxy::sessionID):
+            * UIProcess/WebProcessPool.cpp:
+            (WebKit::WebProcessPool::createNewWebProcessRespectingProcessCountLimit):
+            (WebKit::WebProcessPool::createWebPage):
+            (WebKit::WebProcessPool::download):
+            * UIProcess/WebProcessPool.h:
+            * UIProcess/WebProcessProxy.cpp:
+            (WebKit::WebProcessProxy::webPage):
+            (WebKit::WebProcessProxy::createWebPage):
+            * UIProcess/WebProcessProxy.h:
+            (WebKit::WebProcessProxy::processPool):
+            * UIProcess/ios/WKContentView.h:
+            * UIProcess/ios/WKContentView.mm:
+            (-[WKContentView _commonInitializationWithProcessPool:configuration:]):
+            (-[WKContentView initWithFrame:processPool:configuration:webView:]):
+            (-[WKContentView initWithFrame:processPool:configuration:wkView:]):
+            (-[WKContentView dealloc]):
+
+2015-12-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r191628. rdar://problem/23715623
+
+    2015-10-27  Zhuo Li  <zachli@apple.com>
+
+            Add WebKit API to clear data type Search Field Recent Searches.
+            https://bugs.webkit.org/show_bug.cgi?id=150019.
+
+            Reviewed by Anders Carlsson.
+
+            * Shared/WebsiteData/WebsiteDataTypes.h: Add data type Search Field Recent Searches.
+            * UIProcess/API/Cocoa/WKWebsiteDataRecord.mm:
+            (dataTypesToString): Ditto.
+            * UIProcess/API/Cocoa/WKWebsiteDataRecordInternal.h:
+            (WebKit::toWebsiteDataTypes): Ditto.
+            (WebKit::toWKWebsiteDataTypes): Ditto.
+            * UIProcess/API/Cocoa/WKWebsiteDataRecordPrivate.h: Ditto.
+            * UIProcess/WebsiteData/WebsiteDataStore.cpp:
+            (WebKit::WebsiteDataStore::removeData): Handle the case when data type is Search
+            Field Recent Searches.
+            * UIProcess/WebsiteData/WebsiteDataStore.h: Add a private function for removing
+            recent searches based on time.
+            * UIProcess/WebsiteData/Cocoa/WebsiteDataStoreCocoa.mm:
+            (WebKit::WebsiteDataStoreCocoa::platformRemoveRecentSearches): Call the removing
+            recent searches logic in WebCore.
+            * UIProcess/efl/WebPageProxyEfl.cpp:
+            (WebKit::WebsiteDataStore::platformRemoveRecentSearches): Not implemented.
+            * UIProcess/gtk/WebPageProxyGtk.cpp:
+            (WebKit::WebsiteDataStore::platformRemoveRecentSearches): Not implemented.
+
+2015-12-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r191084. rdar://problem/23715623
+
+    2015-10-14  Zhuo Li  <zachli@apple.com>
+
+            Augment <input type=search>’s recent search history with the time each entry was added,
+            in order to allow time-based clearing of search history.
+            https://bugs.webkit.org/show_bug.cgi?id=148388.
+
+            Reviewed by Darin Adler.
+
+            Replace Vector<String> with Vector<RecentSearch>, where RecentSearch is a struct
+            that consists search string and time, for recent searches in order to store additional time
+            information.
+
+            All these new RecentSearches are stored in a plist in which the structure looks like:
+            Root {
+                "items": {
+                    autosave name: {
+                        "searches": [
+                            { "searchString": searchString, "date": date },
+                            ...
+                        ]
+                    }
+                }
+            }
+
+            * Scripts/webkit/messages.py:
+            (headers_for_type):
+            * Shared/WebCoreArgumentCoders.cpp:
+            (IPC::ArgumentCoder<RecentSearch>::encode): Encode the new struct RecentSearch
+            (IPC::ArgumentCoder<RecentSearch>::decode): Decode the new struct RecentSearch
+            * Shared/WebCoreArgumentCoders.h:
+            * UIProcess/Cocoa/WebPageProxyCocoa.mm:
+            (WebKit::WebPageProxy::saveRecentSearches): Call saveRecentSearches in WebCore::SearchPopupMenuCocoa.
+            (WebKit::WebPageProxy::loadRecentSearches): Call loadRecentSearches in WebCore::SearchPopupMenuCocoa.
+            * UIProcess/WebPageProxy.h:
+            * UIProcess/WebPageProxy.messages.in:
+            * UIProcess/efl/WebPageProxyEfl.cpp:
+            (WebKit::WebPageProxy::saveRecentSearches):
+            (WebKit::WebPageProxy::loadRecentSearches):
+            * UIProcess/gtk/WebPageProxyGtk.cpp:
+            (WebKit::WebPageProxy::saveRecentSearches):
+            (WebKit::WebPageProxy::loadRecentSearches):
+            * WebProcess/WebCoreSupport/WebSearchPopupMenu.cpp:
+            (WebKit::WebSearchPopupMenu::saveRecentSearches):
+            (WebKit::WebSearchPopupMenu::loadRecentSearches):
+            * WebProcess/WebCoreSupport/WebSearchPopupMenu.h:
+
+2015-12-09  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r190505.
+
+    2015-10-02  Antoine Quint  <graouts@apple.com>
+
+            popstate is fired at the wrong time on load
+            https://bugs.webkit.org/show_bug.cgi?id=94265
+
+            Reviewed by Darin Adler.
+
+            Ensure we have a valid page before trying to get to its drawingArea as this could lead
+            to a crash as observed with fast/loader/stateobjects/pushstate-object-types.html.
+
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+            (WebKit::WebFrameLoaderClient::restoreViewState):
+
+2015-10-18  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Stop honoring the user default "WebKitKerningAndLigaturesEnabledByDefault"
+        https://bugs.webkit.org/show_bug.cgi?id=150287
+
+        Reviewed by Simon Fraser.
+
+        * Shared/WebProcessCreationParameters.cpp:
+        (WebKit::WebProcessCreationParameters::WebProcessCreationParameters): Deleted.
+        (WebKit::WebProcessCreationParameters::encode): Deleted.
+        (WebKit::WebProcessCreationParameters::decode): Deleted.
+        * Shared/WebProcessCreationParameters.h:
+        * UIProcess/Cocoa/WebProcessPoolCocoa.mm:
+        (WebKit::registerUserDefaultsIfNeeded): Deleted.
+        (WebKit::WebProcessPool::platformInitializeWebProcess): Deleted.
+        * WebProcess/cocoa/WebProcessCocoa.mm:
+        (WebKit::WebProcess::platformInitializeWebProcess): Deleted.
+
+2015-10-13  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Split TypesettingFeatures into kerning and ligatures bools
+        https://bugs.webkit.org/show_bug.cgi?id=150074
+
+        Reviewed by Simon Fraser.
+
+        * Shared/WebProcessCreationParameters.cpp:
+        (WebKit::WebProcessCreationParameters::WebProcessCreationParameters):
+        (WebKit::WebProcessCreationParameters::encode):
+        (WebKit::WebProcessCreationParameters::decode):
+        * Shared/WebProcessCreationParameters.h:
+        * UIProcess/Cocoa/WebProcessPoolCocoa.mm:
+        (WebKit::WebProcessPool::platformInitializeWebProcess):
+        * WebProcess/cocoa/WebProcessCocoa.mm:
+        (WebKit::WebProcess::platformInitializeWebProcess):
+
+2015-12-05  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Rollout r193474. rdar://problem/23732400
+
+2015-12-05  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Rollout r193475. rdar://problem/23732400
+
+2015-12-05  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Rollout r193476. rdar://problem/23732400
+
+2015-12-05  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Rollout r193478. rdar://problem/23732400
+
+2015-12-04  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r191452. rdar://problem/23732400
+
+    2015-10-22  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Implement touch-action: manipulation; for iOS
+            https://bugs.webkit.org/show_bug.cgi?id=149854
+            <rdar://problem/23017145>
+
+            Reviewed by Benjamin Poulain.
+
+            Implements the manipulation value for the CSS property touch-action. Performs hit-testing upon receiving a potential
+            tap to determine whether to disable double-tap gesture recognition over the duration of the tap. If so, sends a message
+            from the web process to the UI process indicating that double-tapping should be disabled, allowing single taps to
+            avoid the delay.
+
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::WebPage::potentialTapAtPosition):
+
+2015-12-04  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r191409. rdar://problem/23732400
+
+    2015-10-21  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Single tapping clickable elements in unscalable pages should show a tap highlight
+            https://bugs.webkit.org/show_bug.cgi?id=150382
+
+            Reviewed by Simon Fraser.
+
+            When the double tap gesture recognizer is disabled ahead of time (as in the case of unscalable pages) the tap is
+            committed before the geometries come in. To fix this, we introduce a flag that allows the single tap to be
+            committed before the tap highlight arrives. This allows the tap highlight to be immediately animated when receiving
+            the tap highlight geometries only in the case where double tapping is disabled when recognizing the single tap.
+
+            * UIProcess/ios/WKContentViewInteraction.h:
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView setupInteraction]):
+            (-[WKContentView cleanupInteraction]):
+            (-[WKContentView _didGetTapHighlightForRequest:color:quads:topLeftRadius:topRightRadius:bottomLeftRadius:bottomRightRadius:]):
+            (-[WKContentView _singleTapRecognized:]):
+            (-[WKContentView _singleTapCommited:]):
+
+2015-12-04  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r191309. rdar://problem/23732400
+
+    2015-10-17  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Extend fast-clicking behavior to trigger on elements that have negligible zoom
+            https://bugs.webkit.org/show_bug.cgi?id=150248
+            <rdar://problem/23140069>
+
+            Reviewed by Simon Fraser.
+
+            Currently, fast-clicking only triggers on pages that have unscalable viewports. To allow more websites to benefit from fast-clicking
+            behavior, we generalize fast-clicking to also occur when tapping on elements for which double-tap-to-zoom would zoom the element in
+            or out by an insignificant amount. We define an insignificant amount of zoom to mean that zooming would increase the viewport scale
+            by less than a configurable threshold, or decrease the viewport scale by more than a configurable threshold. We accomplish this by
+            temporarily disabling the double tap gesture recognizer for the duration of the tap. This patch refactors some logic used to compute
+            zoomed viewports to make it possible to predict the change in viewport scale when double tapping to zoom. See the changes in
+            SmartMagnificationController and ViewGestureGeometryCollector for more details.
+
+            There are no new tests, since this patch does not change existing behavior. Instead, this patch adds the machinery needed for zoom-
+            dependent fast-clicking: by setting the preferences WebKitFastClickingEnabled and WebKitFastClickZoomThreshold, we will be able to tweak
+            the behavior dynamically.
+
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _didCommitLayerTree:]):
+            (-[WKWebView _contentZoomScale]):
+            (-[WKWebView _targetContentZoomScaleForRect:currentScale:fitEntireRect:minimumScale:maximumScale:]):
+            (-[WKWebView _zoomToRect:withOrigin:fitEntireRect:minimumScale:maximumScale:minimumScrollDistance:]):
+            (-[WKWebView _viewportIsUserScalable]):
+            * UIProcess/API/Cocoa/WKWebViewInternal.h:
+            * UIProcess/API/Cocoa/WKWebViewPrivate.h:
+            * UIProcess/PageClient.h:
+            * UIProcess/WebPageProxy.h:
+            * UIProcess/WebPageProxy.messages.in:
+            * UIProcess/ios/PageClientImplIOS.h:
+            * UIProcess/ios/PageClientImplIOS.mm:
+            (WebKit::PageClientImpl::disableDoubleTapGesturesUntilTapIsFinishedIfNecessary):
+            * UIProcess/ios/SmartMagnificationController.h:
+            * UIProcess/ios/SmartMagnificationController.mm:
+            (WebKit::SmartMagnificationController::adjustSmartMagnificationTargetRectAndZoomScales):
+            (WebKit::SmartMagnificationController::didCollectGeometryForSmartMagnificationGesture):
+            (WebKit::SmartMagnificationController::magnify):
+            * UIProcess/ios/WKContentViewInteraction.h:
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView _didGetTapHighlightForRequest:color:quads:topLeftRadius:topRightRadius:bottomLeftRadius:bottomRightRadius:]):
+            (-[WKContentView _fastClickZoomThreshold]):
+            (-[WKContentView _allowDoubleTapToZoomForCurrentZoomScale:andTargetZoomScale:]):
+            (-[WKContentView _disableDoubleTapGesturesUntilTapIsFinishedIfNecessary:allowsDoubleTapZoom:targetRect:isReplaced:minimumScale:maximumScale:]):
+            (-[WKContentView _highlightLongPressRecognized:]):
+            (-[WKContentView _endPotentialTapAndEnableDoubleTapGesturesIfNecessary]):
+            (-[WKContentView _singleTapRecognized:]):
+            (cancelPotentialTapIfNecessary):
+            (-[WKContentView _singleTapCommited:]):
+            (-[WKContentView webSelectionRects]): Deleted.
+            * UIProcess/ios/WebPageProxyIOS.mm:
+            (WebKit::WebPageProxy::disableDoubleTapGesturesUntilTapIsFinishedIfNecessary):
+            * WebProcess/WebPage/ViewGestureGeometryCollector.cpp:
+            (WebKit::ViewGestureGeometryCollector::collectGeometryForSmartMagnificationGesture):
+            (WebKit::ViewGestureGeometryCollector::computeZoomInformationForNode):
+            * WebProcess/WebPage/ViewGestureGeometryCollector.h:
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::WebPage::potentialTapAtPosition):
+
+2015-12-04  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r191072. rdar://problem/23732400
+
+    2015-10-14  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Web pages with unscalable viewports shouldn't have a single tap delay
+            https://bugs.webkit.org/show_bug.cgi?id=149968
+            <rdar://problem/23054453>
+
+            Reviewed by Simon Fraser.
+
+            When a viewport is unscalable (specified through the meta viewport tag) we
+            do not add a delay to our single tap gesture recognizer. We do this by
+            disabling or reinitializing the WKContentView's double tap gesture recognizer
+            when the viewport becomes unscalable or scalable, respectively. A viewport is
+            deemed unscalable when it has user-scalable = no, or when the minimum scale is
+            greater than or equal to the maximum scale.
+
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _didCommitLayerTree:]):
+            * UIProcess/ios/WKContentViewInteraction.h:
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView _createAndConfigureDoubleTapGestureRecognizer]): Pulled logic
+                    for initializing a double tap gesture recognizer out into a helper function.
+            (-[WKContentView setupInteraction]):
+            (-[WKContentView _setDoubleTapGesturesEnabled:]): Turns gesture recognition for double
+                    taps on or off.
+
+2015-12-03  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r188647. rdar://problem/23732386
+
+    2015-08-18  Dean Jackson  <dino@apple.com>
+
+            Support CSS filters without webkit prefix
+            https://bugs.webkit.org/show_bug.cgi?id=148138
+            <rdar://problem/22331434>
+
+            Reviewed by Sam Weinig.
+
+            Rename WebkitFilter to Filter.
+
+            * Shared/CoordinatedGraphics/CoordinatedGraphicsArgumentCoders.cpp:
+            (IPC::ArgumentCoder<TextureMapperAnimation>::encode):
+            (IPC::ArgumentCoder<TextureMapperAnimation>::decode):
+
+2015-12-03  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r192745. rdar://problem/23221163
+
+    2015-11-23  Brian Burg  <bburg@apple.com>
+
+            Web Inspector: when inspecting the inspector, add the inspection level to the title bar
+            https://bugs.webkit.org/show_bug.cgi?id=151555
+
+            Reviewed by Timothy Hatcher.
+
+            If the inspection level says we are inspecting an inspector, include the level
+            in the title bar to easily disambiguate it from the base level inspector.
+
+            * UIProcess/mac/WebInspectorProxyMac.mm:
+            (WebKit::WebInspectorProxy::updateInspectorWindowTitle):
+
+2015-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r189883. rdar://problem/23221163
+
+    2015-09-16  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Fix common typo "supress" => "suppress"
+            https://bugs.webkit.org/show_bug.cgi?id=149199
+
+            Reviewed by Gyuyoung Kim.
+
+            * PluginProcess/mac/PluginProcessMac.mm:
+            (WebKit::PluginProcess::platformInitializeProcess):
+
+2015-12-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r188353. rdar://problem/23221163
+
+    2015-08-12  Joseph Pecoraro  <pecoraro@apple.com>
+
+            Web Inspector: Not receiving responses for async request IndexedDB.requestDatabaseNames
+            https://bugs.webkit.org/show_bug.cgi?id=147844
+
+            Reviewed by Brian Burg.
+
+            * WebProcess/Databases/IndexedDB/WebIDBFactoryBackend.cpp:
+            (WebKit::WebIDBFactoryBackend::getDatabaseNames):
+            This method should not return without calling either the success
+            or error callbacks. In this case, it can succeed with an empty list.
+
+2015-12-01  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r186724. rdar://problem/23221163
+
+    2015-07-11  Nikita Vasilyev  <nvasilyev@apple.com>
+
+            Web Inspector: Inspector should be able to be docked to the bottom of a narrow window
+            https://bugs.webkit.org/show_bug.cgi?id=146871
+
+            Reviewed by Timothy Hatcher.
+
+            * UIProcess/WebInspectorProxy.cpp:
+            * UIProcess/mac/WebInspectorProxyMac.mm:
+            (WebKit::WebInspectorProxy::platformCanAttach):
+            * WebProcess/WebPage/WebInspector.cpp:
+
 2015-10-13  Matthew Hanson  <matthew_hanson@apple.com>
 
         Merge r190141. rdar://problem/23075536

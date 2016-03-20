@@ -111,6 +111,7 @@ SEC_CONST_DECL (kSecAttrSynchronizable, "sync");
 SEC_CONST_DECL (kSecAttrSynchronizableAny, "syna");
 SEC_CONST_DECL (kSecAttrTombstone, "tomb");
 SEC_CONST_DECL (kSecAttrNoLegacy, "nleg");
+SEC_CONST_DECL (kSecAttrMultiUser, "musr");
 
 /* Search Constants */
 SEC_CONST_DECL (kSecMatchPolicy, "m_Policy");
@@ -146,6 +147,8 @@ SEC_CONST_DECL (kSecValuePersistentRef, "v_PersistentRef");
 /* Other Constants */
 SEC_CONST_DECL (kSecUseItemList, "u_ItemList");
 SEC_CONST_DECL (kSecUseKeychain, "u_Keychain");
+SEC_CONST_DECL (kSecUseSystemKeychain, "u_SystemKeychain");
+SEC_CONST_DECL (kSecUseSyncBubbleKeychain, "u_SyncBubbleKeychain");
 
 /* kSecAttrAccessible Value Constants. */
 SEC_CONST_DECL (kSecAttrAccessibleWhenUnlocked, "ak");

@@ -184,6 +184,30 @@ private:
 	Mutex mMutex;
 };
 
+//
+// TrustKeychains maintains a global reference to standard system keychains,
+// to avoid having them be opened anew for each Trust instance.
+//
+static const CSSM_DL_DB_HANDLE nullCSSMDLDBHandle = {0,};
+
+class TrustKeychains
+{
+    public:
+    TrustKeychains();
+    ~TrustKeychains()	{}
+    CSSM_DL_DB_HANDLE	rootStoreHandle()	{ return mRootStoreHandle; }
+    CSSM_DL_DB_HANDLE	systemKcHandle()	{ return mSystem ? mSystem->database()->handle() : nullCSSMDLDBHandle; }
+    Keychain			&systemKc()			{ return mSystem; }
+    Keychain			&rootStore()		{ return *mRootStore; }
+
+    private:
+    DL*					mRootStoreDL;
+    Db*					mRootStoreDb;
+    Keychain*			mRootStore;
+    CSSM_DL_DB_HANDLE	mRootStoreHandle;
+    Keychain			mSystem;
+};
+
 } // end namespace KeychainCore
 
 } // end namespace Security

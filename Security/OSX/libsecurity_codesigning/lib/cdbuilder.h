@@ -41,7 +41,8 @@ namespace CodeSigning {
 //  CodeDirectory *result = builder.build();
 // Builder is not reusable.
 //
-class CodeDirectory::Builder {
+class CodeDirectory::Builder : public RefCount {
+	NOCOPY(Builder)
 public:
 	Builder(HashAlgorithm digestAlgorithm);
 	~Builder();
@@ -54,6 +55,7 @@ public:
 	void teamID(const std::string &team) { mTeamID = team; }
 	void flags(uint32_t f) { mFlags = f; }
 	void platform(uint8_t p) { mPlatform = p; }
+	std::set<Slot> filledSpecialSlots() const { return mFilledSpecialSlots; }
 	
 	Scatter *scatter(unsigned count);			// allocate that many scatter elements (w/o sentinel)
 	Scatter *scatter() { return mScatter; }		// return already allocated scatter vector
@@ -72,6 +74,7 @@ private:
 	
 private:
 	Hashing::Byte *mSpecial;					// array of special slot hashes
+	std::set<Slot> mFilledSpecialSlots;			// special slots filled with values
 	UnixPlusPlus::AutoFileDesc mExec;			// main executable file
 	size_t mExecOffset;							// starting offset in mExec
 	size_t mExecLength;							// total bytes of file to sign

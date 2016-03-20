@@ -222,6 +222,7 @@ usados para describir las directivas de Apache</a></li>
 <li><a href="mod/mod_headers.html">Módulo Apache mod_headers</a></li>
 <li><a href="mod/mod_heartbeat.html">Módulo Apache mod_heartbeat</a></li>
 <li><a href="mod/mod_heartmonitor.html">Módulo Apache mod_heartmonitor</a></li>
+<li><a href="mod/mod_http2.html">Módulo Apache mod_http2</a></li>
 <li><a href="mod/mod_ident.html">Módulo Apache mod_ident</a></li>
 <li><a href="mod/mod_imagemap.html">Módulo Apache mod_imagemap</a></li>
 <li><a href="mod/mod_include.html">Módulo Apache mod_include</a></li>

@@ -49,11 +49,11 @@ const CSSM_ACL_HANDLE Access::ownerHandle;
 //
 Access::Access() : mMutex(Mutex::recursive)
 {
-	SecPointer<ACL> owner = new ACL(*this);
+	SecPointer<ACL> owner = new ACL();
 	owner->setAuthorization(CSSM_ACL_AUTHORIZATION_CHANGE_ACL);
 	addOwner(owner);
 	
-	SecPointer<ACL> any = new ACL(*this);
+	SecPointer<ACL> any = new ACL();
 	add(any);
 }
 
@@ -87,12 +87,12 @@ void Access::makeStandard(const string &descriptor, const ACL::ApplicationList &
 	StLock<Mutex>_(mMutex);
 
 	// owner "entry"
-	SecPointer<ACL> owner = new ACL(*this, descriptor, ACL::defaultSelector);
+	SecPointer<ACL> owner = new ACL(descriptor, ACL::defaultSelector);
 	owner->setAuthorization(CSSM_ACL_AUTHORIZATION_CHANGE_ACL);
 	addOwner(owner);
 
 	// unlimited entry
-	SecPointer<ACL> unlimited = new ACL(*this, descriptor, ACL::defaultSelector);
+	SecPointer<ACL> unlimited = new ACL(descriptor, ACL::defaultSelector);
 	if (freeRights.empty()) {
 		unlimited->authorizations().clear();
 		unlimited->authorizations().insert(CSSM_ACL_AUTHORIZATION_ENCRYPT);
@@ -102,7 +102,7 @@ void Access::makeStandard(const string &descriptor, const ACL::ApplicationList &
 	add(unlimited);
 
 	// limited entry
-	SecPointer<ACL> limited = new ACL(*this, descriptor, ACL::defaultSelector);
+	SecPointer<ACL> limited = new ACL(descriptor, ACL::defaultSelector);
 	if (limitedRights.empty()) {
 		limited->authorizations().clear();
 		limited->authorizations().insert(CSSM_ACL_AUTHORIZATION_DECRYPT);
@@ -160,7 +160,7 @@ convert(const SecPointer<ACL> &acl)
 //
 CFArrayRef Access::copySecACLs() const
 {
-	return makeCFArray(convert, mAcls);
+	return makeCFArrayFrom(convert, mAcls);
 }
 
 CFArrayRef Access::copySecACLs(CSSM_ACL_AUTHORIZATION_TAG action) const
@@ -169,7 +169,7 @@ CFArrayRef Access::copySecACLs(CSSM_ACL_AUTHORIZATION_TAG action) const
 	for (Map::const_iterator it = mAcls.begin(); it != mAcls.end(); it++)
 		if (it->second->authorizes(action))
 			choices.push_back(it->second);
-	return choices.empty() ? NULL : makeCFArray(convert, choices);
+	return choices.empty() ? NULL : makeCFArrayFrom(convert, choices);
 }
 
 
@@ -264,6 +264,20 @@ void Access::copyOwnerAndAcl(CSSM_ACL_OWNER_PROTOTYPE * &ownerResult,
 
 
 //
+// Remove all ACLs that confer this right.
+//
+void Access::removeAclsForRight(AclAuthorization right) {
+    for (Map::const_iterator it = mAcls.begin(); it != mAcls.end(); ) {
+        if (it->second->authorizesSpecifically(right)) {
+            it = mAcls.erase(it);
+            secdebugfunc("SecAccess", "%p removed an acl, %d left", this, mAcls.size());
+        } else {
+            it++;
+        }
+    }
+}
+
+//
 // Retrieve the description from a randomly chosen ACL within this Access.
 // In the conventional case where all ACLs have the same descriptor, this
 // is deterministic. But you have been warned.
@@ -296,8 +310,6 @@ string Access::promptDescription() const
 void Access::add(ACL *newAcl)
 {
 	StLock<Mutex>_(mMutex);
-	if (&newAcl->access != this)
-		MacOSError::throwMe(errSecParam);
 	assert(!mAcls[newAcl->entryHandle()]);
 	mAcls[newAcl->entryHandle()] = newAcl;
 }
@@ -326,13 +338,15 @@ void Access::compile(const CSSM_ACL_OWNER_PROTOTYPE &owner,
 {
 	StLock<Mutex>_(mMutex);
 	// add owner acl
-	mAcls[ownerHandle] = new ACL(*this, AclOwnerPrototype::overlay(owner));
+	mAcls[ownerHandle] = new ACL(AclOwnerPrototype::overlay(owner));
+    secdebugfunc("SecAccess", "form of owner is: %d", mAcls[ownerHandle]->form());
 	
 	// add acl entries
 	const AclEntryInfo *acl = AclEntryInfo::overlay(acls);
 	for (uint32 n = 0; n < aclCount; n++) {
 		secdebug("SecAccess", "%p compiling entry %ld", this, acl[n].handle());
-		mAcls[acl[n].handle()] = new ACL(*this, acl[n]);
+		mAcls[acl[n].handle()] = new ACL(acl[n]);
+        secdebug("SecAccess", "form is: %d", mAcls[acl[n].handle()]->form());
 	}
 	secdebug("SecAccess", "%p %ld entries compiled", this, mAcls.size());
 }
@@ -356,6 +370,8 @@ Access::Maker::Maker(Allocator &alloc, MakerType makerType)
 		mInput = AclEntryPrototype(TypedList(allocator, CSSM_ACL_SUBJECT_TYPE_PASSWORD,
 			new(allocator) ListElement(mKey.get())));
 		mInput.proto().tag(creationEntryTag);
+        secdebugfunc("SecAccess", "made a CSSM_ACL_SUBJECT_TYPE_PASSWORD ACL entry for %p", this);
+        secdebugfunc("SecAccess", "mInput: %p, typedList %p", &mInput, mInput.Prototype.TypedSubject);
 
 		// create credential sample for access
 		mCreds += TypedList(allocator, CSSM_SAMPLE_TYPE_PASSWORD, new(allocator) ListElement(mKey.get()));
@@ -364,6 +380,7 @@ Access::Maker::Maker(Allocator &alloc, MakerType makerType)
 	{
 		// just make it an CSSM_ACL_SUBJECT_TYPE_ANY list
 		mInput = AclEntryPrototype(TypedList(allocator, CSSM_ACL_SUBJECT_TYPE_ANY));
+        secdebugfunc("SecAccess", "made a CSSM_ACL_SUBJECT_TYPE_ANY ACL entry for %p", this);
 	}
 }
 

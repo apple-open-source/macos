@@ -220,7 +220,13 @@ void CCallbackMgr::consume (SecurityServer::NotificationDomain domain, SecurityS
 		if (item && thisKeychain)
 		{
             PrimaryKey pk(item->Value());
-            thisItem = thisKeychain->item(pk);
+
+            // if this is a deletion event, do the lookup slightly differently
+            if(thisEvent != kSecDeleteEvent) {
+                thisItem = thisKeychain->item(pk);
+            } else {
+                thisItem = thisKeychain->itemdeleted(pk);
+            }
 		}
 
 		// Deal with events that we care about ourselves first.

@@ -70,6 +70,7 @@ struct __OpaqueSecDbConnection {
     bool inTransaction;
     SecDbTransactionSource source;
     bool isCorrupted;
+    CFErrorRef corruptionError;
     sqlite3 *handle;
     // Pending deletions and additions for the current transaction
     // Entires are either:
@@ -325,9 +326,10 @@ static bool SecDbDidCreateFirstConnection(SecDbConnectionRef dbconn, bool didCre
     return ok;
 }
 
-void SecDbCorrupt(SecDbConnectionRef dbconn)
+void SecDbCorrupt(SecDbConnectionRef dbconn, CFErrorRef error)
 {
     dbconn->isCorrupted = true;
+    CFAssignRetained(dbconn->corruptionError, error);
 }
 
 
@@ -689,7 +691,7 @@ static bool SecDbTruncate(SecDbConnectionRef dbconn, CFErrorRef *error)
 
 static bool SecDbHandleCorrupt(SecDbConnectionRef dbconn, int rc, CFErrorRef *error)
 {
-    CFStringRef reason = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("SQL DB %@ is corrupted, trying to recover (rc=%d)"), dbconn->db->db_path, rc);
+    CFStringRef reason = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("SQL DB %@ is corrupted, trying to recover (rc=%d) %@"), dbconn->db->db_path, rc, dbconn->corruptionError);
     __security_simulatecrash(reason, __sec_exception_code_CorruptDb(knownDbPathIndex(dbconn), rc));
     CFReleaseSafe(reason);
 
@@ -858,6 +860,11 @@ SecDbConnectionCreate(SecDbRef db, bool readOnly, CFErrorRef *error)
 
     dbconn->db = db;
     dbconn->readOnly = readOnly;
+    dbconn->inTransaction = false;
+    dbconn->source = NULL;
+    dbconn->isCorrupted = false;
+    dbconn->corruptionError = NULL;
+    dbconn->handle = NULL;
     dbconn->changes = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
 
 done:
@@ -1020,6 +1027,8 @@ SecDbConnectionDestroy(CFTypeRef value)
     }
     dbconn->db = NULL;
     CFReleaseNull(dbconn->changes);
+    CFReleaseNull(dbconn->corruptionError);
+
 }
 
 

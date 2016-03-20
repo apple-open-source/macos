@@ -159,6 +159,8 @@
 		C429431E053B2F8B00470431 /* KCUtilities.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C429431C053B2F8B00470431 /* KCUtilities.cpp */; };
 		D4A2FC821BC8A65B00BF6E56 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D4A2FC811BC8A65B00BF6E56 /* Security.framework */; };
 		D6095E960A94F17C0026C68B /* KCEventNotifier.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D6E1457B0A632A5A008AA7E8 /* KCEventNotifier.cpp */; };
+		DC3C16001BAB76B50041A23A /* kc-30-xara.c in Sources */ = {isa = PBXBuildFile; fileRef = DC3C15F81BAB6FE20041A23A /* kc-30-xara.c */; };
+		DCD20F421BCDA8260046D8EB /* kc-30-xara-upgrade-helpers.h in Headers */ = {isa = PBXBuildFile; fileRef = DCD20F411BCDA8260046D8EB /* kc-30-xara-upgrade-helpers.h */; };
 		F92321381ACF69EE00634C21 /* si-34-one-true-keychain.c in Sources */ = {isa = PBXBuildFile; fileRef = F92321371ACF69EE00634C21 /* si-34-one-true-keychain.c */; };
 /* End PBXBuildFile section */
 
@@ -424,6 +426,11 @@
 		D4A2FC811BC8A65B00BF6E56 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		D6E1457B0A632A5A008AA7E8 /* KCEventNotifier.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = KCEventNotifier.cpp; sourceTree = "<group>"; };
 		D6E1457C0A632A5A008AA7E8 /* KCEventNotifier.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KCEventNotifier.h; sourceTree = "<group>"; };
+		DC3C15F81BAB6FE20041A23A /* kc-30-xara.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-30-xara.c"; path = "regressions/kc-30-xara.c"; sourceTree = "<group>"; };
+		DC6949791BC71B2300AB4DC3 /* kc-30-xara-item-helpers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "kc-30-xara-item-helpers.h"; path = "regressions/kc-30-xara-item-helpers.h"; sourceTree = "<group>"; };
+		DC6949801BC71B3B00AB4DC3 /* kc-30-xara-key-helpers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "kc-30-xara-key-helpers.h"; path = "regressions/kc-30-xara-key-helpers.h"; sourceTree = "<group>"; };
+		DC6949821BC71C7600AB4DC3 /* kc-30-xara-helpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "kc-30-xara-helpers.h"; path = "regressions/kc-30-xara-helpers.h"; sourceTree = "<group>"; };
+		DCD20F411BCDA8260046D8EB /* kc-30-xara-upgrade-helpers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "kc-30-xara-upgrade-helpers.h"; path = "regressions/kc-30-xara-upgrade-helpers.h"; sourceTree = "<group>"; };
 		F92321371ACF69EE00634C21 /* si-34-one-true-keychain.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "si-34-one-true-keychain.c"; path = "regressions/si-34-one-true-keychain.c"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -672,6 +679,11 @@
 			isa = PBXGroup;
 			children = (
 				0CBD509C16C324B100713B6C /* keychain_regressions.h */,
+				DC3C15F81BAB6FE20041A23A /* kc-30-xara.c */,
+				DC6949821BC71C7600AB4DC3 /* kc-30-xara-helpers.h */,
+				DCD20F411BCDA8260046D8EB /* kc-30-xara-upgrade-helpers.h */,
+				DC6949791BC71B2300AB4DC3 /* kc-30-xara-item-helpers.h */,
+				DC6949801BC71B3B00AB4DC3 /* kc-30-xara-key-helpers.h */,
 				0CBD509816C3246D00713B6C /* kc-40-seckey.c */,
 				0CBD509916C3246D00713B6C /* kc-41-sececkey.c */,
 				AC9ADAD2199AD6BA00BDAF54 /* kc-42-trust-revocation.c */,
@@ -784,6 +796,7 @@
 			files = (
 				05FB016905E54A3A00A5194C /* SecNetscapeTemplates.h in Headers */,
 				056CDA5D05FD5AEB00820BC3 /* SecPkcs8Templates.h in Headers */,
+				DCD20F421BCDA8260046D8EB /* kc-30-xara-upgrade-helpers.h in Headers */,
 				4CF36F650581376700834D11 /* SecAccess.h in Headers */,
 				4CF36F680581376700834D11 /* SecACL.h in Headers */,
 				4CF36F6A0581376700834D11 /* SecBase.h in Headers */,
@@ -1007,6 +1020,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DC3C16001BAB76B50041A23A /* kc-30-xara.c in Sources */,
 				AC9ADAD3199AD6BA00BDAF54 /* kc-42-trust-revocation.c in Sources */,
 				0CBD509B16C3246D00713B6C /* kc-41-sececkey.c in Sources */,
 				188BB546171DD8B5009D22CE /* si-33-keychain-backup.c in Sources */,

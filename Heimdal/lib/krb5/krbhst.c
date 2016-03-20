@@ -585,6 +585,9 @@ SRVQueryCallback(DNSServiceRef sdRef,
 	_krb5_debugx(query->context, 10, "SRV callback: dn_expand: %d", status);
 	goto end;
     }
+    
+    /* Trim out any trailing . that the lovingly DNS layer have might have added for us */
+    _krb5_remove_trailing_dot(hostname);
 
     srv_reply = heim_uniq_alloc(sizeof(query->array[query->len][0]), "heim-srv-object", srv_release);
     if (srv_reply == NULL) {
@@ -723,27 +726,30 @@ srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
     DNSServiceFlags dnsFlags =
 	kDNSServiceFlagsTimeout | kDNSServiceFlagsReturnIntermediates;
 
-    if (handle->flags & KD_DELEG_UUID) {
-	error = DNSServiceCreateDelegateConnection(&handle->main_sd, 0, handle->delegate_uuid);
-    } else {
-        error = DNSServiceCreateConnection(&handle->main_sd);
-    }
-    if (error != kDNSServiceErr_NoError) {
-	_krb5_debugx(context, 2,
-		     "Failed setting up search context for domain %s failed: %d",
-		     query->domain, error);
-	return KRB5_KDC_UNREACH;
+    if (handle->main_sd == NULL) {
+
+	if (handle->flags & KD_DELEG_UUID) {
+	    error = DNSServiceCreateDelegateConnection(&handle->main_sd, 0, handle->delegate_uuid);
+	} else {
+	    error = DNSServiceCreateConnection(&handle->main_sd);
+	}
+	if (error != kDNSServiceErr_NoError) {
+	    _krb5_debugx(context, 2,
+			 "Failed setting up search context for domain %s failed: %d",
+			 query->domain, error);
+	    return KRB5_KDC_UNREACH;
+	}
+	
+	error = DNSServiceSetDispatchQueue(handle->main_sd, (dispatch_queue_t)handle->srv_queue);
+	if (error) {
+	    DNSServiceRefDeallocate(handle->main_sd);
+	    _krb5_debugx(context, 2,
+			 "Failed setting run queue for SRV query: %d", error);
+	    return KRB5_KDC_UNREACH;
+	}
     }
 
     dns_service_id = host_get_dns_service_id(context, query->handle->realm, "88", handle, &dnsFlags);
-
-    error = DNSServiceSetDispatchQueue(handle->main_sd, (dispatch_queue_t)handle->srv_queue);
-    if (error) {
-	DNSServiceRefDeallocate(handle->main_sd);
-	_krb5_debugx(context, 2,
-		     "Failed setting run queue for SRV query: %d", error);
-	return KRB5_KDC_UNREACH;
-    }
 
     client = handle->main_sd;
 
@@ -854,6 +860,20 @@ srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
 }
 
 #endif
+
+/**
+ * Squash any trailing .
+ */
+
+void
+_krb5_remove_trailing_dot(char *hostname)
+{
+    size_t len;
+
+    len = strlen(hostname);
+    if (len > 0 && hostname[len - 1] == '.')
+	hostname[len - 1] = '\0';
+}
 
 
 static krb5_boolean

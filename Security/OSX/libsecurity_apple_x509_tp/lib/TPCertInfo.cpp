@@ -2034,8 +2034,9 @@ post_trust_setting:
 				 * from the net; we prevent that from happening when the certs
 				 * are in inCertGroup or gatheredCerts by keeping track of those
 				 * certs' mUsed state.
+				 * Also handle Radar 23734683, endless loop of untrusted roots.
 				 */
-				if(isInGroup(*issuerCert)) {
+				if(isInGroup(*issuerCert) || gatheredCerts->isInGroup(*issuerCert)) {
 					tpDebug("buildCertGroup: Multiple instances of cert");
 					delete issuerCert;
 					issuerCert = NULL;

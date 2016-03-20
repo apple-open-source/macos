@@ -470,10 +470,6 @@ static inline bool SOSCircleIsEmpty(SOSCircleRef circle) {
     return SOSCircleCountPeers(circle) == 0;
 }
 
-static inline bool SOSCircleIsOffering(SOSCircleRef circle) {
-    return SOSCircleCountPeers(circle) == 1;
-}
-
 static inline bool SOSCircleHasDegenerateGeneration(SOSCircleRef deGenCircle){
     int testPtr;
     CFNumberRef genCountTest = SOSCircleGetGeneration(deGenCircle);
@@ -527,6 +523,15 @@ bool SOSCircleSharedTrustedPeers(SOSCircleRef current, SOSCircleRef proposed, SO
     return retval;
 }
 
+static SOSConcordanceStatus GetOfferingStatus(SOSCircleRef circle, SecKeyRef user_pubKey, CFErrorRef *error) {
+    __block SOSConcordanceStatus status = kSOSConcordanceNoPeer;
+    SOSCircleForEachPeer(circle, ^(SOSPeerInfoRef peer) {
+        status = CheckPeerStatus(circle, peer, user_pubKey, error);
+        if(status != kSOSConcordanceTrusted) status = kSOSConcordanceNoPeer;
+    });
+    return status;
+}
+
 
 SOSConcordanceStatus SOSCircleConcordanceTrust(SOSCircleRef known_circle, SOSCircleRef proposed_circle,
                                                SecKeyRef known_pubkey, SecKeyRef user_pubkey,
@@ -571,7 +576,7 @@ SOSConcordanceStatus SOSCircleConcordanceTrust(SOSCircleRef known_circle, SOSCir
     }
     
     if(SOSCircleIsOffering(proposed_circle)){
-        return GetSignersStatus(proposed_circle, proposed_circle, user_pubkey, NULL, error);
+        return GetOfferingStatus(proposed_circle, user_pubkey, error);
     }
 
     return GetSignersStatus(known_circle, proposed_circle, user_pubkey, me, error);

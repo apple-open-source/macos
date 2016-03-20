@@ -255,6 +255,7 @@ cms_attr_choose_attr_value_template(void *src_or_dest, Boolean encoding, const c
 	    theTemplate = SEC_ASN1_GET(kSecAsn1ObjectIDTemplate);
 	    break;
 	case SEC_OID_PKCS9_MESSAGE_DIGEST:
+        case SEC_OID_APPLE_HASH_AGILITY:
 	    encoded = PR_FALSE;
 	    theTemplate = SEC_ASN1_GET(kSecAsn1OctetStringTemplate);
 	    break;

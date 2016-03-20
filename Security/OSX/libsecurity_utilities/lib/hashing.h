@@ -31,6 +31,7 @@
 #include <cstring>
 #include <memory>
 #include <sys/types.h>
+#include <security_utilities/refcount.h>
 #include <CommonCrypto/CommonDigestSPI.h>	// SPI slated to become API
 
 namespace Security {
@@ -52,7 +53,7 @@ public:
 //
 // If you write template code based on "any static hasher", you can directly tap here
 // (and learn the actual hash in use through the match on _HashType). But note that
-// a DynamicHash is not a subclass of Hash, though a DynamicHashInstance will be, duck-like.
+// a DynamicHash is not a subclass of Hash.
 //
 template <uint32_t _size, class _HashType>
 class Hash : public Hashing {
@@ -93,12 +94,14 @@ public:
 // This isn't a subclass of Hash (which is static-fast), but it's duck-typed to it.
 // Note that digestLength is a function here, not a constant. Obviously.
 //
-class DynamicHash : public Hashing {
+class DynamicHash : public RefCount, public Hashing {
 public:
 	virtual ~DynamicHash();
 	
 	virtual size_t digestLength() const = 0;
 	virtual void update(const void *data, size_t length) = 0;
+	template<typename _Dataoid>
+	void update(const _Dataoid &doid) { this->update(doid.data(), doid.length()); }
 	virtual void finish(Byte *digest) = 0;
 	
 	void operator () (const void *data, size_t length)
@@ -106,30 +109,6 @@ public:
 
 	bool verify(const Byte *digest)
 		{ Byte d[this->digestLength()]; this->finish(d); return memcmp(d, digest, this->digestLength()) == 0; }
-};
-
-
-//
-// Make a DynamicHash from a static Hash class.
-//
-template <class _HashType>
-class DynamicHashInstance : public DynamicHash, public _HashType {
-public:
-	// (wish we had C++0x already...)
-	DynamicHashInstance() { }
-	template <class Arg1>
-	DynamicHashInstance(const Arg1 &arg1) : _HashType(arg1) { }
-	template <class Arg1, class Arg2>
-	DynamicHashInstance(const Arg1 &arg1, const Arg2 &arg2) : _HashType(arg1, arg2) { }
-	template <class Arg1, class Arg2, class Arg3>
-	DynamicHashInstance(const Arg1 &arg1, const Arg2 &arg2, const Arg3 &arg3) : _HashType(arg1, arg2, arg3) { }
-
-	size_t digestLength() const
-		{ return _HashType::digestLength; }
-	void update(const void *data, size_t length)
-		{ return _HashType::update(data, length); }
-	void finish(unsigned char *digest)
-		{ return _HashType::finish(digest); }
 };
 
 
@@ -159,9 +138,9 @@ private:
 // object out there by asking nicely (by default, calling its getHash() method).
 //
 template <class _Giver, DynamicHash *(_Giver::*_fetcher)() const = &_Giver::getHash>
-class MakeHash : public std::auto_ptr<DynamicHash> {
+class MakeHash : public RefPointer<DynamicHash> {
 public:
-	MakeHash(const _Giver *giver) : std::auto_ptr<DynamicHash>((giver->*_fetcher)()) { }
+	MakeHash(const _Giver *giver) : RefPointer<DynamicHash>((giver->*_fetcher)()) { }
 	
 	operator DynamicHash *() const { return this->get(); }
 };

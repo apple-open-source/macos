@@ -15,6 +15,7 @@ __BEGIN_DECLS
 
 typedef CF_OPTIONS(uint32_t, SecAppleTrustAnchorFlags) {
     kSecAppleTrustAnchorFlagsIncludeTestAnchors    = 1 << 0,
+    kSecAppleTrustAnchorFlagsAllowNonProduction    = 1 << 1,
 };
 
 /*

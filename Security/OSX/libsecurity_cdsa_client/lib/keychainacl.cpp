@@ -113,21 +113,3 @@ void KeychainAclFactory::release(AclEntryInput *input)
 {
 	DataWalkers::chunkFree(input, allocator);
 }
-
-
-//
-// ACL editing
-//
-void KeychainAclFactory::comment(TypedList &subject)
-{
-	subject.insert(new(allocator) ListElement(CSSM_ACL_SUBJECT_TYPE_COMMENT),
-		subject.first());
-}
-
-void KeychainAclFactory::uncomment(TypedList &subject)
-{
-	ListElement *first = subject.first();
-	assert(*first == CSSM_ACL_SUBJECT_TYPE_COMMENT);
-	subject -= first;
-	destroy(first, allocator);
-}

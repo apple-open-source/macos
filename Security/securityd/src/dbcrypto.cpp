@@ -43,8 +43,9 @@ using LowLevelMemoryUtilities::fieldOffsetOf;
 // The CryptoCore constructor doesn't do anything interesting.
 // It just initializes us to "empty".
 //
-DatabaseCryptoCore::DatabaseCryptoCore() : mHaveMaster(false), mIsValid(false)
+DatabaseCryptoCore::DatabaseCryptoCore() : mBlobVersion(CommonBlob::version_MacOS_10_0), mHaveMaster(false), mIsValid(false)
 {
+    mBlobVersion = CommonBlob::getCurrentVersion();
 }
 
 DatabaseCryptoCore::~DatabaseCryptoCore()
@@ -101,11 +102,14 @@ CssmClient::Key DatabaseCryptoCore::masterKey()
 // If a NULL DbBlob is passed, generate a new (random) salt.
 // Note that the passphrase is NOT remembered; only the master key.
 //
-void DatabaseCryptoCore::setup(const DbBlob *blob, const CssmData &passphrase)
+void DatabaseCryptoCore::setup(const DbBlob *blob, const CssmData &passphrase, bool copyVersion /* = true */)
 {
-	if (blob)
-		memcpy(mSalt, blob->salt, sizeof(mSalt));
-	else
+    if (blob) {
+        if(copyVersion) {
+            mBlobVersion = blob->version();
+        }
+        memcpy(mSalt, blob->salt, sizeof(mSalt));
+    } else
 		Server::active().random(mSalt);
     mMasterKey = deriveDbMasterKey(passphrase);
 	mHaveMaster = true;
@@ -117,7 +121,7 @@ void DatabaseCryptoCore::setup(const DbBlob *blob, const CssmData &passphrase)
 // We will copy the KeyData (caller still owns its copy).
 // Blob/salt handling as above.
 //
-void DatabaseCryptoCore::setup(const DbBlob *blob, CssmClient::Key master)
+void DatabaseCryptoCore::setup(const DbBlob *blob, CssmClient::Key master, bool copyVersion /* = true */)
 {
 	// pre-screen the key
 	CssmKey::Header header = master.header();
@@ -127,9 +131,12 @@ void DatabaseCryptoCore::setup(const DbBlob *blob, CssmClient::Key master)
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
 	
 	// accept it
-	if (blob)
-		memcpy(mSalt, blob->salt, sizeof(mSalt));
-	else
+    if (blob) {
+        if(copyVersion) {
+            mBlobVersion = blob->version();
+        }
+        memcpy(mSalt, blob->salt, sizeof(mSalt));
+    } else
 		Server::active().random(mSalt);
 	mMasterKey = master;
 	mHaveMaster = true;
@@ -214,7 +221,7 @@ DbBlob *DatabaseCryptoCore::encodeCore(const DbBlob &blobTemplate,
     
     // assemble the DbBlob
     memset(blob, 0x7d, sizeof(DbBlob));	// deterministically fill any alignment gaps
-    blob->initialize();
+    blob->initialize(mBlobVersion);
     blob->randomSignature = blobTemplate.randomSignature;
     blob->sequence = blobTemplate.sequence;
     blob->params = blobTemplate.params;
@@ -231,7 +238,13 @@ DbBlob *DatabaseCryptoCore::encodeCore(const DbBlob &blobTemplate,
 		CssmData(blob->publicAclBlob(), publicAcl.length() + cryptoBlob.length())
 	};
     CssmData signature(blob->blobSignature, sizeof(blob->blobSignature));
-    GenerateMac signer(Server::csp(), CSSM_ALGID_SHA1HMAC_LEGACY);
+
+    CSSM_ALGORITHMS signingAlgorithm = CSSM_ALGID_SHA1HMAC;
+#if defined(COMPAT_OSX_10_0)
+    if (blob->version() == blob->version_MacOS_10_0)
+        signingAlgorithm = CSSM_ALGID_SHA1HMAC_LEGACY;	// BSafe bug compatibility
+#endif
+    GenerateMac signer(Server::csp(), signingAlgorithm);
     signer.key(mSigningKey);
     signer.sign(signChunk, 2, signature);
     assert(signature.length() == sizeof(blob->blobSignature));
@@ -293,6 +306,7 @@ void DatabaseCryptoCore::decodeCore(const DbBlob *blob, void **privateAclBlob)
     }
         
     // secrets have been established
+    mBlobVersion = blob->version();
     mIsValid = true;
     Allocator::standard().free(privateBlob);
 }
@@ -308,6 +322,7 @@ void DatabaseCryptoCore::importSecrets(const DatabaseCryptoCore &src)
 	assert(hasMaster());
 	mEncryptionKey = src.mEncryptionKey;
 	mSigningKey = src.mSigningKey;
+    mBlobVersion = src.mBlobVersion;    // make sure we copy over all state
     mIsValid = true;
 }
 
@@ -364,7 +379,7 @@ KeyBlob *DatabaseCryptoCore::encodeKeyCore(const CssmKey &inKey,
     
     // assemble the KeyBlob
     memset(blob, 0, sizeof(KeyBlob));	// fill alignment gaps
-    blob->initialize();
+    blob->initialize(mBlobVersion);
 	if(!inTheClear) {
 		memcpy(blob->iv, iv, sizeof(iv));
 	}
@@ -390,7 +405,13 @@ KeyBlob *DatabaseCryptoCore::encodeKeyCore(const CssmKey &inKey,
 			CssmData(blob->publicAclBlob(), blob->publicAclBlobLength() + blob->cryptoBlobLength())
 		};
 		CssmData signature(blob->blobSignature, sizeof(blob->blobSignature));
-		GenerateMac signer(Server::csp(), CSSM_ALGID_SHA1HMAC_LEGACY);	//@@@!!! CRUD
+
+        CSSM_ALGORITHMS signingAlgorithm = CSSM_ALGID_SHA1HMAC;
+#if defined(COMPAT_OSX_10_0)
+        if (blob->version() == blob->version_MacOS_10_0)
+            signingAlgorithm = CSSM_ALGID_SHA1HMAC_LEGACY;	// BSafe bug compatibility
+#endif
+        GenerateMac signer(Server::csp(), signingAlgorithm);
 		signer.key(mSigningKey);
 		signer.sign(signChunk, 2, signature);
 		assert(signature.length() == sizeof(blob->blobSignature));
@@ -408,6 +429,8 @@ KeyBlob *DatabaseCryptoCore::encodeKeyCore(const CssmKey &inKey,
 void DatabaseCryptoCore::decodeKeyCore(KeyBlob *blob,
     CssmKey &key, void * &pubAcl, void * &privAcl) const
 {    
+    // Note that we can't do anything with this key's version().
+
     // Assemble the encrypted blob as a CSSM "wrapped key"
     CssmKey wrappedKey;
     wrappedKey.KeyHeader = blob->header;

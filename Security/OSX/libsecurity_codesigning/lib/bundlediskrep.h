@@ -61,6 +61,7 @@ public:
 	std::string resourcesRelativePath();
 	void adjustResources(ResourceBuilder &builder);
 	Universal *mainExecutableImage();
+	void prepareForSigning(SigningContext &context);
 	size_t signingBase();
 	size_t signingLimit();
 	std::string format();
@@ -73,7 +74,7 @@ public:
 	const Requirements *defaultRequirements(const Architecture *arch, const SigningContext &ctx);
 	size_t pageSize(const SigningContext &ctx);
 
-	void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated);
+	void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags);
 	CFArrayRef allowedResourceOmissions();
 
 	CFBundleRef bundle() const { return mBundle; }
@@ -102,6 +103,7 @@ private:
 	bool mMetaExists;						// separate meta-file directory exists
 	CFRef<CFURLRef> mMainExecutableURL;		// chosen main executable URL
 	bool mInstallerPackage;					// is an installer (not executable) bundle
+	bool mAppLike;							// is some form of app
 	string mFormat;							// format description string
 	RefPointer<DiskRep> mExecRep;			// DiskRep for main executable file
 	std::set<OSStatus> mStrictErrors;		// strict validation errors encountered

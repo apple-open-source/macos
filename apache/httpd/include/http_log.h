@@ -634,7 +634,7 @@ AP_DECLARE(void) ap_log_rdata(const char *file, int line, int module_index,
 #ifdef AP_HAVE_C99
 /* need additional step to expand APLOG_MARK first */
 #define ap_log_rdata(...) ap_log_rdata__(__VA_ARGS__)
-#define ap_log_rdata__(file, line, mi, level, s, ...)           \
+#define ap_log_rdata__(file, line, mi, level, r, ...)           \
     do { if (APLOG_R_MODULE_IS_LEVEL(r, mi, level)) \
              ap_log_rdata_(file, line, mi, level, r, __VA_ARGS__);    \
     } while(0)
@@ -739,6 +739,13 @@ AP_DECLARE(void) ap_error_log2stderr(server_rec *s);
  * The command line is logged to that server's error log.
  */
 AP_DECLARE(void) ap_log_command_line(apr_pool_t *p, server_rec *s);
+
+/**
+ * Log common (various) MPM shared data at startup.
+ * @param s The server_rec of the error log we want to log to.
+ * Misc commonly logged data is logged to that server's error log.
+ */
+AP_DECLARE(void) ap_log_mpm_common(server_rec *s);
 
 /**
  * Log the current pid of the parent process

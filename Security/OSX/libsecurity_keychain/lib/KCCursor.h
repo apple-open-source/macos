@@ -50,15 +50,38 @@ public:
 	virtual ~KCCursorImpl() throw();
 	bool next(Item &item);
     bool mayDelete();
-    
+
+    // Occasionally, you might end up with a keychain where finding a record
+    // might return CSSMERR_DL_RECORD_NOT_FOUND. This is usually due to having a
+    // existing SSGroup element whose matching SSGroup key has been deleted.
+    //
+    // You might also have invalid ACLs or records with bad MACs.
+    //
+    // If you set this to true, this KCCursor will silently suppress errors when
+    // creating items, and try to delete these corrupt records.
+    void setDeleteInvalidRecords(bool deleteRecord);
+
 private:
 	StorageManager::KeychainList mSearchList;
 	StorageManager::KeychainList::iterator mCurrent;
 	CssmClient::DbCursor mDbCursor;
 	bool mAllFailed;
+    bool mDeleteInvalidRecords;
 
 protected:
 	Mutex mMutex;
+    StReadWriteLock* mKeychainReadLock;
+
+    // Call this every time we switch to a new keychain
+    // Will:
+    //  1. handle the read locks on the new keychain and the old one
+    //  2. Try to upgrade the new keychain if needed and possible
+    // Handles the end iterator.
+    void newKeychain(StorageManager::KeychainList::iterator kcIter);
+
+    // Try to delete a record. Silently swallow any RECORD_NOT_FOUND exceptions,
+    // but throw others upward.
+    void deleteInvalidRecord(DbUniqueRecord& uniqueId);
 };
 
 

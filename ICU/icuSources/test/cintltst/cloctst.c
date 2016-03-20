@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2015, International Business Machines Corporation and
+ * Copyright (c) 1997-2016, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*****************************************************************************
@@ -6106,12 +6106,28 @@ static const char* localesAndAppleParent[] = {
     "en-CA",            "en_001",
     "en-001",           "en",
     "en_001",           "en",
+    "en-150",           "en_GB",
     "en-GB",            "en_001",
     "en_GB",            "en_001",
     "en-AU",            "en_GB",
+    "en-BE",            "en_150",
+    "en-DG",            "en_GB",
+    "en-FK",            "en_GB",
+    "en-GG",            "en_GB",
+    "en-GI",            "en_GB",
     "en-HK",            "en_GB",
+    "en-IE",            "en_GB",
+    "en-IM",            "en_GB",
     "en-IN",            "en_GB",
+    "en-IO",            "en_GB",
+    "en-JE",            "en_GB",
+    "en-MO",            "en_GB",
+    "en-MT",            "en_GB",
+    "en-NZ",            "en_GB",
     "en-PK",            "en_GB",
+    "en-SG",            "en_GB",
+    "en-SH",            "en_GB",
+    "en-VG",            "en_GB",
     "es",               "root",
     "es-ES",            "es",
     "es-419",           "es",
@@ -6470,6 +6486,7 @@ static const char* l1_ms[]          = { "ms", NULL };
 static const char* l1_nb[]          = { "nb", NULL };
 static const char* l1_no[]          = { "no", NULL };
 static const char* l1_Nor[]         = { "Norwegian", NULL };
+static const char* l2_no_NO_[]      = { "no_NO", "no", NULL };
 static const char* l1_nl[]          = { "nl", NULL };
 static const char* l1_Dut[]         = { "Dutch", NULL };
 static const char* l2_nl_BE_[]      = { "nl_BE", "nl", NULL };
@@ -6536,6 +6553,16 @@ static const LangAndExpLocs appleLangAndLoc[] = {
     { "en-US",              { l1_Eng,         l1_en,          l1_en,          l2_en_US_,      l1_en,          l1_en          } },
     { "en_US",              { l1_Eng,         l1_en,          l1_en,          l2_en_US_,      l1_en,          l1_en          } },
     { "en-FR",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l4_en_150GB001_ } },
+    { "en-BE",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l4_en_150GB001_ } },
+    { "en-GG",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
+    { "en-HK",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
+    { "en-IE",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
+    { "en-MO",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
+    { "en-MT",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
+    { "en-NZ",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
+    { "en-PK",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
+    { "en-SG",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
+    { "en-VG",              { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l3_en_GB001_   } },
     { "en-IL",              { l1_Eng,         l1_en,          l1_en,          l1_en,          l2_en_001_,     l2_en_001_     } },
     { "en-001",             { l1_Eng,         l1_en,          l1_en,          l1_en,          l2_en_001_,     l2_en_001_     } },
     { "en-150",             { l1_Eng,         l2_en_GB_,      l2_en_GB_,      l2_en_GB_,      l3_en_GB001_,   l4_en_150GB001_ } },
@@ -6616,12 +6643,12 @@ enum { kNumAppleLangAndLoc = UPRV_LENGTHOF(appleLangAndLoc) };
 
 /* tests from <rdar://problem/21518031> */
 
-static const char * appleLocsA1[] = { "en", "fr", "de", "zh-Hant" };
-static const char * appleLocsA2[] = { "en", "fr", "de", "zh_TW", "zh_CN", "zh-Hant" };
+static const char * appleLocsA1[] = { "en", "fr", "no", "zh-Hant" };
+static const char * appleLocsA2[] = { "en", "fr", "nb", "zh_TW", "zh_CN", "zh-Hant" };
 static const char * appleLocsA3[] = { "en", "en_IN", "en_GB", "fr", "de", "zh_TW" };
 static const char * appleLocsA4[] = { "Spanish", "es_MX", "English", "en_GB" };
 static const char * appleLocsA5[] = { "en", "fr", "de", "pt", "pt_PT" };
-static const char * appleLocsA6[] = { "en", "pt_PT" };
+static const char * appleLocsA6[] = { "en", "no", "no_NO", "pt_PT" };
 
 static const AppleLocsAndCount locAndCountEntriesA[kNumLocSets] = {
     { appleLocsA1, UPRV_LENGTHOF(appleLocsA1) },
@@ -6641,6 +6668,10 @@ static const LangAndExpLocs appleLangAndLocA[] = {
     { "es_MX",              { NULL,           NULL,               NULL,           l2_es_MX_Spa,   NULL,           NULL        } },
     { "pt_PT",              { NULL,           NULL,               NULL,           NULL,           l2_pt_PT_,      l1_pt_PT    } },
     { "pt",                 { NULL,           NULL,               NULL,           NULL,           l1_pt,          l1_pt_PT    } },
+    { "no",                 { l1_no,          l1_nb,              NULL,           NULL,           NULL,           l1_no       } },
+    { "no_NO",              { l1_no,          l1_nb,              NULL,           NULL,           NULL,           l2_no_NO_   } },
+    { "nb",                 { l1_no,          l1_nb,              NULL,           NULL,           NULL,           l1_no       } },
+    { "nb_NO",              { l1_no,          l1_nb,              NULL,           NULL,           NULL,           l2_no_NO_   } },
 };
 enum { kNumAppleLangAndLocA = UPRV_LENGTHOF(appleLangAndLocA) };
 

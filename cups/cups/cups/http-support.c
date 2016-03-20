@@ -1,5 +1,5 @@
 /*
- * "$Id: http-support.c 12753 2015-06-24 19:32:21Z msweet $"
+ * "$Id: http-support.c 12992 2015-11-19 15:19:00Z msweet $"
  *
  * HTTP support routines for CUPS.
  *
@@ -1232,6 +1232,12 @@ httpSeparateURI(
       }
 
       *port = (int)strtol(uri + 1, (char **)&uri, 10);
+
+      if (*port <= 0 || *port > 65535)
+      {
+        *port = 0;
+        return (HTTP_URI_STATUS_BAD_PORT);
+      }
 
       if (*uri != '/' && *uri)
       {
@@ -2544,5 +2550,5 @@ http_resolve_cb(
 
 
 /*
- * End of "$Id: http-support.c 12753 2015-06-24 19:32:21Z msweet $".
+ * End of "$Id: http-support.c 12992 2015-11-19 15:19:00Z msweet $".
  */

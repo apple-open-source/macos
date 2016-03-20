@@ -2207,7 +2207,7 @@ static void show_power_sources(int which)
     CFIndex             count;
     int                 i;
     int                 show_time_estimate;
-    CFNumberRef         remaining, charge, capacity;
+    CFNumberRef         remaining, charge, capacity, id;
     CFBooleanRef        charging;
     CFBooleanRef        charged;
     CFBooleanRef        finishingCharge;
@@ -2233,6 +2233,7 @@ static void show_power_sources(int which)
     CFArrayRef          permFailuresArray = NULL;
     CFStringRef         pfString = NULL;
     int                 rawExternalConnected = -1;
+    int                 _id = 0;
     
     if (which & kApplyToAccessories) {
         ps_info = IOPSCopyPowerSourcesByType(kIOPSSourceAll);
@@ -2360,6 +2361,7 @@ static void show_power_sources(int which)
         failure = CFDictionaryGetValue(one_ps, CFSTR("Failure"));
         charged = CFDictionaryGetValue(one_ps, CFSTR(kIOPSIsChargedKey));
         finishingCharge = CFDictionaryGetValue(one_ps, CFSTR(kIOPSIsFinishingChargeKey));
+        id = CFDictionaryGetValue(one_ps, CFSTR(kIOPSPowerSourceIDKey));
 #if TARGET_OS_EMBEDDED
         CFBooleanRef        value = NULL;
         rawExternalConnected = -1;
@@ -2391,13 +2393,16 @@ static void show_power_sources(int which)
         if(charging) _charging = (kCFBooleanTrue == charging);
         if (charged) _charged = (kCFBooleanTrue == charged);
         if (finishingCharge) _finishingCharge = (kCFBooleanTrue == finishingCharge);
+        if (id) CFNumberGetValue(id, kCFNumberIntType, &_id);
 
         _warningLevel = IOPSGetBatteryWarningLevel();
         
         show_time_estimate = 1;
         
         printf(" -");
-        if(name) printf("%s\t", _name);
+        if(name) printf("%s ", _name);
+        if(id) printf("(id=%d)", _id);
+        printf("\t");
         if(charge && _FCCap) printf("%d%%; ", _charge*100/_FCCap);
         if(charging) {
             if (_finishingCharge) {

@@ -52,6 +52,7 @@
 #include <security_keychain/SecCFTypes.h>
 #include "TrustSettingsSchema.h"
 #include <security_cdsa_client/wrapkey.h>
+#include <securityd_client/ssblob.h>
 
 //%%% add this to AuthorizationTagsPriv.h later
 #ifndef AGENT_HINT_LOGIN_KC_SUPPRESS_RESET_PANEL
@@ -156,14 +157,7 @@ StorageManager::keychain(const DLDbIdentifier &dLDbIdentifier)
     KeychainMap::iterator it = mKeychains.find(dLDbIdentifier);
     if (it != mKeychains.end())
 	{
-		if (it->second == NULL) // cleared by weak reference?
-		{
-			mKeychains.erase(it);
-		}
-		else
-		{
-			return it->second;
-		}
+        return it->second;
 	}
 
 	if (gServerMode) {
@@ -171,17 +165,8 @@ StorageManager::keychain(const DLDbIdentifier &dLDbIdentifier)
 		return Keychain();
 	}
 
-	// The keychain is not in our cache.  Create it.
-	Module module(dLDbIdentifier.ssuid().guid());
-	DL dl;
-	if (dLDbIdentifier.ssuid().subserviceType() & CSSM_SERVICE_CSP)
-		dl = SSCSPDL(module);
-	else
-		dl = DL(module);
-
-	dl->subserviceId(dLDbIdentifier.ssuid().subserviceId());
-	dl->version(dLDbIdentifier.ssuid().version());
-	Db db(dl, dLDbIdentifier.dbName());
+    // The keychain is not in our cache.  Create it.
+    Db db(makeDb(dLDbIdentifier));
 
 	Keychain keychain(db);
 	// Add the keychain to the cache.
@@ -189,6 +174,43 @@ StorageManager::keychain(const DLDbIdentifier &dLDbIdentifier)
 	keychain->inCache(true);
 
 	return keychain;
+}
+
+CssmClient::Db
+StorageManager::makeDb(DLDbIdentifier dLDbIdentifier) {
+    Module module(dLDbIdentifier.ssuid().guid());
+
+    DL dl;
+    if (dLDbIdentifier.ssuid().subserviceType() & CSSM_SERVICE_CSP)
+        dl = SSCSPDL(module);
+    else
+        dl = DL(module);
+
+    dl->subserviceId(dLDbIdentifier.ssuid().subserviceId());
+    dl->version(dLDbIdentifier.ssuid().version());
+
+    CssmClient::Db db(dl, dLDbIdentifier.dbName());
+
+    return db;
+}
+
+void
+StorageManager::reloadKeychain(Keychain keychain) {
+    StLock<Mutex>_(mKeychainMapMutex);
+
+    DLDbIdentifier dLDbIdentifier = keychain->database()->dlDbIdentifier();
+
+    // Since we're going to reload this database and switch over the keychain's
+    // mDb, grab its mDb mutex
+    {
+        StLock<Mutex>__(keychain->mDbMutex);
+
+        CssmClient::Db db(makeDb(dLDbIdentifier));
+        keychain->mDb = db;
+    }
+
+    // Since this new database is based on the exact same dLDbIdentifier, we
+    // don't need to update the mKeychains map.
 }
 
 void
@@ -216,12 +238,6 @@ StorageManager::didRemoveKeychain(const DLDbIdentifier &dLDbIdentifier)
 	KeychainMap::iterator it = mKeychains.find(dLDbIdentifier);
 	if (it != mKeychains.end())
 	{
-		if (it->second != NULL) // did we get zapped by weak reference destruction
-		{
-			KeychainImpl *keychainImpl = it->second;
-			keychainImpl->inCache(false);
-		}
-
 		mKeychains.erase(it);
 	}
 }
@@ -1538,6 +1554,10 @@ Keychain StorageManager::make(const char *pathName)
 
 Keychain StorageManager::make(const char *pathName, bool add)
 {
+    return makeKeychain(makeDLDbIdentifier(pathName), add);
+}
+
+DLDbIdentifier StorageManager::makeDLDbIdentifier(const char *pathName) {
 	StLock<Mutex>_(mMutex);
 
 	string fullPathName;
@@ -1582,8 +1602,8 @@ Keychain StorageManager::make(const char *pathName, bool add)
     CSSM_SERVICE_TYPE subserviceType = CSSM_SERVICE_DL | CSSM_SERVICE_CSP;
     const CssmSubserviceUid ssuid(gGuidAppleCSPDL, version,
                                    subserviceId, subserviceType);
-	DLDbIdentifier dLDbIdentifier(ssuid, fullPathName.c_str(), DbLocation);
-	return makeKeychain(dLDbIdentifier, add);
+    DLDbIdentifier dlDbIdentifier(ssuid, fullPathName.c_str(), DbLocation);
+    return dlDbIdentifier;
 }
 
 Keychain StorageManager::makeLoginAuthUI(const Item *item)

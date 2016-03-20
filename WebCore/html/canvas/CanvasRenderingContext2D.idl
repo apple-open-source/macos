@@ -23,6 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+enum ImageSmoothingQuality { "low", "medium", "high" };
 enum CanvasWindingRule { "nonzero", "evenodd" };
 
 interface CanvasRenderingContext2D : CanvasRenderingContext {
@@ -186,6 +187,8 @@ interface CanvasRenderingContext2D : CanvasRenderingContext {
 
     readonly attribute float webkitBackingStorePixelRatio;
 
-    attribute boolean webkitImageSmoothingEnabled;
+    attribute boolean imageSmoothingEnabled;
+    [ImplementedAs=imageSmoothingEnabled] attribute boolean webkitImageSmoothingEnabled;
+    attribute ImageSmoothingQuality imageSmoothingQuality;
 };
 

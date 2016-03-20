@@ -348,6 +348,14 @@ bool InspectorStyle::getText(String* result) const
     return true;
 }
 
+static String lowercasePropertyName(const String& name)
+{
+    // Custom properties are case-sensitive.
+    if (name.length() > 2 && name.characterAt(0) == '-' && name.characterAt(1) == '-')
+        return name;
+    return name.lower();
+}
+
 bool InspectorStyle::populateAllProperties(Vector<InspectorStyleProperty>* result) const
 {
     HashSet<String> sourcePropertyNames;
@@ -362,16 +370,16 @@ bool InspectorStyle::populateAllProperties(Vector<InspectorStyleProperty>* resul
             InspectorStyleProperty p(*it, true, false);
             p.setRawTextFromStyleDeclaration(styleDeclaration);
             result->append(p);
-            sourcePropertyNames.add(it->name.lower());
+            sourcePropertyNames.add(lowercasePropertyName(it->name));
         }
     }
 
     for (int i = 0, size = m_style->length(); i < size; ++i) {
         String name = m_style->item(i);
-        if (sourcePropertyNames.contains(name.lower()))
+        String lowerName = lowercasePropertyName(name);
+        if (sourcePropertyNames.contains(lowerName))
             continue;
-
-        sourcePropertyNames.add(name.lower());
+        sourcePropertyNames.add(lowerName);
         result->append(InspectorStyleProperty(CSSPropertySourceData(name, m_style->getPropertyValue(name), !m_style->getPropertyPriority(name).isEmpty(), true, SourceRange()), false, false));
     }
 
@@ -637,15 +645,30 @@ String InspectorStyleSheet::ruleSelector(const InspectorCSSId& id, ExceptionCode
     return rule->selectorText();
 }
 
+static bool isValidSelectorListString(const String& selector, Document* document)
+{
+    CSSSelectorList selectorList;
+    createCSSParser(document)->parseSelector(selector, selectorList);
+    return selectorList.isValid();
+}
+
 bool InspectorStyleSheet::setRuleSelector(const InspectorCSSId& id, const String& selector, ExceptionCode& ec)
 {
     if (!checkPageStyleSheet(ec))
         return false;
+
+    // If the selector is invalid, do not proceed any further.
+    if (!isValidSelectorListString(selector, m_pageStyleSheet->ownerDocument())) {
+        ec = SYNTAX_ERR;
+        return false;
+    }
+
     CSSStyleRule* rule = ruleForId(id);
     if (!rule) {
         ec = NOT_FOUND_ERR;
         return false;
     }
+
     CSSStyleSheet* styleSheet = rule->parentStyleSheet();
     if (!styleSheet || !ensureParsedDataReady()) {
         ec = NOT_FOUND_ERR;
@@ -671,18 +694,11 @@ bool InspectorStyleSheet::setRuleSelector(const InspectorCSSId& id, const String
     return true;
 }
 
-static bool checkStyleRuleSelector(Document* document, const String& selector)
-{
-    CSSSelectorList selectorList;
-    createCSSParser(document)->parseSelector(selector, selectorList);
-    return selectorList.isValid();
-}
-
 CSSStyleRule* InspectorStyleSheet::addRule(const String& selector, ExceptionCode& ec)
 {
     if (!checkPageStyleSheet(ec))
         return nullptr;
-    if (!checkStyleRuleSelector(m_pageStyleSheet->ownerDocument(), selector)) {
+    if (!isValidSelectorListString(selector, m_pageStyleSheet->ownerDocument())) {
         ec = SYNTAX_ERR;
         return nullptr;
     }
@@ -718,7 +734,7 @@ CSSStyleRule* InspectorStyleSheet::addRule(const String& selector, ExceptionCode
 
     styleSheetText.append(selector);
     styleSheetText.appendLiteral(" {}");
-    // Using setText() as this operation changes the style sheet rule set.
+    // Using setText() as this operation changes the stylesheet rule set.
     setText(styleSheetText.toString(), ASSERT_NO_EXCEPTION);
 
     fireStyleSheetChanged();
@@ -806,6 +822,9 @@ RefPtr<Inspector::Protocol::CSS::CSSStyleSheetHeader> InspectorStyleSheet::build
         .setSourceURL(finalURL())
         .setTitle(styleSheet->title())
         .setFrameId(m_pageAgent->frameId(frame))
+        .setIsInline(styleSheet->isInline() && styleSheet->startPosition() != TextPosition::minimumPosition())
+        .setStartLine(styleSheet->startPosition().m_line.zeroBasedInt())
+        .setStartColumn(styleSheet->startPosition().m_column.zeroBasedInt())
         .release();
 }
 
@@ -1284,7 +1303,7 @@ bool InspectorStyleSheetForInlineStyle::setStyleText(CSSStyleDeclaration* style,
     ASSERT_UNUSED(style, style == inlineStyle());
 
     {
-        InspectorCSSAgent::InlineStyleOverrideScope overrideScope(&m_element->document());
+        InspectorCSSAgent::InlineStyleOverrideScope overrideScope(m_element->document());
         m_element->setAttribute("style", text, ec);
     }
 

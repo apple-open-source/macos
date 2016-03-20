@@ -633,12 +633,15 @@ typedef struct _CipherSuiteName {
 
 static const CipherSuiteName ciphers[] = {
   //CIPHER(SSL_NULL_WITH_NULL_NULL), unsupported
+
+
 #if 1
   /* RSA cipher suites */
   CIPHER(SSL_RSA_WITH_NULL_MD5),
   CIPHER(SSL_RSA_WITH_NULL_SHA),
   CIPHER(TLS_RSA_WITH_NULL_SHA256),
 #endif
+
 
 #if 1
   CIPHER(SSL_RSA_WITH_RC4_128_MD5),
@@ -649,6 +652,8 @@ static const CipherSuiteName ciphers[] = {
   CIPHER(TLS_RSA_WITH_AES_256_CBC_SHA),
   CIPHER(TLS_RSA_WITH_AES_256_CBC_SHA256),
 #endif
+
+#if 1
 
 #if 1
   /* DHE_RSA ciphers suites */
@@ -739,15 +744,19 @@ static const CipherSuiteName ciphers[] = {
   CIPHER(TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256),
   CIPHER(TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384),
 #endif
-
+#endif
 
 };
 static int nciphers = sizeof(ciphers)/sizeof(ciphers[0]);
 
 
-tls_protocol_version protos[] = {tls_protocol_version_SSL_3, tls_protocol_version_TLS_1_0, tls_protocol_version_TLS_1_1, tls_protocol_version_TLS_1_2};
+tls_protocol_version protos[] = {
+    tls_protocol_version_SSL_3,
+    tls_protocol_version_TLS_1_0,
+    tls_protocol_version_TLS_1_1,
+    tls_protocol_version_TLS_1_2
+};
 int nprotos = sizeof(protos)/sizeof(protos[0]);
-
 
 
 static bool ciphersuite_in_array(uint16_t ciphersuite, uint16_t *array, int n)
@@ -893,7 +902,7 @@ uint16_t openssl_supported_ciphers[] =
     TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
 };
 
-static bool openssl_rsa_rsa_is_cipher_supported(uint16_t ciphersuite)
+static __unused bool openssl_rsa_rsa_is_cipher_supported(uint16_t ciphersuite)
 {
     int kem = sslCipherSuiteGetKeyExchangeMethod(ciphersuite);
     if( (kem == SSL_ECDH_RSA) || (kem == SSL_ECDHE_ECDSA) || (kem == SSL_ECDH_ECDSA))
@@ -902,7 +911,7 @@ static bool openssl_rsa_rsa_is_cipher_supported(uint16_t ciphersuite)
     return CIPHERSUITE_IN_ARRAY(ciphersuite, openssl_supported_ciphers);
 }
 
-static bool openssl_rsa_ecc_is_cipher_supported(uint16_t ciphersuite)
+static __unused bool openssl_rsa_ecc_is_cipher_supported(uint16_t ciphersuite)
 {
     int kem = sslCipherSuiteGetKeyExchangeMethod(ciphersuite);
     if( (kem == SSL_ECDH_RSA) || (kem == SSL_ECDHE_ECDSA) || (kem == SSL_ECDH_ECDSA))
@@ -911,7 +920,7 @@ static bool openssl_rsa_ecc_is_cipher_supported(uint16_t ciphersuite)
     return CIPHERSUITE_IN_ARRAY(ciphersuite, openssl_supported_ciphers);
 }
 
-static bool openssl_ecc_rsa_is_cipher_supported(uint16_t ciphersuite)
+static __unused bool openssl_ecc_rsa_is_cipher_supported(uint16_t ciphersuite)
 {
     int kem = sslCipherSuiteGetKeyExchangeMethod(ciphersuite);
     if( (kem == SSL_RSA) || (kem == SSL_DHE_RSA) || (kem == SSL_ECDHE_RSA))
@@ -924,7 +933,7 @@ static bool openssl_ecc_rsa_is_cipher_supported(uint16_t ciphersuite)
 }
 
 
-static bool openssl_ecc_ecc_is_cipher_supported(uint16_t ciphersuite)
+static __unused bool openssl_ecc_ecc_is_cipher_supported(uint16_t ciphersuite)
 {
     int kem = sslCipherSuiteGetKeyExchangeMethod(ciphersuite);
     if( (kem == SSL_RSA) || (kem == SSL_DHE_RSA) || (kem == SSL_ECDHE_RSA))
@@ -992,7 +1001,7 @@ uint16_t gnutls_supported_ciphers[] = {
 
 };
 
-static bool gnutls_rsa_rsa_is_cipher_supported(uint16_t ciphersuite)
+static __unused bool gnutls_rsa_rsa_is_cipher_supported(uint16_t ciphersuite)
 {
     int kem = sslCipherSuiteGetKeyExchangeMethod(ciphersuite);
     if( (kem == SSL_ECDH_RSA) || (kem == SSL_ECDHE_ECDSA) || (kem == SSL_ECDH_ECDSA))
@@ -1001,7 +1010,7 @@ static bool gnutls_rsa_rsa_is_cipher_supported(uint16_t ciphersuite)
     return CIPHERSUITE_IN_ARRAY(ciphersuite, gnutls_supported_ciphers);
 }
 
-static bool gnutls_rsa_ecc_is_cipher_supported(uint16_t ciphersuite)
+static __unused bool gnutls_rsa_ecc_is_cipher_supported(uint16_t ciphersuite)
 {
     int kem = sslCipherSuiteGetKeyExchangeMethod(ciphersuite);
     if( (kem == SSL_ECDH_RSA) || (kem == SSL_ECDHE_ECDSA) || (kem == SSL_ECDH_ECDSA))
@@ -1010,7 +1019,7 @@ static bool gnutls_rsa_ecc_is_cipher_supported(uint16_t ciphersuite)
     return CIPHERSUITE_IN_ARRAY(ciphersuite, gnutls_supported_ciphers);
 }
 
-static bool gnutls_ecc_rsa_is_cipher_supported(uint16_t ciphersuite)
+static __unused bool gnutls_ecc_rsa_is_cipher_supported(uint16_t ciphersuite)
 {
     int kem = sslCipherSuiteGetKeyExchangeMethod(ciphersuite);
     if( (kem == SSL_RSA) || (kem == SSL_DHE_RSA) || (kem == SSL_ECDHE_RSA))
@@ -1020,7 +1029,7 @@ static bool gnutls_ecc_rsa_is_cipher_supported(uint16_t ciphersuite)
 }
 
 
-static bool gnutls_ecc_ecc_is_cipher_supported(uint16_t ciphersuite)
+static bool __unused gnutls_ecc_ecc_is_cipher_supported(uint16_t ciphersuite)
 {
     int kem = sslCipherSuiteGetKeyExchangeMethod(ciphersuite);
     if( (kem == SSL_RSA) || (kem == SSL_DHE_RSA) || (kem == SSL_ECDHE_RSA))
@@ -1035,7 +1044,7 @@ static bool client_auth_never(tls_protocol_version v)
     return false;
 }
 
-static bool client_auth_always(tls_protocol_version v)
+static bool __unused client_auth_always(tls_protocol_version v)
 {
     return true;
 }
@@ -1050,7 +1059,7 @@ static bool client_auth_ssl3_only(tls_protocol_version v)
 
 /* For gnutls servers with EC certs, they will only support DH_anon ciphersuites in SSL 3
    OpenSSL server will happily use EC ciphersuites with SSL 3 */
-static bool client_auth_unless_ssl3(tls_protocol_version v)
+static bool __unused client_auth_unless_ssl3(tls_protocol_version v)
 {
     return v!=tls_protocol_version_SSL_3;
 }
@@ -1064,7 +1073,7 @@ static bool default_supported_always(tls_protocol_version v)
 
 /* For gnutls servers with EC certs, they will only support DH_anon ciphersuites in SSL 3
  OpenSSL server will happily use EC ciphersuites with SSL 3 */
-static bool default_supported_unless_ssl3(tls_protocol_version v)
+static bool __unused default_supported_unless_ssl3(tls_protocol_version v)
 {
     return v!=tls_protocol_version_SSL_3;
 }
@@ -1072,10 +1081,10 @@ static bool default_supported_unless_ssl3(tls_protocol_version v)
 
 //#define OPENSSL_SERVER "ariadne.apple.com"
 //#define GNUTLS_SERVER "ariadne.apple.com"
-//#define OPENSSL_SERVER "kuip.apple.com"
-//#define GNUTLS_SERVER "kuip.apple.com"
-#define OPENSSL_SERVER "localhost"
-#define GNUTLS_SERVER "localhost"
+#define OPENSSL_SERVER "kuip.apple.com"
+#define GNUTLS_SERVER "kuip.apple.com"
+//#define OPENSSL_SERVER "localhost"
+//#define GNUTLS_SERVER "localhost"
 
 
 static struct test_server {
@@ -1093,8 +1102,8 @@ static struct test_server {
     { GNUTLS_SERVER, 5002, &client_auth_never, &gnutls_rsa_ecc_is_cipher_supported, &default_supported_always}, // gnutls-serv w/o client side auth, rsa/ecc,
     { GNUTLS_SERVER, 5003, &client_auth_never, &gnutls_ecc_rsa_is_cipher_supported, &default_supported_unless_ssl3}, // gnutls-serv w/o client side auth, ecc/rsa,
     { GNUTLS_SERVER, 5004, &client_auth_never, &gnutls_ecc_ecc_is_cipher_supported, &default_supported_unless_ssl3}, // gnutls-serv w/o client side auth, ecc/ecc
-    { "www.mikestoolbox.org", 443, &client_auth_ssl3_only, &mikes_is_cipher_supported, &default_supported_always}, // mike's  w/o client side auth
-//  { "tls.secg.org", 443, &client_auth_never, &secg_is_cipher_supported, &default_supported_always}, // secg ecc server w/o client side auth - This server generate DH params we didnt support, but this should be fixed now 
+//    { "www.mikestoolbox.org", 443, &client_auth_ssl3_only, &mikes_is_cipher_supported, &default_supported_always}, // mike's  w/o client side auth
+//  { "tls.secg.org", 443, &client_auth_never, &secg_is_cipher_supported, &default_supported_always}, // secg ecc server w/o client side auth - This server generate DH params we dont support. This is fixed in Sundance.
 
     { OPENSSL_SERVER, 4011, &client_auth_always, &openssl_rsa_rsa_is_cipher_supported, &default_supported_always}, //openssl s_server w/ client side auth
     { OPENSSL_SERVER, 4012, &client_auth_always, &openssl_rsa_ecc_is_cipher_supported, &default_supported_always}, //openssl s_server w/ client side auth, rsa/ecc
@@ -1104,8 +1113,9 @@ static struct test_server {
     { GNUTLS_SERVER, 5012, &client_auth_always, &gnutls_rsa_ecc_is_cipher_supported, &default_supported_always}, // gnutls-serv w/ client side auth, rsa/ecc,
     { GNUTLS_SERVER, 5013, &client_auth_unless_ssl3, &gnutls_ecc_rsa_is_cipher_supported, &default_supported_unless_ssl3}, // gnutls-serv w/ client side auth, ecc/rsa,
     { GNUTLS_SERVER, 5014, &client_auth_unless_ssl3, &gnutls_ecc_ecc_is_cipher_supported, &default_supported_unless_ssl3}, // gnutls-serv w/ client side auth, ecc/ecc
-    { "www.mikestoolbox.net", 443, &client_auth_always, &mikes_is_cipher_supported, &default_supported_always}, // mike's  w/ client side auth
+//    { "www.mikestoolbox.net", 443, &client_auth_always, &mikes_is_cipher_supported, &default_supported_always}, // mike's  w/ client side auth
 //  { "tls.secg.org", 8442, 3}, //secg ecc server w/ client side auth
+
 };
 int nservers = sizeof(servers)/sizeof(servers[0]);
 
@@ -1122,9 +1132,9 @@ int generate_test_cases(void)
 
 
 #if 0
-    for(int p=9; p<=9;p++) {
-        for(int pr=0; pr<=3 ;pr++) {
-            for (int i=0; ciphers[i].name != NULL; i++) {
+    for(int p=15; p<=15;p++) {
+        for(int pr=1; pr<=1 ;pr++) {
+            for (int i=23; i<=23; i++) {
 #else
     for (int p=0; p<nservers; p++) {
         for (int pr=0; pr<nprotos; pr++) {
@@ -1172,7 +1182,7 @@ int generate_test_cases(void)
                 test_log_end(err);
             }}
 
-#if 1
+#if 0
 
             /* Connect to server with default ciphersuites */
 
@@ -1298,7 +1308,7 @@ int tls_03_client(int argc, char * const argv[])
     plan_tests(2+ nservers*nprotos*(nciphers+1));
 
     handshake_client_test();
-    handshake_ecc_test();
+   // handshake_ecc_test();
 
     return 0;
 }

@@ -53,7 +53,7 @@ public:
     const TypedList &sampleList;
 };
 
-bool ThresholdAclSubject::validate(const AclValidationContext &baseCtx,
+bool ThresholdAclSubject::validates(const AclValidationContext &baseCtx,
     const TypedList &sample) const
 {
 #ifdef STRICTCOUNTING
@@ -71,7 +71,7 @@ bool ThresholdAclSubject::validate(const AclValidationContext &baseCtx,
     SublistValidationContext ctx(baseCtx, sample);
     uint32 matched = 0;
     for (uint32 n = 0; n < totalSubjects; n++) {
-		if ((matched += elements[n]->validate(ctx)) >= minimumNeeded)
+		if ((matched += elements[n]->validates(ctx)) >= minimumNeeded)
             return true;
 #ifdef STRICTCOUNTING
         else if (matched + subSampleCount - n <= minimumNeeded)

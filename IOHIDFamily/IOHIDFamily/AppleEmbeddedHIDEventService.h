@@ -45,7 +45,7 @@ protected:
     virtual void dispatchProximityEvent(AbsoluteTime timestamp, IOHIDProximityDetectionMask mask, UInt32 level = 0, IOOptionBits options=0);
 
     virtual void dispatchAmbientLightSensorEvent(AbsoluteTime timestamp, UInt32 level, UInt32 channel0 = 0, UInt32 channel1 = 0, UInt32 channel2 = 0, UInt32 channel3 = 0, IOOptionBits options=0);
-
+ 
     virtual void dispatchTemperatureEvent(AbsoluteTime timestamp, IOFixed temperature, IOOptionBits options=0);
 
     virtual void dispatchPowerEvent(AbsoluteTime timestamp, int64_t measurement, IOHIDPowerType powerType, IOHIDPowerSubType powerSubType = 0, IOOptionBits options=0);
@@ -61,6 +61,9 @@ protected:
     virtual IOHIDPlacementType getPlacement();
 
     virtual UInt32          getReportInterval();
+ 
+    virtual void dispatchAmbientLightSensorEvent(AbsoluteTime timestamp, UInt32 level, IOHIDEventColorSpace colorSpace, IOHIDDouble colorComponent0, IOHIDDouble colorComponent1, IOHIDDouble colorComponent2, IOOptionBits options);
+
 };
 
 #endif /* _IOKIT_HID_APPLEEMBEDDEDHIDEVENTSERVICE_H */

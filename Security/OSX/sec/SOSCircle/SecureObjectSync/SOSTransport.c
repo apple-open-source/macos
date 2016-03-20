@@ -443,12 +443,8 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountRef account, CFDictiona
 
                     if (handledPeers) {
                         // We need to look for and send responses.
-
-                        CFErrorRef syncError = NULL;
-                        if (!SOSTransportMessageSyncWithPeers((SOSTransportMessageRef)account->kvs_message_transport, handledPeers, &syncError)) {
-                            secerror("Sync with peers failed: %@", syncError);
-                        }
-
+                        SOSAccountSyncWithAllPeers(account, error);
+                        
                         CFDictionaryForEach(handledPeers, ^(const void *key, const void *value) {
                             if (isString(key) && isArray(value)) {
                                 CFArrayForEach(value, ^(const void *value) {
@@ -462,7 +458,6 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountRef account, CFDictiona
                                 });
                             }
                         });
-
                         CFErrorRef flushError = NULL;
                         if (!SOSTransportMessageFlushChanges((SOSTransportMessageRef)account->kvs_message_transport, &flushError)) {
                             secerror("Flush failed: %@", flushError);

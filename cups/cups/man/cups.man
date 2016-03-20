@@ -1,5 +1,5 @@
 .\"
-.\" "$Id: cups.man 11830 2014-04-24 12:10:41Z msweet $"
+.\" "$Id: cups.man 12992 2015-11-19 15:19:00Z msweet $"
 .\"
 .\" cups (intro) man page for CUPS.
 .\"
@@ -141,7 +141,7 @@ CUPS Online Help (http://localhost:631/help),
 CUPS Web Site (http://www.CUPS.org),
 PWG Internet Printing Protocol Workgroup (http://www.pwg.org/ipp)
 .SH COPYRIGHT
-Copyright \[co] 2007-2014 by Apple Inc.
+Copyright \[co] 2007-2015 by Apple Inc.
 .\"
-.\" End of "$Id: cups.man 11830 2014-04-24 12:10:41Z msweet $".
+.\" End of "$Id: cups.man 12992 2015-11-19 15:19:00Z msweet $".
 .\"

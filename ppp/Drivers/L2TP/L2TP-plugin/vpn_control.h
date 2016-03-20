@@ -56,6 +56,7 @@
 
 #include "algorithm_types.h"
 #include <net/if.h>
+#include <network/nat64.h>
 
 #define VPNCONTROLSOCK_PATH ADMINPORTDIR "/vpncontrol.sock"
 
@@ -83,6 +84,7 @@ extern mode_t vpncontrolsock_mode;
 #define VPNCTL_CMD_START_DPD            0x0015
 #define VPNCTL_CMD_ASSERT				0x0016
 #define VPNCTL_CMD_RECONNECT			0x0017
+#define VPNCTL_CMD_SET_NAT64_PREFIX		0x0018
 #define VPNCTL_STATUS_IKE_FAILED		0x8001
 #define VPNCTL_STATUS_PH1_START_US		0x8011
 #define VPNCTL_STATUS_PH1_START_PEER	0x8012
@@ -188,9 +190,14 @@ struct vpnctl_cmd_unbind {
 
 
 /* connect/reconnect to specified address */
-struct vpnctl_cmd_connect{
+struct vpnctl_cmd_connect {
 	struct vpnctl_hdr		hdr;
 	u_int32_t				address;
+};
+
+struct vpnctl_cmd_set_nat64_prefix {
+	struct vpnctl_hdr		hdr;
+	nw_nat64_prefix_t		nat64_prefix;
 };
 
 struct vpnctl_sa_selector {

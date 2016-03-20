@@ -81,7 +81,7 @@ public:
 //
 class ArchEditor : public DiskRep::Writer {
 public:
-	ArchEditor(Universal &fat, CodeDirectory::HashAlgorithm hashType, uint32_t attrs);
+	ArchEditor(Universal &fat, CodeDirectory::HashAlgorithms hashTypes, uint32_t attrs);
 	virtual ~ArchEditor();
 
 public:
@@ -93,12 +93,17 @@ public:
 	struct Arch : public BlobWriter {
 		Architecture architecture;		// our architecture
 		auto_ptr<MachO> source;			// Mach-O object to be signed
-		CodeDirectory::Builder cdbuilder; // builder for CodeDirectory
+		std::map<CodeDirectory::HashAlgorithm, RefPointer<CodeDirectory::Builder> > cdBuilders;
 		InternalRequirements ireqs;		// consolidated internal requirements
 		size_t blobSize;				// calculated SuperBlob size
 		
-		Arch(const Architecture &arch, CodeDirectory::HashAlgorithm hashType)
-			: architecture(arch), cdbuilder(hashType) { }
+		Arch(const Architecture &arch, CodeDirectory::HashAlgorithms hashTypes);
+		
+		void eachDigest(void (^op)(CodeDirectory::Builder& builder))
+		{
+			for (auto type = cdBuilders.begin(); type != cdBuilders.end(); ++type)
+				op(*type->second);
+		}
 	};
 
 	//
@@ -151,7 +156,7 @@ private:
 //
 class MachOEditor : public ArchEditor, private UnixPlusPlus::Child {
 public:
-	MachOEditor(DiskRep::Writer *w, Universal &code, CodeDirectory::HashAlgorithm hashType, std::string srcPath);
+	MachOEditor(DiskRep::Writer *w, Universal &code, CodeDirectory::HashAlgorithms hashTypes, std::string srcPath);
 	~MachOEditor();
 
 	const RefPointer<DiskRep::Writer> writer;
@@ -165,6 +170,8 @@ public:
 	void commit();
 	
 private:
+	CodeDirectory::HashAlgorithms mHashTypes;
+	
 	// fork operation
 	void childAction();
 	void parentAction();
@@ -192,6 +199,25 @@ public:
 
 private:
 	CFRef<CFArrayRef> mCerts;		// hold cert chain
+};
+	
+	
+//
+// A collector of CodeDirectories for hash-agile construction of signatures.
+//
+class CodeDirectorySet : public std::map<CodeDirectory::HashAlgorithm, const CodeDirectory *> {
+public:
+	CodeDirectorySet() { mPrimary = NULL; }
+	~CodeDirectorySet();
+	
+	void add(const CodeDirectory* cd);
+	void populate(DiskRep::Writer* writer) const;
+	
+	const CodeDirectory* primary() const;
+	CFArrayRef hashBag() const;
+	
+private:
+	mutable const CodeDirectory* mPrimary;
 };
 
 

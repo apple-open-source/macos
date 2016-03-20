@@ -79,8 +79,10 @@ SSCSPDLSession::makeReferenceKey(SSCSPSession &session, KeyHandle inKeyHandle,
 								 CssmKey &outKey, SSDatabase &inSSDatabase,
 								 uint32 inKeyAttr, const CssmData *inKeyLabel)
 {
-	new SSKey(session, inKeyHandle, outKey, inSSDatabase, inKeyAttr,
+	SSKey* sskey = new SSKey(session, inKeyHandle, outKey, inSSDatabase, inKeyAttr,
 			  inKeyLabel);
+
+    secdebug("SecAccessReference", "made a new reference sskey with handle %d [%d]", sskey->keyHandle(), sskey->keyReference());
 }
 
 SSKey &
@@ -93,6 +95,8 @@ SSCSPDLSession::lookupKey(const CssmKey &inKey)
 	
 	/* fetch key (this is just mapping the value in inKey.KeyData to an SSKey) */
 	SSKey &theKey = find<SSKey>(inKey);
+
+    secdebug("SecAccessReference", "looked up a sskey with handle %d [%d]", theKey.keyHandle(), theKey.keyReference());
 	
 	#ifdef someday 
 	/* 

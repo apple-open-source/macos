@@ -441,8 +441,8 @@ public:
 
 	bool hasTable(Table::Id inTableid);
 
-protected:
     void modifyDatabase();
+protected:
     const RefPointer<const DbVersion> getDbVersion(bool force);
 
     ModifiedTable *createTable(MetaRecord *inMetaRecord); // Takes over ownership of inMetaRecord
@@ -634,7 +634,9 @@ public:
                                      CSSM_DB_ACCESS_TYPE inAccessRequest,
                                      const AccessCredentials *inAccessCred,
                                      const void *inOpenParameters);
-									 
+
+    virtual void dbMakeBackup();
+
 	const CssmDbRecordAttributeInfo schemaRelations;
 	const CssmDbRecordAttributeInfo schemaAttributes;
 	const CssmDbRecordAttributeInfo schemaIndexes;

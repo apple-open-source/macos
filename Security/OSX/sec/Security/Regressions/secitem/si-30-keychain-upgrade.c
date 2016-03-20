@@ -68,8 +68,6 @@ const char *create_db_sql =
 "CREATE INDEX iunwp ON keys(unwp);"
 "COMMIT;";
 
-void kc_dbhandle_reset(void);
-
 #ifdef NO_SERVER
 static void ensureKeychainExists(void) {
     CFDictionaryRef query = CFDictionaryCreateForCFTypes(0, kSecClass,kSecClassInternetPassword, NULL);
@@ -103,7 +101,7 @@ static void tests(void)
         "populate keychain");
     free(keychain_name);
 
-    kc_dbhandle_reset();
+    SecKeychainDbReset(NULL);
 
     int v_eighty = 80;
     CFNumberRef eighty = CFNumberCreate(NULL, kCFNumberSInt32Type, &v_eighty);

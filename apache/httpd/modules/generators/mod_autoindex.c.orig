@@ -1336,7 +1336,7 @@ static struct ent *make_autoindex_entry(const apr_finfo_t *dirent,
         return (NULL);
     }
 
-    if((autoindex_opts & SHOW_FORBIDDEN)
+    if ((autoindex_opts & SHOW_FORBIDDEN)
         && (rr->status == HTTP_UNAUTHORIZED || rr->status == HTTP_FORBIDDEN)) {
         show_forbidden = 1;
     }
@@ -1981,7 +1981,7 @@ static int dsortf(struct ent **e1, struct ent **e2)
         }
     }
 
-    /* The names may be identical in respects other other than
+    /* The names may be identical in respects other than
      * filename case when strnatcmp is used above, so fall back
      * to strcmp on conflicts so that fn1.01.zzz and fn1.1.zzz
      * are also sorted in a deterministic order.
@@ -2274,7 +2274,10 @@ static int handle_autoindex(request_rec *r)
     autoindex_config_rec *d;
     int allow_opts;
 
-    if(strcmp(r->handler,DIR_MAGIC_TYPE)) {
+    if (strcmp(r->handler,DIR_MAGIC_TYPE) && !AP_IS_DEFAULT_HANDLER_NAME(r->handler)) {
+        return DECLINED;
+    }
+    if (r->finfo.filetype != APR_DIR) {
         return DECLINED;
     }
 

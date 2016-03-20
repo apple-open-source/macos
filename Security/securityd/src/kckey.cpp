@@ -49,6 +49,8 @@ KeychainKey::KeychainKey(Database &db, const KeyBlob *blob)
 #endif
     case KeyBlob::version_MacOS_10_1:
         break;
+    case KeyBlob::version_partition:
+        break;
     default:
         CssmError::throwMe(CSSMERR_APPLEDL_INCOMPATIBLE_KEY_BLOB);
     }

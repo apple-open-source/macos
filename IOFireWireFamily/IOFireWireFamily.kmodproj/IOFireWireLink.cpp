@@ -107,8 +107,11 @@ IOFireWireLink::createDeviceNub(CSRNodeUniqueID guid, const IOFWNodeScan *scan)
         
 //        IOLog("IOFireWireLink::createDeviceNub - GUID is 0x%llx\n", guid );
 
-        // use quadlet reads for config rom
-		newDevice->setMaxPackLog(false, true, 2);
+        if( newDevice )
+        {
+            // use quadlet reads for config rom
+            newDevice->setMaxPackLog(false, true, 2);
+        }
     } while (false);
     if(propTable)
         propTable->release();	// done with it after init

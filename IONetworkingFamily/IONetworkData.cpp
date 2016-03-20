@@ -400,41 +400,7 @@ bool IONetworkData::clearBuffer()
 
 IOReturn IONetworkData::reset()
 {
-    IOReturn ret = kIOReturnUnsupported;
-
-    LOCK;
-
-    do {
-        // Check access.
-
-        if ( (_access & kIONetworkDataAccessTypeReset) == 0 )
-        {
-            ret = kIOReturnNotWritable;
-            break;
-        }
-
-        // Default action is to bzero the entire buffer.
-
-        if ( clearBuffer() )
-        {
-            ret = kIOReturnSuccess;
-        }
-
-        // Notify our target.
-
-        if ( TAP_IS_VALID )
-        {
-            ret = (*_tapAction)(_tapTarget, _tapParam,
-                                this,
-                                (UInt32) kIONetworkDataAccessTypeReset,
-                                0, 0, 0);
-        }
-    }
-    while (0);
-
-    UNLOCK;
-
-    return ret;
+    return kIOReturnUnsupported;
 }
 
 //---------------------------------------------------------------------------
@@ -504,55 +470,7 @@ IOReturn IONetworkData::write(void *  srcBuffer,
                               UInt32  srcBufferSize,
                               UInt32  writeOffset)
 {
-    IOReturn ret = kIOReturnUnsupported;
-
-    LOCK;
-
-    do {
-        // Check the arguments.
-
-        if ( srcBuffer == 0 )
-        {
-            ret = kIOReturnBadArgument;
-            break;
-        }
-
-        // Check access.
-
-        if ( (_access & kIONetworkDataAccessTypeWrite) == 0 )
-        {
-            ret = kIOReturnNotWritable;
-            break;
-        }
-
-        // Update the data buffer.
-
-        if ( _buffer &&
-             (writeBytes(srcBuffer, srcBufferSize, writeOffset) == false) )
-        {
-            ret = kIOReturnBadArgument;
-            break;
-        }
-
-        // Notify the target after a successful write operation.
-
-        if ( TAP_IS_VALID )
-        {
-            ret = (*_tapAction)(_tapTarget, _tapParam,
-                                this,
-                                (UInt32) kIONetworkDataAccessTypeWrite,
-                                srcBuffer,
-                                &srcBufferSize,
-                                writeOffset);
-        }
-        else
-            ret = kIOReturnSuccess;
-    }
-    while (0);
-
-    UNLOCK;
-
-    return ret;
+    return kIOReturnUnsupported;
 }
 
 //---------------------------------------------------------------------------

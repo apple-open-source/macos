@@ -1,3 +1,186 @@
+2016-01-29  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r194479.
+
+    2016-01-01  Jeff Miller  <jeffm@apple.com>
+
+            Update user-visible copyright strings to include 2016
+            https://bugs.webkit.org/show_bug.cgi?id=152531
+
+            Reviewed by Alexey Proskuryakov.
+
+            * Info.plist:
+
+2016-01-27  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r194559. rdar://problem/24269083
+
+    2016-01-04  Tim Horton  <timothy_horton@apple.com>
+
+            Turn on gesture events when building for Yosemite
+            https://bugs.webkit.org/show_bug.cgi?id=152704
+            rdar://problem/24042472
+
+            Reviewed by Anders Carlsson.
+
+            * Configurations/FeatureDefines.xcconfig:
+
+2016-01-20  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Roll out r189135 via r195066. rdar://problem/24154288
+
+2016-01-20  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Roll out r192200 via r195067. rdar://problem/24154288
+
+2016-01-20  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r195067. rdar://problem/24154288
+
+    2016-01-14  Matthew Hanson  <matthew_hanson@apple.com>
+
+            Merge r189135. rdar://problem/24154288
+
+        2015-08-28  Eric Carlson  <eric.carlson@apple.com>
+
+                [Mac] Restructure WebMediaSessionManager for testing
+                https://bugs.webkit.org/show_bug.cgi?id=148593
+
+                Reviewed by Jer Noble.
+
+                * WebView/WebMediaPlaybackTargetPicker.mm:
+                (WebMediaPlaybackTargetPicker::addPlaybackTargetPickerClient): Call WebMediaSessionManager::singleton,
+                  not WebMediaSessionManagerMac::singleton.
+                (WebMediaPlaybackTargetPicker::removePlaybackTargetPickerClient): Ditto.
+                (WebMediaPlaybackTargetPicker::showPlaybackTargetPicker): Ditto.
+                (WebMediaPlaybackTargetPicker::playbackTargetPickerClientStateDidChange): Ditto.
+                (WebMediaPlaybackTargetPicker::setPlaybackTarget): Ditto.
+                (WebMediaPlaybackTargetPicker::invalidate): Ditto.
+
+2015-12-17  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r191343.
+
+    2015-10-20  Tim Horton  <timothy_horton@apple.com>
+
+            Try to fix the build by disabling MAC_GESTURE_EVENTS on 10.9 and 10.10
+
+            * Configurations/FeatureDefines.xcconfig:
+
+2015-12-17  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r191305.
+
+    2015-10-19  Tim Horton  <timothy_horton@apple.com>
+
+            Try to fix the iOS build
+
+            * Configurations/FeatureDefines.xcconfig:
+
+2015-12-16  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r191299.
+
+    2015-10-19  Tim Horton  <timothy_horton@apple.com>
+
+            Add magnify and rotate gesture event support for Mac
+            https://bugs.webkit.org/show_bug.cgi?id=150179
+            <rdar://problem/8036240>
+
+            Reviewed by Darin Adler.
+
+            * Configurations/FeatureDefines.xcconfig:
+            New feature flag.
+
+2015-12-08  Harris Papadopoulos  <cpapadopoulos@apple.com>
+
+        Merge r188386. rdar://problem/23816165
+
+    2015-08-12  Anders Carlsson  <andersca@apple.com>
+
+            Use WTF::Optional in WindowFeatures
+            https://bugs.webkit.org/show_bug.cgi?id=147956
+
+            Reviewed by Sam Weinig.
+
+            * WebCoreSupport/WebChromeClient.mm:
+            (WebChromeClient::createWindow):
+
+2015-12-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r191084. rdar://problem/23715623
+
+    2015-10-14  Zhuo Li  <zachli@apple.com>
+
+            Augment <input type=search>’s recent search history with the time each entry was added,
+            in order to allow time-based clearing of search history.
+            https://bugs.webkit.org/show_bug.cgi?id=148388.
+
+            Reviewed by Darin Adler.
+
+            Replace Vector<String> with Vector<RecentSearch>, where RecentSearch is a struct
+            that consists search string and time, for recent searches in order to store additional time information.
+
+            All these new RecentSearches are stored in a plist in which the structure looks like:
+            Root {
+                "items": {
+                    autosave name: {
+                        "searches": [
+                            { "searchString": searchString, "date": date },
+                            ...
+                        ]
+                    }
+                }
+            }
+
+            * WebCoreSupport/SearchPopupMenuMac.h:
+            * WebCoreSupport/SearchPopupMenuMac.mm:
+            (SearchPopupMenuMac::saveRecentSearches): Call saveRecentSearches in WebCore::SearchPopupMenuCocoa.
+            (SearchPopupMenuMac::loadRecentSearches): Call loadRecentSearches in WebCore::SearchPopupMenuCocoa.
+            (autosaveKey): Deleted.
+
+2015-10-17  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Build fix after r191260
+
+        Unreviewed.
+
+        * WebView/WebView.mm:
+        (+[WebView initialize]):
+
+2015-10-18  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Stop honoring the user default "WebKitKerningAndLigaturesEnabledByDefault"
+        https://bugs.webkit.org/show_bug.cgi?id=150287
+
+        Reviewed by Simon Fraser.
+
+        * WebView/WebView.mm:
+        (+[WebView initialize]): Deleted.
+
+2015-10-13  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Split TypesettingFeatures into kerning and ligatures bools
+        https://bugs.webkit.org/show_bug.cgi?id=150074
+
+        Reviewed by Simon Fraser.
+
+        * WebView/WebView.mm:
+        (+[WebView initialize]):
+
+2015-12-01  Timothy Hatcher  <timothy@apple.com>
+
+        Merge r186724. rdar://problem/23221163
+
+    2015-07-11  Nikita Vasilyev  <nvasilyev@apple.com>
+
+            Web Inspector: Inspector should be able to be docked to the bottom of a narrow window
+            https://bugs.webkit.org/show_bug.cgi?id=146871
+
+            Reviewed by Timothy Hatcher.
+
+            * WebCoreSupport/WebInspectorClient.mm:
+
 2015-10-23  Matthew Hanson  <matthew_hanson@apple.com>
 
         Merge r191484.

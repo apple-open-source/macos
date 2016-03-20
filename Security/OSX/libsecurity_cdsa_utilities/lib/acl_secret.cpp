@@ -88,7 +88,7 @@ void SecretAclSubject::secret(CssmManagedData &s) const
 // Validate a secret.
 // The subclass has to come up with the secret somehow. We just validate it.
 //
-bool SecretAclSubject::validate(const AclValidationContext &context,
+bool SecretAclSubject::validates(const AclValidationContext &context,
     const TypedList &sample) const
 {
 	CssmAutoData secret(allocator);

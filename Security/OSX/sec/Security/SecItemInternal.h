@@ -47,7 +47,7 @@ OSStatus _SecRestoreKeychain(const char *path);
 
 OSStatus SecOSStatusWith(bool (^perform)(CFErrorRef *error));
 
-bool cftype_ag_to_bool_cftype_error_request(enum SecXPCOperation op, CFTypeRef attributes, __unused CFArrayRef accessGroups, CFTypeRef *result, CFErrorRef *error);
+bool cftype_client_to_bool_cftype_error_request(enum SecXPCOperation op, CFTypeRef attributes, __unused SecurityClient *client, CFTypeRef *result, CFErrorRef *error);
 
 /* Structure representing copy-on-write dictionary.  Typical use is:
  int bar(CFDictionaryRef input);

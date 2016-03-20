@@ -143,6 +143,8 @@ private:
                 UInt32                  nmiMask;
                 UInt32                  nmiDelay;
                 IOTimerEventSource *    nmiTimer;
+                UInt32                  stackshotHeld;
+                IOTimerEventSource *    stackshotTimer;
             } debug;
 
             bool                    swapISO;

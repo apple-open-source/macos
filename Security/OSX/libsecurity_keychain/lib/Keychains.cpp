@@ -38,6 +38,8 @@
 #include <security_cdsa_utilities/cssmdb.h>
 #include <security_utilities/trackingallocator.h>
 #include <security_keychain/SecCFTypes.h>
+#include <securityd_client/ssblob.h>
+#include <Security/TrustSettingsSchema.h>
 
 #include "SecKeychainPriv.h"
 
@@ -393,7 +395,8 @@ static void check_system_keychain()
 // KeychainImpl
 //
 KeychainImpl::KeychainImpl(const Db &db)
-	: mInCache(false), mDb(db), mCustomUnlockCreds (this), mIsInBatchMode (false), mMutex(Mutex::recursive)
+	: mAttemptedUpgrade(false), mDbItemMapMutex(Mutex::recursive), mDbDeletedItemMapMutex(Mutex::recursive),
+      mInCache(false), mDb(db), mCustomUnlockCreds (this), mIsInBatchMode (false), mMutex(Mutex::recursive)
 {
 	dispatch_once(&SecKeychainSystemKeychainChecked, ^{
 		check_system_keychain();
@@ -426,6 +429,12 @@ Mutex*
 KeychainImpl::getKeychainMutex()
 {
 	return &mMutex;
+}
+
+ReadWriteLock*
+KeychainImpl::getKeychainReadWriteLock()
+{
+    return &mRWLock;
 }
 
 void KeychainImpl::aboutToDestruct()
@@ -766,26 +775,26 @@ void KeychainImpl::completeAdd(Item &inItem, PrimaryKey &primaryKey)
 	// Insert inItem into mDbItemMap with key primaryKey.  p.second will be
 	// true if it got inserted. If not p.second will be false and p.first
 	// will point to the current entry with key primaryKey.
+    StLock<Mutex> _(mDbItemMapMutex);
 	pair<DbItemMap::iterator, bool> p =
 		mDbItemMap.insert(DbItemMap::value_type(primaryKey, inItem.get()));
 	if (!p.second)
 	{
 		// There was already an ItemImpl * in mDbItemMap with key
-		// primaryKey.  Get a ref to the pointer to it so we can assign a
-		// new value to it below.
+		// primaryKey. Remove it, and try the add again.
 		ItemImpl *oldItem = p.first->second;
 
-		// @@@ If this happens we are breaking our API contract of 
+		// @@@ If this happens we are breaking our API contract of
 		// uniquifying items.  We really need to insert the item into the
 		// map before we start the add.  And have the item be in an
 		// "is being added" state.
-		assert(oldItem->inCache());
 		secdebug("keychain", "add of new item %p somehow replaced %p",
 			inItem.get(), oldItem);
-		
-		// make sure that we both mark the item and remove the item from the cache
-		removeItem(oldItem->primaryKey(), oldItem);
-		oldItem = inItem.get();
+
+        mDbItemMap.erase(p.first);
+        oldItem->inCache(false);
+        forceRemoveFromCache(oldItem);
+        mDbItemMap.insert(DbItemMap::value_type(primaryKey, inItem.get()));
 	}
 
 	inItem->inCache(true);
@@ -820,6 +829,7 @@ KeychainImpl::didUpdate(const Item &inItem, PrimaryKey &oldPK,
 		assert(inItem->inCache());
 		if (inItem->inCache())
 		{
+            StLock<Mutex> _(mDbItemMapMutex);
 			// First remove the entry for inItem in mDbItemMap with key oldPK.
 			DbItemMap::iterator it = mDbItemMap.find(oldPK);
 			if (it != mDbItemMap.end() && (ItemImpl*) it->second == inItem.get())
@@ -833,24 +843,27 @@ KeychainImpl::didUpdate(const Item &inItem, PrimaryKey &oldPK,
 			if (!p.second)
 			{
 				// There was already an ItemImpl * in mDbItemMap with key
-				// primaryKey.  Get a ref to the pointer to it so we can assign
-				// a new value to it below.
+				// primaryKey. Remove it, and try the add again.
 				ItemImpl *oldItem = p.first->second;
 
-				// @@@ If this happens we are breaking our API contract of 
+				// @@@ If this happens we are breaking our API contract of
 				// uniquifying items.  We really need to insert the item into
 				// the map with the new primary key before we start the update.
 				// And have the item be in an "is being updated" state.
-				assert(oldItem->inCache());
 				secdebug("keychain", "update of item %p somehow replaced %p",
 					inItem.get(), oldItem);
-				oldItem->inCache(false);
-				oldItem = inItem.get();
+
+                mDbItemMap.erase(p.first);
+                oldItem->inCache(false);
+                forceRemoveFromCache(oldItem);
+                mDbItemMap.insert(DbItemMap::value_type(newPK, inItem.get()));
 			}
 		}
 	}
-	
-	postEvent(kSecUpdateEvent, inItem);
+
+  // Item updates now are technically a delete and re-add, so post these events instead of kSecUpdateEvent
+  postEvent(kSecDeleteEvent, inItem);
+  postEvent(kSecAddEvent, inItem);
 }
 
 void
@@ -865,15 +878,29 @@ KeychainImpl::deleteItem(Item &inoutItem)
 		if (!inoutItem->isPersistent())
 			MacOSError::throwMe(errSecInvalidItemRef);
 
+        secdebug("kcnotify", "starting deletion of item %p", inoutItem.get());
+
 		DbUniqueRecord uniqueId = inoutItem->dbUniqueRecord();
 		PrimaryKey primaryKey = inoutItem->primaryKey();
 		uniqueId->deleteRecord();
 
-		// Don't remove the item from the mDbItemMap here since this would cause
-		// us to report a new item to our caller when we receive the
-		// kSecDeleteEvent notification.
-		// It will be removed before we post the notification, because
-		// CCallbackMgr will call didDeleteItem() 
+        // Move the item from mDbItemMap to mDbDeletedItemMap. We need the item
+        // to give to the client process when we receive the kSecDeleteEvent
+        // notification, but if that notification never arrives, we don't want
+        // the item hanging around. When didDeleteItem is called by CCallbackMgr,
+        // we'll remove all traces of the item.
+
+        if (inoutItem->inCache()) {
+            StLock<Mutex> _(mDbItemMapMutex);
+            StLock<Mutex> __(mDbDeletedItemMapMutex);
+            // Only look for it if it's in the cache
+            DbItemMap::iterator it = mDbItemMap.find(primaryKey);
+
+            if (it != mDbItemMap.end() && (ItemImpl*) it->second == inoutItem.get()) {
+                mDbDeletedItemMap.insert(DbItemMap::value_type(primaryKey, it->second));
+                mDbItemMap.erase(it);
+            }
+        }
 
 		// Post the notification for the item deletion with
 		// the primaryKey obtained when the item still existed
@@ -922,6 +949,26 @@ KeychainImpl::makePrimaryKey(CSSM_DB_RECORDTYPE recordType, DbUniqueRecord &uniq
 	return PrimaryKey(primaryKeyAttrs);
 }
 
+PrimaryKey
+KeychainImpl::makePrimaryKey(CSSM_DB_RECORDTYPE recordType, DbAttributes* currentAttributes)
+{
+    StLock<Mutex>_(mMutex);
+
+    DbAttributes primaryKeyAttrs;
+    primaryKeyAttrs.recordType(recordType);
+    gatherPrimaryKeyAttributes(primaryKeyAttrs);
+
+    for(int i = 0; i < primaryKeyAttrs.size(); i++) {
+        CssmDbAttributeData& attr = primaryKeyAttrs[i];
+
+        CssmDbAttributeData * actual = currentAttributes->find(attr.info());
+        if(actual) {
+            attr.set(*actual, Allocator::standard());
+        }
+    }
+    return PrimaryKey(primaryKeyAttrs);
+}
+
 const CssmAutoDbRecordAttributeInfo &
 KeychainImpl::primaryKeyInfosFor(CSSM_DB_RECORDTYPE recordType)
 {
@@ -947,7 +994,7 @@ KeychainImpl::primaryKeyInfosFor(CSSM_DB_RECORDTYPE recordType)
 
 void KeychainImpl::gatherPrimaryKeyAttributes(DbAttributes& primaryKeyAttrs)
 {
-	StLock<Mutex>_(mMutex);
+	StLock<Mutex> _(mMutex);
 	
 	const CssmAutoDbRecordAttributeInfo &infos =
 		primaryKeyInfosFor(primaryKeyAttrs.recordType());
@@ -960,21 +1007,26 @@ void KeychainImpl::gatherPrimaryKeyAttributes(DbAttributes& primaryKeyAttrs)
 ItemImpl *
 KeychainImpl::_lookupItem(const PrimaryKey &primaryKey)
 {
+    StLock<Mutex> _(mDbItemMapMutex);
 	DbItemMap::iterator it = mDbItemMap.find(primaryKey);
 	if (it != mDbItemMap.end())
 	{
-		if (it->second == NULL)
-		{
-			// we've been weak released...
-			mDbItemMap.erase(it);
-		}
-		else
-		{
-			return it->second;
-		}
+        return it->second;
 	}
 	
 	return NULL;
+}
+
+ItemImpl *
+KeychainImpl::_lookupDeletedItemOnly(const PrimaryKey &primaryKey)
+{
+    DbItemMap::iterator it = mDbDeletedItemMap.find(primaryKey);
+    if (it != mDbDeletedItemMap.end())
+    {
+        return it->second;
+    }
+
+    return NULL;
 }
 
 Item
@@ -984,8 +1036,9 @@ KeychainImpl::item(const PrimaryKey &primaryKey)
 	
 	// Lookup the item in the map while holding the apiLock.
 	ItemImpl *itemImpl = _lookupItem(primaryKey);
-	if (itemImpl)
+	if (itemImpl) {
 		return Item(itemImpl);
+    }
 
 	try
 	{
@@ -1009,6 +1062,18 @@ KeychainImpl::item(const PrimaryKey &primaryKey)
 		}
 		throw;
 	}
+}
+// Check for an item that may have been deleted.
+Item
+KeychainImpl::itemdeleted(const PrimaryKey& primaryKey) {
+    StLock<Mutex>_(mMutex);
+
+    Item i = _lookupDeletedItemOnly(primaryKey);
+    if(i.get()) {
+        return i;
+    } else {
+        return item(primaryKey);
+    }
 }
 
 
@@ -1081,6 +1146,7 @@ KeychainImpl::addItem(const PrimaryKey &primaryKey, ItemImpl *dbItemImpl)
 	// Insert dbItemImpl into mDbItemMap with key primaryKey.  p.second will
 	// be true if it got inserted. If not p.second will be false and p.first
 	// will point to the current entry with key primaryKey.
+    StLock<Mutex> __(mDbItemMapMutex);
 	pair<DbItemMap::iterator, bool> p =
 		mDbItemMap.insert(DbItemMap::value_type(primaryKey, dbItemImpl));
 	
@@ -1115,11 +1181,64 @@ KeychainImpl::removeItem(const PrimaryKey &primaryKey, ItemImpl *inItemImpl)
 	if (!inItemImpl->inCache())
 		return;
 
-	DbItemMap::iterator it = mDbItemMap.find(primaryKey);
-	if (it != mDbItemMap.end() && (ItemImpl*) it->second == inItemImpl)
-		mDbItemMap.erase(it);
+    {
+        StLock<Mutex> _(mDbItemMapMutex);
+        DbItemMap::iterator it = mDbItemMap.find(primaryKey);
+        if (it != mDbItemMap.end() && (ItemImpl*) it->second == inItemImpl) {
+            mDbItemMap.erase(it);
+        }
+    } // drop mDbItemMapMutex
+
+    {
+        StLock<Mutex> _(mDbDeletedItemMapMutex);
+        DbItemMap::iterator it = mDbDeletedItemMap.find(primaryKey);
+        if (it != mDbDeletedItemMap.end() && (ItemImpl*) it->second == inItemImpl) {
+            mDbDeletedItemMap.erase(it);
+        }
+    } // drop mDbDeletedItemMapMutex
 
 	inItemImpl->inCache(false);
+}
+
+void
+KeychainImpl::forceRemoveFromCache(ItemImpl* inItemImpl) {
+    try {
+        // Wrap all this in a try-block and ignore all errors - we're trying to clean up these maps
+        {
+            StLock<Mutex> _(mDbItemMapMutex);
+            for(DbItemMap::iterator it = mDbItemMap.begin(); it != mDbItemMap.end(); ) {
+                if(it->second == inItemImpl) {
+                    // Increment the iterator, but use its pre-increment value for the erase
+                    it->second->inCache(false);
+                    mDbItemMap.erase(it++);
+                } else {
+                    it++;
+                }
+            }
+        } // drop mDbItemMapMutex
+
+        {
+            StLock<Mutex> _(mDbDeletedItemMapMutex);
+            for(DbItemMap::iterator it = mDbDeletedItemMap.begin(); it != mDbDeletedItemMap.end(); ) {
+                if(it->second == inItemImpl) {
+                    // Increment the iterator, but use its pre-increment value for the erase
+                    it->second->inCache(false);
+                    mDbDeletedItemMap.erase(it++);
+                } else {
+                    it++;
+                }
+            }
+        } // drop mDbDeletedItemMapMutex
+    } catch(UnixError ue) {
+        secdebugfunc("keychain", "caught UnixError: %d %s", ue.unixError(), ue.what());
+    } catch (CssmError cssme) {
+        const char* errStr = cssmErrorString(cssme.error);
+        secdebugfunc("keychain", "caught CssmError: %d %s", (int) cssme.error, errStr);
+    } catch (MacOSError mose) {
+        secdebugfunc("keychain", "MacOSError: %d", (int)mose.osStatus());
+    } catch(...) {
+        secdebugfunc("keychain", "Unknown error");
+    }
 }
 
 void
@@ -1264,6 +1383,213 @@ KeychainImpl::postEvent(SecKeychainEvent kcEvent, ItemImpl* item)
 	}
 }
 
+
+bool KeychainImpl::performKeychainUpgradeIfNeeded() {
+    // Grab this keychain's mutex. This might not be sufficient, since the
+    // keychain might have outstanding cursors. We'll grab the RWLock later if needed.
+    StLock<Mutex>_(mMutex);
+
+    if(!globals().integrityProtection()) {
+        secdebugfunc("integrity", "skipping upgrade for %s due to global integrity protection being diabled", mDb->name());
+        return false;
+    }
+
+    // We need a CSP database for 'upgrade' to be meaningful
+    if((mDb->dl()->subserviceMask() & CSSM_SERVICE_CSP) == 0) {
+        return false;
+    }
+
+    // We only want to upgrade file-based Apple keychains. Check the GUID.
+    if(mDb->dl()->guid() != gGuidAppleCSPDL) {
+        secdebugfunc("integrity", "skipping upgrade for %s due to guid mismatch\n", mDb->name());
+        return false;
+    }
+
+    // If we've already attempted an upgrade on this keychain, don't bother again
+    if(mAttemptedUpgrade) {
+        return false;
+    }
+
+    // Don't upgrade the System root certificate keychain (to make old tp code happy)
+    if(strncmp(mDb->name(), SYSTEM_ROOT_STORE_PATH, strlen(SYSTEM_ROOT_STORE_PATH)) == 0) {
+        secdebugfunc("integrity", "skipping upgrade for %s\n", mDb->name());
+        return false;
+    }
+
+    uint32 dbBlobVersion = SecurityServer::DbBlob::version_MacOS_10_0;
+
+    try {
+        dbBlobVersion = mDb->dbBlobVersion();
+    } catch (CssmError cssme) {
+        if(cssme.error == CSSMERR_DL_DATASTORE_DOESNOT_EXIST) {
+            // oh well! We tried to get the blob version of a database
+            // that doesn't exist. It doesn't need migration, so do nothing.
+            secdebugfunc("integrity", "dbBlobVersion() failed for a non-existent database");
+            return false;
+        } else {
+            // Some other error occurred. We can't upgrade this keychain, so fail.
+            const char* errStr = cssmErrorString(cssme.error);
+            secdebugfunc("integrity", "dbBlobVersion() failed for a CssmError: %d %s", (int) cssme.error, errStr);
+            return false;
+        }
+    } catch (...) {
+        secdebugfunc("integrity", "dbBlobVersion() failed for an unknown reason");
+        return false;
+    }
+
+    if(dbBlobVersion != SecurityServer::DbBlob::currentVersion) {
+        secdebugfunc("integrity", "going to upgrade %s from version %d to %d!", mDb->name(), dbBlobVersion, SecurityServer::DbBlob::currentVersion);
+
+        // We need to opportunistically perform the upgrade/reload dance.
+        //
+        // If the keychain is unlocked, try to upgrade it.
+        // In either case, reload the database from disk.
+        // We need this keychain's read/write lock.
+
+        // Try to grab the keychain write lock.
+        StReadWriteLock lock(mRWLock, StReadWriteLock::TryWrite);
+
+        // If we didn't manage to grab the lock, there's readers out there
+        // currently reading this keychain. Abort the upgrade.
+        if(!lock.isLocked()) {
+            return false;
+        }
+
+        try {
+            // We can only attempt an upgrade if the keychain is currently unlocked
+            // There's a TOCTTOU issue here, but it's going to be rare in practice, and the upgrade will simply fail.
+            if(!mDb->isLocked()) {
+                secdebugfunc("integrity", "attempting migration on database %s", mDb->name());
+                // Database blob is out of date. Attempt a migration.
+                uint32 convertedVersion = attemptKeychainMigration(dbBlobVersion, SecurityServer::DbBlob::currentVersion);
+                if(convertedVersion == SecurityServer::DbBlob::currentVersion) {
+                    secdebugfunc("integrity", "conversion succeeded");
+                } else {
+                    secdebugfunc("integrity", "conversion failed, keychain is still %d", convertedVersion);
+                }
+            }
+        } catch (CssmError cssme) {
+            const char* errStr = cssmErrorString(cssme.error);
+            secdebugfunc("integrity", "caught CssmError: %d %s", (int) cssme.error, errStr);
+        } catch (...) {
+            // Something went wrong, but don't worry about it.
+        }
+
+        // No matter if the migrator succeeded, we need to reload this keychain from disk.
+        // Maybe someone else beat us to upgrading the keychain, but it's been locked since then.
+        secdebugfunc("integrity", "reloading keychain");
+        globals().storageManager.reloadKeychain(this);
+        secdebugfunc("integrity", "database %s is version %d", mDb->name(), mDb->dbBlobVersion());
+
+        return true;
+    }
+
+    return false;
+}
+
+// Make sure you have this keychain's mutex and write lock when you call this function!
+uint32 KeychainImpl::attemptKeychainMigration(uint32 oldBlobVersion, uint32 newBlobVersion) {
+    Db db = mDb;  // let's not muck up our db for now
+    db->takeFileLock();
+
+    // Let's reload this keychain to see if someone changed it on disk
+    globals().storageManager.reloadKeychain(this);
+
+    if(mDb->dbBlobVersion() == newBlobVersion) {
+        // Someone else upgraded this, hurray!
+        secdebugfunc("integrity", "reloaded keychain version %d, quitting", mDb->dbBlobVersion());
+        db->releaseFileLock(false);
+        return newBlobVersion;
+    }
+
+    mAttemptedUpgrade = true;
+    uint32 newDbVersion = oldBlobVersion;
+
+    try {
+        secdebugfunc("integrity", "attempting migration from version %d to %d", oldBlobVersion, newBlobVersion);
+
+        // First, make a backup of this database (so we never lose data if something goes wrong)
+        mDb->makeBackup();
+
+        if(oldBlobVersion == SecurityServer::DbBlob::version_MacOS_10_0 && newBlobVersion == SecurityServer::DbBlob::version_partition) {
+            // Let the upgrade begin.
+            newDbVersion = db->recodeDbToVersion(newBlobVersion);
+            if(newDbVersion != newBlobVersion) {
+                // Recoding failed. Don't proceed.
+                secdebugfunc("integrity", "recodeDbToVersion failed, version is still %d", newDbVersion);
+                db->releaseFileLock(false);
+                return newDbVersion;
+            }
+
+            secdebugfunc("integrity", "recoded db successfully, adding extra integrity");
+
+            Keychain keychain(db);
+
+            // Breaking abstraction, but what're you going to do?
+            // Don't upgrade this keychain, since we just upgraded the DB
+            // But the DB won't return any new data until the txion commits
+            keychain->mAttemptedUpgrade = true;
+
+            SecItemClass classes[] = {kSecGenericPasswordItemClass,
+                                      kSecInternetPasswordItemClass,
+                                      kSecPublicKeyItemClass,
+                                      kSecPrivateKeyItemClass,
+                                      kSecSymmetricKeyItemClass};
+
+            for(int i = 0; i < sizeof(classes) / sizeof(classes[0]); i++) {
+                Item item;
+                KCCursor kcc = keychain->createCursor(classes[i], NULL);
+
+                // During recoding, we might have deleted some corrupt keys.
+                // Because of this, we might have zombie SSGroup records left in
+                // the database that have no matching key. Tell the KCCursor to
+                // delete these if found.
+                // This will also try to suppress any other invalid items.
+                kcc->setDeleteInvalidRecords(true);
+
+                while(kcc->next(item)) {
+                    try {
+                        // Force the item to set integrity. The keychain is confused about its version because it hasn't written to disk yet,
+                        // but if we've reached this point, the keychain supports integrity.
+                        item->setIntegrity(true);
+                    } catch(CssmError cssme) {
+                        // During recoding, we might have deleted some corrupt keys. Because of this, we might have zombie SSGroup records left in
+                        // the database that have no matching key. If we get a DL_RECORD_NOT_FOUND error, delete the matching item record.
+                        if (cssme.osStatus() == CSSMERR_DL_RECORD_NOT_FOUND) {
+                            secdebugfunc("integrity", "deleting corrupt (Not Found) record");
+                            keychain->deleteItem(item);
+                        } else {
+                            throw;
+                        }
+                    }
+                }
+            }
+
+            // If we reach here, tell releaseFileLock() to commit the transaction and return the new blob version
+            secdebugfunc("integrity", "releasing file lock");
+            db->releaseFileLock(true);
+
+            secdebugfunc("integrity", "success, returning version %d", newDbVersion);
+            return newDbVersion;
+        }
+    } catch (CssmError cssme) {
+        const char* errStr = cssmErrorString(cssme.error);
+        secdebugfunc("integrity", "caught CssmError: %d %s", (int) cssme.error, errStr);
+        db->releaseFileLock(false);
+    } catch (MacOSError mose) {
+        secdebugfunc("integrity", "MacOSError: %d", (int)mose.osStatus());
+        db->releaseFileLock(false);
+    } catch (...) {
+        // We failed to migrate. We won't commit the transaction, so the blob on-disk stays the same.
+        secdebugfunc("integrity", "unknown error");
+        db->releaseFileLock(false);
+    }
+
+    // If we reached here, we failed the migration. Return the old version.
+    return oldBlobVersion;
+}
+
+
 Keychain::Keychain()
 {
 	dispatch_once(&SecKeychainSystemKeychainChecked, ^{
@@ -1330,3 +1656,20 @@ bool KeychainImpl::mayDelete()
 {
     return true;
 }
+
+bool KeychainImpl::hasIntegrityProtection() {
+    // This keychain only supports integrity if there's a database attached, that database is an Apple CSPDL, and the blob version is high enough
+    if(mDb && (mDb->dl()->guid() == gGuidAppleCSPDL)) {
+        if(mDb->dbBlobVersion() >= SecurityServer::DbBlob::version_partition) {
+            return true;
+        } else {
+            secdebugfunc("integrity", "keychain blob version does not support integrity");
+            return false;
+        }
+    } else {
+        secdebugfunc("integrity", "keychain guid does not support integrity");
+        return false;
+    }
+    return false;
+}
+

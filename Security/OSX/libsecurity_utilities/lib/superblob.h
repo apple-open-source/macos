@@ -6,6 +6,7 @@
 
 #include <security_utilities/blob.h>
 #include <map>
+#include <vector>
 
 namespace Security {
 
@@ -135,7 +136,8 @@ public:
 			return (it == mPieces.end()) ? NULL : it->second;
 		}
 	
-	size_t size(size_t size1 = 0, ...) const;	// size with optional additional blob sizes
+//	size_t size(size_t size1 = 0, ...) const;	// size with optional additional blob sizes
+	size_t size(const std::vector<size_t> &sizes, size_t size1 = 0, ...) const; // same with array-of-sizes input
 	_BlobType *make() const;					// create (malloc) and return SuperBlob
 	_BlobType *operator () () const { return make(); }
 
@@ -181,15 +183,20 @@ void SuperBlobCore<_BlobType, _magic, _Type>::Maker::add(const Maker &maker)
 // so far, plus additional blobs with the sizes given.
 //
 template <class _BlobType, uint32_t _magic, class _Type>
-size_t SuperBlobCore<_BlobType, _magic, _Type>::Maker::size(size_t size1, ...) const
+size_t SuperBlobCore<_BlobType, _magic, _Type>::Maker::size(const std::vector<size_t> &sizes, size_t size1, ...) const
 {
 	// count established blobs
 	size_t count = mPieces.size();
 	size_t total = 0;
-	for (typename BlobMap::const_iterator it = mPieces.begin(); it != mPieces.end(); ++it)
+	for (auto it = mPieces.begin(); it != mPieces.end(); ++it)
 		total += it->second->length();
+	
+	// add more blobs from the sizes array
+	for (auto it = sizes.begin(); it != sizes.end(); ++it)
+		total += *it;
+	count += sizes.size();
 
-	// add preview blob sizes to calculation (if any)
+	// add more blobs from individual sizes specified
 	if (size1) {
 		va_list args;
 		va_start(args, size1);
@@ -213,7 +220,7 @@ template <class _BlobType, uint32_t _magic, class _Type>
 _BlobType *SuperBlobCore<_BlobType, _magic, _Type>::Maker::make() const
 {
 	Offset pc = (Offset)(sizeof(SuperBlobCore) + mPieces.size() * sizeof(Index));
-	Offset total = (Offset)size();
+	Offset total = (Offset)size(vector<size_t>(), 0);
 	_BlobType *result = (_BlobType *)malloc(total);
 	if (!result)
 		UnixError::throwMe(ENOMEM);

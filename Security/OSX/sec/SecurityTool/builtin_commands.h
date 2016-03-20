@@ -35,3 +35,11 @@ SECURITY_COMMAND("digest", command_digest,
                  "    sha256\n"
                  "    sha512\n",
                  "Calculate a digest over the given file(s).")
+
+SECURITY_COMMAND("whoami", command_whoami,
+                 "",
+                 "Ask securityd who you are.")
+
+SECURITY_COMMAND("bubble", command_bubble,
+                 "",
+                 "Transfer to sync bubble")

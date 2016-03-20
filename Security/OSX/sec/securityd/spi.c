@@ -54,7 +54,7 @@ static struct securityd spi = {
     .sec_truststore_remove_all              = _SecTrustStoreRemoveAll,
     .sec_item_delete_all                    = _SecItemDeleteAll,
     .sec_trust_evaluate                     = SecTrustServerEvaluate,
-    .sec_keychain_backup                    = _SecServerKeychainBackup,
+    .sec_keychain_backup                    = _SecServerKeychainCreateBackup,
     .sec_keychain_restore                   = _SecServerKeychainRestore,
     .sec_keychain_backup_syncable           = _SecServerBackupSyncable,
     .sec_keychain_restore_syncable          = _SecServerRestoreSyncable,
@@ -105,7 +105,7 @@ static struct securityd spi = {
     .sec_ota_pki_get_new_asset              = SecOTAPKISignalNewAsset,
     .soscc_ProcessSyncWithAllPeers          = SOSCCProcessSyncWithAllPeers_Server,
     .soscc_EnsurePeerRegistration           = SOSCCProcessEnsurePeerRegistration_Server,
-    .sec_roll_keys                          = _SecServerRollKeys,
+    .sec_roll_keys                          = _SecServerRollKeysGlue,
     .soscc_CopyDeviceID                     = SOSCCCopyDeviceID_Server,
     .soscc_SetDeviceID                      = SOSCCSetDeviceID_Server,
     .soscc_CheckIDSRegistration             = SOSCCIDSServiceRegistrationTest_Server,
@@ -126,7 +126,11 @@ static struct securityd spi = {
     .soscc_SetEscrowRecords                 = SOSCCSetEscrowRecord_Server,
     .soscc_CopyEscrowRecords                = SOSCCCopyEscrowRecord_Server,
     .soscc_PeerAvailability                 = SOSCCCheckPeerAvailability_Server,
-
+    .sosbskb_WrapToBackupSliceKeyBagForView = SOSWrapToBackupSliceKeyBagForView_Server,
+    .soscc_CopyAccountState                 = SOSCCCopyAccountState_Server,
+    .soscc_DeleteAccountState               = SOSCCDeleteAccountState_Server,
+    .soscc_CopyEngineData                   = SOSCCCopyEngineData_Server,
+    .soscc_DeleteEngineState                = SOSCCDeleteEngineState_Server,
 };
 
 void securityd_init_server(void) {

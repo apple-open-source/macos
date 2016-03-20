@@ -27,6 +27,10 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 //
 // Error Codes for PropertyList <-> DER
 //
@@ -58,5 +62,9 @@ const uint8_t* der_decode_plist(CFAllocatorRef pl, CFOptionFlags mutability,
 CFDataRef CFPropertyListCreateDERData(CFAllocatorRef allocator, CFPropertyListRef plist, CFErrorRef *error);
 
 CFPropertyListRef CFPropertyListCreateWithDERData(CFAllocatorRef allocator, CFDataRef data, CFOptionFlags options, CFPropertyListFormat *format, CFErrorRef *error);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

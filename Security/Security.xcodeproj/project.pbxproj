@@ -39,6 +39,7 @@
 				05EF68CA1949167B007958C3 /* PBXTargetDependency */,
 				05EF68C81949166E007958C3 /* PBXTargetDependency */,
 				05EF68C0194915B6007958C3 /* PBXTargetDependency */,
+				EB93052B1BE1B43700978606 /* PBXTargetDependency */,
 			);
 			name = Security_executables;
 			productName = Security_executables;
@@ -105,6 +106,7 @@
 				BE4AC9B418B8020400B84964 /* PBXTargetDependency */,
 				5346481B17331ED800FE9172 /* PBXTargetDependency */,
 				F94E7AE21ACC8E7700F23132 /* PBXTargetDependency */,
+				EB9C1DB71BDFD51800F89272 /* PBXTargetDependency */,
 			);
 			name = phase2;
 			productName = phase2;
@@ -131,6 +133,21 @@
 			);
 			name = world;
 			productName = world;
+		};
+		EB9C1DAE1BDFD4DE00F89272 /* SecurityBatsTests */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = EB9C1DAF1BDFD4DF00F89272 /* Build configuration list for PBXAggregateTarget "SecurityBatsTests" */;
+			buildPhases = (
+				EB9C1DB41BDFD4F200F89272 /* install BATS plist */,
+				EB9305021BE1B35D00978606 /* Chown BATS plist */,
+			);
+			dependencies = (
+				EB9B37AF1C6470B20027E2F9 /* PBXTargetDependency */,
+				EB0BC8411C3C079100785842 /* PBXTargetDependency */,
+				EB3A8E011BEEC6F3001A89AA /* PBXTargetDependency */,
+			);
+			name = SecurityBatsTests;
+			productName = SecurityBatsTests;
 		};
 		F93C49021AB8FCE00047E01A /* ckcdiagnose.sh */ = {
 			isa = PBXAggregateTarget;
@@ -1508,10 +1525,29 @@
 		E7FEEEFA1332B8210025EB06 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CF730310EF9CDE300E17471 /* CFNetwork.framework */; };
 		E7FEEEFB1332B8300025EB06 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CBCE5A90BE7F69100FF81F5 /* IOKit.framework */; };
 		E7FEFB94169E378500E18152 /* libSOSCommands.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E7FEFB8F169E36B000E18152 /* libSOSCommands.a */; };
+		EB0BC8111C3C064400785842 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7FCBE431314471B000DE34E /* Foundation.framework */; };
+		EB0BC83F1C3C076400785842 /* secedumodetest.m in Sources */ = {isa = PBXBuildFile; fileRef = EB0BC83D1C3C06CA00785842 /* secedumodetest.m */; };
+		EB3409B01C1D627400D77661 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7FCBE431314471B000DE34E /* Foundation.framework */; };
+		EB3A8DFF1BEEC66F001A89AA /* Security_edumode.plist in install BATS plist */ = {isa = PBXBuildFile; fileRef = EB3A8DD71BEEC4D6001A89AA /* Security_edumode.plist */; };
 		EB5D73101B0CB09E009CAA47 /* SOSTypes.h in Old SOS header location */ = {isa = PBXBuildFile; fileRef = 52F8DE4D1AF2EB8F00A2C271 /* SOSTypes.h */; };
 		EB5D73111B0CB0BE009CAA47 /* SOSPeerInfo.h in Old SOS header location */ = {isa = PBXBuildFile; fileRef = E7450BAD16D42B17009C07B8 /* SOSPeerInfo.h */; };
+		EB69AB301BF4348000913AF1 /* SecEMCSPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = EB69AB091BF4347700913AF1 /* SecEMCSPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB9B37A91C64705F0027E2F9 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7FCBE431314471B000DE34E /* Foundation.framework */; };
+		EB9B37B01C6476F10027E2F9 /* secbackuptest.m in Sources */ = {isa = PBXBuildFile; fileRef = EB9B37A31C646F070027E2F9 /* secbackuptest.m */; };
+		EB9C1D7B1BDFD0E000F89272 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7FCBE431314471B000DE34E /* Foundation.framework */; };
+		EB9C1D7E1BDFD0E100F89272 /* secbackupntest.m in Sources */ = {isa = PBXBuildFile; fileRef = EB9C1D7D1BDFD0E100F89272 /* secbackupntest.m */; };
+		EB9C1DB51BDFD50100F89272 /* Security.plist in install BATS plist */ = {isa = PBXBuildFile; fileRef = EB9C1DAD1BDFD49400F89272 /* Security.plist */; };
+		EBC1B8E11BE96FE600E6ACA6 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7FCBE431314471B000DE34E /* Foundation.framework */; };
 		EBD8495B1B24BEA000C5FD1E /* print_cert.c in Sources */ = {isa = PBXBuildFile; fileRef = EBD8495A1B24BEA000C5FD1E /* print_cert.c */; };
 		EBE54D761BE32F6F000C4856 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B368BD179891FC004C37CE /* AggregateDictionary.framework */; };
+		EBE901721C2283F7007308C6 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B368BD179891FC004C37CE /* AggregateDictionary.framework */; };
+		EBE901991C2284EE007308C6 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B368BD179891FC004C37CE /* AggregateDictionary.framework */; };
+		EBE9019A1C22852C007308C6 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B368BD179891FC004C37CE /* AggregateDictionary.framework */; };
+		EBE9019B1C2285D4007308C6 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B368BD179891FC004C37CE /* AggregateDictionary.framework */; };
+		EBE9019C1C2285DB007308C6 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B368BD179891FC004C37CE /* AggregateDictionary.framework */; };
+		EBE9019D1C228603007308C6 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B368BD179891FC004C37CE /* AggregateDictionary.framework */; };
+		EBE9019E1C228610007308C6 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B368BD179891FC004C37CE /* AggregateDictionary.framework */; };
+		EBF2D73C1C1E2B47006AB6FF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7FCBE431314471B000DE34E /* Foundation.framework */; };
 		F93C493B1AB8FF530047E01A /* ckcdiagnose.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = F93C493A1AB8FF530047E01A /* ckcdiagnose.sh */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -2607,6 +2643,41 @@
 			proxyType = 1;
 			remoteGlobalIDString = E7FEFB82169E363300E18152;
 			remoteInfo = libSOSCommands;
+		};
+		EB0BC8401C3C079100785842 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB0BC80D1C3C064400785842;
+			remoteInfo = secedumodetest;
+		};
+		EB3A8E001BEEC6F3001A89AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB9C1D791BDFD0E000F89272;
+			remoteInfo = secbackupntest;
+		};
+		EB93052A1BE1B43700978606 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB9C1DAE1BDFD4DE00F89272;
+			remoteInfo = SecurityBatsTests;
+		};
+		EB9B37AE1C6470B20027E2F9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB9B37A51C64705F0027E2F9;
+			remoteInfo = secbackuptest;
+		};
+		EB9C1DB61BDFD51800F89272 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB9C1DAE1BDFD4DE00F89272;
+			remoteInfo = SecurityBatsTests;
 		};
 		EBD849351B242C8900C5FD1E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -3867,6 +3938,18 @@
 			name = "Old SOS header location";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		EB9C1DB41BDFD4F200F89272 /* install BATS plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				EB9C1DB51BDFD50100F89272 /* Security.plist in install BATS plist */,
+				EB3A8DFF1BEEC66F001A89AA /* Security_edumode.plist in install BATS plist */,
+			);
+			name = "install BATS plist";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		F93C49061AB8FCE50047E01A /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -4652,6 +4735,17 @@
 		E7FCBE431314471B000DE34E /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		E7FCBE451314471B000DE34E /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		E7FEFB80169E26E200E18152 /* sub_commands.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sub_commands.h; sourceTree = "<group>"; };
+		EB0BC8151C3C064400785842 /* secedumodetest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = secedumodetest; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB0BC83D1C3C06CA00785842 /* secedumodetest.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = secedumodetest.m; path = secedumodetest/secedumodetest.m; sourceTree = "<group>"; };
+		EB0BC83E1C3C072C00785842 /* secedumodetest.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = secedumodetest.entitlements; path = secedumodetest/secedumodetest.entitlements; sourceTree = "<group>"; };
+		EB3A8DD71BEEC4D6001A89AA /* Security_edumode.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Security_edumode.plist; sourceTree = "<group>"; };
+		EB69AB091BF4347700913AF1 /* SecEMCSPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecEMCSPriv.h; sourceTree = "<group>"; };
+		EB9B37A31C646F070027E2F9 /* secbackuptest.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = secbackuptest.m; path = secbackuptest/secbackuptest.m; sourceTree = "<group>"; };
+		EB9B37A41C646F5F0027E2F9 /* secbackuptest.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = secbackuptest.entitlements; path = secbackuptest/secbackuptest.entitlements; sourceTree = "<group>"; };
+		EB9B37AD1C64705F0027E2F9 /* secbackuptest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = secbackuptest; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB9C1D7A1BDFD0E000F89272 /* secbackupntest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = secbackupntest; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB9C1D7D1BDFD0E100F89272 /* secbackupntest.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = secbackupntest.m; sourceTree = "<group>"; };
+		EB9C1DAD1BDFD49400F89272 /* Security.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Security.plist; sourceTree = "<group>"; };
 		EBD8495A1B24BEA000C5FD1E /* print_cert.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = print_cert.c; path = OSX/sec/SecurityTool/print_cert.c; sourceTree = SOURCE_ROOT; };
 		EBE54D771BE33227000C4856 /* libmis.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmis.dylib; path = usr/lib/libmis.dylib; sourceTree = SDKROOT; };
 		F93C493A1AB8FF530047E01A /* ckcdiagnose.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = ckcdiagnose.sh; sourceTree = "<group>"; };
@@ -4662,9 +4756,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EBE901721C2283F7007308C6 /* AggregateDictionary.framework in Frameworks */,
 				0C0BDB901756A80100BC1A7E /* libsecipc_client.a in Frameworks */,
 				0C0BDB8C1756A5F500BC1A7E /* libregressions.a in Frameworks */,
 				438168C51B4ED43B00C54D58 /* CoreFoundation.framework in Frameworks */,
+				EB3409B01C1D627400D77661 /* Foundation.framework in Frameworks */,
 				0C0BDB8B1756A5D900BC1A7E /* libASN1.a in Frameworks */,
 				0C0BDB8A1756A5D500BC1A7E /* libDER.a in Frameworks */,
 				0C0BDB851756A4B900BC1A7E /* libsecdRegressions.a in Frameworks */,
@@ -4701,7 +4797,6 @@
 				5296CB4E1655B8F5009912AF /* libMobileGestalt.dylib in Frameworks */,
 				0C78F1D016A5E3EB00654E08 /* libbsm.dylib in Frameworks */,
 				0C15009B161D020000181E9D /* libASN1.a in Frameworks */,
-				438166ED1B4ECF9400C54D58 /* CoreFoundation.framework in Frameworks */,
 				0C15009A161D01F400181E9D /* libCMS.a in Frameworks */,
 				44A655831AA4B4BB0059D185 /* libctkclient.a in Frameworks */,
 				0C150099161D01D700181E9D /* libDER.a in Frameworks */,
@@ -4712,6 +4807,7 @@
 				4C2FEC5215755D8C0008BE39 /* libutilities.a in Frameworks */,
 				4432AF8B1A014664000958DC /* libcoreauthd_client.a in Frameworks */,
 				4432AF8D1A01472C000958DC /* libaks_acl.a in Frameworks */,
+				438166ED1B4ECF9400C54D58 /* CoreFoundation.framework in Frameworks */,
 				4CAF67AC0F3A70220064A534 /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4720,10 +4816,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				43DB54551BB1F8920083C3F1 /* ProtectedCloudStorage.framework in Frameworks */,
 				4C8A38C917B93DF10001B4C0 /* CloudServices.framework in Frameworks */,
 				4C7913251799A5CC00A9633E /* MobileCoreServices.framework in Frameworks */,
 				4381603B1B4DCEFF00C54D58 /* AggregateDictionary.framework in Frameworks */,
-				43DB54551BB1F8920083C3F1 /* ProtectedCloudStorage.framework in Frameworks */,
 				4C3DD6BD179760280093F9D8 /* libMobileGestalt.dylib in Frameworks */,
 				533B5D4F177CD63100995334 /* SpringBoardServices.framework in Frameworks */,
 				7200D76F177B9999009BB396 /* ManagedConfiguration.framework in Frameworks */,
@@ -4741,6 +4837,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EBE9019C1C2285DB007308C6 /* AggregateDictionary.framework in Frameworks */,
 				E7D690A11652E07B0079537A /* libMobileGestalt.dylib in Frameworks */,
 				0CCA418715C89FBB002AEC4C /* libsecurity_ssl_regressions.a in Frameworks */,
 				18F7F67814D77F0600F88A12 /* libsecurityd.a in Frameworks */,
@@ -4784,6 +4881,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EBE9019A1C22852C007308C6 /* AggregateDictionary.framework in Frameworks */,
 				438168BB1B4ED42300C54D58 /* CoreFoundation.framework in Frameworks */,
 				E7FEFB94169E378500E18152 /* libSOSCommands.a in Frameworks */,
 				E7104A07169E03CE00DB0045 /* libSecurityTool.a in Frameworks */,
@@ -4794,6 +4892,7 @@
 				4C32C1A60A497A21002891BD /* Security.framework in Frameworks */,
 				4CAE95DC0F3D6E020075278E /* CFNetwork.framework in Frameworks */,
 				4C0CC642174C580200CC799A /* SystemConfiguration.framework in Frameworks */,
+				EBC1B8E11BE96FE600E6ACA6 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4823,6 +4922,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EBE9019D1C228603007308C6 /* AggregateDictionary.framework in Frameworks */,
 				5233636418CA9B8900333A5C /* SystemConfiguration.framework in Frameworks */,
 				5233636318CA9B3C00333A5C /* libSecureObjectSync.a in Frameworks */,
 				5233635818CA9B2600333A5C /* libsecurityd.a in Frameworks */,
@@ -4865,6 +4965,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EBE901991C2284EE007308C6 /* AggregateDictionary.framework in Frameworks */,
+				EBF2D73C1C1E2B47006AB6FF /* Foundation.framework in Frameworks */,
 				5E43C49F1B00D63100E5ECB2 /* libutilities.a in Frameworks */,
 				5E43C49D1B00D55C00E5ECB2 /* libsecurityd.a in Frameworks */,
 				5E43C49B1B00D50F00E5ECB2 /* libSecureObjectSync.a in Frameworks */,
@@ -4999,6 +5101,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EBE9019B1C2285D4007308C6 /* AggregateDictionary.framework in Frameworks */,
+				E7A011AE14E1B78800765C29 /* Foundation.framework in Frameworks */,
 				E7D690921652E06A0079537A /* libMobileGestalt.dylib in Frameworks */,
 				0CCA418815C89FC4002AEC4C /* libsecurity_ssl_regressions.a in Frameworks */,
 				18F7F67514D77EF400F88A12 /* libsecurityd.a in Frameworks */,
@@ -5018,7 +5122,6 @@
 				E7FEEEF81332B7F70025EB06 /* libsqlite3.dylib in Frameworks */,
 				E7FEEEFA1332B8210025EB06 /* CFNetwork.framework in Frameworks */,
 				E7FEEEFB1332B8300025EB06 /* IOKit.framework in Frameworks */,
-				E7A011AE14E1B78800765C29 /* Foundation.framework in Frameworks */,
 				7930B06A134A4864007062F8 /* Security.framework in Frameworks */,
 				E71F3E4116EA6A5100FAF9B4 /* SystemConfiguration.framework in Frameworks */,
 			);
@@ -5028,6 +5131,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EBE9019E1C228610007308C6 /* AggregateDictionary.framework in Frameworks */,
 				52222CD0167BDAEC00EDD09C /* SpringBoardServices.framework in Frameworks */,
 				E7B01BD2166594AB000485F1 /* CFNetwork.framework in Frameworks */,
 				E7B01BD3166594AB000485F1 /* IOKit.framework in Frameworks */,
@@ -5045,6 +5149,30 @@
 				E7B01BE0166594AB000485F1 /* CoreGraphics.framework in Frameworks */,
 				E7B01BE1166594AB000485F1 /* QuartzCore.framework in Frameworks */,
 				E7B01BE2166594AB000485F1 /* Security.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB0BC8101C3C064400785842 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB0BC8111C3C064400785842 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB9B37A81C64705F0027E2F9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB9B37A91C64705F0027E2F9 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB9C1D771BDFD0E000F89272 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB9C1D7B1BDFD0E000F89272 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5295,6 +5423,7 @@
 				5E10992719A5E55800A60E2B /* ISACLProtectedItems */,
 				5EBE247B1B00CCAE0007DB0E /* secacltests */,
 				4381690E1B4EDCBD00C54D58 /* SOSCCAuthPlugin */,
+				EB9C1DAA1BDFD0FE00F89272 /* RegressionTests */,
 				E7FCBE401314471B000DE34E /* Frameworks */,
 				4C35DC36094F9120002917C4 /* Products */,
 				4C8BC620097DBC1B00C781D5 /* Libraries */,
@@ -5333,6 +5462,9 @@
 				CD276C271A83F60C003226BC /* IDSKeychainSyncingProxy.bundle */,
 				5EBE247A1B00CCAE0007DB0E /* secacltests */,
 				4381690C1B4EDCBD00C54D58 /* SOSCCAuthPlugin.bundle */,
+				EB9C1D7A1BDFD0E000F89272 /* secbackupntest */,
+				EB0BC8151C3C064400785842 /* secedumodetest */,
+				EB9B37AD1C64705F0027E2F9 /* secbackuptest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -5839,6 +5971,7 @@
 				4AF7FFF715AFB73800B9D400 /* SecOTRMath.h */,
 				4AF7FFF915AFB73800B9D400 /* SecOTRPacketData.h */,
 				4AF7FFFA15AFB73800B9D400 /* SecOTRPackets.h */,
+				EB69AB091BF4347700913AF1 /* SecEMCSPriv.h */,
 				4AF7FFFB15AFB73800B9D400 /* SecOTRSession.h */,
 				4AF7FFFC15AFB73800B9D400 /* SecOTRSessionPriv.h */,
 				CDDE9BC31729AB910013B0E8 /* SecPasswordGenerate.h */,
@@ -6403,6 +6536,44 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		EB0BC83C1C3C069500785842 /* secedumodetest */ = {
+			isa = PBXGroup;
+			children = (
+				EB0BC83D1C3C06CA00785842 /* secedumodetest.m */,
+				EB0BC83E1C3C072C00785842 /* secedumodetest.entitlements */,
+			);
+			name = secedumodetest;
+			sourceTree = "<group>";
+		};
+		EB9B377C1C646ED10027E2F9 /* secbackuptest */ = {
+			isa = PBXGroup;
+			children = (
+				EB9B37A31C646F070027E2F9 /* secbackuptest.m */,
+				EB9B37A41C646F5F0027E2F9 /* secbackuptest.entitlements */,
+			);
+			name = secbackuptest;
+			sourceTree = "<group>";
+		};
+		EB9C1D7C1BDFD0E100F89272 /* secbackupntest */ = {
+			isa = PBXGroup;
+			children = (
+				EB9C1D7D1BDFD0E100F89272 /* secbackupntest.m */,
+			);
+			path = secbackupntest;
+			sourceTree = "<group>";
+		};
+		EB9C1DAA1BDFD0FE00F89272 /* RegressionTests */ = {
+			isa = PBXGroup;
+			children = (
+				EB9C1DAD1BDFD49400F89272 /* Security.plist */,
+				EB3A8DD71BEEC4D6001A89AA /* Security_edumode.plist */,
+				EB9C1D7C1BDFD0E100F89272 /* secbackupntest */,
+				EB9B377C1C646ED10027E2F9 /* secbackuptest */,
+				EB0BC83C1C3C069500785842 /* secedumodetest */,
+			);
+			path = RegressionTests;
+			sourceTree = "<group>";
+		};
 		F93C49391AB8FF530047E01A /* ckcdiagnose */ = {
 			isa = PBXGroup;
 			children = (
@@ -6488,6 +6659,7 @@
 				0C5D2EED167FEEC90077501D /* secasn1t.h in Headers */,
 				0C5D2EEF167FF0560077501D /* SecAsn1Templates.h in Headers */,
 				D45D1A471B3A293E00C63E16 /* oids.h in Headers */,
+				EB69AB301BF4348000913AF1 /* SecEMCSPriv.h in Headers */,
 				8E02FA6B1107BE460043545E /* pbkdf2.h in Headers */,
 				8ED6F6CA110904E300D2B368 /* SecPBKDF.h in Headers */,
 				7901791812D51F7200CA4D44 /* SecCmsBase.h in Headers */,
@@ -6988,6 +7160,54 @@
 			productReference = E7B01BF2166594AB000485F1 /* SyncDevTest2.app */;
 			productType = "com.apple.product-type.application";
 		};
+		EB0BC80D1C3C064400785842 /* secedumodetest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB0BC8121C3C064400785842 /* Build configuration list for PBXNativeTarget "secedumodetest" */;
+			buildPhases = (
+				EB0BC80E1C3C064400785842 /* Sources */,
+				EB0BC8101C3C064400785842 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = secedumodetest;
+			productName = secbackupntest;
+			productReference = EB0BC8151C3C064400785842 /* secedumodetest */;
+			productType = "com.apple.product-type.tool";
+		};
+		EB9B37A51C64705F0027E2F9 /* secbackuptest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB9B37AA1C64705F0027E2F9 /* Build configuration list for PBXNativeTarget "secbackuptest" */;
+			buildPhases = (
+				EB9B37A61C64705F0027E2F9 /* Sources */,
+				EB9B37A81C64705F0027E2F9 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = secbackuptest;
+			productName = secbackupntest;
+			productReference = EB9B37AD1C64705F0027E2F9 /* secbackuptest */;
+			productType = "com.apple.product-type.tool";
+		};
+		EB9C1D791BDFD0E000F89272 /* secbackupntest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB9C1DA91BDFD0E100F89272 /* Build configuration list for PBXNativeTarget "secbackupntest" */;
+			buildPhases = (
+				EB9C1D761BDFD0E000F89272 /* Sources */,
+				EB9C1D771BDFD0E000F89272 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = secbackupntest;
+			productName = secbackupntest;
+			productReference = EB9C1D7A1BDFD0E000F89272 /* secbackupntest */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -7004,6 +7224,12 @@
 					};
 					CD276C261A83F60C003226BC = {
 						CreatedOnToolsVersion = 7.0;
+					};
+					EB9C1D791BDFD0E000F89272 = {
+						CreatedOnToolsVersion = 7.1;
+					};
+					EB9C1DAE1BDFD4DE00F89272 = {
+						CreatedOnToolsVersion = 7.1;
 					};
 					F93C49021AB8FCE00047E01A = {
 						CreatedOnToolsVersion = 6.3;
@@ -7105,6 +7331,10 @@
 				F93C49021AB8FCE00047E01A /* ckcdiagnose.sh */,
 				5EBE24791B00CCAE0007DB0E /* secacltests */,
 				4381690B1B4EDCBD00C54D58 /* SOSCCAuthPlugin */,
+				EB9C1DAE1BDFD4DE00F89272 /* SecurityBatsTests */,
+				EB9C1D791BDFD0E000F89272 /* secbackupntest */,
+				EB0BC80D1C3C064400785842 /* secedumodetest */,
+				EB9B37A51C64705F0027E2F9 /* secbackuptest */,
 			);
 		};
 /* End PBXProject section */
@@ -7663,6 +7893,21 @@
 			shellPath = /bin/sh;
 			shellScript = "install_name_tool -change /System/Library/Frameworks/CFNetwork.framework/CFNetwork /System/Library/Frameworks/CoreServices.framework/CoreServices \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
 		};
+		EB9305021BE1B35D00978606 /* Chown BATS plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Chown BATS plist";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "chown root:wheel ${DSTROOT}/AppleInternal/CoreOS/BATS/unit_tests/*.plist";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -7906,6 +8151,30 @@
 				E75112FA166F020E008C578B /* PeerListCell.m in Sources */,
 				5208F4BE1670027400A49DDA /* SyncViewController.m in Sources */,
 				5208F4D016702D8800A49DDA /* CircleStatusView.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB0BC80E1C3C064400785842 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB0BC83F1C3C076400785842 /* secedumodetest.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB9B37A61C64705F0027E2F9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB9B37B01C6476F10027E2F9 /* secbackuptest.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB9C1D761BDFD0E000F89272 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB9C1D7E1BDFD0E100F89272 /* secbackupntest.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -8391,6 +8660,31 @@
 			isa = PBXTargetDependency;
 			name = libSOSCommands;
 			targetProxy = E7FEFB92169E377900E18152 /* PBXContainerItemProxy */;
+		};
+		EB0BC8411C3C079100785842 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB0BC80D1C3C064400785842 /* secedumodetest */;
+			targetProxy = EB0BC8401C3C079100785842 /* PBXContainerItemProxy */;
+		};
+		EB3A8E011BEEC6F3001A89AA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB9C1D791BDFD0E000F89272 /* secbackupntest */;
+			targetProxy = EB3A8E001BEEC6F3001A89AA /* PBXContainerItemProxy */;
+		};
+		EB93052B1BE1B43700978606 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB9C1DAE1BDFD4DE00F89272 /* SecurityBatsTests */;
+			targetProxy = EB93052A1BE1B43700978606 /* PBXContainerItemProxy */;
+		};
+		EB9B37AF1C6470B20027E2F9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB9B37A51C64705F0027E2F9 /* secbackuptest */;
+			targetProxy = EB9B37AE1C6470B20027E2F9 /* PBXContainerItemProxy */;
+		};
+		EB9C1DB71BDFD51800F89272 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB9C1DAE1BDFD4DE00F89272 /* SecurityBatsTests */;
+			targetProxy = EB9C1DB61BDFD51800F89272 /* PBXContainerItemProxy */;
 		};
 		EBD849361B242C8900C5FD1E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -8965,6 +9259,10 @@
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_ENTITLEMENTS = "Keychain/Keychain-Entitlements.plist";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
@@ -9025,6 +9323,10 @@
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_ENTITLEMENTS = "Keychain/Keychain-Entitlements.plist";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -9205,6 +9507,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "secacltests/secacltests-entitlements.plist";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/bin";
 				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
 					"$(inherited)",
@@ -9221,6 +9527,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "secacltests/secacltests-entitlements.plist";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/bin";
 				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
 					"$(inherited)",
@@ -10122,6 +10432,10 @@
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_ENTITLEMENTS = "Keychain/Keychain-Entitlements.plist";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
@@ -10178,6 +10492,10 @@
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_ENTITLEMENTS = "Keychain/Keychain-Entitlements.plist";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				HEADER_SEARCH_PATHS = (
@@ -10215,6 +10533,348 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 				WRAPPER_EXTENSION = app;
+			};
+			name = Release;
+		};
+		EB0BC8131C3C064400785842 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = RegressionTests/secedumodetest/secedumodetest.entitlements;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/Security;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Security,
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"-laks",
+					"-framework",
+					Security,
+					"-framework",
+					IOKit,
+				);
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"-laks",
+					"-framework",
+					Security,
+					"-framework",
+					IOKit,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
+			};
+			name = Debug;
+		};
+		EB0BC8141C3C064400785842 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = RegressionTests/secedumodetest/secedumodetest.entitlements;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/Security;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Security,
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"-laks",
+					"-framework",
+					Security,
+					"-framework",
+					IOKit,
+				);
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"-laks",
+					"-framework",
+					Security,
+					"-framework",
+					IOKit,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		EB9B37AB1C64705F0027E2F9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = RegressionTests/secbackuptest/secbackuptest.entitlements;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/Security;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Security,
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"-laks",
+					"-framework",
+					Security,
+					"-framework",
+					IOKit,
+				);
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"-laks",
+					"-framework",
+					Security,
+					"-framework",
+					IOKit,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
+			};
+			name = Debug;
+		};
+		EB9B37AC1C64705F0027E2F9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = RegressionTests/secbackuptest/secbackuptest.entitlements;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/Security;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Security,
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"-laks",
+					"-framework",
+					Security,
+					"-framework",
+					IOKit,
+				);
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"-laks",
+					"-framework",
+					Security,
+					"-framework",
+					IOKit,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		EB9C1D811BDFD0E100F89272 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/Security;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Security,
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"-laks",
+					"-framework",
+					Security,
+					"-framework",
+					IOKit,
+				);
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"-laks",
+					"-framework",
+					Security,
+					"-framework",
+					IOKit,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
+			};
+			name = Debug;
+		};
+		EB9C1D821BDFD0E100F89272 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/Security;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Security,
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"-laks",
+					"-framework",
+					Security,
+					"-framework",
+					IOKit,
+				);
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"-laks",
+					"-framework",
+					Security,
+					"-framework",
+					IOKit,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		EB9C1DB01BDFD4DF00F89272 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		EB9C1DB11BDFD4DF00F89272 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -10528,6 +11188,42 @@
 			buildConfigurations = (
 				E7B01BF0166594AB000485F1 /* Debug */,
 				E7B01BF1166594AB000485F1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB0BC8121C3C064400785842 /* Build configuration list for PBXNativeTarget "secedumodetest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB0BC8131C3C064400785842 /* Debug */,
+				EB0BC8141C3C064400785842 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB9B37AA1C64705F0027E2F9 /* Build configuration list for PBXNativeTarget "secbackuptest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB9B37AB1C64705F0027E2F9 /* Debug */,
+				EB9B37AC1C64705F0027E2F9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB9C1DA91BDFD0E100F89272 /* Build configuration list for PBXNativeTarget "secbackupntest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB9C1D811BDFD0E100F89272 /* Debug */,
+				EB9C1D821BDFD0E100F89272 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB9C1DAF1BDFD4DF00F89272 /* Build configuration list for PBXAggregateTarget "SecurityBatsTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB9C1DB01BDFD4DF00F89272 /* Debug */,
+				EB9C1DB11BDFD4DF00F89272 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

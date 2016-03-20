@@ -109,6 +109,22 @@
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
 
+/* Define if nghttp2 is available */
+#undef HAVE_NGHTTP2
+
+/* Define to 1 if you have the <nghttp2/nghttp2.h> header file. */
+#undef HAVE_NGHTTP2_NGHTTP2_H
+
+/* Define to 1 if you have the `nghttp2_session_change_stream_priority'
+   function. */
+#undef HAVE_NGHTTP2_SESSION_CHANGE_STREAM_PRIORITY
+
+/* Define to 1 if you have the `nghttp2_session_server_new2' function. */
+#undef HAVE_NGHTTP2_SESSION_SERVER_NEW2
+
+/* Define to 1 if you have the `nghttp2_stream_get_weight' function. */
+#undef HAVE_NGHTTP2_STREAM_GET_WEIGHT
+
 /* Define if OpenSSL is available */
 #undef HAVE_OPENSSL
 

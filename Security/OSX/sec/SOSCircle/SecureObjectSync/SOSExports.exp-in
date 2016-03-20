@@ -51,6 +51,7 @@ _SOSCCSetLastDepartureReason
 _SOSCCSetUserCredentials
 _SOSCCSetUserCredentialsAndDSID
 _SOSCCSignedOut
+_SOSCCSysdiagnose
 _SOSCCThisDeviceIsInCircle
 _SOSCCTryUserCredentials
 _SOSCCValidateUserPublic
@@ -66,6 +67,10 @@ _SOSCCWaitForInitialSync
 _SOSCCSetEscrowRecord
 _SOSCCCopyEscrowRecord
 _SOSCCCheckPeerAvailability
+_SOSCCCopyAccountState
+_SOSCCDeleteAccountState
+_SOSCCCopyEngineData
+_SOSCCDeleteEngineState
 
 _UserParametersDescription
 
@@ -173,6 +178,7 @@ _SOSBSKBCopyEncoded
 _SOSBSKBIsDirect
 _SOSBSKBGetPeers
 
+_SOSBSKBLoadLocked
 _SOSBSKBLoadAndUnlockWithDirectSecret
 _SOSBSKBLoadAndUnlockWithPeerSecret
 _SOSBackupSliceKeyBagCreate
@@ -182,6 +188,8 @@ _SOSBackupSliceKeyBagGetTypeID
 _der_decode_BackupSliceKeyBag
 _der_encode_BackupSliceKeyBag
 _der_sizeof_BackupSliceKeyBag
+
+_SOSWrapToBackupSliceKeyBagForView
 
  //
  // View SPI
@@ -242,6 +250,9 @@ _kSecAttrViewHintPCSiMessage
 _kSecAttrViewHintAppleTV
 _kSecAttrViewHintHomeKit
 _kSecAttrViewHintThumper
+
+_kSecUseSystemKeychain
+_kSecUseSyncBubbleKeychain
 
  //
  // Exported for testing/tools (?)

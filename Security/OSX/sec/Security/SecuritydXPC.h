@@ -31,6 +31,8 @@
 bool SecXPCDictionarySetData(xpc_object_t message, const char *key, CFDataRef data, CFErrorRef *error);
 bool SecXPCDictionarySetDataOptional(xpc_object_t message, const char *key, CFDataRef data, CFErrorRef *error);
 
+bool SecXPCDictionarySetBool(xpc_object_t message, const char *key, bool value, CFErrorRef *error);
+
 bool SecXPCDictionarySetPList(xpc_object_t message, const char *key, CFTypeRef object, CFErrorRef *error);
 bool SecXPCDictionarySetPListOptional(xpc_object_t message, const char *key, CFTypeRef object, CFErrorRef *error);
 
@@ -50,6 +52,8 @@ bool SecXPCDictionaryCopyArrayOptional(xpc_object_t message, const char *key, CF
 
 CFDataRef SecXPCDictionaryCopyData(xpc_object_t message, const char *key, CFErrorRef *error);
 bool SecXPCDictionaryCopyDataOptional(xpc_object_t message, const char *key, CFDataRef *pdata, CFErrorRef *error);
+
+bool SecXPCDictionaryGetBool(xpc_object_t message, const char *key, CFErrorRef *error);
 
 CFDictionaryRef SecXPCDictionaryCopyDictionary(xpc_object_t message, const char *key, CFErrorRef *error);
 

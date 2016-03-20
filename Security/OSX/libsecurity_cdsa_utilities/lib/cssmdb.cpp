@@ -26,6 +26,9 @@
 //
 //
 #include <security_cdsa_utilities/cssmdb.h>
+#include <CommonCrypto/CommonDigest.h>
+
+using namespace DataWalkers;
 
 bool DLDbIdentifier::Impl::operator < (const DLDbIdentifier::Impl &other) const
 {
@@ -550,6 +553,21 @@ CssmAutoDbRecordAttributeData::add(const CSSM_DB_ATTRIBUTE_INFO &info, const Css
 	CssmDbAttributeData &anAttr = getAttributeReference (info);
 	anAttr.set(info, value, mValueAllocator);
 	return anAttr;
+}
+
+void
+CssmAutoDbRecordAttributeData::updateWith(const CssmAutoDbRecordAttributeData* newValues) {
+    if(!newValues) {
+        return;
+    }
+    for(int i = 0; i < newValues->size(); i++) {
+        CssmDbAttributeData& c = newValues->at(i);
+        CssmDbAttributeData& target = add(c.info());
+
+        target.info(c.info());
+        target.copyValues(c, mValueAllocator);
+            //.set(c, mValueAllocator);
+    }
 }
 
 //

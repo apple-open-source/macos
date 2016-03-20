@@ -289,7 +289,18 @@ CFTypeRef CFMake::makearray()
 {
 	++format;	// next '['
 	next('!');	// indicates mutable (currently always)
-	CFMutableArrayRef array = makeCFMutableArray(0);
+	CFMutableArrayRef array = NULL;
+	if (next('+')) { // {+%O, => copy array argument, then proceed
+		if (next('%') && next('O')) {
+			CFArrayRef source = va_arg(args, CFArrayRef);
+			array = CFArrayCreateMutableCopy(allocator, 0, source);
+			if (next('}'))
+				return array;
+		} else
+			return NULL;	// bad syntax
+	} else {
+		array = makeCFMutableArray(0);
+	}
 	while (next() != ']') {
 		CFTypeRef value = make();
 		if (value == NULL) {

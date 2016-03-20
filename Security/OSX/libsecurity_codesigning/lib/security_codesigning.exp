@@ -97,6 +97,7 @@ _kSecCodeInfoEntitlementsDict
 _kSecCodeInfoFlags
 _kSecCodeInfoFormat
 _kSecCodeInfoDigestAlgorithm
+_kSecCodeInfoDigestAlgorithms
 _kSecCodeInfoIdentifier
 _kSecCodeInfoImplicitDesignatedRequirement
 _kSecCodeInfoMainExecutable
@@ -107,6 +108,7 @@ _kSecCodeInfoSource
 _kSecCodeInfoStatus
 _kSecCodeInfoTrust
 _kSecCodeInfoUnique
+_kSecCodeInfoCdHashes
 _kSecCodeInfoCodeDirectory
 _kSecCodeInfoCodeOffset
 _kSecCodeInfoResourceDirectory

@@ -150,6 +150,8 @@
 		C2407A1D1B30C86C0067E6AE /* libutilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C2407A1C1B30C86C0067E6AE /* libutilities.a */; };
 		C274C51E0F9E8E0F001ABDA3 /* auditevents.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C274C51C0F9E8E0F001ABDA3 /* auditevents.cpp */; };
 		C274C51F0F9E8E0F001ABDA3 /* auditevents.h in Headers */ = {isa = PBXBuildFile; fileRef = C274C51D0F9E8E0F001ABDA3 /* auditevents.h */; };
+		C2E8FBA51B8FABFE00156D36 /* acl_partition.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2E8FBA31B8FABFE00156D36 /* acl_partition.cpp */; };
+		C2E8FBA61B8FABFE00156D36 /* acl_partition.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E8FBA41B8FABFE00156D36 /* acl_partition.h */; };
 		ED5130690E7F1259002A3749 /* securityd.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4CE1878706FFC5D60079D235 /* securityd.1 */; };
 /* End PBXBuildFile section */
 
@@ -347,6 +349,8 @@
 		C2CB75A90CE26A3600727A2B /* securityd-watch.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = "securityd-watch.d"; path = "dtrace/securityd-watch.d"; sourceTree = "<group>"; };
 		C2D425F105F3C07400CB11F8 /* tokendatabase.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tokendatabase.cpp; sourceTree = "<group>"; };
 		C2D425F205F3C07400CB11F8 /* tokendatabase.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = tokendatabase.h; sourceTree = "<group>"; };
+		C2E8FBA31B8FABFE00156D36 /* acl_partition.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = acl_partition.cpp; sourceTree = "<group>"; };
+		C2E8FBA41B8FABFE00156D36 /* acl_partition.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = acl_partition.h; sourceTree = "<group>"; };
 		C2FDCABD0663CD5B0013F64C /* pcscmonitor.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = pcscmonitor.cpp; sourceTree = "<group>"; };
 		C2FDCABE0663CD5B0013F64C /* pcscmonitor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = pcscmonitor.h; sourceTree = "<group>"; };
 		C2FDCABF0663CD5B0013F64C /* reader.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = reader.cpp; sourceTree = "<group>"; };
@@ -685,6 +689,8 @@
 				C28654B006DBC2A30021E6E5 /* tokenacl.cpp */,
 				4C9264990534866F004B0E72 /* acl_keychain.h */,
 				4C9264980534866F004B0E72 /* acl_keychain.cpp */,
+				C2E8FBA41B8FABFE00156D36 /* acl_partition.h */,
+				C2E8FBA31B8FABFE00156D36 /* acl_partition.cpp */,
 			);
 			name = ACLs;
 			sourceTree = "<group>";
@@ -763,6 +769,7 @@
 				AAC707440E6F4335003CC2B2 /* tokenacl.h in Headers */,
 				AAC707450E6F4335003CC2B2 /* tokenaccess.h in Headers */,
 				AAC707460E6F4335003CC2B2 /* authhost.h in Headers */,
+				C2E8FBA61B8FABFE00156D36 /* acl_partition.h in Headers */,
 				AAC707470E6F4335003CC2B2 /* SharedMemoryServer.h in Headers */,
 				AAC707480E6F4335003CC2B2 /* csproxy.h in Headers */,
 				AAC707490E6F4335003CC2B2 /* credential.h in Headers */,
@@ -957,6 +964,7 @@
 				AAC707750E6F4352003CC2B2 /* csproxy.cpp in Sources */,
 				AAC707760E6F4352003CC2B2 /* credential.cpp in Sources */,
 				AAC707780E6F4352003CC2B2 /* clientid.cpp in Sources */,
+				C2E8FBA51B8FABFE00156D36 /* acl_partition.cpp in Sources */,
 				4E0BB2B50F79590300BBFEFA /* ccaudit_extensions.cpp in Sources */,
 				C274C51E0F9E8E0F001ABDA3 /* auditevents.cpp in Sources */,
 			);
@@ -1023,6 +1031,8 @@
 			buildSettings = {
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
+					../OSX/include,
+					"$(SDKROOT)/usr/local/include",
 					"$(BUILT_PRODUCTS_DIR)/derived_src",
 					"$(SRCROOT)",
 					"$(SRCROOT)/securityd",
@@ -1033,7 +1043,8 @@
 					"\"$(SRCROOT)/../../../build/Products\"",
 					"\"$(SRCROOT)/securityd/../../../build/Products\"",
 				);
-				ORDER_FILE = "$(SRCROOT)/securityd/src/securityd.order";
+				ORDER_FILE = src/securityd.order;
+				SDKROOT = macosx.internal;
 			};
 			name = Debug;
 		};
@@ -1043,6 +1054,8 @@
 			buildSettings = {
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
+					../OSX/include,
+					"$(SDKROOT)/usr/local/include",
 					"$(BUILT_PRODUCTS_DIR)/derived_src",
 					"$(SRCROOT)",
 					"$(SRCROOT)/securityd",
@@ -1053,7 +1066,8 @@
 					"\"$(SRCROOT)/../../../build/Products\"",
 					"\"$(SRCROOT)/securityd/../../../build/Products\"",
 				);
-				ORDER_FILE = "$(SRCROOT)/securityd/src/securityd.order";
+				ORDER_FILE = src/securityd.order;
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};

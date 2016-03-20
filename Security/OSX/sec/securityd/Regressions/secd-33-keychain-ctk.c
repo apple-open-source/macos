@@ -40,6 +40,7 @@
 #include <libaks_acl_cf_keys.h>
 
 #include <ctkclient_test.h>
+#include <coreauthd_spi.h>
 
 #include "secd_regressions.h"
 
@@ -354,7 +355,7 @@ static void test_item_delete(void) {
     is(phase, 0);
 
     phase = 0;
-#if USE_KEYSTORE
+#if LA_CONTEXT_IMPLEMENTED
     LASetErrorCodeBlock(^{ return (CFErrorRef)NULL; });
     deleteError = CFErrorCreate(NULL, CFSTR(kTKErrorDomain), kTKErrorCodeAuthenticationFailed, NULL);
     ok_status(SecItemDelete(query), "delete multiple token items");
@@ -373,7 +374,7 @@ static void test_item_delete(void) {
     CFRelease(query);
     CFReleaseSafe(deleteError);
 }
-#if USE_KEYSTORE
+#if LA_CONTEXT_IMPLEMENTED
 static const int kItemDeleteTestCount = 15;
 #else
 static const int kItemDeleteTestCount = 14;
@@ -532,7 +533,7 @@ static void test_key_sign(void) {
     is(CFDataGetLength(sig), CFDataGetLength(valueData));
     eq_cf(valueData, sig);
 
-#if USE_KEYSTORE
+#if LA_CONTEXT_IMPLEMENTED
     phase = 0;
     CFDataSetLength(sig, 256);
     sigLen = CFDataGetLength(sig);
@@ -551,10 +552,10 @@ static void test_key_sign(void) {
     CFRelease(privateKey);
     CFRelease(query);
 }
-#if USE_KEYSTORE
+#if LA_CONTEXT_IMPLEMENTED
 static const int kKeySignTestCount = 11;
 #else
-static const int kKeySignTestCount = 5;
+static const int kKeySignTestCount = 6;
 #endif
 
 static void test_key_generate_with_params(void) {

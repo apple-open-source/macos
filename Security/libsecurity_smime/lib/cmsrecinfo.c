@@ -471,6 +471,7 @@ SecCmsRecipientInfoWrapBulkKey(SecCmsRecipientInfoRef ri, SecSymmetricKeyRef bul
     SecCmsOriginatorIdentifierOrKey *oiok;
 #endif /* 0 */
     const SECAlgorithmID *algid;
+    SECAlgorithmID freeAlgID;
     PLArenaPool *poolp;
     SecCmsKeyTransRecipientInfoEx *extra = NULL;
     Boolean usesSubjKeyID;
@@ -484,7 +485,6 @@ SecCmsRecipientInfoWrapBulkKey(SecCmsRecipientInfoRef ri, SecSymmetricKeyRef bul
 	if (rv)
 	    return SECFailure;
 #else
-        SECAlgorithmID freeAlgID;
         const SecAsn1AlgId *length_data_swapped = (const SecAsn1AlgId *)SecCertificateGetPublicKeyAlgorithm(cert);
         freeAlgID.algorithm.Length = (size_t)length_data_swapped->algorithm.Data;
         freeAlgID.algorithm.Data = (uint8_t *)length_data_swapped->algorithm.Length;

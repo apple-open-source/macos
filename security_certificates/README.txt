@@ -16,7 +16,7 @@ The security_certificates project builds a set of data files into a signed bundl
         -- certificates which have been removed due to expiration or deprecation, and are no longer trusted.
 
     certificates/revoked
-        -- also known as "blacklisted" certificates, these are marked explicitly as revoked. Evaluation of a revoked certificate should always result in a non-recoverable trust failure.
+        -- also known as "blocked" certificates, these are marked explicitly as revoked. Evaluation of a revoked certificate should always result in a non-recoverable trust failure.
 
     certificates/roots
         -- trusted root certificates. The contents of this directory will be the list of trusted roots in the store.

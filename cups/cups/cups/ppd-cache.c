@@ -1,5 +1,5 @@
 /*
- * "$Id: ppd-cache.c 12732 2015-06-12 01:19:22Z msweet $"
+ * "$Id: ppd-cache.c 12992 2015-11-19 15:19:00Z msweet $"
  *
  * PPD cache implementation for CUPS.
  *
@@ -85,7 +85,7 @@ _cupsConvertOptions(ipp_t           *request,	/* I - IPP request */
   * Send standard IPP attributes...
   */
 
-  if (pc->password && (keyword = cupsGetOption("job-password", num_options, options)) != NULL)
+  if (pc->password && (keyword = cupsGetOption("job-password", num_options, options)) != NULL && ippGetOperation(request) != IPP_OP_VALIDATE_JOB)
   {
     ippAddOctetString(request, IPP_TAG_OPERATION, "job-password", keyword, (int)strlen(keyword));
 
@@ -3811,5 +3811,5 @@ pwg_unppdize_name(const char *ppd,	/* I - PPD keyword */
 
 
 /*
- * End of "$Id: ppd-cache.c 12732 2015-06-12 01:19:22Z msweet $".
+ * End of "$Id: ppd-cache.c 12992 2015-11-19 15:19:00Z msweet $".
  */

@@ -47,7 +47,7 @@ ProtectedPasswordAclSubject::ProtectedPasswordAclSubject(Allocator &alloc, CssmM
 //
 // Validate a credential set against this subject
 //
-bool ProtectedPasswordAclSubject::validate(const AclValidationContext &context,
+bool ProtectedPasswordAclSubject::validates(const AclValidationContext &context,
     const TypedList &sample) const
 {
     if (sample.length() == 1) {

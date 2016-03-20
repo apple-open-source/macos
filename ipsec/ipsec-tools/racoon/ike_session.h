@@ -149,6 +149,7 @@ extern void               ike_session_cleanup_other_established_ph2s (ike_sessio
 extern void				  ike_session_stopped_by_controller (ike_session_t *, const char *);
 extern void				  ike_sessions_stopped_by_controller (struct sockaddr_storage *, int, const char *);
 extern void               ike_session_purge_ph2s_by_ph1 (phase1_handle_t *);
+extern void               ike_session_purge_ph1s_by_session (ike_session_t *session);
 extern phase1_handle_t  * ike_session_get_established_ph1 (ike_session_t *);
 extern phase1_handle_t *  ike_session_get_established_or_negoing_ph1 (ike_session_t *);
 extern void               ike_session_update_ph2_ports (phase2_handle_t *);

@@ -16,5 +16,7 @@
 		<string>com.apple.identities</string>
 		<string>com.apple.certificates</string>
 	</array>
+	<key>com.apple.private.system-keychain</key>
+	<true/>
 </dict>
 </plist>

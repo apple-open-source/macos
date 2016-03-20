@@ -348,13 +348,106 @@ static void date_tests(void)
     CFReleaseNull(leaf);
 }
 
+static bool test_chain_of_three(uint8_t *cert0, size_t cert0len,
+                                uint8_t *cert1, size_t cert1len,
+                                uint8_t *root,  size_t rootlen,
+                                bool should_succeed, CF_RETURNS_RETAINED CFStringRef *failureReason)
+{
+    bool ok = false;
+
+    const void *secCert0, *secCert1, *secRoot;
+    isnt(secCert0 = SecCertificateCreateWithBytes(NULL, cert0, cert0len), NULL, "create leaf");
+    isnt(secCert1 = SecCertificateCreateWithBytes(NULL, cert1, cert1len), NULL, "create subCA");
+    isnt(secRoot  = SecCertificateCreateWithBytes(NULL, root,  rootlen),  NULL, "create root");
+
+    const void *v_certs[] = { secCert0, secCert1 };
+    CFArrayRef certs = NULL;
+    isnt(certs = CFArrayCreate(NULL, v_certs, sizeof(v_certs)/sizeof(*v_certs), NULL),
+         NULL, "failed to create cert array");
+    CFArrayRef anchors = NULL;
+    isnt(anchors = CFArrayCreate(NULL, &secRoot, 1, NULL), NULL, "failed to create anchors array");
+
+    SecPolicyRef policy = NULL;
+    isnt(policy = SecPolicyCreateBasicX509(), NULL, "failed to create policy");
+    CFDateRef date = NULL;
+    isnt(date = CFDateCreate(NULL, 472100000.0), NULL, "failed to create date"); // 17 Dec 2015
+
+    SecTrustRef trust = NULL;
+    SecTrustResultType trustResult;
+    ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "failed to create trust");
+    ok_status(SecTrustSetVerifyDate(trust, date), "failed to set verify date");
+    ok_status(SecTrustSetAnchorCertificates(trust, anchors), "failed to set anchors");
+
+    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate chain");
+    is(SecTrustGetCertificateCount(trust), 3, "expected chain of 3");
+    bool did_succeed = (trustResult == kSecTrustResultUnspecified);
+
+    if (failureReason && should_succeed && !did_succeed) {
+        *failureReason = SecTrustCopyFailureDescription(trust);
+    } else if (failureReason && !should_succeed && did_succeed) {
+        *failureReason = CFSTR("expected kSecTrustResultRecoverableTrustFailure");
+    }
+
+    if ((should_succeed && did_succeed) || (!should_succeed && !did_succeed)) {
+        ok = true;
+    }
+
+    CFReleaseSafe(secCert0);
+    CFReleaseSafe(secCert1);
+    CFReleaseSafe(secRoot);
+    CFReleaseSafe(certs);
+    CFReleaseSafe(anchors);
+    CFReleaseSafe(date);
+    CFReleaseSafe(policy);
+    CFReleaseSafe(trust);
+
+    return ok;
+}
+
+static void rsa_key_size_tests() {
+
+    ok(test_chain_of_three(_leaf2048A, sizeof(_leaf2048A),_int2048A, sizeof(_int2048A), _root512, sizeof(_root512),
+                           false, NULL), "SECURITY: failed to detect weak root");
+    ok(test_chain_of_three(_leaf2048B, sizeof(_leaf2048B), _int512, sizeof(_int512), _root2048, sizeof(_root2048),
+                           false, NULL), "SECURITY: failed to detect weak intermediate");
+    ok(test_chain_of_three(_leaf512, sizeof(_leaf512), _int2048B, sizeof(_int2048B), _root2048, sizeof(_root2048),
+                           false, NULL), "SECURITY: failed to detect weak leaf");
+
+    CFStringRef failureReason = NULL;
+    ok(test_chain_of_three(_leaf1024, sizeof(_leaf1024), _int2048B, sizeof(_int2048B), _root2048, sizeof(_root2048),
+                           true, &failureReason), "REGRESSION: key size test 1024-bit leaf: %@", failureReason);
+    CFReleaseNull(failureReason);
+    ok(test_chain_of_three(_leaf2048C, sizeof(_leaf2048C), _int2048B, sizeof(_int2048B), _root2048, sizeof(_root2048),
+                           true, &failureReason), "REGRESSION: key size test 2048-bit leaf: %@", failureReason);
+    CFReleaseNull(failureReason);
+
+}
+
+static void ec_key_size_tests() {
+
+    /* Because CoreCrypto does not support P128, we fail to chain if any CAs use weakly sized curves */
+    ok(test_chain_of_three(_leaf128, sizeof(_leaf128), _int384B, sizeof(_int384B), _root384, sizeof(_root384),
+                           false, NULL), "SECURITY: failed to detect weak leaf");
+
+    CFStringRef failureReason = NULL;
+    ok(test_chain_of_three(_leaf192, sizeof(_leaf192), _int384B, sizeof(_int384B), _root384, sizeof(_root384),
+                           true, &failureReason), "REGRESSION: key size test 192-bit leaf: %@", failureReason);
+    CFReleaseNull(failureReason);
+    ok(test_chain_of_three(_leaf384C, sizeof(_leaf384C), _int384B, sizeof(_int384B), _root384, sizeof(_root384),
+                           true, &failureReason), "REGRESSION: key size test 384-bit leaf: %@", failureReason);
+    CFReleaseNull(failureReason);
+
+}
+
 int si_20_sectrust(int argc, char *const *argv)
 {
-	plan_tests(101);
+	plan_tests(101+8*13);
 
 	basic_tests();
     rsa8k_tests();
     date_tests();
+    rsa_key_size_tests();
+    ec_key_size_tests();
 
 	return 0;
 }

@@ -546,7 +546,7 @@ int init_connection(tls_server_ctx_t **psc, int fd, struct sockaddr_in address, 
     if(params->protocol_max)
         require_noerr((err=tls_handshake_set_max_protocol_version(sc->hdsk, params->protocol_max)), fail);
     require_noerr((err=tls_handshake_set_resumption(sc->hdsk,params->allow_resumption)), fail);
-    require_noerr(tls_handshake_set_renegotiation(sc->hdsk, true), fail);
+    require_noerr(tls_handshake_set_renegotiation(sc->hdsk, params->allow_renegotiation), fail);
     require_noerr(tls_handshake_set_client_auth(sc->hdsk, params->client_auth), fail);
 
     if(params->ocsp) {
@@ -1080,7 +1080,7 @@ int main(int argc, const char * argv[])
     params.port=4443;
     params.num_ciphersuites = CipherSuiteCount;
     params.ciphersuites = KnownCipherSuites;
-
+    params.allow_resumption = true;
 
     if (argc > 1) {
         int i = 0;
@@ -1101,8 +1101,9 @@ int main(int argc, const char * argv[])
             }
             if (strcmp(argv[i], "--no-resumption") == 0){
                 params.allow_resumption = false;
-            } else {
-                params.allow_resumption = true;
+            }
+            if (strcmp(argv[i], "--allow-renego") == 0){
+                params.allow_renegotiation = true;
             }
             if (strcmp(argv[i], "--use_ecdsa_cert") == 0){
                 use_ecdsa_cert = true;

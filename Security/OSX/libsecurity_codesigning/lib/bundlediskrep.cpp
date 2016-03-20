@@ -84,6 +84,8 @@ void BundleDiskRep::checkMoved(CFURLRef oldPath, CFURLRef newPath)
 void BundleDiskRep::setup(const Context *ctx)
 {
 	mInstallerPackage = false;	// default
+	mAppLike = false;			// pessimism first
+	bool appDisqualified = false; // found reason to disqualify as app
 
 	// capture the path of the main executable before descending into a specific version
 	CFRef<CFURLRef> mainExecBefore = CFBundleCopyExecutableURL(mBundle);
@@ -107,11 +109,13 @@ void BundleDiskRep::setup(const Context *ctx)
 		}
 	} else if (::access(supportFiles.c_str(), F_OK) == 0) {	// ancient legacy boondoggle bundle
 		// treat like a shallow bundle; do not allow Versions arbitration
+		appDisqualified = true;
 	} else if (::access(version.c_str(), F_OK) == 0) {	// versioned bundle
 		if (CFBundleRef versionBundle = CFBundleCreate(NULL, CFTempURL(version)))
 			mBundle.take(versionBundle);	// replace top bundle ref
 		else
 			MacOSError::throwMe(errSecCSStaticCodeNotFound);
+		appDisqualified = true;
 		validateFrameworkRoot(root);
 	} else {
 		if (ctx && ctx->version)	// explicitly specified
@@ -143,7 +147,16 @@ void BundleDiskRep::setup(const Context *ctx)
 			mExecRep = DiskRep::bestFileGuess(this->mainExecutablePath(), ctx);
 			if (!mExecRep->fd().isPlainFile(this->mainExecutablePath()))
 				recordStrictError(errSecCSRegularFile);
+			CFDictionaryRef infoDict = CFBundleGetInfoDictionary(mBundle);
+			bool isAppBundle = false;
+			if (infoDict)
+				if (CFTypeRef packageType = CFDictionaryGetValue(infoDict, CFSTR("CFBundlePackageType")))
+					if (CFEqual(packageType, CFSTR("APPL")))
+						isAppBundle = true;
 			mFormat = "bundle with " + mExecRep->format();
+			if (isAppBundle)
+				mFormat = "app " + mFormat;
+			mAppLike = isAppBundle && !appDisqualified;
 			return;
 		}
 	
@@ -159,6 +172,7 @@ void BundleDiskRep::setup(const Context *ctx)
 		if (!mExecRep->fd().isPlainFile(this->mainExecutablePath()))
 			recordStrictError(errSecCSRegularFile);
 		mFormat = "widget bundle";
+		mAppLike = true;
 		return;
 	}
 	
@@ -382,6 +396,11 @@ Universal *BundleDiskRep::mainExecutableImage()
 	return mExecRep->mainExecutableImage();
 }
 
+void BundleDiskRep::prepareForSigning(SigningContext &context)
+{
+	return mExecRep->prepareForSigning(context);
+}
+
 size_t BundleDiskRep::signingBase()
 {
 	return mExecRep->signingBase();
@@ -403,7 +422,11 @@ CFArrayRef BundleDiskRep::modifiedFiles()
 	checkModifiedFile(files, cdCodeDirectorySlot);
 	checkModifiedFile(files, cdSignatureSlot);
 	checkModifiedFile(files, cdResourceDirSlot);
+	checkModifiedFile(files, cdTopDirectorySlot);
 	checkModifiedFile(files, cdEntitlementSlot);
+	checkModifiedFile(files, cdRepSpecificSlot);
+	for (CodeDirectory::Slot slot = cdAlternateCodeDirectorySlots; slot < cdAlternateCodeDirectoryLimit; ++slot)
+		checkModifiedFile(files, slot);
 	return files;
 }
 
@@ -563,13 +586,21 @@ size_t BundleDiskRep::pageSize(const SigningContext &ctx)
 // Strict validation.
 // Takes an array of CFNumbers of errors to tolerate.
 //
-void BundleDiskRep::strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated)
+void BundleDiskRep::strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags)
 {
 	std::vector<OSStatus> fatalErrors;
 	set_difference(mStrictErrors.begin(), mStrictErrors.end(), tolerated.begin(), tolerated.end(), back_inserter(fatalErrors));
 	if (!fatalErrors.empty())
 		MacOSError::throwMe(fatalErrors[0]);
-	mExecRep->strictValidate(cd, tolerated);
+	
+	// if app focus is requested and this doesn't look like an app, fail - but allow whitelist overrides
+	if (flags & kSecCSRestrictToAppLike)
+		if (!mAppLike)
+			if (tolerated.find(kSecCSRestrictToAppLike) == tolerated.end())
+				MacOSError::throwMe(errSecCSNotAppLike);
+	
+	// now strict-check the main executable (which won't be an app-like object)
+	mExecRep->strictValidate(cd, tolerated, flags & ~kSecCSRestrictToAppLike);
 }
 
 void BundleDiskRep::recordStrictError(OSStatus error)

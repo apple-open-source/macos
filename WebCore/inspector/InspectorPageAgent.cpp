@@ -72,6 +72,7 @@
 #include <inspector/IdentifiersFactory.h>
 #include <inspector/InspectorValues.h>
 #include <wtf/ListHashSet.h>
+#include <wtf/Stopwatch.h>
 #include <wtf/text/Base64.h>
 #include <wtf/text/StringBuilder.h>
 #include <yarr/RegularExpression.h>
@@ -257,6 +258,9 @@ String InspectorPageAgent::sourceMapURLForResource(CachedResource* cachedResourc
 
 CachedResource* InspectorPageAgent::cachedResource(Frame* frame, const URL& url)
 {
+    if (url.isNull())
+        return nullptr;
+
     CachedResource* cachedResource = frame->document()->cachedResourceLoader().cachedResource(url);
     if (!cachedResource) {
         ResourceRequest request(url);
@@ -823,12 +827,6 @@ void InspectorPageAgent::loaderDetachedFromFrame(DocumentLoader& loader)
 
 void InspectorPageAgent::frameStartedLoading(Frame& frame)
 {
-    if (frame.isMainFrame()) {
-        auto stopwatch = m_instrumentingAgents->inspectorEnvironment().executionStopwatch();
-        stopwatch->reset();
-        stopwatch->start();
-    }
-
     m_frontendDispatcher->frameStartedLoading(frameId(&frame));
 }
 

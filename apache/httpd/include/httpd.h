@@ -200,6 +200,10 @@ extern "C" {
 #ifndef DEFAULT_LIMIT_REQUEST_FIELDS
 #define DEFAULT_LIMIT_REQUEST_FIELDS 100
 #endif
+/** default/hard limit on number of leading/trailing empty lines */
+#ifndef DEFAULT_LIMIT_BLANK_LINES
+#define DEFAULT_LIMIT_BLANK_LINES 10
+#endif
 
 /**
  * The default default character set name to add if AddDefaultCharset is
@@ -518,6 +522,7 @@ AP_DECLARE(const char *) ap_get_server_built(void);
 #define HTTP_UNSUPPORTED_MEDIA_TYPE          415
 #define HTTP_RANGE_NOT_SATISFIABLE           416
 #define HTTP_EXPECTATION_FAILED              417
+#define HTTP_MISDIRECTED_REQUEST             421
 #define HTTP_UNPROCESSABLE_ENTITY            422
 #define HTTP_LOCKED                          423
 #define HTTP_FAILED_DEPENDENCY               424
@@ -1166,6 +1171,9 @@ struct conn_rec {
 #if APR_HAS_THREADS
     apr_thread_t *current_thread;
 #endif
+
+    /** The "real" master connection. NULL if I am the master. */
+    conn_rec *master;
 };
 
 /**
@@ -1549,6 +1557,23 @@ AP_DECLARE(int) ap_find_etag_weak(apr_pool_t *p, const char *line, const char *t
 AP_DECLARE(int) ap_find_etag_strong(apr_pool_t *p, const char *line, const char *tok);
 
 /**
+ * Retrieve an array of tokens in the format "1#token" defined in RFC2616. Only
+ * accepts ',' as a delimiter, does not accept quoted strings, and errors on
+ * any separator.
+ * @param p The pool to allocate from
+ * @param tok The line to read tokens from
+ * @param tokens Pointer to an array of tokens. If not NULL, must be an array
+ *    of char*, otherwise it will be allocated on @a p when a token is found
+ * @param skip_invalid If true, when an invalid separator is encountered, it
+ *    will be ignored.
+ * @return NULL on success, an error string otherwise.
+ * @remark *tokens may be NULL on output if NULL in input and no token is found
+ */
+AP_DECLARE(const char *) ap_parse_token_list_strict(apr_pool_t *p, const char *tok,
+                                                    apr_array_header_t **tokens,
+                                                    int skip_invalid);
+
+/**
  * Retrieve a token, spacing over it and adjusting the pointer to
  * the first non-white byte afterwards.  Note that these tokens
  * are delimited by semis and commas and can also be delimited
@@ -1644,7 +1669,7 @@ AP_DECLARE(char *) ap_escape_path_segment(apr_pool_t *p, const char *s);
 AP_DECLARE(char *) ap_escape_path_segment_buffer(char *c, const char *s);
 
 /**
- * convert an OS path to a URL in an OS dependant way.
+ * convert an OS path to a URL in an OS dependent way.
  * @param p The pool to allocate from
  * @param path The path to convert
  * @param partial if set, assume that the path will be appended to something
@@ -1769,7 +1794,7 @@ AP_DECLARE(char *) ap_make_dirstr_parent(apr_pool_t *p, const char *s);
 AP_DECLARE(char *) ap_make_full_path(apr_pool_t *a, const char *dir, const char *f);
 
 /**
- * Test if the given path has an an absolute path.
+ * Test if the given path has an absolute path.
  * @param p The pool to allocate from
  * @param dir The directory name
  * @note The converse is not necessarily true, some OS's (Win32/OS2/Netware) have
@@ -2264,6 +2289,28 @@ AP_DECLARE(char *) ap_get_exec_line(apr_pool_t *p,
                                     const char * const *argv);
 
 #define AP_NORESTART APR_OS_START_USEERR + 1
+
+/**
+ * Get the first index of the string in the array or -1 if not found. Start
+ * searching a start. 
+ * @param array The array the check
+ * @param s The string to find
+ * @param start Start index for search. If start is out of bounds (negative or  
+                equal to array length or greater), -1 will be returned.
+ * @return index of string in array or -1
+ */
+AP_DECLARE(int) ap_array_str_index(const apr_array_header_t *array, 
+                                   const char *s,
+                                   int start);
+
+/**
+ * Check if the string is member of the given array by strcmp.
+ * @param array The array the check
+ * @param s The string to find
+ * @return !=0 iff string is member of array (via strcmp)
+ */
+AP_DECLARE(int) ap_array_str_contains(const apr_array_header_t *array, 
+                                      const char *s);
 
 #ifdef __cplusplus
 }

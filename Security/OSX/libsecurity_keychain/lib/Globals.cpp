@@ -38,8 +38,15 @@ bool gServerMode;
 #pragma mark ÑÑÑÑ Constructor/Destructor ÑÑÑÑ
 
 Globals::Globals() :
-mUI(true)
+mUI(true), mIntegrityProtection(false)
 {
+    //sudo defaults write /Library/Preferences/com.apple.security KeychainIntegrity -bool YES
+    CFTypeRef integrity = (CFNumberRef)CFPreferencesCopyValue(CFSTR("KeychainIntegrity"), CFSTR("com.apple.security"), kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+
+    if (integrity && CFGetTypeID(integrity) == CFBooleanGetTypeID()) {
+        mIntegrityProtection = CFBooleanGetValue((CFBooleanRef)integrity);
+        CFRelease(integrity);
+    }
 }
 
 const AccessCredentials * Globals::keychainCredentials() 

@@ -120,6 +120,9 @@ public:
 
 	friend class Keychain;
 	friend class ItemImpl;
+	friend class KeyItem;
+    friend class KCCursorImpl;
+    friend class StorageManager;
 protected:
     KeychainImpl(const CssmClient::Db &db);
 
@@ -134,6 +137,8 @@ public:
 
 	Mutex* getKeychainMutex();
 	Mutex* getMutexForObject();
+
+    ReadWriteLock* getKeychainReadWriteLock();
 	void aboutToDestruct();
 
 	bool operator ==(const KeychainImpl &) const;
@@ -178,18 +183,24 @@ public:
 
 	KCCursor createCursor(const SecKeychainAttributeList *attrList);
 	KCCursor createCursor(SecItemClass itemClass, const SecKeychainAttributeList *attrList);
-	CssmClient::Db database() { return mDb; }
+	CssmClient::Db database() { StLock<Mutex>_(mDbMutex); return mDb; }
 	DLDbIdentifier dlDbIdentifier() const { return mDb->dlDbIdentifier(); }
 
 	CssmClient::CSP csp();
 
 	PrimaryKey makePrimaryKey(CSSM_DB_RECORDTYPE recordType, CssmClient::DbUniqueRecord &uniqueId);
+
+    // This will make a primary key for this record type, and populate it completely from the given attributes
+	PrimaryKey makePrimaryKey(CSSM_DB_RECORDTYPE recordType, CssmClient::DbAttributes *currentAttributes);
 	void gatherPrimaryKeyAttributes(CssmClient::DbAttributes& primaryKeyAttrs);
 	
 	const CssmAutoDbRecordAttributeInfo &primaryKeyInfosFor(CSSM_DB_RECORDTYPE recordType);
 
     Item item(const PrimaryKey& primaryKey);
     Item item(CSSM_DB_RECORDTYPE recordType, CssmClient::DbUniqueRecord &uniqueId);
+
+    // Check for an item that may have been deleted.
+    Item itemdeleted(const PrimaryKey& primaryKey);
 
 	CssmDbAttributeInfo attributeInfoFor(CSSM_DB_RECORDTYPE recordType, UInt32 tag);
 	void getAttributeInfoForItemID(CSSM_DB_RECORDTYPE itemID, SecKeychainAttributeInfo **Info);
@@ -216,15 +227,55 @@ public:
 
     bool mayDelete();
 
+    // Returns true if this keychain supports the attribute integrity and
+    // partition ID protections
+    bool hasIntegrityProtection();
+
 private:
+    // Checks for and triggers a keychain database upgrade
+    // DO NOT hold any of the keychain locks when you call this
+    bool performKeychainUpgradeIfNeeded();
+
+    // Attempt to upgrade this keychain's database
+    uint32 attemptKeychainMigration(uint32 oldBlobVersion, uint32 newBlobVersion);
+
+    // Remember if we've attempted to upgrade this keychain's database
+    bool mAttemptedUpgrade;
+
 	void removeItem(const PrimaryKey &primaryKey, ItemImpl *inItemImpl);
+
+    // Use this when you want to be extra sure this item is removed from the
+    // cache. Iterates over the whole cache to find all instances. This function
+    // will take both cache map mutexes, so you must not hold only the
+    // mDbDeletedItemMapMutex when you call this function.
+    void forceRemoveFromCache(ItemImpl* inItemImpl);
+
 	ItemImpl *_lookupItem(const PrimaryKey &primaryKey);
+
+    // Looks up a deleted item in the deleted item map. Does not check the normal map.
+    ItemImpl *_lookupDeletedItemOnly(const PrimaryKey &primaryKey);
 
 	const AccessCredentials *makeCredentials();
 
-    typedef map<PrimaryKey, __weak ItemImpl *> DbItemMap;
-	// Weak reference map of all items we know about that have a primaryKey
+    typedef map<PrimaryKey, ItemImpl *> DbItemMap;
+	// Reference map of all items we know about that have a primaryKey
     DbItemMap mDbItemMap;
+    Mutex mDbItemMapMutex;
+
+    // Reference map of all items we know about that have been deleted
+    // but we haven't yet received a deleted notification about.
+    // We need this for when we delete an item (and so don't want it anymore)
+    // but stil need the item around to pass along to the client process with the
+    // deletion notification (if they've registered for such things).
+    DbItemMap mDbDeletedItemMap;
+    Mutex mDbDeletedItemMapMutex;
+
+    // Note on ItemMapMutexes: STL maps are not thread-safe, so you must hold the
+    // mutex for the entire duration of your access/modification to the map.
+    // Otherwise, other processes might interrupt your iterator by adding/removing
+    // items. If you must hold both mutexes, you must take mDbItemMapMutex before
+    // mDbDeletedItemMapMutex.
+
 	// True iff we are in the cache of keychains in StorageManager
 	bool mInCache;
 
@@ -237,6 +288,16 @@ private:
 	bool mIsInBatchMode;
 	EventBuffer *mEventBuffer;
 	Mutex mMutex;
+
+    // Now that we sometimes change the database object, Db object
+    // creation/returning needs a mutex. You should only hold this if you're
+    // copying or changing the mDb object.
+    Mutex mDbMutex;
+
+    // Used to protect mDb across calls.
+    // Grab a read lock if you expect to read from this keychain in the future.
+    // The write lock is taken if we're replacing the database wholesale with something new.
+    ReadWriteLock mRWLock;
 };
 
 
@@ -253,6 +314,8 @@ public:
 
 private:
 	friend class StorageManager;
+    friend class KeychainImpl;
+    friend class TrustKeychains;
     Keychain(const CssmClient::Db &db)
 	: SecPointer<KeychainImpl>(new KeychainImpl(db)) {}
 

@@ -241,10 +241,19 @@ sike_session_getph1bydstaddrwop(ike_session_t *session, struct sockaddr_storage 
 	phase1_handle_t *p = NULL;
            
     LIST_FOREACH(p, &session->ph1tree, ph1ofsession_chain) {
-        if (FSM_STATE_IS_EXPIRED(p->status))
+		if (FSM_STATE_IS_EXPIRED(p->status)) {
             continue;
-        if (cmpsaddrwop(remote, p->remote) == 0)
+		}
+		if (remote->ss_family == AF_INET &&
+			p->nat64_prefix.length) {
+			struct in_addr address;
+			nw_nat64_extract_v4(&p->nat64_prefix, &((struct sockaddr_in6 *)p->remote)->sin6_addr, &address);
+			if (((struct sockaddr_in *)remote)->sin_addr.s_addr == address.s_addr) {
+				return p;
+			}
+		} else if (cmpsaddrwop(remote, p->remote) == 0) {
             return p;
+		}
     }
     
     return NULL;
@@ -1567,4 +1576,42 @@ sweep_sleepwake(void)
     //%%%%%%%%%%%%%%% fix this
 	// do the ike_session last
 	ike_session_sweep_sleepwake();
+}
+
+uint32_t
+iph1_get_remote_v4_address(phase1_handle_t *iph1)
+{
+	uint32_t address = 0;
+	if (iph1->remote->ss_family == AF_INET) {
+		address = ((struct sockaddr_in *)iph1->remote)->sin_addr.s_addr;
+	} else if (iph1->remote->ss_family == AF_INET6 &&
+			   iph1->nat64_prefix.length) {
+		if (!nw_nat64_extract_v4(&iph1->nat64_prefix, &((struct sockaddr_in6 *)iph1->remote)->sin6_addr, (struct in_addr *)&address)) {
+			plog(ASL_LEVEL_ERR, "Failed to extract IPv4 from Phase 1 IPv6 address.\n");
+		}
+	} else {
+		plog(ASL_LEVEL_ERR, "Failed to get IPv4 address for Phase 1 (family=%u, NAT64Prefix=%u)\n",
+			 iph1->remote->ss_family,
+			 iph1->nat64_prefix.length);
+	}
+	return address;
+}
+
+uint32_t
+iph2_get_remote_v4_address(phase2_handle_t *iph2)
+{
+	uint32_t address = 0;
+	if (iph2->dst->ss_family == AF_INET) {
+		address = ((struct sockaddr_in *)iph2->dst)->sin_addr.s_addr;
+	} else if (iph2->dst->ss_family == AF_INET6 &&
+			   iph2->nat64_prefix.length) {
+		if (!nw_nat64_extract_v4(&iph2->nat64_prefix, &((struct sockaddr_in6 *)iph2->dst)->sin6_addr, (struct in_addr *)&address)) {
+			plog(ASL_LEVEL_ERR, "Failed to extract IPv4 from Phase 2 IPv6 address.\n");
+		}
+	} else {
+		plog(ASL_LEVEL_ERR, "Failed to get IPv4 address for Phase 2 (family=%u, NAT64Prefix=%u)\n",
+			 iph2->dst->ss_family,
+			 iph2->nat64_prefix.length);
+	}
+	return address;
 }

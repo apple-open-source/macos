@@ -125,7 +125,7 @@ class BuildPKIAsset
         output_str "About to copy over the plist files"
         
         # copy all of the necessary files into the asset data directory
-        file_list = %w(AppleESCertificates.plist AssetVersion.plist Blocked.plist GrayListedKeys.plist Allowed.plist EVRoots.plist certsIndex.data certsTable.data manifest.data)
+        file_list = %w(AppleESCertificates.plist AssetVersion.plist Blocked.plist GrayListedKeys.plist Allowed.plist EVRoots.plist certsIndex.data certsTable.data manifest.data TrustedCTLogs.plist)
         file_list.each do |file|
             file_path = File.join(@base_path, file)
             if !FileTest.exists?(file_path)

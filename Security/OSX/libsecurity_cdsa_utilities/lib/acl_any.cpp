@@ -32,7 +32,7 @@
 //
 // The ANY subject matches all credentials, including none at all.
 //
-bool AnyAclSubject::validate(const AclValidationContext &) const
+bool AnyAclSubject::validates(const AclValidationContext &) const
 {
 	return true;
 }

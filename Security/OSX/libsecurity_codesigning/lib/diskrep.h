@@ -41,6 +41,7 @@ namespace Security {
 namespace CodeSigning {
 
 class ResourceBuilder;
+class SecCodeSigner;
 
 
 //
@@ -65,6 +66,7 @@ public:
 	virtual CFURLRef copyCanonicalPath() = 0;					// path to whole code
 	virtual std::string resourcesRootPath();				// resource directory if any [none]
 	virtual void adjustResources(ResourceBuilder &builder);	// adjust resource rule set [no change]
+	virtual void prepareForSigning(SigningContext& context); // pre-adjust signing defaults before argument preparation [none]
 	virtual Universal *mainExecutableImage();				// Mach-O image if Mach-O based [null]
 	virtual size_t signingBase();							// start offset of signed area in main executable [zero]
 	virtual size_t signingLimit() = 0;						// size of signed area in main executable
@@ -80,13 +82,12 @@ public:
 		const SigningContext &ctx);							// default internal requirements [none]
 	virtual size_t pageSize(const SigningContext &ctx);		// default main executable page size [infinite, i.e. no paging]
 
-	virtual void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated); // perform strict validation
+	virtual void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags); // perform strict validation
 	virtual CFArrayRef allowedResourceOmissions();			// allowed (default) resource omission rules
 
 	bool mainExecutableIsMachO() { return mainExecutableImage() != NULL; }
 
 	// shorthands
-	CFDataRef codeDirectory()	{ return component(cdCodeDirectorySlot); }
 	CFDataRef signature()		{ return component(cdSignatureSlot); }
 
 public:
@@ -125,6 +126,16 @@ public:
 		virtual std::string sdkPath(const std::string &path) const = 0;
 		virtual bool isAdhoc() const = 0;
 		virtual SecCSFlags signingFlags() const = 0;
+
+		virtual const CodeDirectory::HashAlgorithms &digestAlgorithms() const = 0;
+		virtual void setDigestAlgorithms(CodeDirectory::HashAlgorithms types) = 0;
+		
+		void setDigestAlgorithm(CodeDirectory::HashAlgorithm type)
+		{
+			CodeDirectory::HashAlgorithms types;
+			types.insert(type);
+			setDigestAlgorithms(types);
+		}
 	};
 
 protected:
@@ -166,8 +177,8 @@ public:
 	bool attribute(uint32_t attr) const		{ return mAttributes & attr; }
 	
 	void signature(CFDataRef data)			{ component(cdSignatureSlot, data); }
-	void codeDirectory(const CodeDirectory *cd)
-		{ component(cdCodeDirectorySlot, CFTempData(cd->data(), cd->length())); }
+	void codeDirectory(const CodeDirectory *cd, CodeDirectory::SpecialSlot slot)
+		{ component(slot, CFTempData(cd->data(), cd->length())); }
 	
 private:
 	Architecture mArch;
@@ -220,7 +231,7 @@ public:
 		{ return mOriginal->defaultRequirements(arch, ctx); }
 	size_t pageSize(const SigningContext &ctx) { return mOriginal->pageSize(ctx); }
 
-	void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated) { mOriginal->strictValidate(cd, tolerated); }
+	void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags) { mOriginal->strictValidate(cd, tolerated, flags); }
 	CFArrayRef allowedResourceOmissions() { return mOriginal->allowedResourceOmissions(); }
 
 private:

@@ -480,6 +480,10 @@ bool Debugger::hasBreakpoint(SourceID sourceID, const TextPosition& position, Br
     if (hitBreakpoint)
         *hitBreakpoint = *breakpoint;
 
+    breakpoint->hitCount++;
+    if (breakpoint->ignoreCount >= breakpoint->hitCount)
+        return false;
+
     if (breakpoint->condition.isEmpty())
         return true;
 
@@ -581,10 +585,12 @@ void Debugger::breakProgram()
     if (m_isPaused)
         return;
 
+    if (!m_vm->topCallFrame)
+        return;
+
     m_pauseOnNextStatement = true;
     setSteppingMode(SteppingModeEnabled);
     m_currentCallFrame = m_vm->topCallFrame;
-    ASSERT(m_currentCallFrame);
     pauseIfNeeded(m_currentCallFrame);
 }
 

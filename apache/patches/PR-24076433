@@ -1,0 +1,58 @@
+--- modules/ssl/ssl_private.h.orig	2016-01-07 14:54:51.000000000 -0800
++++ modules/ssl/ssl_private.h	2016-01-07 15:53:23.000000000 -0800
+@@ -291,6 +291,7 @@
+ #define SSL_OPT_STRICTREQUIRE  (1<<5)
+ #define SSL_OPT_OPTRENEGOTIATE (1<<6)
+ #define SSL_OPT_LEGACYDNFORMAT (1<<7)
++#define SSL_OPT_LEGACYCHAINVERIFY (1<<8)
+ typedef int ssl_opt_t;
+ 
+ /**
+--- modules/ssl/ssl_engine_config.c.orig	2016-01-07 14:54:51.000000000 -0800
++++ modules/ssl/ssl_engine_config.c	2016-01-07 15:54:34.000000000 -0800
+@@ -1241,6 +1260,9 @@
+         else if (strcEQ(w, "LegacyDNStringFormat")) {
+             opt = SSL_OPT_LEGACYDNFORMAT;
+         }
++        else if (strcEQ(w, "LegacyCertChainVerify")) {
++        	opt = SSL_OPT_LEGACYCHAINVERIFY;
++        }
+         else {
+             return apr_pstrcat(cmd->pool,
+                                "SSLOptions: Illegal option '", w, "'",
+--- modules/ssl/ssl_engine_kernel.c.orig	2015-11-19 11:55:25.000000000 -0800
++++ modules/ssl/ssl_engine_kernel.c	2016-02-17 08:27:30.000000000 -0800
+@@ -1583,6 +1584,32 @@
+          */
+         return TRUE;
+     }
++    /*
++     * Allow relaxed checking of cert chains wrt to the key usage of the CA certs
++     */
++    if (!ok && (errnum == X509_V_ERR_INVALID_PURPOSE) &&
++        (dc && (dc->nOptions & SSL_OPT_LEGACYCHAINVERIFY)))
++    {
++            ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, conn, APLOGNO(76433)
++                      "Certificate Verification: the LegacyCertChainVerify option is set,"
++                      "  X509_V_ERR_INVALID_PURPOSE(26) error ignored.");
++            X509_STORE_CTX_set_error(ctx, X509_V_OK);
++            ok = TRUE;
++    }
++    /*
++     * Apply relaxed checking to signature
++     */
++    if (!ok && (errnum == X509_V_ERR_CERT_SIGNATURE_FAILURE) &&
++        (dc && (dc->nOptions & SSL_OPT_LEGACYCHAINVERIFY)))
++    {
++            ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, conn, APLOGNO(76433)
++                      "Certificate Verification: the LegacyCertChainVerify option is set,"
++                      "  X509_V_ERR_CERT_SIGNATURE_FAILURE(7) error ignored.");
++            X509_STORE_CTX_set_error(ctx, X509_V_OK);
++            ok = TRUE;
++    }
++
++
+ 
+     if (ssl_verify_error_is_optional(errnum) &&
+         (verify == SSL_CVERIFY_OPTIONAL_NO_CA))
+

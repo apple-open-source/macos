@@ -409,10 +409,15 @@ inline CFDataRef makeCFData(const void *data, size_t size)
 {
 	return CFDataCreate(NULL, (const UInt8 *)data, size);
 }
-
+	
 inline CFDataRef makeCFData(CFDictionaryRef dictionary)
 {
 	return CFPropertyListCreateXMLData(NULL, dictionary);
+}
+
+inline CFDataRef makeCFData(CFArrayRef array)
+{
+	return CFPropertyListCreateXMLData(NULL, array);
 }
 
 template <class Data>
@@ -618,7 +623,7 @@ CFToVector<VectorBase, CFRefType, convert>::CFToVector(CFArrayRef arrayRef)
 // Make CFArrays from stuff.
 //
 template <class Iterator, class Generator>
-inline CFArrayRef makeCFArray(Generator &generate, Iterator first, Iterator last)
+inline CFArrayRef makeCFArrayFrom(const Generator &generate, Iterator first, Iterator last)
 {
 	// how many elements?
 	size_t size = distance(first, last);
@@ -632,9 +637,9 @@ inline CFArrayRef makeCFArray(Generator &generate, Iterator first, Iterator last
 }
 
 template <class Container, class Generator>
-inline CFArrayRef makeCFArray(Generator &generate, const Container &container)
+inline CFArrayRef makeCFArrayFrom(const Generator &generate, const Container &container)
 {
-	return makeCFArray(generate, container.begin(), container.end());
+	return makeCFArrayFrom(generate, container.begin(), container.end());
 }
 
 CFArrayRef makeCFArray(CFIndex count, ...) CF_RETURNS_RETAINED;

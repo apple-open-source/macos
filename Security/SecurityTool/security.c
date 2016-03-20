@@ -271,7 +271,7 @@ const command commands[] =
 	  "Find a generic password item."},
 
 	{ "delete-generic-password", keychain_delete_generic_password,
-		"[-a account] [-s service] [options...] keychain...]\n"
+		"[-a account] [-s service] [options...] [keychain...]\n"
 		"    -a  Match \"account\" string\n"
 		"    -c  Match \"creator\" (four-character code)\n"
 		"    -C  Match \"type\" (four-character code)\n"
@@ -282,6 +282,21 @@ const command commands[] =
 		"    -s  Match \"service\" string\n"
 		"If no keychains are specified to search, the default search list is used.",
 		"Delete a generic password item."},
+
+    { "set-generic-password-partition-list", keychain_set_generic_password_partition_list,
+        "[-a account] [-s service] [-S partition-list] [-k keychain password] [options...] [keychain]\n"
+        "    -a  Match \"account\" string\n"
+        "    -c  Match \"creator\" (four-character code)\n"
+        "    -C  Match \"type\" (four-character code)\n"
+        "    -D  Match \"kind\" string\n"
+        "    -G  Match \"value\" string (generic attribute)\n"
+        "    -j  Match \"comment\" string\n"
+        "    -l  Match \"label\" string\n"
+        "    -s  Match \"service\" string\n"
+        "    -S  Comma-separated list of allowed partition IDs\n"
+        "    -k  The password for the keychain (required)\n"
+        "If no keychains are specified to search, the default search list is used.",
+        "Set the partition ID list of a generic password item."},
 
 	{ "find-internet-password", keychain_find_internet_password,
 	  "[-a account] [-s server] [options...] [-g] [keychain...]\n"
@@ -318,6 +333,26 @@ const command commands[] =
 		"    -t  Match \"authenticationType\" (four-character code)\n"
 		"If no keychains are specified to search, the default search list is used.",
 		"Delete an internet password item."},
+
+    { "set-internet-password-partition-list", keychain_set_internet_password_partition_list,
+        "[-a account] [-s service] [-S partition-list] [-k keychain password] [options...] [keychain]\n"
+        "    -a  Match \"account\" string\n"
+        "    -c  Match \"creator\" (four-character code)\n"
+        "    -C  Match \"type\" (four-character code)\n"
+        "    -d  Match \"securityDomain\" string\n"
+        "    -D  Match \"kind\" string\n"
+        "    -j  Match \"comment\" string\n"
+        "    -l  Match \"label\" string\n"
+        "    -p  Match \"path\" string\n"
+        "    -P  Match port number\n"
+        "    -r  Match \"protocol\" (four-character code)\n"
+        "    -s  Match \"server\" string\n"
+        "    -t  Match \"authenticationType\" (four-character code)\n"
+        "    -S  Comma-separated list of allowed partition IDs"
+        "    -k  password for keychain (required)"
+
+        "If no keychains are specified to search, the default search list is used.",
+        "Set the partition ID list of a internet password item."},
 
 	{ "find-certificate", keychain_find_certificate,
 	  "[-a] [-c name] [-e emailAddress] [-m] [-p] [-Z] [keychain...]\n"

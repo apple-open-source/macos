@@ -330,6 +330,8 @@ SOSFullPeerInfoRef SOSCreateFullPeerInfoFromName(CFStringRef name, SecKeyRef* ou
 
     //GeneratePermanentECPair(256, &publicKey, outSigningKey);
     *outSigningKey = GeneratePermanentFullECKey(256, name, error);
+    require(*outSigningKey, exit);
+
     gestalt = SOSCreatePeerGestaltFromName(name);
     require(gestalt, exit);
 

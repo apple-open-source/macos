@@ -277,9 +277,17 @@ static bool SecItemCertificateSourceCopyParents(
     CFDictionaryRef query = CFDictionaryCreate(NULL, keys, values, 4,
 		NULL, NULL);
     CFTypeRef results = NULL;
+    SecurityClient client = {
+        .task = NULL,
+        .accessGroups = msource->accessGroups,
+        .allowSystemKeychain = true,
+        .allowSyncBubbleKeychain = false,
+        .isNetworkExtension = false,
+    };
+
     /* We can make this async or run this on a queue now easily. */
     CFErrorRef localError = NULL;
-    if (!_SecItemCopyMatching(query, msource->accessGroups, &results, &localError)) {
+    if (!_SecItemCopyMatching(query, &client, &results, &localError)) {
         if (CFErrorGetCode(localError) != errSecItemNotFound) {
             secdebug("trust", "_SecItemCopyMatching: %@", localError);
         }
@@ -317,11 +325,18 @@ static bool SecItemCertificateSourceContains(SecCertificateSourceRef source,
         normalizedSubject,
         serialNumber
     };
+    SecurityClient client = {
+        .task = NULL,
+        .accessGroups = msource->accessGroups,
+        .allowSystemKeychain = true,
+        .allowSyncBubbleKeychain = false,
+        .isNetworkExtension = false,
+    };
     CFDictionaryRef query = CFDictionaryCreate(NULL, keys, values, 5,
         NULL, NULL);
     CFErrorRef localError = NULL;
     CFTypeRef results = NULL;
-    bool ok = _SecItemCopyMatching(query, msource->accessGroups, &results, &localError);
+    bool ok = _SecItemCopyMatching(query, &client, &results, &localError);
     CFRelease(query);
     CFRelease(serialNumber);
     CFReleaseSafe(results);

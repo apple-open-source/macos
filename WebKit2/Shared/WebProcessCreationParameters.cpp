@@ -40,7 +40,6 @@ WebProcessCreationParameters::WebProcessCreationParameters()
     , shouldUseFontSmoothing(true)
     , defaultRequestTimeoutInterval(INT_MAX)
 #if PLATFORM(COCOA)
-    , shouldEnableKerningAndLigaturesByDefault(false)
     , shouldEnableJIT(false)
     , shouldEnableFTLJIT(false)
 #endif
@@ -122,7 +121,6 @@ void WebProcessCreationParameters::encode(IPC::ArgumentEncoder& encoder) const
     encoder << acceleratedCompositingPort;
     encoder << uiProcessBundleResourcePath;
     encoder << uiProcessBundleResourcePathExtensionHandle;
-    encoder << shouldEnableKerningAndLigaturesByDefault;
     encoder << shouldEnableJIT;
     encoder << shouldEnableFTLJIT;
     encoder << !!bundleParameterData;
@@ -266,8 +264,6 @@ bool WebProcessCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebProc
     if (!decoder.decode(parameters.uiProcessBundleResourcePath))
         return false;
     if (!decoder.decode(parameters.uiProcessBundleResourcePathExtensionHandle))
-        return false;
-    if (!decoder.decode(parameters.shouldEnableKerningAndLigaturesByDefault))
         return false;
     if (!decoder.decode(parameters.shouldEnableJIT))
         return false;

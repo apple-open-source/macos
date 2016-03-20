@@ -38,6 +38,7 @@ namespace Schema {
 
 CSSM_DB_RECORDTYPE recordTypeFor(SecItemClass itemClass);
 SecItemClass itemClassFor(CSSM_DB_RECORDTYPE recordType);
+bool haveAttributeInfo(SecKeychainAttrType attrType);
 const CSSM_DB_ATTRIBUTE_INFO &attributeInfo(SecKeychainAttrType attrType);
 
 extern const CSSM_DB_ATTRIBUTE_INFO RelationID;

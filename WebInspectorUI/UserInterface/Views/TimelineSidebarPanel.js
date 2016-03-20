@@ -93,8 +93,18 @@ WebInspector.TimelineSidebarPanel = class TimelineSidebarPanel extends WebInspec
             this._chartColors.set(WebInspector.RenderingFrameTimelineRecord.TaskType.Paint, "rgb(152, 188, 77)");
             this._chartColors.set(WebInspector.RenderingFrameTimelineRecord.TaskType.Other, "rgb(221, 221, 221)");
 
-            this._frameSelectionChartRow = new WebInspector.ChartDetailsSectionRow(this);
-            this._frameSelectionChartRow.innerRadius = 0.5;
+            this._frameSelectionChartRow = new WebInspector.ChartDetailsSectionRow(this, 74, 0.5);
+            this._frameSelectionChartRow.addEventListener(WebInspector.ChartDetailsSectionRow.Event.LegendItemChecked, this._frameSelectionLegendItemChecked, this);
+
+            for (var key in WebInspector.RenderingFrameTimelineRecord.TaskType) {
+                var taskType = WebInspector.RenderingFrameTimelineRecord.TaskType[key];
+                var label = WebInspector.RenderingFrameTimelineRecord.displayNameForTaskType(taskType);
+                var color = this._chartColors.get(taskType);
+                var checkbox = taskType !== WebInspector.RenderingFrameTimelineRecord.TaskType.Other;
+                this._frameSelectionChartRow.addItem(taskType, label, 0, color, checkbox, true);
+            }
+
+            this._renderingFrameTaskFilter = new Set;
 
             var chartGroup = new WebInspector.DetailsSectionGroup([this._frameSelectionChartRow]);
             this._frameSelectionChartSection = new WebInspector.DetailsSection("frames-selection-chart", WebInspector.UIString("Selected Frames"), [chartGroup], null, true);
@@ -138,7 +148,7 @@ WebInspector.TimelineSidebarPanel = class TimelineSidebarPanel extends WebInspec
 
         toolTip = WebInspector.UIString("Start Playback");
         altToolTip = WebInspector.UIString("Pause Playback");
-        this._replayPauseResumeButtonItem = new WebInspector.ToggleButtonNavigationItem("replay-pause-resume", toolTip, altToolTip, "Images/Resume.svg", "Images/Pause.svg", 15, 15, true);
+        this._replayPauseResumeButtonItem = new WebInspector.ToggleButtonNavigationItem("replay-pause-resume", toolTip, altToolTip, "Images/Resume.svg", "Images/Pause.svg", 15, 15);
         this._replayPauseResumeButtonItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._replayPauseResumeButtonClicked, this);
         this._replayPauseResumeButtonItem.enabled = false;
         this._replayNavigationBar.addNavigationItem(this._replayPauseResumeButtonItem);
@@ -167,9 +177,11 @@ WebInspector.TimelineSidebarPanel = class TimelineSidebarPanel extends WebInspec
 
         this._toggleRecordingShortcut = new WebInspector.KeyboardShortcut(null, WebInspector.KeyboardShortcut.Key.Space, this._toggleRecordingOnSpacebar.bind(this));
         this._toggleRecordingShortcut.implicitlyPreventsDefault = false;
+        this._toggleRecordingShortcut.disabled = true;
 
         this._toggleNewRecordingShortcut = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.Shift, WebInspector.KeyboardShortcut.Key.Space, this._toggleNewRecordingOnSpacebar.bind(this));
         this._toggleNewRecordingShortcut.implicitlyPreventsDefault = false;
+        this._toggleNewRecordingShortcut.disabled = true;
     }
 
     // Public
@@ -374,6 +386,14 @@ WebInspector.TimelineSidebarPanel = class TimelineSidebarPanel extends WebInspec
 
     // Protected
 
+    representedObjectWasFiltered(representedObject, filtered)
+    {
+        super.representedObjectWasFiltered(representedObject, filtered);
+
+        if (representedObject instanceof WebInspector.TimelineRecord)
+            this._displayedContentView.recordWasFiltered(representedObject, filtered);
+    }
+
     updateFilter()
     {
         super.updateFilter();
@@ -396,6 +416,29 @@ WebInspector.TimelineSidebarPanel = class TimelineSidebarPanel extends WebInspec
         if (!this._displayedContentView)
             return true;
 
+        if (this._viewMode === WebInspector.TimelineSidebarPanel.ViewMode.RenderingFrames && this._renderingFrameTaskFilter.size) {
+            while (treeElement && !(treeElement.record instanceof WebInspector.TimelineRecord))
+                treeElement = treeElement.parent;
+
+            console.assert(treeElement, "Cannot apply task filter: no TimelineRecord found.");
+            if (!treeElement)
+                return false;
+
+            var records;
+            if (treeElement.record instanceof WebInspector.RenderingFrameTimelineRecord)
+                records = treeElement.record.children;
+            else
+                records = [treeElement.record];
+
+            var filtered = records.every(function(record) {
+                var taskType = WebInspector.RenderingFrameTimelineRecord.taskTypeForTimelineRecord(record);
+                return this._renderingFrameTaskFilter.has(taskType);
+            }, this);
+
+            if (filtered)
+                return false;
+        }
+
         return this._displayedContentView.matchTreeElementAgainstCustomFilters(treeElement);
     }
 
@@ -410,21 +453,19 @@ WebInspector.TimelineSidebarPanel = class TimelineSidebarPanel extends WebInspec
         if (!treeElement.treeOutline.__canShowContentViewForTreeElement(treeElement))
             return;
 
-        wrappedSVGDocument("Images/Close.svg", null, WebInspector.UIString("Close resource view"), function(element) {
-            var fragment = document.createDocumentFragment();
+        var fragment = document.createDocumentFragment();
 
-            var closeButton = new WebInspector.TreeElementStatusButton(element);
-            closeButton.element.classList.add("close");
-            closeButton.addEventListener(WebInspector.TreeElementStatusButton.Event.Clicked, this._treeElementCloseButtonClicked, this);
-            fragment.appendChild(closeButton.element);
+        var closeButton = new WebInspector.TreeElementStatusButton(useSVGSymbol("Images/Close.svg", null, WebInspector.UIString("Close resource view")));
+        closeButton.element.classList.add("close");
+        closeButton.addEventListener(WebInspector.TreeElementStatusButton.Event.Clicked, this._treeElementCloseButtonClicked, this);
+        fragment.appendChild(closeButton.element);
 
-            var goToButton = new WebInspector.TreeElementStatusButton(WebInspector.createGoToArrowButton());
-            goToButton.__treeElement = treeElement;
-            goToButton.addEventListener(WebInspector.TreeElementStatusButton.Event.Clicked, this._treeElementGoToArrowWasClicked, this);
-            fragment.appendChild(goToButton.element);
+        var goToButton = new WebInspector.TreeElementStatusButton(WebInspector.createGoToArrowButton());
+        goToButton.__treeElement = treeElement;
+        goToButton.addEventListener(WebInspector.TreeElementStatusButton.Event.Clicked, this._treeElementGoToArrowWasClicked, this);
+        fragment.appendChild(goToButton.element);
 
-            treeElement.status = fragment;
-        }.bind(this));
+        treeElement.status = fragment;
     }
 
     canShowDifferentContentView()
@@ -491,6 +532,8 @@ WebInspector.TimelineSidebarPanel = class TimelineSidebarPanel extends WebInspec
             return;
 
         this._toggleRecording();
+
+        event.preventDefault();
     }
 
     _toggleNewRecordingOnSpacebar(event)
@@ -499,6 +542,8 @@ WebInspector.TimelineSidebarPanel = class TimelineSidebarPanel extends WebInspec
             return;
 
         this._toggleRecording(true);
+
+        event.preventDefault();
     }
 
     _toggleRecording(shouldCreateRecording)
@@ -690,11 +735,9 @@ WebInspector.TimelineSidebarPanel = class TimelineSidebarPanel extends WebInspec
 
         var timelineTreeElement = new WebInspector.GeneralTreeElement([timeline.iconClassName, WebInspector.TimelineSidebarPanel.LargeIconStyleClass], timeline.displayName, null, timeline);
         var tooltip = WebInspector.UIString("Close %s timeline view").format(timeline.displayName);
-        wrappedSVGDocument("Images/CloseLarge.svg", WebInspector.TimelineSidebarPanel.CloseButtonStyleClass, tooltip, function(element) {
-            var button = new WebInspector.TreeElementStatusButton(element);
-            button.addEventListener(WebInspector.TreeElementStatusButton.Event.Clicked, this.showTimelineOverview, this);
-            timelineTreeElement.status = button.element;
-        }.bind(this));
+        var button = new WebInspector.TreeElementStatusButton(useSVGSymbol("Images/CloseLarge.svg", "close-button", tooltip));
+        button.addEventListener(WebInspector.TreeElementStatusButton.Event.Clicked, this.showTimelineOverview, this);
+        timelineTreeElement.status = button.element;
 
         this._timelinesTreeOutline.appendChild(timelineTreeElement);
         this._timelineTreeElementMap.set(timeline, timelineTreeElement);
@@ -825,6 +868,16 @@ WebInspector.TimelineSidebarPanel = class TimelineSidebarPanel extends WebInspec
         this.updateFilter();
     }
 
+    _frameSelectionLegendItemChecked(event)
+    {
+        if (event.data.checked)
+            this._renderingFrameTaskFilter.delete(event.data.id);
+        else
+            this._renderingFrameTaskFilter.add(event.data.id);
+
+        this.updateFilter();
+    }
+
     _refreshFrameSelectionChart()
     {
         if (!this.visible)
@@ -854,17 +907,12 @@ WebInspector.TimelineSidebarPanel = class TimelineSidebarPanel extends WebInspec
             return selectedRecords;
         }
 
-        var chart = this._frameSelectionChartRow;
         var records = getSelectedRecords.call(this);
-        var chartData = Object.keys(WebInspector.RenderingFrameTimelineRecord.TaskType).map(function(taskTypeKey) {
-            var taskType = WebInspector.RenderingFrameTimelineRecord.TaskType[taskTypeKey];
-            var label = WebInspector.RenderingFrameTimelineRecord.displayNameForTaskType(taskType);
+        for (var key in WebInspector.RenderingFrameTimelineRecord.TaskType) {
+            var taskType = WebInspector.RenderingFrameTimelineRecord.TaskType[key];
             var value = records.reduce(function(previousValue, currentValue) { return previousValue + currentValue.durationForTask(taskType); }, 0);
-            var color = this._chartColors.get(taskType);
-            return {label, value, color};
-        }, this);
-
-        this._frameSelectionChartRow.data = chartData;
+            this._frameSelectionChartRow.setItemValue(taskType, value);
+        }
 
         if (!records.length) {
             this._frameSelectionChartRow.title = WebInspector.UIString("Frames: None Selected");
@@ -875,10 +923,10 @@ WebInspector.TimelineSidebarPanel = class TimelineSidebarPanel extends WebInspec
         var lastRecord = records.lastValue;
 
         if (records.length > 1) {
-            this._frameSelectionChartRow.title = WebInspector.UIString("Frames: %d – %d (%s – %s)").format(firstRecord.frameNumber, lastRecord.frameNumber,
+            this._frameSelectionChartRow.title = WebInspector.UIString("Frames: %d \u2013 %d (%s \u2013 %s)").format(firstRecord.frameNumber, lastRecord.frameNumber,
                 Number.secondsToString(firstRecord.startTime), Number.secondsToString(lastRecord.endTime));
         } else {
-            this._frameSelectionChartRow.title = WebInspector.UIString("Frame: %d (%s – %s)").format(firstRecord.frameNumber,
+            this._frameSelectionChartRow.title = WebInspector.UIString("Frame: %d (%s \u2013 %s)").format(firstRecord.frameNumber,
                 Number.secondsToString(firstRecord.startTime), Number.secondsToString(lastRecord.endTime));
         }
     }
@@ -887,7 +935,7 @@ WebInspector.TimelineSidebarPanel = class TimelineSidebarPanel extends WebInspec
 
     _updateReplayInterfaceVisibility()
     {
-        var shouldShowReplayInterface = window.ReplayAgent && WebInspector.showReplayInterfaceSetting.value;
+        var shouldShowReplayInterface = !!(window.ReplayAgent && WebInspector.showReplayInterfaceSetting.value);
 
         this._statusBarElement.classList.toggle(WebInspector.TimelineSidebarPanel.HiddenStyleClassName, shouldShowReplayInterface);
         this._replayNavigationBar.element.classList.toggle(WebInspector.TimelineSidebarPanel.HiddenStyleClassName, !shouldShowReplayInterface);
@@ -974,7 +1022,6 @@ WebInspector.TimelineSidebarPanel.TitleBarScopeBarStyleClass = "title-bar-scope-
 WebInspector.TimelineSidebarPanel.TimelinesTitleBarStyleClass = "timelines";
 WebInspector.TimelineSidebarPanel.TimelineEventsTitleBarStyleClass = "timeline-events";
 WebInspector.TimelineSidebarPanel.TimelinesContentContainerStyleClass = "timelines-content";
-WebInspector.TimelineSidebarPanel.CloseButtonStyleClass = "close-button";
 WebInspector.TimelineSidebarPanel.LargeIconStyleClass = "large";
 WebInspector.TimelineSidebarPanel.StopwatchIconStyleClass = "stopwatch-icon";
 WebInspector.TimelineSidebarPanel.NetworkIconStyleClass = "network-icon";

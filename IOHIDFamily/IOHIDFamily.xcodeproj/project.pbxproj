@@ -1298,6 +1298,7 @@
 		B9D278931162BD2500549F99 /* IOFixed64.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOFixed64.h; sourceTree = "<group>"; };
 		B9F64FD316B1B4200056CAB0 /* IOHIDEventSystemQueue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDEventSystemQueue.cpp; sourceTree = "<group>"; };
 		B9F64FD416B1B4200056CAB0 /* IOHIDEventSystemQueue.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDEventSystemQueue.h; sourceTree = "<group>"; };
+		D8666FA41BBEE6C10071B5F7 /* IOHIDUserDeviceTest-Entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "IOHIDUserDeviceTest-Entitlements.plist"; path = "tools/IOHIDUserDeviceTest-Entitlements.plist"; sourceTree = "<group>"; };
 		F50AFCA502B4429701E77AAF /* IOHIDKeyboardDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDKeyboardDevice.cpp; sourceTree = "<group>"; };
 		F50AFCA602B4429701E77AAF /* IOHIDKeyboardDevice.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDKeyboardDevice.h; sourceTree = "<group>"; };
 		F558801602AF4C8901000102 /* IOHIDPointingDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDPointingDevice.cpp; sourceTree = "<group>"; };
@@ -1709,6 +1710,7 @@
 		84735CA2103AF70700F542C5 /* Tools */ = {
 			isa = PBXGroup;
 			children = (
+				D8666FA41BBEE6C10071B5F7 /* IOHIDUserDeviceTest-Entitlements.plist */,
 				B30C5190133D2D9300A4FA0F /* IOHIDReportTest-Entitlements.plist */,
 				8493F35216B2EFF20086E470 /* IOHIDEventSystemMonitor-Entitlements.plist */,
 				84735CA0103AF6EF00F542C5 /* IOHIDUserDeviceTest.c */,
@@ -3888,6 +3890,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD)";
+				CODE_SIGN_ENTITLEMENTS = "tools/IOHIDUserDeviceTest-Entitlements.plist";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -3901,6 +3904,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_ENTITLEMENTS = "tools/IOHIDUserDeviceTest-Entitlements.plist";
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/local/bin;
@@ -3913,6 +3917,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD)";
+				CODE_SIGN_ENTITLEMENTS = "tools/IOHIDUserDeviceTest-Entitlements.plist";
 				COPY_PHASE_STRIP = YES;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/bin;
@@ -3925,6 +3930,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_ENTITLEMENTS = "tools/IOHIDUserDeviceTest-Entitlements.plist";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = hidUserDeviceTest;

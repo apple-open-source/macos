@@ -128,10 +128,15 @@ static const command_rec ssl_config_cmds[] = {
     SSL_CMD_SRV(SessionCacheTimeout, TAKE1,
                 "SSL Session Cache object lifetime "
                 "('N' - number of seconds)")
-#ifdef HAVE_TLSV1_X
-#define SSL_PROTOCOLS "SSLv3|TLSv1|TLSv1.1|TLSv1.2"
+#ifdef OPENSSL_NO_SSL3
+#define SSLv3_PROTO_PREFIX ""
 #else
-#define SSL_PROTOCOLS "SSLv3|TLSv1"
+#define SSLv3_PROTO_PREFIX "SSLv3|"
+#endif
+#ifdef HAVE_TLSV1_X
+#define SSL_PROTOCOLS SSLv3_PROTO_PREFIX "TLSv1|TLSv1.1|TLSv1.2"
+#else
+#define SSL_PROTOCOLS SSLv3_PROTO_PREFIX "TLSv1"
 #endif
     SSL_CMD_SRV(Protocol, RAW_ARGS,
                 "Enable or disable various SSL protocols "
@@ -343,6 +348,11 @@ static int ssl_hook_pre_config(apr_pool_t *pconf,
     OpenSSL_add_all_algorithms();
     OPENSSL_load_builtin_modules();
 
+    if (OBJ_txt2nid("id-on-dnsSRV") == NID_undef) {
+        (void)OBJ_create("1.3.6.1.5.5.7.8.7", "id-on-dnsSRV",
+                         "SRVName otherName form");
+    }
+
     /*
      * Let us cleanup the ssl library when the module is unloaded
      */
@@ -370,6 +380,7 @@ static int ssl_hook_pre_config(apr_pool_t *pconf,
 static SSLConnRec *ssl_init_connection_ctx(conn_rec *c)
 {
     SSLConnRec *sslconn = myConnConfig(c);
+    SSLSrvConfigRec *sc;
 
     if (sslconn) {
         return sslconn;
@@ -379,6 +390,8 @@ static SSLConnRec *ssl_init_connection_ctx(conn_rec *c)
 
     sslconn->server = c->base_server;
     sslconn->verify_depth = UNSET;
+    sc = mySrvConfig(c->base_server);
+    sslconn->cipher_suite = sc->server->auth.cipher_suite;
 
     myConnConfigSet(c, sslconn);
 
@@ -483,7 +496,7 @@ int ssl_init_ssl_connection(conn_rec *c, request_rec *r)
     }
 
     SSL_set_app_data(ssl, c);
-    SSL_set_app_data2(ssl, NULL); /* will be request_rec */
+    modssl_set_app_data2(ssl, NULL); /* will be request_rec */
 
     sslconn->ssl = ssl;
 
@@ -518,6 +531,7 @@ static apr_port_t ssl_hook_default_port(const request_rec *r)
 
 static int ssl_hook_pre_connection(conn_rec *c, void *csd)
 {
+
     SSLSrvConfigRec *sc;
     SSLConnRec *sslconn = myConnConfig(c);
 
@@ -530,8 +544,8 @@ static int ssl_hook_pre_connection(conn_rec *c, void *csd)
     /*
      * Immediately stop processing if SSL is disabled for this connection
      */
-    if (!(sc && (sc->enabled == SSL_ENABLED_TRUE ||
-                 (sslconn && sslconn->is_proxy))))
+    if (c->master || !(sc && (sc->enabled == SSL_ENABLED_TRUE ||
+                              (sslconn && sslconn->is_proxy))))
     {
         return DECLINED;
     }
@@ -559,6 +573,26 @@ static int ssl_hook_pre_connection(conn_rec *c, void *csd)
     return ssl_init_ssl_connection(c, NULL);
 }
 
+static int ssl_hook_process_connection(conn_rec* c)
+{
+    SSLConnRec *sslconn = myConnConfig(c);
+
+    if (sslconn && !sslconn->disabled) {
+        /* On an active SSL connection, let the input filters initialize
+         * themselves which triggers the handshake, which again triggers
+         * all kinds of useful things such as SNI and ALPN.
+         */
+        apr_bucket_brigade* temp;
+
+        temp = apr_brigade_create(c->pool, c->bucket_alloc);
+        ap_get_brigade(c->input_filters, temp,
+                       AP_MODE_INIT, APR_BLOCK_READ, 0);
+        apr_brigade_destroy(temp);
+    }
+    
+    return DECLINED;
+}
+
 /*
  *  the module registration phase
  */
@@ -572,6 +606,8 @@ static void ssl_register_hooks(apr_pool_t *p)
     ssl_io_filter_register(p);
 
     ap_hook_pre_connection(ssl_hook_pre_connection,NULL,NULL, APR_HOOK_MIDDLE);
+    ap_hook_process_connection(ssl_hook_process_connection, 
+                                                   NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_test_config   (ssl_hook_ConfigTest,    NULL,NULL, APR_HOOK_MIDDLE);
     ap_hook_post_config   (ssl_init_Module,        NULL,NULL, APR_HOOK_MIDDLE);
     ap_hook_http_scheme   (ssl_hook_http_scheme,   NULL,NULL, APR_HOOK_MIDDLE);

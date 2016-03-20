@@ -1,22 +1,15 @@
 /*
- *  SecCAIssuerRequest.c
- *  Security
- *
- *  Copyright (c) 2009-2014 Apple Inc.. All Rights Reserved.
- *
- */
-/*
- * Copyright (c) 2009-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2009-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -24,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -104,7 +97,7 @@ static CFArrayRef SecCAIssuerConvertToParents(SecCertificateRef certificate,
     CFArrayRef parents = NULL;
     if (parent) {
         CFDataRef parent_nic = SecCertificateGetNormalizedSubjectContent(parent);
-        if (parent_nic && CFEqual(nic, parent_nic)) {
+        if (nic && parent_nic && CFEqual(nic, parent_nic)) {
             const void *ventry = parent;
             parents = CFArrayCreate(NULL, &ventry, 1, &kCFTypeArrayCallBacks);
         }
@@ -161,7 +154,7 @@ static CFArrayRef SecCAIssuerRequestCacheCopyParents(SecCertificateRef cert,
                     SecCAIssuerCacheCopyMatching(issuer));
                 if (parents) {
                     secdebug("caissuer", "cache hit, for %@ no request issued", issuer);
-		    CFRelease(scheme);
+                    CFRelease(scheme);
                     return parents;
                 }
             }

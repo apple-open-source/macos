@@ -143,7 +143,6 @@ struct SOSDataSource {
 
     // SOSObject methods
     CFDataRef (*objectCopyDigest)(SOSObjectRef object, CFErrorRef *error);
-    CFDataRef (*objectCopyPrimaryKey)(SOSObjectRef object, CFErrorRef *error);
     SOSObjectRef (*objectCreateWithPropertyList)(CFDictionaryRef plist, CFErrorRef *error);
     CFDictionaryRef (*objectCopyPropertyList)(SOSObjectRef object, CFErrorRef *error);
     CFDictionaryRef (*objectCopyBackup)(SOSObjectRef object, uint64_t handle, CFErrorRef *error);
@@ -214,10 +213,6 @@ static inline bool SOSDataSourceSetStateWithKey(SOSDataSourceRef ds, SOSTransact
 //
 static inline CFDataRef SOSObjectCopyDigest(SOSDataSourceRef ds, SOSObjectRef object, CFErrorRef *error) {
     return ds->objectCopyDigest(object, error);
-}
-
-static inline CFDataRef SOSObjectCopyPrimaryKey(SOSDataSourceRef ds, SOSObjectRef object, CFErrorRef *error) {
-    return ds->objectCopyPrimaryKey(object, error);
 }
 
 static inline SOSObjectRef SOSObjectCreateWithPropertyList(SOSDataSourceRef ds, CFDictionaryRef plist, CFErrorRef *error) {

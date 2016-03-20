@@ -33,6 +33,7 @@
 #include "WebPageMessages.h"
 #include "WebProcessProxy.h"
 #include "WebView.h"
+#include "WebsiteDataStore.h"
 
 #include <sys/utsname.h>
 
@@ -73,12 +74,17 @@ void WebPageProxy::getEditorCommandsForKeyEvent(Vector<WTF::String>& /*commandsL
     notImplemented();
 }
 
-void WebPageProxy::saveRecentSearches(const String&, const Vector<String>&)
+void WebPageProxy::saveRecentSearches(const String&, const Vector<WebCore::RecentSearch>&)
 {
     notImplemented();
 }
 
-void WebPageProxy::loadRecentSearches(const String&, Vector<String>&)
+void WebPageProxy::loadRecentSearches(const String&, Vector<WebCore::RecentSearch>&)
+{
+    notImplemented();
+}
+
+void WebsiteDataStore::platformRemoveRecentSearches(std::chrono::system_clock::time_point oldestTimeToRemove)
 {
     notImplemented();
 }

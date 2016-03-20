@@ -27,7 +27,7 @@ WebInspector.ComputedStyleDetailsPanel = class ComputedStyleDetailsPanel extends
 {
     constructor(delegate)
     {
-        super(delegate, WebInspector.ComputedStyleDetailsPanel.StyleClassName, "computed", WebInspector.UIString("Computed"));
+        super(delegate, WebInspector.ComputedStyleDetailsPanel.StyleClassName, "computed", WebInspector.UIString("Styles \u2014 Computed"));
 
         this._computedStyleShowAllSetting = new WebInspector.Setting("computed-style-show-all", false);
 
@@ -88,6 +88,13 @@ WebInspector.ComputedStyleDetailsPanel = class ComputedStyleDetailsPanel extends
         this.element.appendChild(this._containerRegionsFlowSection.element);
 
         this._resetFlowDetails();
+
+        this._boxModelDiagramRow = new WebInspector.BoxModelDetailsSectionRow;
+
+        var boxModelGroup = new WebInspector.DetailsSectionGroup([this._boxModelDiagramRow]);
+        var boxModelSection = new WebInspector.DetailsSection("style-box-model", WebInspector.UIString("Box Model"), [boxModelGroup]);
+
+        this.element.appendChild(boxModelSection.element);
         
         this.cssStyleDeclarationTextEditorShouldAddPropertyGoToArrows = true;
     }
@@ -141,16 +148,51 @@ WebInspector.ComputedStyleDetailsPanel = class ComputedStyleDetailsPanel extends
         this._containerRegionsFlowSection.element.classList.remove("hidden");
     }
 
-    cssStyleDeclarationTextEditorShowProperty(property)
+    cssStyleDeclarationTextEditorShowProperty(property, showSource)
     {
-        if (typeof this._delegate.computedStyleDetailsPanelShowProperty === "function")
-            this._delegate.computedStyleDetailsPanelShowProperty(property);
+        function delegateShowProperty() {
+            if (typeof this._delegate.computedStyleDetailsPanelShowProperty === "function")
+                this._delegate.computedStyleDetailsPanelShowProperty(property);
+        }
+
+        if (!showSource) {
+            delegateShowProperty.call(this);
+            return;
+        }
+
+        var effectiveProperty = this._nodeStyles.effectivePropertyForName(property.name);
+        if (!effectiveProperty || !effectiveProperty.styleSheetTextRange) {
+            if (!effectiveProperty.relatedShorthandProperty) {
+                delegateShowProperty.call(this);
+                return;
+            }
+            effectiveProperty = effectiveProperty.relatedShorthandProperty;
+        }
+
+        var ownerRule = effectiveProperty.ownerStyle.ownerRule;
+        if (!ownerRule) {
+            delegateShowProperty.call(this);
+            return;
+        }
+
+        var sourceCode = ownerRule.sourceCodeLocation.sourceCode;
+        var {startLine, startColumn} = effectiveProperty.styleSheetTextRange;
+        var sourceCodeLocation = sourceCode.createSourceCodeLocation(startLine, startColumn);
+        WebInspector.showSourceCodeLocation(sourceCodeLocation);
     }
 
-    refresh()
+    refresh(significantChange)
     {
+        // We only need to do a rebuild on significant changes. Other changes are handled
+        // by the sections and text editors themselves.
+        if (!significantChange) {
+            super.refresh();
+            return;
+        }
+
         this._propertiesTextEditor.style = this.nodeStyles.computedStyle;
         this._refreshFlowDetails(this.nodeStyles.node);
+        this._boxModelDiagramRow.nodeStyles = this.nodeStyles;
 
         super.refresh();
     }

@@ -25,6 +25,8 @@
 #include <security_cdsa_client/dlclient.h>
 #include <security_utilities/unix++.h>
 #include <securityd_client/ssclient.h>
+#include <securityd_client/ssblob.h>
+#include <security_utilities/CSPDLTransaction.h>
 
 class SSCSPDLSession;
 class SSUniqueRecord;
@@ -67,6 +69,22 @@ public:
 	bool isLocked();
 	void changePassphrase(const CSSM_ACCESS_CREDENTIALS *cred);
 	void recode(const CssmData &data, const CssmData &extraData);
+
+
+
+    // Attempt to recode this database to the new blob version
+    // Returns new version
+    uint32 recodeDbToVersion(uint32 newBlobVersion);
+
+    // Try to take or release the file lock on the underlying database.
+    // You _must_ call these as a pair. They start a transaction on the
+    // underlying DL object, and that transaction is only finished when release
+    // is called. Pass success=true if you want the transaction to commit; otherwise
+    // it will roll back.
+    void takeFileLock();
+    void releaseFileLock(bool success);
+
+
 	// DbUniqueRecordMaker
 	CssmClient::DbUniqueRecordImpl *newDbUniqueRecord();
 
@@ -75,10 +93,19 @@ public:
 
 	void getRecordIdentifier(const CSSM_DB_UNIQUE_RECORD_PTR uniqueRecord, CSSM_DATA &data);
 	void copyBlob(CSSM_DATA &blob);
-	
+
+    // Get the version of this database's encoding
+    uint32 dbBlobVersion();
+
+    // Try to make a backup copy of this database on the filesystem
+    void makeBackup();
+
 protected:
 	CssmClient::DbUniqueRecord getDbBlobId(CssmDataContainer *dbb = NULL);
 	void commonCreate (const DLDbIdentifier &dlDbIdentifier, bool &autocommit);
+
+    static uint32 getDbVersionFromBlob(const CssmData& dbb);
+    uint32 recodeHelper(SecurityServer::DbHandle clonedDbHandle, CssmClient::DbUniqueRecord& dbBlobId);
 
 private:
 	// 5 minute default autolock time
@@ -91,6 +118,9 @@ private:
 	
 	SecurityServer::ClientSession &mClientSession;
 	SecurityServer::DbHandle mSSDbHandle;
+
+    // Transaction for remembering if we've taken the file lock
+    DLTransaction* mTransaction;
 };
 
 

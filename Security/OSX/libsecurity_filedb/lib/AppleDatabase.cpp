@@ -34,6 +34,7 @@
 #include <fcntl.h>
 #include <Security/cssmapplePriv.h>
 #include <syslog.h>
+#include <copyfile.h>
 
 static const char *kAppleDatabaseChanged = "com.apple.AppleDatabaseChanged";
 
@@ -1686,6 +1687,8 @@ DbModifier::commit()
         return;
     try
     {
+        secdebugfunc("integrity", "committing to %s", mAtomicFile.path().c_str());
+
 		WriteSection aHeaderSection(Allocator::standard(), size_t(HeaderSize));
 		// Set aHeaderSection to the correct size.
 		aHeaderSection.size(HeaderSize);
@@ -2539,6 +2542,14 @@ AppleDatabase::passThrough(DbContext &dbContext,
 		mDbModifier.rollback();
 		break;
 
+    case CSSM_APPLEFILEDL_TAKE_FILE_LOCK:
+        mDbModifier.modifyDatabase();
+        break;
+
+    case CSSM_APPLEFILEDL_MAKE_BACKUP:
+        dbMakeBackup();
+        break;
+
 	case CSSM_APPLECSPDL_DB_RELATION_EXISTS:
 	{
 		CSSM_BOOL returnValue;
@@ -2562,3 +2573,19 @@ AppleDatabase::passThrough(DbContext &dbContext,
 		break;
 	}
 }
+
+void
+AppleDatabase::dbMakeBackup() {
+    // Make a backup copy next to the current keychain, with filename pattern original.keychain_XXXXXX_backup
+    char * filename_temp_cstr = tempnam( mAtomicFile.dir().c_str(), (mAtomicFile.file() + "_").c_str() );
+    string filename_temp(filename_temp_cstr);
+    filename_temp += "_backup";
+
+    const char * dstFilename = filename_temp.c_str();
+    free(filename_temp_cstr);
+
+    if(copyfile(mAtomicFile.path().c_str(), dstFilename, NULL, COPYFILE_ALL) < 0) {
+        UnixError::throwMe(errno);
+    }
+}
+

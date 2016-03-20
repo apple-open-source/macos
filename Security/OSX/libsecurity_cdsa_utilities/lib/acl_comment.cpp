@@ -52,7 +52,7 @@ using namespace DataWalkers;
 //
 // The COMMENT subject matches nothing, no matter how pretty.
 //
-bool CommentAclSubject::validate(const AclValidationContext &) const
+bool CommentAclSubject::validates(const AclValidationContext &) const
 {
 	return false;
 }

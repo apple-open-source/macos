@@ -600,7 +600,7 @@ int l2tpvpn_listen(void)
 			
 		ipsec_dict = IPSecCreateL2TPDefaultConfiguration(
 			&our_address, &any_address, NULL, 
-			auth_method, 0, natt_multiple_users, 0); 
+			auth_method, 0, 0, natt_multiple_users, 0, 0);
 
 		/* set the authentication information */
 		if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodSharedSecret)) {

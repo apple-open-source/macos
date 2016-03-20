@@ -61,7 +61,7 @@ JSC::BreakpointID ScriptDebugServer::setBreakpoint(JSC::SourceID sourceID, const
     if (!sourceID)
         return JSC::noBreakpointID;
 
-    JSC::Breakpoint breakpoint(sourceID, scriptBreakpoint.lineNumber, scriptBreakpoint.columnNumber, scriptBreakpoint.condition, scriptBreakpoint.autoContinue);
+    JSC::Breakpoint breakpoint(sourceID, scriptBreakpoint.lineNumber, scriptBreakpoint.columnNumber, scriptBreakpoint.condition, scriptBreakpoint.autoContinue, scriptBreakpoint.ignoreCount);
     JSC::BreakpointID id = Debugger::setBreakpoint(breakpoint, *actualLineNumber, *actualColumnNumber);
     if (id != JSC::noBreakpointID && !scriptBreakpoint.actions.isEmpty()) {
 #ifndef NDEBUG
@@ -207,6 +207,8 @@ void ScriptDebugServer::dispatchDidParseSource(const ListenerSet& listeners, Sou
     script.startLine = sourceProvider->startPosition().m_line.zeroBasedInt();
     script.startColumn = sourceProvider->startPosition().m_column.zeroBasedInt();
     script.isContentScript = isContentScript;
+    script.sourceURL = sourceProvider->sourceURL();
+    script.sourceMappingURL = sourceProvider->sourceMappingURL();
 
     int sourceLength = script.source.length();
     int lineCount = 1;

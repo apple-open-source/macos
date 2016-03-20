@@ -697,8 +697,7 @@ Boolean GetStrAddrFromDict (CFDictionaryRef dict, CFStringRef property, char *ou
 	ref  = CFDictionaryGetValue(dict, property);
 	if (isString(ref)
 			&& CFStringGetCString(ref, outstr, maxlen, kCFStringEncodingUTF8)) {
-					addr = inet_addr(outstr);
-					return addr != INADDR_NONE;
+		return TRUE;
 	}
 	
 	return FALSE;

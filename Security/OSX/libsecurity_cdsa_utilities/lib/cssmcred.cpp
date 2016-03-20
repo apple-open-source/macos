@@ -77,6 +77,35 @@ void AccessCredentials::tag(const char *tagString)
 		strcpy(EntryTag, tagString);
 }
 
+bool AccessCredentials::authorizesUI() const {
+    list<CssmSample> uisamples;
+
+    if(samples().collect(CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT, uisamples)) {
+        // The existence of a lone keychain prompt gives UI access
+        return true;
+    }
+
+    samples().collect(CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK, uisamples);
+    samples().collect(CSSM_SAMPLE_TYPE_THRESHOLD, uisamples);
+
+    for (list<CssmSample>::iterator it = uisamples.begin(); it != uisamples.end(); it++) {
+        TypedList &sample = *it;
+
+        if(!sample.isProper()) {
+            secdebugfunc("integrity", "found a non-proper sample, skipping...");
+            continue;
+        }
+
+        switch (sample.type()) {
+            case CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT:
+                // these credentials allow UI
+                return true;
+        }
+    }
+
+    // no interesting credential found; no UI for you
+    return false;
+}
 
 //
 // AutoCredentials self-constructing credentials structure

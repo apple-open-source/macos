@@ -215,6 +215,30 @@ _trylua:
 
 !ENDIF
 
+!IF EXIST("srclib\nghttp2")
+
+_trynghttp2:
+!IF $(USEMAK) == 1
+	cd modules\http2
+	$(MAKE) $(MAKEOPT) -f mod_http2.mak CFG="mod_http2 - Win32 $(LONG)" RECURSE=0 $(CTARGET)
+	cd ..\..
+!ELSEIF $(USESLN) == 1
+	devenv $(TLP).sln /useenv $(CTARGET) $(LONG) /project mod_http2
+!ELSE
+	@msdev $(TLP).dsw /USEENV /MAKE \
+		"mod_http2 - Win32 $(LONG)" /NORECURSE $(CTARGET)
+!ENDIF
+
+!ELSE
+#     NOT EXIST("srclib\nghttp2")
+
+_trynghttp2:
+	@echo -----
+	@echo mod_http2 will not build unless nghttp2 is installed in srclib\nghttp2.
+	@echo Version 1.0 includes an lib\makefile.msvc that will satisfy this
+	@echo requirement.
+
+!ENDIF
 
 _trydb:
 !IF $(USEMAK) == 1
@@ -482,6 +506,11 @@ _build:
 	cd modules\http
 	 $(MAKE) $(MAKEOPT) -f mod_mime.mak        CFG="mod_mime - Win32 $(LONG)" RECURSE=0 $(CTARGET)
 	cd ..\..
+!IF EXIST("srclib\nghttp2")
+	cd modules\http2
+	 $(MAKE) $(MAKEOPT) -f mod_http2.mak         CFG="mod_http2 - Win32 $(LONG)" RECURSE=0 $(CTARGET)
+	cd ..\..
+!ENDIF
 	cd modules\loggers
 	 $(MAKE) $(MAKEOPT) -f mod_log_config.mak  CFG="mod_log_config - Win32 $(LONG)" RECURSE=0 $(CTARGET)
 	 $(MAKE) $(MAKEOPT) -f mod_log_debug.mak  CFG="mod_log_debug - Win32 $(LONG)" RECURSE=0 $(CTARGET)
@@ -754,6 +783,14 @@ _copybin:
 	copy modules\generators\$(LONG)\mod_info.$(src_so) 	"$(inst_so)" <.y
 	copy modules\generators\$(LONG)\mod_status.$(src_so) 	"$(inst_so)" <.y
 	copy modules\http\$(LONG)\mod_mime.$(src_so) 		"$(inst_so)" <.y
+!IF EXIST("srclib\nghttp2")
+	copy modules\http2\$(LONG)\mod_http2.$(src_so) 		"$(inst_so)" <.y
+!IF "$(SHORT)" == "D"
+	copy srclib\nghttp2\lib\MSVC_obj\nghttp2d.$(src_dll)		 	"$(inst_dll)" <.y
+!ELSE
+	copy srclib\nghttp2\lib\MSVC_obj\nghttp2.$(src_dll)		 	"$(inst_dll)" <.y
+!ENDIF
+!ENDIF
 	copy modules\ldap\$(LONG)\mod_ldap.$(src_so)		"$(inst_so)" <.y
 	copy modules\loggers\$(LONG)\mod_log_config.$(src_so) 	"$(inst_so)" <.y
 	copy modules\loggers\$(LONG)\mod_log_debug.$(src_so) 	"$(inst_so)" <.y
@@ -994,6 +1031,46 @@ BEGIN {
     print "For the mod_lua language component:";
     print "";
     while ( getline > 0 && $$0 !~ /end of COPYRIGHT/ ) {
+	print $$0;
+    }
+    exit 0;
+}
+<<
+!ENDIF
+!IF EXIST("srclib\libxml2")
+	type << >> "$(INSTDIR)\NOTICE.txt"
+
+This binary distributions of mod_proxy_html.so and mod_xml2enc.so include the
+libxml2 C library written by Daniel Veillard (daniel veillard.com), Bjorn 
+Reese (breese users.sourceforge.net) and Gary Pennington (Gary.Pennington 
+uk.sun.com). For complete information, visit LibXML2's web site at 
+https://http://www.xmlsoft.org/
+<<
+	-awk -f <<script.awk < "srclib\libxml2\Copyright" >> "$(INSTDIR)\LICENSE.txt"
+BEGIN {
+    print "";
+    print "For the mod_proxy_html and mod_xml2enc components:";
+    print "";
+	    while ( getline > 0 ) {
+	print $$0;
+    }
+    exit 0;
+}
+<<
+!ENDIF
+!IF EXIST("srclib\nghttp2")
+	type << >> "$(INSTDIR)\NOTICE.txt"
+
+This binary distribution of mod_http2.so includes nghttp2 C library written 
+by Tatsuhiro Tsujikawa. For complete information, visit nghttp2's web site 
+at https://nghttp2.org/
+<<
+	-awk -f <<script.awk < "srclib\nghttp2\COPYING" >> "$(INSTDIR)\LICENSE.txt"
+BEGIN {
+    print "";
+    print "For the mod_http2 component:";
+    print "";
+	    while ( getline > 0 ) {
 	print $$0;
     }
     exit 0;

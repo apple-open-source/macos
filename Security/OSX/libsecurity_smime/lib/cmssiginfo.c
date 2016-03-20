@@ -323,6 +323,11 @@ SecCmsSignerInfoDestroy(SecCmsSignerInfoRef si)
 	    (int)CFGetRetainCount(si->timestampCertList));
 	CFRelease(si->timestampCertList);
     }
+    if (si->hashAgilityAttrValue != NULL) {
+        dprintfRC("SecCmsSignerInfoDestroy top: hashAgilityAttrValue.rc %d\n",
+                  (int)CFGetRetainCount(si->hashAgilityAttrValue));
+        CFRelease(si->hashAgilityAttrValue);
+    }
     /* XXX storage ??? */
 }
 
@@ -607,8 +612,10 @@ SecCmsSignerInfoVerifyWithPolicy(SecCmsSignerInfoRef signerinfo,CFTypeRef timeSt
     dprintfRC("SecCmsSignerInfoVerify top: cert %p cert.rc %d\n", cert, (int)CFGetRetainCount(cert));
     
     debugShowSigningCertificate(signerinfo);
-    
-    if (SecCertificateCopyPublicKey(cert, &publickey)) {
+
+    OSStatus status;
+    if ((status = SecCertificateCopyPublicKey(cert, &publickey))) {
+        syslog(LOG_ERR, "SecCmsSignerInfoVerifyWithPolicy: copy public key failed %d", (int)status);
 	vs = SecCmsVSProcessingError;
 	goto loser;
     }
@@ -664,6 +671,7 @@ SecCmsSignerInfoVerifyWithPolicy(SecCmsSignerInfoRef signerinfo,CFTypeRef timeSt
 	}
 
 	if ((poolp = PORT_NewArena (1024)) == NULL) {
+            syslog(LOG_ERR, "SecCmsSignerInfoVerifyWithPolicy: failed to make new Arena %d", PORT_GetError());
 	    vs = SecCmsVSProcessingError;
 	    goto loser;
 	}
@@ -681,19 +689,18 @@ SecCmsSignerInfoVerifyWithPolicy(SecCmsSignerInfoRef signerinfo,CFTypeRef timeSt
 	if (SecCmsAttributeArrayEncode(poolp, &(signerinfo->authAttr), &encoded_attrs) == NULL ||
 		encoded_attrs.Data == NULL || encoded_attrs.Length == 0)
 	{
+            syslog(LOG_ERR, "SecCmsSignerInfoVerifyWithPolicy: failed to encode attributes");
 	    vs = SecCmsVSProcessingError;
 	    goto loser;
 	}
 
-        SECStatus err = SECSuccess;
-	vs = ((err = VFY_VerifyData (encoded_attrs.Data, (int)encoded_attrs.Length,
+	vs = (VFY_VerifyData (encoded_attrs.Data, (int)encoded_attrs.Length,
 			publickey, &(signerinfo->encDigest),
 			digestAlgTag, digestEncAlgTag,
-			signerinfo->cmsg->pwfn_arg)) != SECSuccess) ? SecCmsVSBadSignature : SecCmsVSGoodSignature;
+			signerinfo->cmsg->pwfn_arg) != SECSuccess) ? SecCmsVSBadSignature : SecCmsVSGoodSignature;
 
         dprintf("VFY_VerifyData (authenticated attributes): %s\n",
             (vs == SecCmsVSGoodSignature)?"SecCmsVSGoodSignature":"SecCmsVSBadSignature");
-        if (vs != SecCmsVSGoodSignature) syslog(LOG_ERR, "VFY_VerifyData (authenticated attributes) failed: %d", err);
 
 	PORT_FreeArena(poolp, PR_FALSE);	/* awkward memory management :-( */
 
@@ -705,14 +712,12 @@ SecCmsSignerInfoVerifyWithPolicy(SecCmsSignerInfoRef signerinfo,CFTypeRef timeSt
 	if (sig->Length == 0)
 	    goto loser;
 
-        SECStatus err = SECSuccess;
-	vs = ((err = VFY_VerifyDigest(digest, publickey, sig,
+	vs = (VFY_VerifyDigest(digest, publickey, sig,
 			digestAlgTag, digestEncAlgTag,
-			signerinfo->cmsg->pwfn_arg)) != SECSuccess) ? SecCmsVSBadSignature : SecCmsVSGoodSignature;
+			signerinfo->cmsg->pwfn_arg) != SECSuccess) ? SecCmsVSBadSignature : SecCmsVSGoodSignature;
 
         dprintf("VFY_VerifyData (plain message digest): %s\n",
             (vs == SecCmsVSGoodSignature)?"SecCmsVSGoodSignature":"SecCmsVSBadSignature");
-        if (vs != SecCmsVSGoodSignature) syslog(LOG_ERR, "VFY_VerifyDigest (plain message digest) failed: %d", err);
     }
     
     if (!SecCmsArrayIsEmpty((void **)signerinfo->unAuthAttr))
@@ -721,7 +726,6 @@ SecCmsSignerInfoVerifyWithPolicy(SecCmsSignerInfoRef signerinfo,CFTypeRef timeSt
         OSStatus rux = SecCmsSignerInfoVerifyUnAuthAttrsWithPolicy(signerinfo,timeStampPolicy);
         dprintf("SecCmsSignerInfoVerifyUnAuthAttrs Status: %ld\n", (long)rux);
         if (rux) {
-            syslog(LOG_ERR, "SecCmsSignerInfoVerifyUnAuthAttrsWithPolicy failed: %d", (int)rux);
             goto loser;
         }
     }
@@ -743,7 +747,6 @@ SecCmsSignerInfoVerifyWithPolicy(SecCmsSignerInfoRef signerinfo,CFTypeRef timeSt
 	 * certificate signature check that failed during the cert
 	 * verification done above.  Our error handling is really a mess.
 	 */
-        syslog(LOG_ERR, "SecCmsSignerInforVerify bad signature PORT_GetError: %d", PORT_GetError());
 	if (PORT_GetError() == SEC_ERROR_BAD_SIGNATURE)
 	    PORT_SetError(SEC_ERROR_PKCS7_BAD_SIGNATURE);
     }
@@ -921,6 +924,44 @@ SecCmsSignerInfoGetTimestampTimeWithPolicy(SecCmsSignerInfoRef sinfo, CFTypeRef 
     *stime = sinfo->timestampTime;
 xit:
     return status;
+}
+
+/*!
+     @function
+     @abstract Return the data in the signed Codesigning Hash Agility attribute.
+     @param sinfo SignerInfo data for this signer, pointer to a CFDataRef for attribute value
+     @discussion Returns a CFDataRef containing the value of the attribute
+     @result A return value of errSecInternal is an error trying to look up the oid.
+             A status value of success with null result data indicates the attribute was not present.
+ */
+OSStatus
+SecCmsSignerInfoGetAppleCodesigningHashAgility(SecCmsSignerInfoRef sinfo, CFDataRef *sdata)
+{
+    SecCmsAttribute *attr;
+    CSSM_DATA_PTR value;
+
+    if (sinfo == NULL || sdata == NULL)
+        return paramErr;
+
+    *sdata = NULL;
+
+    if (sinfo->hashAgilityAttrValue != NULL) {
+        *sdata = sinfo->hashAgilityAttrValue;	/* cached copy */
+        return SECSuccess;
+    }
+
+    attr = SecCmsAttributeArrayFindAttrByOidTag(sinfo->authAttr, SEC_OID_APPLE_HASH_AGILITY, PR_TRUE);
+
+    /* attribute not found */
+    if (attr == NULL || (value = SecCmsAttributeGetValue(attr)) == NULL)
+        return SECSuccess;
+
+    sinfo->hashAgilityAttrValue = CFDataCreate(NULL, value->Data, value->Length);	/* make cached copy */
+    if (sinfo->hashAgilityAttrValue) {
+        *sdata = sinfo->hashAgilityAttrValue;
+        return SECSuccess;
+    }
+    return errSecAllocate;
 }
 
 /*
@@ -1313,6 +1354,54 @@ SecCmsSignerInfoAddCounterSignature(SecCmsSignerInfoRef signerinfo,
 {
     /* XXXX TBD XXXX */
     return SECFailure;
+}
+
+/*!
+     @function
+     @abstract Add the Apple Codesigning Hash Agility attribute to the authenticated (i.e. signed) attributes of "signerinfo".
+     @discussion This is expected to be included in outgoing signed Apple code signatures.
+ */
+OSStatus
+SecCmsSignerInfoAddAppleCodesigningHashAgility(SecCmsSignerInfoRef signerinfo, CFDataRef attrValue)
+{
+    SecCmsAttribute *attr;
+    PLArenaPool *poolp = signerinfo->cmsg->poolp;
+    void *mark = PORT_ArenaMark(poolp);
+    OSStatus status = SECFailure;
+
+    /* The value is required for this attribute. */
+    if (!attrValue) {
+        status = errSecParam;
+        goto loser;
+    }
+
+    /*
+     * SecCmsAttributeCreate makes a copy of the data in value, so
+     * we don't need to copy into the CSSM_DATA struct.
+     */
+    CSSM_DATA value;
+    value.Length = CFDataGetLength(attrValue);
+    value.Data = (uint8_t *)CFDataGetBytePtr(attrValue);
+
+    if ((attr = SecCmsAttributeCreate(poolp,
+                                      SEC_OID_APPLE_HASH_AGILITY,
+                                      &value,
+                                      PR_FALSE)) == NULL) {
+        status = errSecAllocate;
+        goto loser;
+    }
+
+    if (SecCmsSignerInfoAddAuthAttr(signerinfo, attr) != SECSuccess) {
+        status = errSecInternalError;
+        goto loser;
+    }
+
+    PORT_ArenaUnmark(poolp, mark);
+    return SECSuccess;
+
+loser:
+    PORT_ArenaRelease(poolp, mark);
+    return status;
 }
 
 /*

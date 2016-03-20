@@ -795,6 +795,21 @@ struct securityd *gSecurityd;
 void securityd_init();
 CFArrayRef SecAccessGroupsGetCurrent(void);
 
+SecurityClient *
+SecSecurityClientGet(void)
+{
+    static SecurityClient client;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        client.task = SecTaskGetSelf();
+        client.accessGroups = NULL;
+        client.allowSystemKeychain = false;
+        client.allowSyncBubbleKeychain = false;
+        client.isNetworkExtension = false,
+    });
+    return &client;
+}
+
 CFArrayRef SecAccessGroupsGetCurrent(void) {
     return NULL;
 }

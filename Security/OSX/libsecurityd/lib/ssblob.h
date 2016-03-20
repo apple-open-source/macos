@@ -77,10 +77,13 @@ public:
 
     static const uint32 version_MacOS_10_0 = 0x00000100;	// MacOS 10.0.x
     static const uint32 version_MacOS_10_1 = 0x00000101;	// MacOS 10.1.x and on
-    static const uint32 currentVersion = version_MacOS_10_0;
+	static const uint32 version_partition = 0x00000200;		// MacOS 10.11.2 and on, supporting partitioning
+    static const uint32 currentVersion = version_partition;
     
+  static uint32 getCurrentVersion();
 public:
-    void initialize(uint32 version = currentVersion);
+    void initialize();
+    void initialize(uint32 version);
 	bool isValid() const;
     void validate(CSSM_RETURN failureCode) const;
 	

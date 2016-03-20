@@ -52,8 +52,8 @@ public:
     void generateNewSecrets();
 	CssmClient::Key masterKey();
 
-	void setup(const DbBlob *blob, const CssmData &passphrase);
-	void setup(const DbBlob *blob, CssmClient::Key master);
+	void setup(const DbBlob *blob, const CssmData &passphrase, bool copyVersion = true);
+	void setup(const DbBlob *blob, CssmClient::Key master, bool copyVersion = true);
 
     void decodeCore(const DbBlob *blob, void **privateAclBlob = NULL);
     DbBlob *encodeCore(const DbBlob &blobTemplate,
@@ -74,6 +74,9 @@ public:
 public:
 	bool validatePassphrase(const CssmData &passphrase);
 	
+protected:
+    uint32 mBlobVersion;            // blob version of current database
+
 private:
 	bool mHaveMaster;				// master key has been entered (setup)
     bool mIsValid;					// master secrets are valid (decode or generateNew)

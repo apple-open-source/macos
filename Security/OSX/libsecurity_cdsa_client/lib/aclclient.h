@@ -120,6 +120,7 @@ protected:
 		Allocator &allocator;
 
         operator const AccessCredentials* () const { return mCredentials; }
+        AccessCredentials* getAccessCredentials() const { return mCredentials; }
 	
     protected:
 		AutoCredentials *mCredentials;

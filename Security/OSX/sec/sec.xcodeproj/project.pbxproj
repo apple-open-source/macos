@@ -15,7 +15,7 @@
 		0C664AE8175951270092D3D9 /* secd-02-upgrade-while-locked.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C664AE7175951270092D3D9 /* secd-02-upgrade-while-locked.c */; };
 		0CBF93F8177B7CFC001E5658 /* secd-03-corrupted-items.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CBF93F5177B7CFC001E5658 /* secd-03-corrupted-items.c */; };
 		0CBF93F9177B7CFC001E5658 /* secd-04-corrupted-items.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CBF93F6177B7CFC001E5658 /* secd-04-corrupted-items.c */; };
-		0CBF93FC177BA9D9001E5658 /* secd-05-corrupted-items.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CBF93FB177BA9D9001E5658 /* secd-05-corrupted-items.c */; };
+		0CBF93FC177BA9D9001E5658 /* secd-05-corrupted-items.m in Sources */ = {isa = PBXBuildFile; fileRef = 0CBF93FB177BA9D9001E5658 /* secd-05-corrupted-items.m */; };
 		0CE7ABDF171383E30088968F /* keychain_backup.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CE7ABDE171383E30088968F /* keychain_backup.c */; };
 		18270F5914CF654400B05E7F /* client.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD560614CB6E7A008233F2 /* client.c */; };
 		18AD560F14CB6E7A008233F2 /* securityd_client.h in Headers */ = {isa = PBXBuildFile; fileRef = 18AD560814CB6E7A008233F2 /* securityd_client.h */; };
@@ -74,6 +74,7 @@
 		4492652A1AB0D6FF00644D4C /* SecCTKKeyPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 449265281AB0D6FF00644D4C /* SecCTKKeyPriv.h */; };
 		4802A59616D711060059E5B9 /* SOSUserKeygen.c in Sources */ = {isa = PBXBuildFile; fileRef = 4802A59516D711060059E5B9 /* SOSUserKeygen.c */; };
 		4802A59816D7156D0059E5B9 /* SOSUserKeygen.h in Headers */ = {isa = PBXBuildFile; fileRef = 4802A59716D711190059E5B9 /* SOSUserKeygen.h */; settings = {ATTRIBUTES = (); }; };
+		48279BC51C57FEA20043457C /* keychain_log.c in Sources */ = {isa = PBXBuildFile; fileRef = 48279BC31C57FEA20043457C /* keychain_log.c */; };
 		484182611A30F2F200211511 /* SOSCirclePriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 484182601A30F2E300211511 /* SOSCirclePriv.h */; };
 		484182641A30F8DE00211511 /* SOSPeerInfoPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 484182631A30F8D300211511 /* SOSPeerInfoPriv.h */; };
 		485B5E621AE068D800A3C183 /* secd-82-secproperties-basic.c in Sources */ = {isa = PBXBuildFile; fileRef = 485B5E611AE068D800A3C183 /* secd-82-secproperties-basic.c */; };
@@ -94,14 +95,14 @@
 		48A071D01AD6AEA900728AEF /* SOSPeerInfoSecurityProperties.h in Headers */ = {isa = PBXBuildFile; fileRef = 48A071CE1AD6AEA900728AEF /* SOSPeerInfoSecurityProperties.h */; };
 		48A0FEDE1B6046E2001D6180 /* secd-64-circlereset.c in Sources */ = {isa = PBXBuildFile; fileRef = 48A0FEDD1B6046E2001D6180 /* secd-64-circlereset.c */; };
 		48B0B36F1B27B01F003E1EDB /* sc-25-soskeygen.c in Sources */ = {isa = PBXBuildFile; fileRef = 48487D271B1D5E960078C7C9 /* sc-25-soskeygen.c */; };
+		48C34E921C45EF3000B7F29B /* secd60-account-cloud-exposure.c in Sources */ = {isa = PBXBuildFile; fileRef = 48C34E911C45EF3000B7F29B /* secd60-account-cloud-exposure.c */; };
 		48C7DF9317FF2DB500904F1A /* SOSAccountCredentials.c in Sources */ = {isa = PBXBuildFile; fileRef = 48C7DF9217FF2DB500904F1A /* SOSAccountCredentials.c */; };
 		48C7DF9617FF351A00904F1A /* SOSAccountPeers.c in Sources */ = {isa = PBXBuildFile; fileRef = 48C7DF9517FF351A00904F1A /* SOSAccountPeers.c */; };
 		48C7DF9817FF360F00904F1A /* SOSAccountFullPeerInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = 48C7DF9717FF360F00904F1A /* SOSAccountFullPeerInfo.c */; };
 		48C7DF9A17FF44EF00904F1A /* SOSAccountCloudParameters.c in Sources */ = {isa = PBXBuildFile; fileRef = 48C7DF9917FF44EF00904F1A /* SOSAccountCloudParameters.c */; };
-		48C7E8341A8976E400494D9B /* (null) in Sources */ = {isa = PBXBuildFile; };
-		48C7E8351A8976E400494D9B /* (null) in Headers */ = {isa = PBXBuildFile; };
 		48CE733E1731C49A004C2946 /* sc-130-resignationticket.c in Sources */ = {isa = PBXBuildFile; fileRef = 48CE733D1731C49A004C2946 /* sc-130-resignationticket.c */; };
 		48E928C5179DD05500A7F755 /* secd-51-account-inflate.c in Sources */ = {isa = PBXBuildFile; fileRef = 48E928C4179DD05500A7F755 /* secd-51-account-inflate.c */; };
+		48E9CDFC1C597FED00574D6B /* SOSSysdiagnose.c in Sources */ = {isa = PBXBuildFile; fileRef = 48E9CDFB1C597FED00574D6B /* SOSSysdiagnose.c */; };
 		48F32D7E1777AFA3001B84BA /* secd-59-account-cleanup.c in Sources */ = {isa = PBXBuildFile; fileRef = 48F32D7D1777AFA3001B84BA /* secd-59-account-cleanup.c */; };
 		48F7DF261A6DB32900046644 /* SOSViews.c in Sources */ = {isa = PBXBuildFile; fileRef = 48F7DF241A6DB32900046644 /* SOSViews.c */; };
 		48F7DF271A6DB32900046644 /* SOSViews.h in Headers */ = {isa = PBXBuildFile; fileRef = 48F7DF251A6DB32900046644 /* SOSViews.h */; };
@@ -112,6 +113,7 @@
 		48FB17021A76F56C00B586C7 /* SOSPeerInfoV2.c in Sources */ = {isa = PBXBuildFile; fileRef = 48FB17001A76F56C00B586C7 /* SOSPeerInfoV2.c */; };
 		48FB17031A76F56C00B586C7 /* SOSPeerInfoV2.h in Headers */ = {isa = PBXBuildFile; fileRef = 48FB17011A76F56C00B586C7 /* SOSPeerInfoV2.h */; };
 		48FB17061A771E5700B586C7 /* secd-80-views-basic.c in Sources */ = {isa = PBXBuildFile; fileRef = 48FB17041A77181A00B586C7 /* secd-80-views-basic.c */; };
+		48FEA77C1C53000A0020C148 /* secToolFileIO.c in Sources */ = {isa = PBXBuildFile; fileRef = 48FEA7771C52FFE70020C148 /* secToolFileIO.c */; };
 		4A5CCA5415ACEFD400702357 /* SecOTRDHKey.c in Sources */ = {isa = PBXBuildFile; fileRef = 4A971683158FDEB800D439B7 /* SecOTRDHKey.c */; };
 		4A5CCA5515ACEFD400702357 /* SecOTRFullIdentity.c in Sources */ = {isa = PBXBuildFile; fileRef = 4A971686158FDEB800D439B7 /* SecOTRFullIdentity.c */; };
 		4A5CCA5615ACEFD400702357 /* SecOTRMath.c in Sources */ = {isa = PBXBuildFile; fileRef = 4A971688158FDEB800D439B7 /* SecOTRMath.c */; };
@@ -273,7 +275,6 @@
 		5284629B1AE6FCF0004C1BA2 /* SOSBackupEvent.c in Sources */ = {isa = PBXBuildFile; fileRef = 528462991AE6FCF0004C1BA2 /* SOSBackupEvent.c */; };
 		5284629C1AE6FCF0004C1BA2 /* SOSBackupEvent.h in Headers */ = {isa = PBXBuildFile; fileRef = 5284629A1AE6FCF0004C1BA2 /* SOSBackupEvent.h */; };
 		529F46F31AEC7A2E0002392C /* secd-34-backup-der-parse.c in Sources */ = {isa = PBXBuildFile; fileRef = 529F46F11AEC759E0002392C /* secd-34-backup-der-parse.c */; };
-		52A126D51AAF6C86006AC7CB /* SOSViewQueries.c in Sources */ = {isa = PBXBuildFile; fileRef = 52A126D31AAF6C86006AC7CB /* SOSViewQueries.c */; };
 		52BF439C1AFC50EC00821B5D /* SecItemConstants.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD563914CB6EB9008233F2 /* SecItemConstants.c */; };
 		52D0F028169CA72800F07D79 /* SecOnOSX.h in Headers */ = {isa = PBXBuildFile; fileRef = 52D0F026169CA72800F07D79 /* SecOnOSX.h */; };
 		52EAF4BE163C52EB00803D0F /* SOSCloudKeychainClient.c in Sources */ = {isa = PBXBuildFile; fileRef = 521C685C1614A6E100E31C3E /* SOSCloudKeychainClient.c */; };
@@ -296,7 +297,7 @@
 		ACFD56BE19007B2D00F5F5D9 /* ios6_1_keychain_2_db.h in Headers */ = {isa = PBXBuildFile; fileRef = ACFD56BD19007B2D00F5F5D9 /* ios6_1_keychain_2_db.h */; };
 		BE061FCF1899E5BD00C739F6 /* si-76-shared-credentials.c in Sources */ = {isa = PBXBuildFile; fileRef = BE061FCE1899E5BD00C739F6 /* si-76-shared-credentials.c */; };
 		BE0CC6081A96B69000662E69 /* si-83-seccertificate-sighashalg.c in Sources */ = {isa = PBXBuildFile; fileRef = BE0CC6061A96B68400662E69 /* si-83-seccertificate-sighashalg.c */; };
-		BE3171931BB3559600BBB212 /* si-20-sectrust.h in Headers */ = {isa = PBXBuildFile; fileRef = BE3171921BB3559600BBB212 /* si-20-sectrust.h */; settings = {ASSET_TAGS = (); }; };
+		BE3171931BB3559600BBB212 /* si-20-sectrust.h in Headers */ = {isa = PBXBuildFile; fileRef = BE3171921BB3559600BBB212 /* si-20-sectrust.h */; };
 		BE4AC9B518B8022D00B84964 /* swcagent_client.h in Headers */ = {isa = PBXBuildFile; fileRef = BEF9640918B418A400813FA3 /* swcagent_client.h */; };
 		BE4AC9B618B8038400B84964 /* SecuritydXPC.c in Sources */ = {isa = PBXBuildFile; fileRef = E7B01B8816572579000485F1 /* SecuritydXPC.c */; };
 		BE53FA301B0AC5C300719A63 /* SecKey.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD563C14CB6EB9008233F2 /* SecKey.c */; };
@@ -313,8 +314,8 @@
 		BE8D22921ABB726A009A4E18 /* SecTrustSettings.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD564F14CB6EB9008233F2 /* SecTrustSettings.c */; };
 		BE8D22931ABB7272009A4E18 /* SecTrustStore.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD565214CB6EB9008233F2 /* SecTrustStore.c */; };
 		BE8D22C21ABBA4D0009A4E18 /* SecCertificatePath.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD562314CB6EB9008233F2 /* SecCertificatePath.c */; };
-		BECC54E51B98FF0000FB91DC /* si-86-sectrust-eap-tls.c in Sources */ = {isa = PBXBuildFile; fileRef = BECC54E31B98FF0000FB91DC /* si-86-sectrust-eap-tls.c */; settings = {ASSET_TAGS = (); }; };
-		BECC54E61B98FF0000FB91DC /* si-86-sectrust-eap-tls.h in Headers */ = {isa = PBXBuildFile; fileRef = BECC54E41B98FF0000FB91DC /* si-86-sectrust-eap-tls.h */; settings = {ASSET_TAGS = (); }; };
+		BECC54E51B98FF0000FB91DC /* si-86-sectrust-eap-tls.c in Sources */ = {isa = PBXBuildFile; fileRef = BECC54E31B98FF0000FB91DC /* si-86-sectrust-eap-tls.c */; };
+		BECC54E61B98FF0000FB91DC /* si-86-sectrust-eap-tls.h in Headers */ = {isa = PBXBuildFile; fileRef = BECC54E41B98FF0000FB91DC /* si-86-sectrust-eap-tls.h */; };
 		BEF9640D18B418A400813FA3 /* swcagent_client.c in Sources */ = {isa = PBXBuildFile; fileRef = BEF9640A18B418A400813FA3 /* swcagent_client.c */; };
 		BEFE994E14F2E17200356A97 /* SecDH.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD562A14CB6EB9008233F2 /* SecDH.c */; };
 		C6766768189884D200E9A12C /* SecAccessControl.c in Sources */ = {isa = PBXBuildFile; fileRef = C6766767189884D200E9A12C /* SecAccessControl.c */; };
@@ -323,6 +324,7 @@
 		CD16F89A1AE84842004AE09C /* sc-150-ring.c in Sources */ = {isa = PBXBuildFile; fileRef = CD16F8941AE84822004AE09C /* sc-150-ring.c */; };
 		CD32776B18F8AEFD006B5280 /* SOSPeerCoder.c in Sources */ = {isa = PBXBuildFile; fileRef = CD32776A18F8AEFD006B5280 /* SOSPeerCoder.c */; };
 		CD32776D18F8B06E006B5280 /* SOSPeerCoder.h in Headers */ = {isa = PBXBuildFile; fileRef = CD32776C18F8B06E006B5280 /* SOSPeerCoder.h */; };
+		CD35B82A1C2650FE00E0852A /* secd-154-engine-backoff.c in Sources */ = {isa = PBXBuildFile; fileRef = CD35B8291C2650FE00E0852A /* secd-154-engine-backoff.c */; };
 		CD3FD10716C3064B00A83BB6 /* SecuritydXPC.c in Sources */ = {isa = PBXBuildFile; fileRef = E7B01B8816572579000485F1 /* SecuritydXPC.c */; };
 		CD5D340B1A80391B00EBF353 /* IDSProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = CD5D34021A80391B00EBF353 /* IDSProxy.m */; };
 		CD5D340D1A80391B00EBF353 /* idskeychainsyncingproxy.m in Sources */ = {isa = PBXBuildFile; fileRef = CD5D34051A80391B00EBF353 /* idskeychainsyncingproxy.m */; };
@@ -389,8 +391,6 @@
 		CDE5F8AB1AF026180074958E /* SOSTransportMessageIDS.h in Headers */ = {isa = PBXBuildFile; fileRef = CD2026B31936ABD300AB9D3C /* SOSTransportMessageIDS.h */; };
 		CDE5F8AC1AF026470074958E /* SOSTransport.c in Sources */ = {isa = PBXBuildFile; fileRef = CD86DE4D18BD554D00C90CDF /* SOSTransport.c */; };
 		CDE5F8AD1AF026470074958E /* SOSTransport.h in Headers */ = {isa = PBXBuildFile; fileRef = CDF1B82218BD7DDE006309BC /* SOSTransport.h */; };
-		CDE5F8AE1AF026470074958E /* SOSTransportCoder.c in Sources */ = {isa = PBXBuildFile; fileRef = CDC0DC3C1AE83E390020BA6C /* SOSTransportCoder.c */; };
-		CDE5F8AF1AF026470074958E /* SOSTransportCoder.h in Headers */ = {isa = PBXBuildFile; fileRef = CDC0DC3D1AE83E390020BA6C /* SOSTransportCoder.h */; };
 		CDE5F8B01AF026470074958E /* SOSTransportCircle.c in Sources */ = {isa = PBXBuildFile; fileRef = CD0F8AF51899BF46003E0C52 /* SOSTransportCircle.c */; };
 		CDE5F8B11AF026470074958E /* SOSTransportCircle.h in Headers */ = {isa = PBXBuildFile; fileRef = CD0F8AF91899BF63003E0C52 /* SOSTransportCircle.h */; };
 		CDE5F8B21AF026470074958E /* SOSTransportCircleKVS.c in Sources */ = {isa = PBXBuildFile; fileRef = CD32777218F8B31E006B5280 /* SOSTransportCircleKVS.c */; };
@@ -405,9 +405,13 @@
 		CDE5F8BB1AF026470074958E /* SOSTransportMessageKVS.h in Headers */ = {isa = PBXBuildFile; fileRef = CD32777818F8B3B4006B5280 /* SOSTransportMessageKVS.h */; };
 		CDF42C071A884BB10080BB05 /* idksmain.m in Sources */ = {isa = PBXBuildFile; fileRef = CDF42C061A884BB10080BB05 /* idksmain.m */; };
 		CDF9BBE11B03E24D00D1AF0F /* secd-52-offering-gencount-reset.c in Sources */ = {isa = PBXBuildFile; fileRef = CDF9BBE01B03E24D00D1AF0F /* secd-52-offering-gencount-reset.c */; };
+		D40294A91C20A806008CE4B6 /* si-91-sectrust-ast2.c in Sources */ = {isa = PBXBuildFile; fileRef = D40294A71C20A806008CE4B6 /* si-91-sectrust-ast2.c */; };
+		D40294AA1C20A806008CE4B6 /* si-91-sectrust-ast2.h in Headers */ = {isa = PBXBuildFile; fileRef = D40294A81C20A806008CE4B6 /* si-91-sectrust-ast2.h */; };
 		D4273AA61B5D54E70007D67B /* nameconstraints.c in Sources */ = {isa = PBXBuildFile; fileRef = D4273AA21B5D54CA0007D67B /* nameconstraints.c */; };
 		D445CDE11B44D53C005040AC /* si-84-sectrust-atv-appsigning.c in Sources */ = {isa = PBXBuildFile; fileRef = D445CDDF1B44D372005040AC /* si-84-sectrust-atv-appsigning.c */; };
 		D4B4A9A81B8BB9B70097B393 /* si-85-sectrust-ssl-policy.c in Sources */ = {isa = PBXBuildFile; fileRef = D4B4A9A61B8801960097B393 /* si-85-sectrust-ssl-policy.c */; };
+		D4CBC1481BE9A89E00C5795E /* si-89-cms-hash-agility.c in Sources */ = {isa = PBXBuildFile; fileRef = D4CBC1461BE9A89E00C5795E /* si-89-cms-hash-agility.c */; };
+		D4CBC1491BE9A89E00C5795E /* si-89-cms-hash-agility.h in Headers */ = {isa = PBXBuildFile; fileRef = D4CBC1471BE9A89E00C5795E /* si-89-cms-hash-agility.h */; };
 		D4DFC94A1B9958D00040945C /* si-87-sectrust-name-constraints.c in Sources */ = {isa = PBXBuildFile; fileRef = D4DFC9481B9958D00040945C /* si-87-sectrust-name-constraints.c */; };
 		D4DFC94B1B9958D00040945C /* si-87-sectrust-name-constraints.h in Headers */ = {isa = PBXBuildFile; fileRef = D4DFC9491B9958D00040945C /* si-87-sectrust-name-constraints.h */; };
 		E703811514E1FEEF007CB458 /* SOSCloudCircle.h in Headers */ = {isa = PBXBuildFile; fileRef = E703811114E1FEE4007CB458 /* SOSCloudCircle.h */; };
@@ -432,9 +436,9 @@
 		E777C71E15B73F9E004044A8 /* SOSInternal.c in Sources */ = {isa = PBXBuildFile; fileRef = E777C71D15B73F9E004044A8 /* SOSInternal.c */; };
 		E777C72615B87545004044A8 /* SOSPeerInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = E777C72515B87544004044A8 /* SOSPeerInfo.c */; };
 		E777C72715B882E5004044A8 /* SOSPeerInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = E777C72415B87528004044A8 /* SOSPeerInfo.h */; };
-		E7850ED01BB30E80002A54CA /* secd-63-account-resurrection.c in Sources */ = {isa = PBXBuildFile; fileRef = E731829F1B1FC9CD00FC334C /* secd-63-account-resurrection.c */; settings = {ASSET_TAGS = (); }; };
-		E7850ED11BB30E87002A54CA /* secd-65-account-retirement-reset.c in Sources */ = {isa = PBXBuildFile; fileRef = E7850ECE1BB30E6E002A54CA /* secd-65-account-retirement-reset.c */; settings = {ASSET_TAGS = (); }; };
-		E790C10A169E4FD200E0C0C9 /* digest_calc.c in Sources */ = {isa = PBXBuildFile; fileRef = E790C109169E4FD200E0C0C9 /* digest_calc.c */; };
+		E77DE60B1C2882EC005259C2 /* si-17-item-system-bluetooth.m in Sources */ = {isa = PBXBuildFile; fileRef = E7EF51911C24C6E3002D0C23 /* si-17-item-system-bluetooth.m */; };
+		E7850ED01BB30E80002A54CA /* secd-63-account-resurrection.c in Sources */ = {isa = PBXBuildFile; fileRef = E731829F1B1FC9CD00FC334C /* secd-63-account-resurrection.c */; };
+		E7850ED11BB30E87002A54CA /* secd-65-account-retirement-reset.c in Sources */ = {isa = PBXBuildFile; fileRef = E7850ECE1BB30E6E002A54CA /* secd-65-account-retirement-reset.c */; };
 		E790C110169E53DF00E0C0C9 /* leaks.c in Sources */ = {isa = PBXBuildFile; fileRef = E790C10E169E53DF00E0C0C9 /* leaks.c */; };
 		E790C141169E5C6200E0C0C9 /* add_internet_password.c in Sources */ = {isa = PBXBuildFile; fileRef = E790C136169E5C6200E0C0C9 /* add_internet_password.c */; };
 		E790C142169E5C6200E0C0C9 /* codesign.c in Sources */ = {isa = PBXBuildFile; fileRef = E790C137169E5C6200E0C0C9 /* codesign.c */; };
@@ -465,8 +469,17 @@
 		E7F18557177A502900177B23 /* secd-56-account-apply.c in Sources */ = {isa = PBXBuildFile; fileRef = E7F18556177A502900177B23 /* secd-56-account-apply.c */; };
 		E7FEFB87169E363300E18152 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 521C0B9815FA5C4A00604B61 /* Foundation.framework */; };
 		E7FEFB91169E36D800E18152 /* keychain_sync.c in Sources */ = {isa = PBXBuildFile; fileRef = E7FEFB90169E36D800E18152 /* keychain_sync.c */; };
+		EB3409AF1C1D5BBE00D77661 /* secd-20-keychain_upgrade.m in Sources */ = {isa = PBXBuildFile; fileRef = EB3409AE1C1D5BB300D77661 /* secd-20-keychain_upgrade.m */; };
+		EB69AB041BF3C42F00913AF1 /* SecEMCS.m in Sources */ = {isa = PBXBuildFile; fileRef = EB69AB031BF3C42F00913AF1 /* SecEMCS.m */; };
+		EB69AB061BF425FD00913AF1 /* si-90-emcs.m in Sources */ = {isa = PBXBuildFile; fileRef = EB69AB051BF425F300913AF1 /* si-90-emcs.m */; };
+		EB69AB071BF4332700913AF1 /* si-90-emcs.m in Sources */ = {isa = PBXBuildFile; fileRef = EB69AB051BF425F300913AF1 /* si-90-emcs.m */; };
 		EB8F48DD1AE4CC7000CE93A7 /* si-25-sectrust-apple-authentication.c in Sources */ = {isa = PBXBuildFile; fileRef = EB8F48DC1AE4C81400CE93A7 /* si-25-sectrust-apple-authentication.c */; };
+		EB9C1D0A1BDDBDE000F89272 /* si-13-item-system.m in Sources */ = {isa = PBXBuildFile; fileRef = EB9C1D091BDDBDD500F89272 /* si-13-item-system.m */; };
+		EBC1B8B81BE96B3A00E6ACA6 /* digest_calc.c in Sources */ = {isa = PBXBuildFile; fileRef = E790C109169E4FD200E0C0C9 /* digest_calc.c */; };
+		EBC1B8B91BE96B3A00E6ACA6 /* whoami.m in Sources */ = {isa = PBXBuildFile; fileRef = EBC1B8B61BE96B3200E6ACA6 /* whoami.m */; };
 		EBDAECBC184D32BD005A18F1 /* sc-31-peerinfo-simplefuzz.c in Sources */ = {isa = PBXBuildFile; fileRef = EBDAECBA184D30C3005A18F1 /* sc-31-peerinfo-simplefuzz.c */; };
+		EBE32B591BEEC8C900719AA8 /* syncbubble.m in Sources */ = {isa = PBXBuildFile; fileRef = EBE32B581BEEC8C900719AA8 /* syncbubble.m */; };
+		EBF2D7661C1E482B006AB6FF /* secd-21-transmogrify.m in Sources */ = {isa = PBXBuildFile; fileRef = EBF2D7651C1E4823006AB6FF /* secd-21-transmogrify.m */; };
 		F697632318F6CFD60090438B /* keychain_util.c in Sources */ = {isa = PBXBuildFile; fileRef = F697632118F6CC3F0090438B /* keychain_util.c */; };
 		F953A6A91B43597D006EC5E1 /* si-81-sectrust-appletv.c in Sources */ = {isa = PBXBuildFile; fileRef = F953A6A71B43538A006EC5E1 /* si-81-sectrust-appletv.c */; };
 		F9E0BD991AEF196E00554D49 /* secd-82-persistent-ref.c in Sources */ = {isa = PBXBuildFile; fileRef = F9E0BD981AEF196A00554D49 /* secd-82-persistent-ref.c */; };
@@ -531,7 +544,7 @@
 		0C664AE7175951270092D3D9 /* secd-02-upgrade-while-locked.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; path = "secd-02-upgrade-while-locked.c"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		0CBF93F5177B7CFC001E5658 /* secd-03-corrupted-items.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-03-corrupted-items.c"; sourceTree = "<group>"; };
 		0CBF93F6177B7CFC001E5658 /* secd-04-corrupted-items.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-04-corrupted-items.c"; sourceTree = "<group>"; };
-		0CBF93FB177BA9D9001E5658 /* secd-05-corrupted-items.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-05-corrupted-items.c"; sourceTree = "<group>"; };
+		0CBF93FB177BA9D9001E5658 /* secd-05-corrupted-items.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "secd-05-corrupted-items.m"; sourceTree = "<group>"; };
 		0CE7ABDE171383E30088968F /* keychain_backup.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = keychain_backup.c; sourceTree = "<group>"; };
 		18270C9714CF1AAD00B05E7F /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
 		18270C9814CF1AAD00B05E7F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
@@ -650,6 +663,8 @@
 		44B2606C18F82631008DF20F /* SecAccessControlExports.exp-in */ = {isa = PBXFileReference; lastKnownFileType = text; path = "SecAccessControlExports.exp-in"; sourceTree = "<group>"; };
 		4802A59516D711060059E5B9 /* SOSUserKeygen.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSUserKeygen.c; sourceTree = "<group>"; };
 		4802A59716D711190059E5B9 /* SOSUserKeygen.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SOSUserKeygen.h; sourceTree = "<group>"; };
+		48279BC31C57FEA20043457C /* keychain_log.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = keychain_log.c; sourceTree = "<group>"; };
+		48279BC41C57FEA20043457C /* keychain_log.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keychain_log.h; sourceTree = "<group>"; };
 		484182601A30F2E300211511 /* SOSCirclePriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SOSCirclePriv.h; sourceTree = "<group>"; };
 		484182621A30F38E00211511 /* SOSCircleRings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SOSCircleRings.h; sourceTree = "<group>"; };
 		484182631A30F8D300211511 /* SOSPeerInfoPriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SOSPeerInfoPriv.h; sourceTree = "<group>"; };
@@ -675,12 +690,14 @@
 		48A071CD1AD6AEA900728AEF /* SOSPeerInfoSecurityProperties.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSPeerInfoSecurityProperties.c; sourceTree = "<group>"; };
 		48A071CE1AD6AEA900728AEF /* SOSPeerInfoSecurityProperties.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSPeerInfoSecurityProperties.h; sourceTree = "<group>"; };
 		48A0FEDD1B6046E2001D6180 /* secd-64-circlereset.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-64-circlereset.c"; sourceTree = "<group>"; };
+		48C34E911C45EF3000B7F29B /* secd60-account-cloud-exposure.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd60-account-cloud-exposure.c"; sourceTree = "<group>"; };
 		48C7DF9217FF2DB500904F1A /* SOSAccountCredentials.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSAccountCredentials.c; sourceTree = "<group>"; };
 		48C7DF9517FF351A00904F1A /* SOSAccountPeers.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSAccountPeers.c; sourceTree = "<group>"; };
 		48C7DF9717FF360F00904F1A /* SOSAccountFullPeerInfo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSAccountFullPeerInfo.c; sourceTree = "<group>"; };
 		48C7DF9917FF44EF00904F1A /* SOSAccountCloudParameters.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSAccountCloudParameters.c; sourceTree = "<group>"; };
 		48CE733D1731C49A004C2946 /* sc-130-resignationticket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "sc-130-resignationticket.c"; sourceTree = "<group>"; };
 		48E928C4179DD05500A7F755 /* secd-51-account-inflate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-51-account-inflate.c"; sourceTree = "<group>"; };
+		48E9CDFB1C597FED00574D6B /* SOSSysdiagnose.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSSysdiagnose.c; sourceTree = "<group>"; };
 		48F32D7D1777AFA3001B84BA /* secd-59-account-cleanup.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-59-account-cleanup.c"; sourceTree = "<group>"; };
 		48F7DF241A6DB32900046644 /* SOSViews.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSViews.c; sourceTree = "<group>"; };
 		48F7DF251A6DB32900046644 /* SOSViews.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSViews.h; sourceTree = "<group>"; };
@@ -691,6 +708,8 @@
 		48FB17001A76F56C00B586C7 /* SOSPeerInfoV2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSPeerInfoV2.c; sourceTree = "<group>"; };
 		48FB17011A76F56C00B586C7 /* SOSPeerInfoV2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSPeerInfoV2.h; sourceTree = "<group>"; };
 		48FB17041A77181A00B586C7 /* secd-80-views-basic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-80-views-basic.c"; sourceTree = "<group>"; };
+		48FEA7771C52FFE70020C148 /* secToolFileIO.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = secToolFileIO.c; sourceTree = "<group>"; };
+		48FEA7781C52FFE70020C148 /* secToolFileIO.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = secToolFileIO.h; sourceTree = "<group>"; };
 		4A5CCA4F15ACEFA500702357 /* libSecOtrOSX.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSecOtrOSX.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		4A824B03158FF07000F932C0 /* libSecurityRegressions.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSecurityRegressions.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		4A971682158FDEB800D439B7 /* SecOTR.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecOTR.h; sourceTree = "<group>"; };
@@ -745,8 +764,6 @@
 		4C8BDDA117B4FE9400C20EA5 /* SOSDigestVector.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSDigestVector.h; sourceTree = "<group>"; };
 		4C9DC91915B602760036D941 /* SOSEngine.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSEngine.h; sourceTree = "<group>"; };
 		4C9DC91C15B602910036D941 /* SOSEngine.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSEngine.c; sourceTree = "<group>"; };
-		4CB292D81A9E881C003598A1 /* SOSViewManager.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSViewManager.c; sourceTree = "<group>"; };
-		4CB292D91A9E881C003598A1 /* SOSViewManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSViewManager.h; sourceTree = "<group>"; };
 		4CB8A83716164B7700B52EC7 /* SOSTestDataSource.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSTestDataSource.c; sourceTree = "<group>"; };
 		4CB8A83916164B8C00B52EC7 /* SOSTestDataSource.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SOSTestDataSource.h; sourceTree = "<group>"; };
 		4CBDB30B17B70206002FA799 /* SOSMessage.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSMessage.c; sourceTree = "<group>"; };
@@ -864,8 +881,6 @@
 		528462991AE6FCF0004C1BA2 /* SOSBackupEvent.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSBackupEvent.c; sourceTree = "<group>"; };
 		5284629A1AE6FCF0004C1BA2 /* SOSBackupEvent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSBackupEvent.h; sourceTree = "<group>"; };
 		529F46F11AEC759E0002392C /* secd-34-backup-der-parse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-34-backup-der-parse.c"; sourceTree = "<group>"; };
-		52A126D31AAF6C86006AC7CB /* SOSViewQueries.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSViewQueries.c; sourceTree = "<group>"; };
-		52A126D41AAF6C86006AC7CB /* SOSViewQueries.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSViewQueries.h; sourceTree = "<group>"; };
 		52C3D18E169A53150091D9D3 /* ckdmain.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = ckdmain.m; path = SOSCircle/CloudKeychainProxy/ckdmain.m; sourceTree = SOURCE_ROOT; };
 		52D0F026169CA72800F07D79 /* SecOnOSX.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecOnOSX.h; sourceTree = "<group>"; };
 		52DD7069160CD40B0027A346 /* libutilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libutilities.a; path = ../../build/Release/libutilities.a; sourceTree = "<group>"; };
@@ -929,6 +944,7 @@
 		CD32777418F8B330006B5280 /* SOSTransportCircleKVS.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSTransportCircleKVS.h; sourceTree = "<group>"; };
 		CD32777618F8B39B006B5280 /* SOSTransportMessageKVS.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSTransportMessageKVS.c; sourceTree = "<group>"; };
 		CD32777818F8B3B4006B5280 /* SOSTransportMessageKVS.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSTransportMessageKVS.h; sourceTree = "<group>"; };
+		CD35B8291C2650FE00E0852A /* secd-154-engine-backoff.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-154-engine-backoff.c"; sourceTree = "<group>"; };
 		CD3F914B1A802EBF00E07119 /* libIDSKeychainSyncingProxy.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libIDSKeychainSyncingProxy.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		CD558FA8193544F800CFB3B1 /* IDSFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IDSFoundation.framework; path = ../../../../../../../System/Library/PrivateFrameworks/IDSFoundation.framework; sourceTree = "<group>"; };
 		CD5D34011A80391B00EBF353 /* IDSProxy.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.objc; fileEncoding = 4; path = IDSProxy.h; sourceTree = "<group>"; };
@@ -964,8 +980,6 @@
 		CDC0DC391AE83E390020BA6C /* SOSRingUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSRingUtils.h; sourceTree = "<group>"; };
 		CDC0DC3A1AE83E390020BA6C /* SOSRingV0.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSRingV0.c; sourceTree = "<group>"; };
 		CDC0DC3B1AE83E390020BA6C /* SOSRingV0.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSRingV0.h; sourceTree = "<group>"; };
-		CDC0DC3C1AE83E390020BA6C /* SOSTransportCoder.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSTransportCoder.c; sourceTree = "<group>"; };
-		CDC0DC3D1AE83E390020BA6C /* SOSTransportCoder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSTransportCoder.h; sourceTree = "<group>"; };
 		CDC0DC941AE842640020BA6C /* SOSAccountRings.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSAccountRings.c; sourceTree = "<group>"; };
 		CDC0DC951AE842640020BA6C /* SOSAccountRingUpdate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSAccountRingUpdate.c; sourceTree = "<group>"; };
 		CDC0DC961AE842640020BA6C /* SOSCircleV2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSCircleV2.c; sourceTree = "<group>"; };
@@ -981,10 +995,14 @@
 		CDF1B82218BD7DDE006309BC /* SOSTransport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSTransport.h; sourceTree = "<group>"; };
 		CDF42C061A884BB10080BB05 /* idksmain.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = idksmain.m; sourceTree = "<group>"; };
 		CDF9BBE01B03E24D00D1AF0F /* secd-52-offering-gencount-reset.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-52-offering-gencount-reset.c"; sourceTree = "<group>"; };
+		D40294A71C20A806008CE4B6 /* si-91-sectrust-ast2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-91-sectrust-ast2.c"; sourceTree = "<group>"; };
+		D40294A81C20A806008CE4B6 /* si-91-sectrust-ast2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "si-91-sectrust-ast2.h"; sourceTree = "<group>"; };
 		D4273AA21B5D54CA0007D67B /* nameconstraints.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nameconstraints.c; sourceTree = "<group>"; };
 		D4273AA31B5D54CA0007D67B /* nameconstraints.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nameconstraints.h; sourceTree = "<group>"; };
 		D445CDDF1B44D372005040AC /* si-84-sectrust-atv-appsigning.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-84-sectrust-atv-appsigning.c"; sourceTree = "<group>"; };
 		D4B4A9A61B8801960097B393 /* si-85-sectrust-ssl-policy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-85-sectrust-ssl-policy.c"; sourceTree = "<group>"; };
+		D4CBC1461BE9A89E00C5795E /* si-89-cms-hash-agility.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-89-cms-hash-agility.c"; sourceTree = "<group>"; };
+		D4CBC1471BE9A89E00C5795E /* si-89-cms-hash-agility.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "si-89-cms-hash-agility.h"; sourceTree = "<group>"; };
 		D4DFC9481B9958D00040945C /* si-87-sectrust-name-constraints.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-87-sectrust-name-constraints.c"; sourceTree = "<group>"; };
 		D4DFC9491B9958D00040945C /* si-87-sectrust-name-constraints.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "si-87-sectrust-name-constraints.h"; sourceTree = "<group>"; };
 		E702E75614E1F3EA00CDE635 /* libSecureObjectSync.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSecureObjectSync.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1016,7 +1034,7 @@
 		E777C72515B87544004044A8 /* SOSPeerInfo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSPeerInfo.c; sourceTree = "<group>"; };
 		E777C72815B9C9F0004044A8 /* sc-30-peerinfo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "sc-30-peerinfo.c"; sourceTree = "<group>"; };
 		E7850ECE1BB30E6E002A54CA /* secd-65-account-retirement-reset.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-65-account-retirement-reset.c"; sourceTree = "<group>"; };
-		E790C0F4169E3D7200E0C0C9 /* SOSCommands.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SOSCommands.h; sourceTree = "<group>"; };
+		E790C0F4169E3D7200E0C0C9 /* keychain_sync.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = keychain_sync.h; sourceTree = "<group>"; };
 		E790C108169E4E7900E0C0C9 /* builtin_commands.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = builtin_commands.h; sourceTree = "<group>"; };
 		E790C109169E4FD200E0C0C9 /* digest_calc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = digest_calc.c; sourceTree = "<group>"; };
 		E790C10E169E53DF00E0C0C9 /* leaks.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = leaks.c; sourceTree = "<group>"; };
@@ -1061,18 +1079,28 @@
 		E7DBB6081AEAAF3700488C1F /* SOSPeerInfoDER.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOSPeerInfoDER.c; sourceTree = "<group>"; };
 		E7DBB6091AEAAF3700488C1F /* SOSPeerInfoDER.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSPeerInfoDER.h; sourceTree = "<group>"; };
 		E7EBD75619145D6400D0F062 /* so_01_serverencryption.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = so_01_serverencryption.c; sourceTree = "<group>"; };
+		E7EF51911C24C6E3002D0C23 /* si-17-item-system-bluetooth.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "si-17-item-system-bluetooth.m"; sourceTree = "<group>"; };
 		E7F0D3E9177BBE35001ACBC1 /* secd-55-account-incompatibility.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-55-account-incompatibility.c"; sourceTree = "<group>"; };
 		E7F18554177A44E000177B23 /* secd-60-account-cloud-identity.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-60-account-cloud-identity.c"; sourceTree = "<group>"; };
 		E7F18556177A502900177B23 /* secd-56-account-apply.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-56-account-apply.c"; sourceTree = "<group>"; };
 		E7FEFB8C169E363300E18152 /* libSOSCommands.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSOSCommands.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		E7FEFB90169E36D800E18152 /* keychain_sync.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; path = keychain_sync.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
+		EB3409AE1C1D5BB300D77661 /* secd-20-keychain_upgrade.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "secd-20-keychain_upgrade.m"; sourceTree = "<group>"; };
+		EB69AB031BF3C42F00913AF1 /* SecEMCS.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SecEMCS.m; sourceTree = "<group>"; };
+		EB69AB051BF425F300913AF1 /* si-90-emcs.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "si-90-emcs.m"; sourceTree = "<group>"; };
+		EB69AB081BF4335100913AF1 /* SecEMCSPriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecEMCSPriv.h; sourceTree = "<group>"; };
 		EB8F48DC1AE4C81400CE93A7 /* si-25-sectrust-apple-authentication.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "si-25-sectrust-apple-authentication.c"; sourceTree = "<group>"; };
 		EB973200189C56310063DFED /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		EB973204189C56310063DFED /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
 		EB973205189C56310063DFED /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		EB973215189C56310063DFED /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
 		EB97322D189C56DB0063DFED /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = ../../../../../../../System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<group>"; };
+		EB9C1D091BDDBDD500F89272 /* si-13-item-system.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "si-13-item-system.m"; sourceTree = "<group>"; };
+		EBC1B8B61BE96B3200E6ACA6 /* whoami.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = whoami.m; sourceTree = "<group>"; };
 		EBDAECBA184D30C3005A18F1 /* sc-31-peerinfo-simplefuzz.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "sc-31-peerinfo-simplefuzz.c"; sourceTree = "<group>"; };
+		EBE32B581BEEC8C900719AA8 /* syncbubble.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = syncbubble.m; sourceTree = "<group>"; };
+		EBE32B9B1BF00DA500719AA8 /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
+		EBF2D7651C1E4823006AB6FF /* secd-21-transmogrify.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "secd-21-transmogrify.m"; sourceTree = "<group>"; };
 		F697632118F6CC3F0090438B /* keychain_util.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = keychain_util.c; sourceTree = "<group>"; };
 		F697632218F6CC3F0090438B /* keychain_util.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = keychain_util.h; sourceTree = "<group>"; };
 		F953A6A71B43538A006EC5E1 /* si-81-sectrust-appletv.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-81-sectrust-appletv.c"; sourceTree = "<group>"; };
@@ -1337,6 +1365,8 @@
 				18AD562C14CB6EB9008233F2 /* SecECKey.c */,
 				18AD562D14CB6EB9008233F2 /* SecECKey.h */,
 				E757D42219254B3200AF22D9 /* SecECKeyPriv.h */,
+				EB69AB031BF3C42F00913AF1 /* SecEMCS.m */,
+				EB69AB081BF4335100913AF1 /* SecEMCSPriv.h */,
 				18AD562E14CB6EB9008233F2 /* SecFramework.c */,
 				18AD562014CB6EB9008233F2 /* SecCertificate.c */,
 				18AD562F14CB6EB9008233F2 /* SecFramework.h */,
@@ -1507,9 +1537,11 @@
 				4CC92A1915A3ABD400C6D578 /* si-10-find-internet.c */,
 				4CC92A1A15A3ABD400C6D578 /* si-11-update-data.c */,
 				4C2C8C3C17AB374700C24C13 /* si-12-item-stress.c */,
+				EB9C1D091BDDBDD500F89272 /* si-13-item-system.m */,
 				4CC92A1B15A3ABD400C6D578 /* si-14-dateparse.c */,
 				4CC92A1C15A3ABD400C6D578 /* si-15-certificate.c */,
 				4CC92A1D15A3ABD400C6D578 /* si-16-ec-certificate.c */,
+				E7EF51911C24C6E3002D0C23 /* si-17-item-system-bluetooth.m */,
 				4CC92A1E15A3ABD400C6D578 /* si-20-sectrust-activation.c */,
 				4CC92A1F15A3ABD400C6D578 /* si-20-sectrust.c */,
 				BE3171921BB3559600BBB212 /* si-20-sectrust.h */,
@@ -1577,6 +1609,11 @@
 				D4DFC9491B9958D00040945C /* si-87-sectrust-name-constraints.h */,
 				858A54641BC6FD3E008A03FA /* si-88-sectrust-vpnprofile.c */,
 				858A54651BC6FD3E008A03FA /* si-88-sectrust-vpnprofile.h */,
+				D4CBC1461BE9A89E00C5795E /* si-89-cms-hash-agility.c */,
+				D4CBC1471BE9A89E00C5795E /* si-89-cms-hash-agility.h */,
+				EB69AB051BF425F300913AF1 /* si-90-emcs.m */,
+				D40294A71C20A806008CE4B6 /* si-91-sectrust-ast2.c */,
+				D40294A81C20A806008CE4B6 /* si-91-sectrust-ast2.h */,
 			);
 			name = secitem;
 			path = Regressions/secitem;
@@ -1647,12 +1684,14 @@
 				4483050F1B46FB8700326450 /* ios8-inet-keychain-2.h */,
 				0CBF93F5177B7CFC001E5658 /* secd-03-corrupted-items.c */,
 				0CBF93F6177B7CFC001E5658 /* secd-04-corrupted-items.c */,
-				0CBF93FB177BA9D9001E5658 /* secd-05-corrupted-items.c */,
+				0CBF93FB177BA9D9001E5658 /* secd-05-corrupted-items.m */,
 				4CC92AAE15A3ACCE00C6D578 /* securityd_regressions.h */,
 				4CC92AAC15A3AC4600C6D578 /* sd-10-policytree.c */,
 				0C0BDB601756882A00BC1A7E /* secd_regressions.h */,
 				0C0BDB62175688DA00BC1A7E /* secd-01-items.c */,
 				0C664AE7175951270092D3D9 /* secd-02-upgrade-while-locked.c */,
+				EB3409AE1C1D5BB300D77661 /* secd-20-keychain_upgrade.m */,
+				EBF2D7651C1E4823006AB6FF /* secd-21-transmogrify.m */,
 				0C062B1C175E784B00806CFE /* secd-30-keychain-upgrade.c */,
 				0C062B1D175E784B00806CFE /* secd-31-keychain-bad.c */,
 				0C062B1E175E784B00806CFE /* secd-31-keychain-unreadable.c */,
@@ -1674,6 +1713,7 @@
 				4882C516177521AE0095D04B /* secd-58-password-change.c */,
 				48F32D7D1777AFA3001B84BA /* secd-59-account-cleanup.c */,
 				E7F18554177A44E000177B23 /* secd-60-account-cloud-identity.c */,
+				48C34E911C45EF3000B7F29B /* secd60-account-cloud-exposure.c */,
 				486C6C671795F20E00387075 /* secd-61-account-leave-not-in-kansas-anymore.c */,
 				CD655E911AF02B9900BD1B6E /* secd-62-account-backup.c */,
 				48FABEDF1AD05C7100C061D1 /* secd-62-account-hsa-join.c */,
@@ -1693,6 +1733,7 @@
 				F9E0BD981AEF196A00554D49 /* secd-82-persistent-ref.c */,
 				48FABEE01AD05C7100C061D1 /* secd-90-hsa2.c */,
 				CD8F442C1B83C435004C0047 /* secd-95-escrow-persistence.c */,
+				CD35B8291C2650FE00E0852A /* secd-154-engine-backoff.c */,
 				E7A10FAA1771245D00C4602F /* SOSAccountTesting.h */,
 				E79D62BE1767A547005A9743 /* SecdTestKeychainUtilities.c */,
 				E79D62BF1767A55F005A9743 /* SecdTestKeychainUtilities.h */,
@@ -1793,6 +1834,9 @@
 			children = (
 				E790C108169E4E7900E0C0C9 /* builtin_commands.h */,
 				E790C109169E4FD200E0C0C9 /* digest_calc.c */,
+				EBE32B9B1BF00DA500719AA8 /* entitlements.plist */,
+				EBC1B8B61BE96B3200E6ACA6 /* whoami.m */,
+				EBE32B581BEEC8C900719AA8 /* syncbubble.m */,
 				E790C10E169E53DF00E0C0C9 /* leaks.c */,
 				E790C10F169E53DF00E0C0C9 /* leaks.h */,
 				4CD1897B169F835400BC96B8 /* print_cert.c */,
@@ -1904,6 +1948,7 @@
 				E7B01B5A16532507000485F1 /* SOSCloudCircleInternal.h */,
 				4BD2F7FB1ADCDD8C0037CD5D /* SOSForerunnerSession.c */,
 				4BD2F7FC1ADCDD8C0037CD5D /* SOSForerunnerSession.h */,
+				48E9CDFB1C597FED00574D6B /* SOSSysdiagnose.c */,
 				E777C71D15B73F9E004044A8 /* SOSInternal.c */,
 				E777C71B15B73F59004044A8 /* SOSInternal.h */,
 				52F8DE4A1AF2E9AE00A2C271 /* SOSTypes.h */,
@@ -2021,10 +2066,6 @@
 				4CC929B215A3957800C6D578 /* SOSPeer.h */,
 				CD32776A18F8AEFD006B5280 /* SOSPeerCoder.c */,
 				CD32776C18F8B06E006B5280 /* SOSPeerCoder.h */,
-				4CB292D81A9E881C003598A1 /* SOSViewManager.c */,
-				4CB292D91A9E881C003598A1 /* SOSViewManager.h */,
-				52A126D31AAF6C86006AC7CB /* SOSViewQueries.c */,
-				52A126D41AAF6C86006AC7CB /* SOSViewQueries.h */,
 			);
 			name = Engine;
 			sourceTree = "<group>";
@@ -2038,8 +2079,6 @@
 				CDF1B82218BD7DDE006309BC /* SOSTransport.h */,
 				CD773AC21ADDF8C700C808BA /* SOSTransportBackupPeer.c */,
 				CD773AC31ADDF8C700C808BA /* SOSTransportBackupPeer.h */,
-				CDC0DC3C1AE83E390020BA6C /* SOSTransportCoder.c */,
-				CDC0DC3D1AE83E390020BA6C /* SOSTransportCoder.h */,
 				CD0F8AF51899BF46003E0C52 /* SOSTransportCircle.c */,
 				CD0F8AF91899BF63003E0C52 /* SOSTransportCircle.h */,
 				CD32777218F8B31E006B5280 /* SOSTransportCircleKVS.c */,
@@ -2061,8 +2100,12 @@
 		E7FEFB81169E362100E18152 /* Tool */ = {
 			isa = PBXGroup;
 			children = (
-				E790C0F4169E3D7200E0C0C9 /* SOSCommands.h */,
+				E790C0F4169E3D7200E0C0C9 /* keychain_sync.h */,
 				E7FEFB90169E36D800E18152 /* keychain_sync.c */,
+				48279BC41C57FEA20043457C /* keychain_log.h */,
+				48279BC31C57FEA20043457C /* keychain_log.c */,
+				48FEA7771C52FFE70020C148 /* secToolFileIO.c */,
+				48FEA7781C52FFE70020C148 /* secToolFileIO.h */,
 			);
 			path = Tool;
 			sourceTree = "<group>";
@@ -2172,6 +2215,8 @@
 				4CC92A9E15A3ABD400C6D578 /* login.skype.com.cer.h in Headers */,
 				4CC92A9F15A3ABD400C6D578 /* login.yahoo.com.1.cer.h in Headers */,
 				4CC92AA015A3ABD400C6D578 /* login.yahoo.com.2.cer.h in Headers */,
+				D40294AA1C20A806008CE4B6 /* si-91-sectrust-ast2.h in Headers */,
+				D4CBC1491BE9A89E00C5795E /* si-89-cms-hash-agility.h in Headers */,
 				4CC92AA115A3ABD400C6D578 /* login.yahoo.com.cer.h in Headers */,
 				4CC92AA215A3ABD400C6D578 /* mail.google.com.cer.h in Headers */,
 				858A54691BC6FE62008A03FA /* si-88-sectrust-vpnprofile.h in Headers */,
@@ -2225,9 +2270,7 @@
 				4C8BDD9B17B4FB8F00C20EA5 /* SOSDataSource.h in Headers */,
 				CDE5F8BB1AF026470074958E /* SOSTransportMessageKVS.h in Headers */,
 				484182641A30F8DE00211511 /* SOSPeerInfoPriv.h in Headers */,
-				48C7E8351A8976E400494D9B /* (null) in Headers */,
 				CDE5F87E1AF025AC0074958E /* SOSRingPeerInfoUtils.h in Headers */,
-				48C7E8351A8976E400494D9B /* (null) in Headers */,
 				CDE5F8841AF025AC0074958E /* SOSRingV0.h in Headers */,
 				CDE5F8A31AF025D60074958E /* SOSPeerInfoDER.h in Headers */,
 				CDE5F8A41AF025D60074958E /* SOSPeerInfoCollections.h in Headers */,
@@ -2255,7 +2298,6 @@
 				CDE5F8A61AF025D60074958E /* SOSPeerInfoRingState.h in Headers */,
 				4CBDB31017B70323002FA799 /* SOSPeerInfoInternal.h in Headers */,
 				E7217B2815F8131A00D26031 /* SOSCloudKeychainConstants.h in Headers */,
-				CDE5F8AF1AF026470074958E /* SOSTransportCoder.h in Headers */,
 				521C68601614A6E100E31C3E /* SOSCloudKeychainClient.h in Headers */,
 				CDE5F8A11AF025BE0074958E /* SOSBackupSliceKeyBag.h in Headers */,
 				CDE5F8821AF025AC0074958E /* SOSRingUtils.h in Headers */,
@@ -2654,6 +2696,7 @@
 				E7F0D3EA177BBE35001ACBC1 /* secd-55-account-incompatibility.c in Sources */,
 				0C0BDB63175688DA00BC1A7E /* secd-01-items.c in Sources */,
 				4882C517177521AE0095D04B /* secd-58-password-change.c in Sources */,
+				EB3409AF1C1D5BBE00D77661 /* secd-20-keychain_upgrade.m in Sources */,
 				E7A10FAE1771249C00C4602F /* secd-57-account-leave.c in Sources */,
 				48FABEE31AD06B6B00C061D1 /* secd-62-account-hsa-join.c in Sources */,
 				4469FC2C1AA0A6C90021AA26 /* secd-32-restore-bad-backup.c in Sources */,
@@ -2663,12 +2706,13 @@
 				F9EF72F21AC0F98400A4D24A /* secd-70-engine-smash.c in Sources */,
 				5384299418E492A300E91AFE /* secd-70-otr-remote.c in Sources */,
 				E7F18557177A502900177B23 /* secd-56-account-apply.c in Sources */,
+				EB69AB071BF4332700913AF1 /* si-90-emcs.m in Sources */,
 				E7850ED01BB30E80002A54CA /* secd-63-account-resurrection.c in Sources */,
 				0C664AE8175951270092D3D9 /* secd-02-upgrade-while-locked.c in Sources */,
 				48FB17061A771E5700B586C7 /* secd-80-views-basic.c in Sources */,
 				0CBF93F8177B7CFC001E5658 /* secd-03-corrupted-items.c in Sources */,
 				E75AB91B1AE9964800C5EF3F /* secd-40-cc-gestalt.c in Sources */,
-				0CBF93FC177BA9D9001E5658 /* secd-05-corrupted-items.c in Sources */,
+				0CBF93FC177BA9D9001E5658 /* secd-05-corrupted-items.m in Sources */,
 				527258D11981C00F003CFCEC /* secd-70-engine.c in Sources */,
 				E7850ED11BB30E87002A54CA /* secd-65-account-retirement-reset.c in Sources */,
 				4C495EDF1982145200BC1809 /* SOSTestDevice.c in Sources */,
@@ -2677,6 +2721,7 @@
 				0C062B1F175E784B00806CFE /* secd-30-keychain-upgrade.c in Sources */,
 				0C062B20175E784B00806CFE /* secd-31-keychain-bad.c in Sources */,
 				0C062B21175E784B00806CFE /* secd-31-keychain-unreadable.c in Sources */,
+				48C34E921C45EF3000B7F29B /* secd60-account-cloud-exposure.c in Sources */,
 				E79D62BB176798FD005A9743 /* secd-50-account.c in Sources */,
 				48E928C5179DD05500A7F755 /* secd-51-account-inflate.c in Sources */,
 				F9E0BD991AEF196E00554D49 /* secd-82-persistent-ref.c in Sources */,
@@ -2689,6 +2734,7 @@
 				529F46F31AEC7A2E0002392C /* secd-34-backup-der-parse.c in Sources */,
 				486C6C691795F9D600387075 /* secd-61-account-leave-not-in-kansas-anymore.c in Sources */,
 				E79D62BD176799EE005A9743 /* SOSTestDataSource.c in Sources */,
+				EBF2D7661C1E482B006AB6FF /* secd-21-transmogrify.m in Sources */,
 				448305111B46FC0D00326450 /* secd-35-keychain-migrate-inet.c in Sources */,
 				4469FC2D1AA0A6D00021AA26 /* secd-33-keychain-ctk.c in Sources */,
 				E79D62BC176799DB005A9743 /* SOSRegressionUtilities.c in Sources */,
@@ -2741,9 +2787,11 @@
 				449265291AB0D6FF00644D4C /* SecCTKKey.c in Sources */,
 				CD8F442D1B83C435004C0047 /* secd-95-escrow-persistence.c in Sources */,
 				18D4044214CE1FE400A2BE4E /* SecECKey.c in Sources */,
+				CD35B82A1C2650FE00E0852A /* secd-154-engine-backoff.c in Sources */,
 				18D4044314CE1FE400A2BE4E /* SecFramework.c in Sources */,
 				18D4044414CE1FE400A2BE4E /* SecIdentity.c in Sources */,
 				18D4044514CE1FE400A2BE4E /* SecImportExport.c in Sources */,
+				EB69AB041BF3C42F00913AF1 /* SecEMCS.m in Sources */,
 				18D4044614CE1FE400A2BE4E /* SecItem.c in Sources */,
 				18D4044714CE1FE400A2BE4E /* SecItemConstants.c in Sources */,
 				18D4044814CE1FE400A2BE4E /* SecKey.c in Sources */,
@@ -2834,6 +2882,7 @@
 				D4B4A9A81B8BB9B70097B393 /* si-85-sectrust-ssl-policy.c in Sources */,
 				D445CDE11B44D53C005040AC /* si-84-sectrust-atv-appsigning.c in Sources */,
 				BE794826196DBEAD00F4BA63 /* si-81-sectrust-server-auth.c in Sources */,
+				D4CBC1481BE9A89E00C5795E /* si-89-cms-hash-agility.c in Sources */,
 				4CC92A5F15A3ABD400C6D578 /* pbkdf2-00-hmac-sha1.c in Sources */,
 				4CC92A6015A3ABD400C6D578 /* spbkdf-00-hmac-sha1.c in Sources */,
 				4CC92A6115A3ABD400C6D578 /* otr-00-identity.c in Sources */,
@@ -2862,9 +2911,11 @@
 				4CC92A7115A3ABD400C6D578 /* si-24-sectrust-appleid.c in Sources */,
 				4CC92A7215A3ABD400C6D578 /* si-24-sectrust-digicert-malaysia.c in Sources */,
 				4CC92A7315A3ABD400C6D578 /* si-24-sectrust-diginotar.c in Sources */,
+				EB9C1D0A1BDDBDE000F89272 /* si-13-item-system.m in Sources */,
 				D4DFC94A1B9958D00040945C /* si-87-sectrust-name-constraints.c in Sources */,
 				CDB6A8B81A409BC600646CD6 /* otr-60-slowroll.c in Sources */,
 				4CC92A7415A3ABD400C6D578 /* si-24-sectrust-itms.c in Sources */,
+				EB69AB061BF425FD00913AF1 /* si-90-emcs.m in Sources */,
 				4CC92A7515A3ABD400C6D578 /* si-24-sectrust-mobileasset.c in Sources */,
 				4477A8D918F28AB700B5BB9F /* si-78-query-attrs.c in Sources */,
 				4CC92A7615A3ABD400C6D578 /* si-24-sectrust-nist.c in Sources */,
@@ -2878,6 +2929,7 @@
 				4CC92A7D15A3ABD400C6D578 /* si-29-sectrust-codesigning.c in Sources */,
 				4CC92A7E15A3ABD400C6D578 /* si-30-keychain-upgrade.c in Sources */,
 				4C2C8C3D17AB374700C24C13 /* si-12-item-stress.c in Sources */,
+				D40294A91C20A806008CE4B6 /* si-91-sectrust-ast2.c in Sources */,
 				4CC92A7F15A3ABD400C6D578 /* si-31-keychain-bad.c in Sources */,
 				4CC92A8015A3ABD400C6D578 /* si-31-keychain-unreadable.c in Sources */,
 				4CC92A8215A3ABD400C6D578 /* si-33-keychain-backup.c in Sources */,
@@ -2909,6 +2961,7 @@
 				4CC92AA515A3ABD400C6D578 /* vmdh-40.c in Sources */,
 				4CC92AA615A3ABD400C6D578 /* vmdh-41-example.c in Sources */,
 				4CC92AA715A3ABD400C6D578 /* vmdh-42-example2.c in Sources */,
+				E77DE60B1C2882EC005259C2 /* si-17-item-system-bluetooth.m in Sources */,
 				E748744515A61AF800624935 /* si-68-secmatchissuer.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2988,16 +3041,15 @@
 				489E6E4C1A71A87600D7EB8C /* SOSCircleDer.c in Sources */,
 				4CC929B515A3957800C6D578 /* SOSCircle.c in Sources */,
 				4CC929B715A3957800C6D578 /* SOSPeer.c in Sources */,
-				52A126D51AAF6C86006AC7CB /* SOSViewQueries.c in Sources */,
 				CDE5F88B1AF025B30074958E /* SOSRingBasic.c in Sources */,
 				48C7DF9A17FF44EF00904F1A /* SOSAccountCloudParameters.c in Sources */,
 				E75216AD1AF1F26500DDA573 /* SOSForerunnerSession.c in Sources */,
 				CDE5F8891AF025B30074958E /* SOSRingBackup.c in Sources */,
 				CDE5F8A21AF025D60074958E /* SOSPeerInfoDER.c in Sources */,
-				CDE5F8AE1AF026470074958E /* SOSTransportCoder.c in Sources */,
 				48764AEF17FA36200005C4F1 /* SOSAccountUpdate.c in Sources */,
 				CDE5F8AC1AF026470074958E /* SOSTransport.c in Sources */,
 				CDE5F89E1AF025BE0074958E /* SOSAccountRings.c in Sources */,
+				48E9CDFC1C597FED00574D6B /* SOSSysdiagnose.c in Sources */,
 				CDE5F89C1AF025BE0074958E /* SOSAccountBackup.c in Sources */,
 				48C7DF9617FF351A00904F1A /* SOSAccountPeers.c in Sources */,
 				CDE5F88F1AF025B80074958E /* SOSCircleV2.c in Sources */,
@@ -3009,7 +3061,6 @@
 				E777C71E15B73F9E004044A8 /* SOSInternal.c in Sources */,
 				CDE5F8BA1AF026470074958E /* SOSTransportMessageKVS.c in Sources */,
 				E777C72615B87545004044A8 /* SOSPeerInfo.c in Sources */,
-				48C7E8341A8976E400494D9B /* (null) in Sources */,
 				CDE5F8B61AF026470074958E /* SOSTransportKeyParameterKVS.c in Sources */,
 				48764AE817FA2DD00005C4F1 /* SOSAccountDer.c in Sources */,
 				E7217B2715F8131A00D26031 /* SOSCloudKeychainConstants.c in Sources */,
@@ -3068,8 +3119,10 @@
 			files = (
 				0CE7ABDF171383E30088968F /* keychain_backup.c in Sources */,
 				E7104A01169E036E00DB0045 /* SecurityTool.c in Sources */,
-				E790C10A169E4FD200E0C0C9 /* digest_calc.c in Sources */,
+				EBC1B8B91BE96B3A00E6ACA6 /* whoami.m in Sources */,
+				EBC1B8B81BE96B3A00E6ACA6 /* digest_calc.c in Sources */,
 				E790C110169E53DF00E0C0C9 /* leaks.c in Sources */,
+				EBE32B591BEEC8C900719AA8 /* syncbubble.m in Sources */,
 				4CD1897D169F835400BC96B8 /* print_cert.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3104,7 +3157,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				48279BC51C57FEA20043457C /* keychain_log.c in Sources */,
 				E7FEFB91169E36D800E18152 /* keychain_sync.c in Sources */,
+				48FEA77C1C53000A0020C148 /* secToolFileIO.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

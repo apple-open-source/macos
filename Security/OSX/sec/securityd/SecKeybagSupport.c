@@ -43,6 +43,9 @@
 #endif
 #endif /* USE_KEYSTORE */
 
+#include <CommonCrypto/CommonCryptor.h>
+#include <CommonCrypto/CommonCryptorSPI.h>
+
 
 /* g_keychain_handle is the keybag handle used for encrypting item in the keychain.
  For testing purposes, it can be set to something other than the default, with SecItemServerSetKeychainKeybag */
@@ -469,3 +472,4 @@ bool ks_close_keybag(keybag_handle_t keybag, CFErrorRef *error) {
 #endif /* USE_KEYSTORE */
     return true;
 }
+

@@ -85,6 +85,7 @@ enum
 	CSSM_WORDID_PREAUTH,
 	CSSM_WORDID_PREAUTH_SOURCE,
 	CSSM_WORDID_ASYMMETRIC_KEY,
+	CSSM_WORDID_PARTITION,
 	CSSM_WORDID__FIRST_UNUSED
 };
 
@@ -98,7 +99,8 @@ enum
 	CSSM_ACL_SUBJECT_TYPE_SYMMETRIC_KEY = CSSM_WORDID_SYMMETRIC_KEY,
 	CSSM_ACL_SUBJECT_TYPE_PREAUTH = CSSM_WORDID_PREAUTH,
 	CSSM_ACL_SUBJECT_TYPE_PREAUTH_SOURCE = CSSM_WORDID_PREAUTH_SOURCE,
-	CSSM_ACL_SUBJECT_TYPE_ASYMMETRIC_KEY = CSSM_WORDID_ASYMMETRIC_KEY
+	CSSM_ACL_SUBJECT_TYPE_ASYMMETRIC_KEY = CSSM_WORDID_ASYMMETRIC_KEY,
+	CSSM_ACL_SUBJECT_TYPE_PARTITION = CSSM_WORDID_PARTITION,
 };
 
 enum
@@ -120,6 +122,8 @@ enum
 enum {
 	CSSM_ACL_AUTHORIZATION_CHANGE_ACL = CSSM_ACL_AUTHORIZATION_TAG_VENDOR_DEFINED_START,
 	CSSM_ACL_AUTHORIZATION_CHANGE_OWNER,
+	CSSM_ACL_AUTHORIZATION_PARTITION_ID,
+	CSSM_ACL_AUTHORIZATION_INTEGRITY,
 
 	// the "pre-auth" tags form a contiguous range of (up to) 64K pre-authorizations
 	CSSM_ACL_AUTHORIZATION_PREAUTH_BASE =
@@ -377,7 +381,14 @@ enum {
 	CSSM_APPLEFILEDL_COMMIT,
 
 	// Rollback and discard any pending changes to the database.
-	CSSM_APPLEFILEDL_ROLLBACK
+	CSSM_APPLEFILEDL_ROLLBACK,
+
+    // Try to take the file lock on the underlying database
+    // Calling commit or rollback will release the lock
+    CSSM_APPLEFILEDL_TAKE_FILE_LOCK,
+
+    // Make a backup of this database in a new file
+    CSSM_APPLEFILEDL_MAKE_BACKUP,
 };
 
 /* UNLOCK_REFERRAL "type" attribute values */
@@ -685,6 +696,11 @@ enum
 	CSSM_APPLE_PRIVATE_CSPDL_CODE_16 = 16,
     CSSM_APPLE_PRIVATE_CSPDL_CODE_17 = 17,
     CSSM_APPLE_PRIVATE_CSPDL_CODE_18 = 18,
+    CSSM_APPLE_PRIVATE_CSPDL_CODE_19 = 19,
+    CSSM_APPLE_PRIVATE_CSPDL_CODE_20 = 20,
+    CSSM_APPLE_PRIVATE_CSPDL_CODE_21 = 21,
+    CSSM_APPLE_PRIVATE_CSPDL_CODE_22 = 22,
+    CSSM_APPLE_PRIVATE_CSPDL_CODE_23 = 23,
 
 	/* Given a CSSM_KEY_PTR in any format, obtain the SHA-1 hash of the
 	 * associated key blob.
@@ -1138,6 +1154,13 @@ typedef struct {
 #define kSystemKeychainName		"System.keychain"
 #define kSystemKeychainDir		"/Library/Keychains/"
 #define kSystemUnlockFile		"/var/db/SystemKey"
+	
+
+/*
+ * CSSM ACL tags used to store partition/integrity data in ACLs
+ */
+#define CSSM_APPLE_ACL_TAG_PARTITION_ID		"___PARTITION___"
+#define CSSM_APPLE_ACL_TAG_INTEGRITY		"___INTEGRITY___"
 
 
 void cssmPerror(const char *how, CSSM_RETURN error);

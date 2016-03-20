@@ -45,7 +45,7 @@ namespace Security {
 
 class ProtectedPasswordAclSubject : public SimpleAclSubject {
 public:
-    bool validate(const AclValidationContext &baseCtx, const TypedList &sample) const;
+    bool validates(const AclValidationContext &baseCtx, const TypedList &sample) const;
     CssmList toList(Allocator &alloc) const;
     
     ProtectedPasswordAclSubject(Allocator &alloc, const CssmData &password);

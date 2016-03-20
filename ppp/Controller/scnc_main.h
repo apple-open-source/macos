@@ -40,6 +40,8 @@
 #endif
 #include <sys/types.h>
 
+#include <network/nat64.h>
+
 #include "ne_sm_bridge_private.h"
 
 //#define PRINTF(x) 	printf x
@@ -74,6 +76,7 @@ enum {
 	FLAG_ONDEMAND = 0x400, /* is the connection currently in on-demand mode */
 	FLAG_USECERTIFICATE = 0x800, /* is the connection using cert authentication ? */
 	FLAG_AUTHEN_EXTERNAL = 0x00001000, /* get credentials externally from vpn authen agent */
+	FLAG_RETRY_CONNECT = 0x00002000,	/* This is a retry of connection attempt */
 
 	/* setup keys */
 	FLAG_SETUP_ONTRAFFIC = 0x00010000, /* is DialOnDemand (onTraffic) set ? ONLY FOR PPP */
@@ -192,8 +195,9 @@ struct ipsec_service {
     u_int32_t 	laststatus;		/* last fail status */
     u_int32_t    asserted;
     CFMutableDictionaryRef config;		/* ipsec config dict */ 
-	struct sockaddr_in our_address;		/* our side IP address */
+	struct sockaddr_storage our_address;		/* our side IP address */
 	struct sockaddr_in peer_address;	/* the other side IP address */
+	nw_nat64_prefix_t nat64_prefix;
 	CFRunLoopTimerRef timerref ;	/* timer ref */
 	
 	/* racoon communication */

@@ -35,6 +35,7 @@
 #include "vmbuf.h"
 #include "racoon_types.h"
 #include <schedule.h>
+#include <network/nat64.h>
 
 #define PORT_ISAKMP 500
 #define PORT_ISAKMP_NATT 4500
@@ -62,7 +63,7 @@ struct isakmp_pl_nonce;	/* XXX */
 
 extern void isakmp_handler (int);
 extern int ikev1_ph1begin_i (ike_session_t *session, struct remoteconf *, struct sockaddr_storage *,
-	struct sockaddr_storage *, int);
+	struct sockaddr_storage *, int, nw_nat64_prefix_t *);
 extern int get_sainfo_r (phase2_handle_t *);
 extern int get_proposal_r (phase2_handle_t *);
 

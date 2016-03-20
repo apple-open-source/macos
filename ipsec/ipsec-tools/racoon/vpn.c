@@ -132,7 +132,7 @@ vpn_connect(struct bound_addr *srv, int oper)
 		goto out;
 	((struct sockaddr_in *)(dst))->sin_len = sizeof(struct sockaddr_in);
 	((struct sockaddr_in *)(dst))->sin_family = AF_INET;
-	((struct sockaddr_in *)(dst))->sin_port = 500;
+	((struct sockaddr_in *)(dst))->sin_port = PORT_ISAKMP;
 	((struct sockaddr_in *)(dst))->sin_addr.s_addr = srv->address;
 
 	/* find appropreate configuration */
@@ -156,7 +156,15 @@ vpn_connect(struct bound_addr *srv, int oper)
 		plog(ASL_LEVEL_ERR, "cannot get local address\n");
 		goto out1;
 	}
-	
+
+	if (srv->nat64_prefix.length > 0) {
+		memset(dst, 0, sizeof(*dst));
+		((struct sockaddr_in6 *)(dst))->sin6_len = sizeof(struct sockaddr_in6);
+		((struct sockaddr_in6 *)(dst))->sin6_family = AF_INET6;
+		((struct sockaddr_in6 *)(dst))->sin6_port = PORT_ISAKMP;
+		nw_nat64_synthesize_v6(&srv->nat64_prefix, (struct in_addr *)&srv->address, &((struct sockaddr_in6 *)(dst))->sin6_addr);
+	}
+
 	/* get remote IP address and port number. */
 	if ((remote = dupsaddr(dst)) == NULL) {
 		plog(ASL_LEVEL_ERR, 
@@ -193,7 +201,7 @@ vpn_connect(struct bound_addr *srv, int oper)
 
 	IPSECLOGASLMSG("IPSec connecting to server %s\n",
 				   saddrwop2str((struct sockaddr *)remote));
-	if (ikev1_ph1begin_i(NULL, rmconf, remote, local, oper) < 0)
+	if (ikev1_ph1begin_i(NULL, rmconf, remote, local, oper, &srv->nat64_prefix) < 0)
 		goto out1;
 	error = 0;
 
@@ -262,7 +270,7 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 	saddr.sin_addr.s_addr = addr->address;
 	saddr.sin_port = 0;
 	saddr.sin_family = AF_INET;
-	ph1 = ike_session_getph1bydstaddrwop(NULL, (struct sockaddr_storage *)(&saddr));
+	ph1 = ike_session_getph1bydstaddrwop(NULL, ALIGNED_CAST(struct sockaddr_storage *)(&saddr));
 	if (ph1 == NULL) {
 		plog(ASL_LEVEL_ERR,
 			"Cannot start Phase 2 - no Phase 1 found.\n");
@@ -445,11 +453,11 @@ vpn_get_config(phase1_handle_t *iph1, struct vpnctl_status_phase_change **msg, s
 	*msg = NULL;
 	msize = 0;
 	
-	if (((struct sockaddr_in *)iph1->local)->sin_family != AF_INET) {
+	/*if (((struct sockaddr_in *)iph1->local)->sin_family != AF_INET) {
 		plog(ASL_LEVEL_ERR, 
 			"IPv6 not supported for mode config.\n");
 		return -1;
-	}
+	}*/
 	
 	if (iph1->mode_cfg->attr_list == NULL)
 		return 1;	/* haven't received configuration yet */
@@ -474,7 +482,9 @@ vpn_get_config(phase1_handle_t *iph1, struct vpnctl_status_phase_change **msg, s
 	
 	(*msg)->hdr.flags = htons(VPNCTL_FLAG_MODECFG_USED);
 	params = (struct vpnctl_modecfg_params *)(*msg + 1);
-	params->outer_local_addr = ((struct sockaddr_in *)iph1->local)->sin_addr.s_addr;
+	if (((struct sockaddr_in *)iph1->local)->sin_family == AF_INET) {
+		params->outer_local_addr = ((struct sockaddr_in *)iph1->local)->sin_addr.s_addr;
+	}
 	params->outer_remote_port = htons(0);
 	params->outer_local_port = htons(0);
 	ifname_len = strlen(myaddr->ifname);
@@ -509,7 +519,7 @@ vpn_xauth_reply(u_int32_t address, void *attr_list, size_t attr_len)
 	saddr.sin_addr.s_addr = address;
 	saddr.sin_port = 0;
 	saddr.sin_family = AF_INET;
-	iph1 = ike_session_getph1bydstaddrwop(NULL, (struct sockaddr_storage *)(&saddr));
+	iph1 = ike_session_getph1bydstaddrwop(NULL, ALIGNED_CAST(struct sockaddr_storage *)(&saddr));
 	if (iph1 == NULL) {
 		plog(ASL_LEVEL_ERR, 
 			"Cannot reply to xauth request - no ph1 found.\n");

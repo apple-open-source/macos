@@ -54,6 +54,7 @@ enum {
     kSOSErrorNotReady = 4, // System not yet ready (before first unlock)
 
     kSOSErrorIncompatibleCircle = 5, // We saw an incompatible circle out there.
+    kSOSInitialSyncFailed =6,  //we timed out when syncing during approving from another device
 };
 
 //

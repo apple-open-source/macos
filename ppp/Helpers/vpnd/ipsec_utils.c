@@ -55,6 +55,7 @@
 #include <syslog.h>
 #include <netinet/in_var.h>
 #include <sys/kern_event.h>
+#include <netdb.h>
 
 #include "libpfkey.h"
 #include "cf_utils.h"
@@ -76,6 +77,10 @@
 
 /* Wcast-align fix - cast away alignment warning when buffer is aligned */
 #define ALIGNED_CAST(type)	(type)(void *) 
+
+#define DHGROUP14   14
+#define DHGROUP5     5
+#define DHGROUP2     2
 
 /* -----------------------------------------------------------------------------
     globals
@@ -407,7 +412,11 @@ configure_proposal(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictiona
 					strlcpy(str, "md5", sizeof(str));
 				else if (CFEqual(algo, kRASValIPSecProposalHashAlgorithmSHA1))
 					strlcpy(str, "sha1", sizeof(str));
-				else 
+				else if (CFEqual(algo, kRASValIPSecProposalHashAlgorithmSHA256))
+					strlcpy(str, "sha256", sizeof(str));
+				else if (CFEqual(algo, kRASValIPSecProposalHashAlgorithmSHA512))
+					strlcpy(str, "sha512", sizeof(str));
+				else
 					FAIL("incorrect authentication algorithm";)
 
 			}
@@ -461,9 +470,9 @@ configure_proposal(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictiona
 		DH Group is OPTIONAL
 	*/
 	{
-		u_int32_t lval = 2;
+		u_int32_t lval = DHGROUP14;		// default to 14
 		if (proposal_dict) {
-			GetIntFromDict(proposal_dict, kRASPropIPSecProposalDHGroup, &lval, 2);
+			GetIntFromDict(proposal_dict, kRASPropIPSecProposalDHGroup, &lval, DHGROUP14);
 		}
 		snprintf(text, sizeof(text), "dh_group %d;\n", lval);
 		WRITE(text);
@@ -549,9 +558,7 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 		if (nb == 0) {
 			char str[256];
 			/* default mode is main except if local identifier is defined (and the auth method is shared secret) */
-			if ((CFEqual(auth_method, kRASValIPSecAuthenticationMethodSharedSecret) ||
-				 CFEqual(auth_method, kRASValIPSecAuthenticationMethodHybrid)) &&
-				GetStrFromDict(ipsec_dict, kRASPropIPSecLocalIdentifier, str, sizeof(str), ""))
+			if (IPSecIsAggressiveMode(auth_method, GetStrFromDict(ipsec_dict, kRASPropIPSecLocalIdentifier, str, sizeof(str), ""), 1))
 				strlcat(text, "aggressive", sizeof(text));
 			else 
 				strlcat(text, "main", sizeof(text));
@@ -798,7 +805,7 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 	{
 		if (CFDictionaryContainsKey(ipsec_dict, kRASPropIPSecForceLocalAddress) &&
 			CFDictionaryGetValue(ipsec_dict, kRASPropIPSecForceLocalAddress) == kCFBooleanTrue) {
-			char src_address[32];
+			char src_address[256];
 			GetStrAddrFromDict(ipsec_dict, kRASPropIPSecLocalAddress, src_address, sizeof(src_address));
 			snprintf(text, sizeof(text), "local_address %s;\n", src_address);
 			WRITE(text);
@@ -1074,7 +1081,11 @@ configure_sainfo(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionary
 						if (found)
 							strlcat(text, ", ", sizeof(text));
 							
-						if (CFEqual(algo, kRASValIPSecPolicyHashAlgorithmSHA1))
+						if (CFEqual(algo, kRASValIPSecPolicyHashAlgorithmSHA512))
+							strlcat(text, "hmac_sha512", sizeof(text));
+						else if (CFEqual(algo, kRASValIPSecPolicyHashAlgorithmSHA256))
+							strlcat(text, "hmac_sha256", sizeof(text));
+						else if (CFEqual(algo, kRASValIPSecPolicyHashAlgorithmSHA1))
 							strlcat(text, "hmac_sha1", sizeof(text));
 						else if (CFEqual(algo, kRASValIPSecPolicyHashAlgorithmMD5))
 							strlcat(text, "hmac_md5", sizeof(text));
@@ -1220,7 +1231,7 @@ racoon_configure(CFDictionaryRef ipsec_dict, char **errstr, int apply)
 	FILE	*file = 0;
 	char	filename[256], text[256];
 	char	text2[256];
-	char	local_address[32], remote_address[32];
+	char	local_address[256], remote_address[256];
 	struct stat	sb;
 	u_int32_t verbose_logging;
 
@@ -1238,7 +1249,7 @@ racoon_configure(CFDictionaryRef ipsec_dict, char **errstr, int apply)
 	if (!GetStrAddrFromDict(ipsec_dict, kRASPropIPSecLocalAddress, local_address, sizeof(local_address)))
 		FAIL("incorrect local address found");
 
-	/* 
+	/*
 		remote address is REQUIRED 
 	*/
 	if (!GetStrAddrFromDict(ipsec_dict, kRASPropIPSecRemoteAddress, remote_address, sizeof(remote_address)))
@@ -1391,13 +1402,16 @@ racoon_configure(CFDictionaryRef ipsec_dict, char **errstr, int apply)
 					GetIntFromDict(policy, kRASPropIPSecPolicyRemotePort, &remote_port, 0);
 					GetIntFromDict(policy, kRASPropIPSecPolicyProtocol, &protocol, 0);
 
-					snprintf(text, sizeof(text), "sainfo address %s/32 [%d] %d address %s/32 [%d] %d {\n", 
-						local_address, local_port, protocol, 
-						remote_address, remote_port, protocol);
-					snprintf(text2, sizeof(text2), "sainfo address %s/32 [%d] %d address %s/32 [%d] %d {\n", 
-							 remote_address, remote_port, protocol,
-							 local_address, local_port, protocol);
-					
+					GetIntFromDict(policy, kRASPropIPSecPolicyLocalPrefix, &local_prefix, 32);
+					GetIntFromDict(policy, kRASPropIPSecPolicyRemotePrefix, &remote_prefix, 32);
+
+					snprintf(text, sizeof(text), "sainfo address %s/%d [%d] %d address %s/%d [%d] %d {\n",
+						local_address, local_prefix, local_port, protocol,
+						remote_address, remote_prefix, remote_port, protocol);
+					snprintf(text2, sizeof(text2), "sainfo address %s/%d [%d] %d address %s/%d [%d] %d {\n",
+							 remote_address, remote_prefix, remote_port, protocol,
+							 local_address, local_prefix, local_port, protocol);
+
 				}
 			}
 			
@@ -1573,6 +1587,50 @@ IPSecCountPolicies(CFDictionaryRef ipsec_dict)
     return 0;
 }
 
+bool
+get_address_from_string(const char *str,
+						struct sockaddr *addr,
+						size_t max_addr_len)
+{
+	if (str == NULL || addr == NULL) return false;
+
+	// Is the hostname an address string (1.2.3.4/fe80::1%lo0)?
+	// If so, store the sockaddr in 'addr' and return true
+	static const struct addrinfo	hints =
+	{
+		.ai_flags = AI_NUMERICHOST,
+		.ai_family = 0,
+		.ai_socktype = SOCK_STREAM,
+		.ai_protocol = 0,
+		.ai_addrlen = 0,
+		.ai_canonname = NULL,
+		.ai_addr = NULL,
+		.ai_next = NULL
+	};
+	struct addrinfo		*gairesults = NULL;
+
+	if (getaddrinfo(str, NULL, &hints, &gairesults) == 0)
+	{
+		struct addrinfo	*ai;
+		for (ai = gairesults; ai; ai = ai->ai_next)
+		{
+			if (ai->ai_addr->sa_family == AF_INET || ai->ai_addr->sa_family == AF_INET6)
+			{
+				if (addr != NULL && ai->ai_addr->sa_len <= max_addr_len)
+				{
+					bzero(addr, max_addr_len);
+					memcpy(addr, ai->ai_addr, ai->ai_addr->sa_len);
+				}
+				break;
+			}
+		}
+		freeaddrinfo(gairesults);
+		return true;
+	}
+
+	return false;
+}
+
 /* -----------------------------------------------------------------------------
 Install IPSec kernel policies. 
 This will not configure IKE and must be done separately.
@@ -1592,13 +1650,13 @@ IPSecInstallPolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr)
     int			nread, num_policies = 0, num_drained = 0;
     socklen_t	nread_size=sizeof(nread);
     int			s = -1, err, seq = 0, i, nb;
-    char		policystr_in[64], policystr_out[64], src_address[32], dst_address[32], str[32], *msg;
+    char		policystr_in[512], policystr_out[512], src_address[256], dst_address[256], str[256], *msg;
     caddr_t		policy_in = 0, policy_out = 0;
     u_int32_t	policylen_in, policylen_out, local_prefix, remote_prefix;
 	u_int32_t	protocol = 0xFF;
 	CFArrayRef  policies;
-	struct sockaddr_in  local_net;
-	struct sockaddr_in  remote_net;
+	struct sockaddr_storage  local_net;
+	struct sockaddr_storage  remote_net;
 	CFIndex	start, end;
 
     s = pfkey_open();
@@ -1710,48 +1768,51 @@ IPSecInstallPolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr)
 			/* get local and remote networks */
 		
 			if (!GetStrNetFromDict(policy, kRASPropIPSecPolicyLocalAddress, str, sizeof(str)))
-				FAIL("incorrect local network");
-						
-			local_net.sin_len = sizeof(local_net);
-			local_net.sin_family = AF_INET;
-			local_net.sin_port = htons(0);
-			if (!inet_aton(str, &local_net.sin_addr))
-				FAIL("incorrect local network");
+				FAIL("incorrect local network (0)");
+
+			if (!get_address_from_string(str, (struct sockaddr *)&local_net, sizeof(struct sockaddr_storage))) {
+				FAIL("incorrect local network (1)");
+			}
 
 			GetIntFromDict(policy, kRASPropIPSecPolicyLocalPrefix, &local_prefix, 24);
 
 			if (!GetStrNetFromDict(policy, kRASPropIPSecPolicyRemoteAddress, str, sizeof(str)))
-				FAIL("incorrect remote network0");
-						
-			remote_net.sin_len = sizeof(remote_net);
-			remote_net.sin_family = AF_INET;
-			remote_net.sin_port = htons(0);
-			if (!inet_aton(str, &remote_net.sin_addr))
-				FAIL("incorrect remote network1");
+				FAIL("incorrect remote network (0)");
+
+			if (!get_address_from_string(str, (struct sockaddr *)&remote_net, sizeof(struct sockaddr_storage))) {
+				FAIL("incorrect remote network (1)");
+			}
 
 			GetIntFromDict(policy, kRASPropIPSecPolicyRemotePrefix, &remote_prefix, 24);
 		
 		}
 		else {
 			u_int32_t val;
-			
-			local_net.sin_len = sizeof(local_net);
-			local_net.sin_family = AF_INET;
-			GetIntFromDict(policy, kRASPropIPSecPolicyLocalPort, &val, 0);
-			local_net.sin_port = htons(val);
-			if (!inet_aton(src_address, &local_net.sin_addr))
+
+			if (!get_address_from_string(src_address, (struct sockaddr *)&local_net, sizeof(struct sockaddr_storage))) {
 				FAIL("incorrect local address");
+			}
+			GetIntFromDict(policy, kRASPropIPSecPolicyLocalPort, &val, 0);
+			((struct sockaddr_in *)&local_net)->sin_port = htons(val);
 
-			local_prefix = local_net.sin_addr.s_addr ? 32 : 0;
+			if (local_net.ss_family == AF_INET) {
+				local_prefix = ((struct sockaddr_in *)&local_net)->sin_addr.s_addr ? 32 : 0;
+			} else {
+				local_prefix = 128;
+			}
 
-			remote_net.sin_len = sizeof(remote_net);
-			remote_net.sin_family = AF_INET;
-			GetIntFromDict(policy, kRASPropIPSecPolicyRemotePort, &val, 0);
-			remote_net.sin_port = htons(val);
-			if (!inet_aton(dst_address, &remote_net.sin_addr))
+
+			if (!get_address_from_string(dst_address, (struct sockaddr *)&remote_net, sizeof(struct sockaddr_storage))) {
 				FAIL("incorrect remote address");
+			}
+			GetIntFromDict(policy, kRASPropIPSecPolicyRemotePort, &val, 0);
+			((struct sockaddr_in *)&remote_net)->sin_port = htons(val);
 
-			remote_prefix = remote_net.sin_addr.s_addr ? 32 : 0;
+			if (remote_net.ss_family == AF_INET) {
+				remote_prefix = ((struct sockaddr_in *)&remote_net)->sin_addr.s_addr ? 32 : 0;
+			} else {
+				remote_prefix = 128;
+			}
 			
 			GetIntFromDict(policy, kRASPropIPSecPolicyProtocol, &protocol, 0);
 
@@ -1862,7 +1923,7 @@ static int
 install_remove_routes(struct service *serv, int cmd, CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr, struct in_addr gateway)
 {
     int			s = -1, i, nb;
-    char		src_address[32], dst_address[32], str[32];
+    char		src_address[256], dst_address[256], str[256];
     u_int32_t	remote_prefix;
 	CFArrayRef  policies;
 	struct sockaddr_in  local_net;
@@ -2114,9 +2175,9 @@ IPSecRemovePolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr)
     u_int32_t	policylen_in, policylen_out, local_prefix, remote_prefix;
 	u_int32_t	protocol = 0xFF;
 	CFArrayRef  policies;
-	struct sockaddr_in  local_net;
-	struct sockaddr_in  remote_net;
-    char		src_address[32], dst_address[32];
+	struct sockaddr_storage  local_net;
+	struct sockaddr_storage  remote_net;
+    char		src_address[256], dst_address[256];
 	CFIndex start, end;
 
     s = pfkey_open();
@@ -2199,48 +2260,51 @@ IPSecRemovePolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr)
 			/* get local and remote networks */
 		
 			if (!GetStrNetFromDict(policy, kRASPropIPSecPolicyLocalAddress, str, sizeof(str)))
-				FAIL("incorrect local network");
-						
-			local_net.sin_len = sizeof(local_net);
-			local_net.sin_family = AF_INET;
-			local_net.sin_port = htons(0);
-			if (!inet_aton(str, &local_net.sin_addr))
-				FAIL("incorrect local network");
+				FAIL("incorrect local network (0)");
+
+			if (!get_address_from_string(str, (struct sockaddr *)&local_net, sizeof(struct sockaddr_storage))) {
+				FAIL("incorrect local network (1)");
+			}
 
 			GetIntFromDict(policy, kRASPropIPSecPolicyLocalPrefix, &local_prefix, 24);
 
 			if (!GetStrNetFromDict(policy, kRASPropIPSecPolicyRemoteAddress, str, sizeof(str)))
-				FAIL("incorrect remote network");
-						
-			remote_net.sin_len = sizeof(remote_net);
-			remote_net.sin_family = AF_INET;
-			remote_net.sin_port = htons(0);
-			if (!inet_aton(str, &remote_net.sin_addr))
-				FAIL("incorrect remote network");
+				FAIL("incorrect remote network (0)");
+
+			if (!get_address_from_string(str, (struct sockaddr *)&remote_net, sizeof(struct sockaddr_storage))) {
+				FAIL("incorrect remote network (1)");
+			}
 
 			GetIntFromDict(policy, kRASPropIPSecPolicyRemotePrefix, &remote_prefix, 24);
 		
 		}
 		else {
 			u_int32_t val;
-			
-			local_net.sin_len = sizeof(local_net);
-			local_net.sin_family = AF_INET;
-			GetIntFromDict(policy, kRASPropIPSecPolicyLocalPort, &val, 0);
-			local_net.sin_port = htons(val);
-			if (!inet_aton(src_address, &local_net.sin_addr))
+
+			if (!get_address_from_string(src_address, (struct sockaddr *)&local_net, sizeof(struct sockaddr_storage))) {
 				FAIL("incorrect local address");
+			}
+			GetIntFromDict(policy, kRASPropIPSecPolicyLocalPort, &val, 0);
+			((struct sockaddr_in *)&local_net)->sin_port = htons(val);
 
-			local_prefix = local_net.sin_addr.s_addr ? 32 : 0;
+			if (local_net.ss_family == AF_INET) {
+				local_prefix = ((struct sockaddr_in *)&local_net)->sin_addr.s_addr ? 32 : 0;
+			} else {
+				local_prefix = 128;
+			}
 
-			remote_net.sin_len = sizeof(remote_net);
-			remote_net.sin_family = AF_INET;
-			GetIntFromDict(policy, kRASPropIPSecPolicyRemotePort, &val, 0);
-			remote_net.sin_port = htons(val);
-			if (!inet_aton(dst_address, &remote_net.sin_addr))
+
+			if (!get_address_from_string(dst_address, (struct sockaddr *)&remote_net, sizeof(struct sockaddr_storage))) {
 				FAIL("incorrect remote address");
+			}
+			GetIntFromDict(policy, kRASPropIPSecPolicyRemotePort, &val, 0);
+			((struct sockaddr_in *)&remote_net)->sin_port = htons(val);
 
-			remote_prefix = remote_net.sin_addr.s_addr ? 32 : 0;
+			if (remote_net.ss_family == AF_INET) {
+				remote_prefix = ((struct sockaddr_in *)&remote_net)->sin_addr.s_addr ? 32 : 0;
+			} else {
+				remote_prefix = 128;
+			}
 			
 			GetIntFromDict(policy, kRASPropIPSecPolicyProtocol, &protocol, 0);
 		}
@@ -2340,6 +2404,15 @@ get_rtaddrs(int addrs, struct sockaddr *sa, struct sockaddr **rti_info)
     }
 }
 
+int IPSecIsAggressiveMode(CFStringRef authenticationMethod, int hasLocalIdentifier, int isClient)
+{
+   if (!isClient || !hasLocalIdentifier) {
+        return 0;
+    }
+
+	// use aggressive mode if auth method is either share secret or hybrid.
+    return (!isString(authenticationMethod) || !CFEqual(authenticationMethod, kRASValIPSecAuthenticationMethodCertificate));
+}
 
 #define BUFLEN (sizeof(struct rt_msghdr) + 512)	/* 8 * sizeof(struct sockaddr_in6) = 192 */
 
@@ -2385,6 +2458,66 @@ sockaddr_to_string(const struct sockaddr_storage *address, char *buf, size_t buf
             snprintf(buf, bufLen, "unexpected address family %d", address->ss_family);
             break;
     }
+}
+
+static struct sockaddr_storage *
+create_local_addr(const struct sockaddr *remote, uint ifindex)
+{
+	struct sockaddr_storage *local;
+	u_int local_len = sizeof(struct sockaddr_storage);
+	int s;	/* for dummy connection */
+
+	/* allocate buffer */
+	if ((local = calloc(1, local_len)) == NULL) {
+		syslog(LOG_ERR,
+			 "failed to get address buffer.\n");
+		goto err;
+	}
+
+	/* get real interface received packet */
+	if ((s = socket(remote->sa_family, SOCK_DGRAM, 0)) < 0) {
+		syslog(LOG_ERR,
+			 "socket (%s)\n", strerror(errno));
+		goto err;
+	}
+
+	if (fcntl(s, F_SETFL, O_NONBLOCK) == -1) {
+		syslog(LOG_ERR, "failed to put localaddr socket in non-blocking mode\n");
+	}
+
+	if (ifindex) {
+		setsockopt(s, remote->sa_family == AF_INET ? IPPROTO_IP : IPPROTO_IPV6,
+				   remote->sa_family == AF_INET ? IP_BOUND_IF : IPV6_BOUND_IF, &ifindex, sizeof(ifindex));
+	}
+
+	struct sockaddr_storage remote_with_port;
+	memcpy(&remote_with_port, remote, remote->sa_len);
+	if (remote_with_port.ss_family == AF_INET) {
+		((struct sockaddr_in *)&remote_with_port)->sin_port = htons(45000);
+	} else if (remote_with_port.ss_family == AF_INET6) {
+		((struct sockaddr_in6 *)&remote_with_port)->sin6_port = htons(45000);
+	}
+	if (connect(s, (struct sockaddr *)&remote_with_port, remote_with_port.ss_len) < 0) {
+		syslog(LOG_ERR,
+			 "connect (%s)\n", strerror(errno));
+		close(s);
+		goto err;
+	}
+
+	if (getsockname(s, (struct sockaddr *)local, &local_len) < 0) {
+		syslog(LOG_ERR,
+			 "getsockname (%s)\n", strerror(errno));
+		close(s);
+		return NULL;
+	}
+
+	close(s);
+	return local;
+
+err:
+	if (local != NULL)
+		free(local);
+	return NULL;
 }
 
 /* -----------------------------------------------------------------------------
@@ -2503,6 +2636,15 @@ get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *ifscope,
         strncpy(if_name, ((struct sockaddr_dl *)(void*)rti_info[RTAX_IFP])->sdl_data, IF_NAMESIZE);     // Wcast-align fix (void*) - remove warning
 
     close(rsock);
+
+	if (src && src->sa_family == AF_INET6) {
+		struct sockaddr_storage *lookup_address = create_local_addr(dst, ifscope_index);
+		if (lookup_address != NULL) {
+			memcpy(src, lookup_address, lookup_address->ss_len);
+			free(lookup_address);
+		}
+	}
+
     return 0;
 }
 
@@ -2650,7 +2792,6 @@ int IPSecSetSecurityAssociationsPreference(int *oldval, int newval)
     return sysctlbyname("net.key.prefered_oldsa", oldval, &len, &newval, sizeof(int));
 }
 
-
 /* ----------------------------------------------------------------------------- 
 Create a default configuration for the L2TP protocol.
 L2PT has a defined set of parameters for IPSec, and this function will create a 
@@ -2669,30 +2810,55 @@ Return code:
 the configuration dictionary
 ----------------------------------------------------------------------------- */
 CFMutableDictionaryRef 
-IPSecCreateL2TPDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in *dst, char *dst_hostName, CFStringRef authenticationMethod, 
-		int isClient, int natt_multiple_users, CFStringRef identifierVerification) 
+IPSecCreateL2TPDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, char *dst_hostName, CFStringRef authenticationMethod, uint hasLocalIdentifier,
+		int isClient, int natt_multiple_users, CFStringRef identifierVerification, int dhgroup2_aggressive)
 {
 	CFStringRef				src_string, dst_string, hostname_string = NULL;
 	CFMutableDictionaryRef	ipsec_dict, policy0, policy1 = NULL;
 	CFMutableArrayRef		policy_array, encryption_array, hash_array;
 	CFMutableDictionaryRef	proposal_dict;
 	CFMutableArrayRef		proposal_array;
-	CFNumberRef				src_port_num, dst_port_num, dst_port1_num, proto_num, natt_multiuser_mode = NULL, dhgroup, lifetime;
-	int						zero = 0, one = 1, udpproto = IPPROTO_UDP, val;
-	struct sockaddr_in		*our_address = (struct sockaddr_in *)src;
-	struct sockaddr_in		*peer_address = (struct sockaddr_in *)dst;
-		
+	CFNumberRef				src_port_num, src_prefix = NULL, dst_port_num, dst_prefix = NULL, dst_port1_num, proto_num, natt_multiuser_mode = NULL, dhgroup, lifetime;
+	int						zero = 0, one = 1, udpproto = IPPROTO_UDP, val, index;
+	struct sockaddr			*our_address = (struct sockaddr *)src;
+	struct sockaddr			*peer_address = (struct sockaddr *)dst;
+	uint					aggressive_mode;
+
+	if (our_address->sa_family != peer_address->sa_family) {
+		syslog(LOG_ERR, "address families don't match (%u != %u)\n", our_address->sa_family, peer_address->sa_family);
+		return NULL;
+	}
+
 	/* create the main ipsec dictionary */
 	ipsec_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
 	if (dst_hostName)
 		hostname_string = CFStringCreateWithCString(0, dst_hostName, kCFStringEncodingASCII);
-	src_string = CFStringCreateWithCString(0, addr2ascii(AF_INET, &our_address->sin_addr, sizeof(our_address->sin_addr), 0), kCFStringEncodingASCII);
-	dst_string = CFStringCreateWithCString(0, addr2ascii(AF_INET, &peer_address->sin_addr, sizeof(peer_address->sin_addr), 0), kCFStringEncodingASCII);
-	val = ntohs(our_address->sin_port); /* because there is no uint16 type */
-	src_port_num = CFNumberCreate(0, kCFNumberIntType, &val);
-	val = ntohs(peer_address->sin_port); /* because there is no uint16 type */
-	dst_port_num = CFNumberCreate(0, kCFNumberIntType, &val);
+
+	if (peer_address->sa_family == AF_INET6) {
+		char addrstr[MAX_ADDRESS_STRLEN];
+		getnameinfo((const struct sockaddr *)our_address, our_address->sa_len, addrstr, sizeof(addrstr), NULL, 0, NI_NUMERICHOST | NI_NUMERICSERV);
+		src_string = CFStringCreateWithCString(0, addrstr, kCFStringEncodingASCII);
+
+		getnameinfo((const struct sockaddr *)peer_address, peer_address->sa_len, addrstr, sizeof(addrstr), NULL, 0, NI_NUMERICHOST | NI_NUMERICSERV);
+		dst_string = CFStringCreateWithCString(0, addrstr, kCFStringEncodingASCII);
+
+		val = ntohs((ALIGNED_CAST(struct sockaddr_in6 *)our_address)->sin6_port);
+		src_port_num = CFNumberCreate(0, kCFNumberIntType, &val);
+		val = ntohs((ALIGNED_CAST(struct sockaddr_in6 *)peer_address)->sin6_port);
+		dst_port_num = CFNumberCreate(0, kCFNumberIntType, &val);
+
+		val = 128;
+		src_prefix = CFNumberCreate(0, kCFNumberIntType, &val);
+		dst_prefix = CFNumberCreate(0, kCFNumberIntType, &val);
+	} else {
+		src_string = CFStringCreateWithCString(0, addr2ascii(AF_INET, &(ALIGNED_CAST(struct sockaddr_in *)our_address)->sin_addr, sizeof((ALIGNED_CAST(struct sockaddr_in *)our_address)->sin_addr), 0), kCFStringEncodingASCII);
+		dst_string = CFStringCreateWithCString(0, addr2ascii(AF_INET, &(ALIGNED_CAST(struct sockaddr_in *)peer_address)->sin_addr, sizeof((ALIGNED_CAST(struct sockaddr_in *)peer_address)->sin_addr), 0), kCFStringEncodingASCII);
+		val = ntohs((ALIGNED_CAST(struct sockaddr_in *)our_address)->sin_port);
+		src_port_num = CFNumberCreate(0, kCFNumberIntType, &val);
+		val = ntohs((ALIGNED_CAST(struct sockaddr_in *)peer_address)->sin_port);
+		dst_port_num = CFNumberCreate(0, kCFNumberIntType, &val);
+	}
 	dst_port1_num = CFNumberCreate(0, kCFNumberIntType, &zero);
 	proto_num = CFNumberCreate(0, kCFNumberIntType, &udpproto);
 	if (!isClient)
@@ -2714,72 +2880,165 @@ IPSecCreateL2TPDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in 
 			} else
 				CFDictionarySetValue(ipsec_dict, kRASPropIPSecIdentifierVerification, kRASValIPSecIdentifierVerificationGenerateFromRemoteAddress);
 		}
-	} else /*server or no certificate */
+	} else { /*server or no certificate */
 		CFDictionarySetValue(ipsec_dict, kRASPropIPSecIdentifierVerification, kRASValIPSecIdentifierVerificationNone);
+	}
 		
+	aggressive_mode = IPSecIsAggressiveMode(authenticationMethod, hasLocalIdentifier, isClient);
+
 	/* if server - set natt multiple user mode */
 	if (!isClient)
 		CFDictionarySetValue(ipsec_dict, kRASPropIPSecNattMultipleUsersEnabled, natt_multiuser_mode);
 	
 	/* create the phase 1 proposals */
 	proposal_array = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
-	val = 2;
-	dhgroup = CFNumberCreate(0, kCFNumberIntType, &val);
+	index = 0;
 	val = 3600; 
 	lifetime = CFNumberCreate(0, kCFNumberIntType, &val);
-	// --- AES-256/SHA1
-	proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
-	CFArraySetValueAtIndex(proposal_array, 0, proposal_dict);
-	CFRelease(proposal_dict);
 
-	// --- AES-256/MD5
-	proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
-	CFArraySetValueAtIndex(proposal_array, 1, proposal_dict);
-	CFRelease(proposal_dict);
+	if (!dhgroup2_aggressive) {
+		val = DHGROUP14;
+		dhgroup = CFNumberCreate(0, kCFNumberIntType, &val);
 
-	// --- AES/SHA1
-	proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
-	CFArraySetValueAtIndex(proposal_array, 2, proposal_dict);
-	CFRelease(proposal_dict);
+		// --- AES-256/SHA256
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA256);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, index++, proposal_dict);
+		CFRelease(proposal_dict);
 
-	// --- AES/MD5
-	proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
-	CFArraySetValueAtIndex(proposal_array, 3, proposal_dict);
-	CFRelease(proposal_dict);
+		// --- AES-256/SHA1
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, index++, proposal_dict);
+		CFRelease(proposal_dict);
 
-	// --- 3DES/SHA1
-	proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithm3DES);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
-	CFArraySetValueAtIndex(proposal_array, 4, proposal_dict);
-	CFRelease(proposal_dict);
-	
-	// --- 3DES/MD5
-	proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithm3DES);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
-	CFArraySetValueAtIndex(proposal_array, 5, proposal_dict);
-	CFRelease(proposal_dict);
+		// --- AES-256/MD5 
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, index++, proposal_dict);
+		CFRelease(proposal_dict);
+
+		// --- AES-256/SHA512
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA512);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, index++, proposal_dict);
+		CFRelease(proposal_dict);
+        
+		if (!aggressive_mode) {
+			CFRelease(dhgroup);
+			val = DHGROUP5;
+			dhgroup = CFNumberCreate(0, kCFNumberIntType, &val);
+
+			// --- AES-256/SHA256
+			proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA256);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+			CFArraySetValueAtIndex(proposal_array, index++, proposal_dict);
+			CFRelease(proposal_dict);
+			// --- AES-256/SHA1
+			proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+			CFArraySetValueAtIndex(proposal_array, index++, proposal_dict);
+			CFRelease(proposal_dict);
+
+			// --- AES-256/MD5
+			proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+			CFArraySetValueAtIndex(proposal_array, index++, proposal_dict);
+			CFRelease(proposal_dict);
+
+			CFRelease(dhgroup);
+		}
+	}
+
+	if (dhgroup2_aggressive || !aggressive_mode) {
+        val = DHGROUP2;
+		dhgroup = CFNumberCreate(0, kCFNumberIntType, &val);
+
+		// --- AES-256/SHA256
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA256);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, index++, proposal_dict);
+		CFRelease(proposal_dict);
+
+		// --- AES-256/SHA1
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, index++, proposal_dict);
+		CFRelease(proposal_dict);
+
+		// --- AES-256/MD5
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, index++, proposal_dict);
+		CFRelease(proposal_dict);
+
+		// --- AES/SHA1
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, index++, proposal_dict);
+		CFRelease(proposal_dict);
+
+		// --- AES/MD5
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, index++, proposal_dict);
+		CFRelease(proposal_dict);
+
+		// --- 3DES/SHA1
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithm3DES);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, index++, proposal_dict);
+		CFRelease(proposal_dict);
+
+		// --- 3DES/MD5
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithm3DES);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+		CFArraySetValueAtIndex(proposal_array, index++, proposal_dict);
+		CFRelease(proposal_dict);
+	}
+
 	CFRelease(dhgroup);
 	CFRelease(lifetime);
 	CFDictionarySetValue(ipsec_dict, kRASPropIPSecProposals, proposal_array);
@@ -2789,6 +3048,8 @@ IPSecCreateL2TPDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in 
 	policy0 = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 	CFDictionarySetValue(policy0, kRASPropIPSecPolicyLocalPort, src_port_num);
 	CFDictionarySetValue(policy0, kRASPropIPSecPolicyRemotePort, dst_port_num);
+	if (src_prefix) CFDictionarySetValue(policy0, kRASPropIPSecPolicyLocalPrefix, src_prefix);
+	if (dst_prefix) CFDictionarySetValue(policy0, kRASPropIPSecPolicyRemotePrefix, dst_prefix);
 	CFDictionarySetValue(policy0, kRASPropIPSecPolicyProtocol, proto_num);
 	CFDictionarySetValue(policy0, kRASPropIPSecPolicyMode, kRASValIPSecPolicyModeTransport);
 	CFDictionarySetValue(policy0, kRASPropIPSecPolicyLevel, kRASValIPSecPolicyLevelRequire);
@@ -2826,6 +3087,12 @@ IPSecCreateL2TPDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in 
 	CFRelease(dst_string);
 	CFRelease(src_port_num);
 	CFRelease(dst_port_num);
+	if (src_prefix) {
+		CFRelease(src_prefix);
+	}
+	if (dst_prefix) {
+		CFRelease(dst_prefix);
+	}
 	CFRelease(dst_port1_num);
 	CFRelease(proto_num);
 	if (!isClient)
@@ -2854,8 +3121,8 @@ Return code:
 the configuration dictionary
 ----------------------------------------------------------------------------- */
 CFMutableDictionaryRef 
-IPSecCreateCiscoDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in *dst, CFStringRef dst_hostName, CFStringRef authenticationMethod, 
-		int isClient, int natt_multiple_users, CFStringRef identifierVerification) 
+IPSecCreateCiscoDefaultConfiguration(struct sockaddr *src, struct sockaddr_in *dst, CFStringRef dst_hostName, CFStringRef authenticationMethod, uint hasLocalIdentifier,
+		int isClient, int natt_multiple_users, CFStringRef identifierVerification, int dhgroup2_aggressive)
 {
 	CFStringRef				src_string, dst_string;
 	CFMutableDictionaryRef	ipsec_dict, proposal_dict;
@@ -2866,20 +3133,21 @@ IPSecCreateCiscoDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in
 #endif
 	CFNumberRef				src_port_num, dst_port_num, dst_port1_num, proto_num, natt_multiuser_mode = NULL, cfone = NULL, cfzero = NULL, dhgroup, lifetime, dpd_delay;
 	int						zero = 0, one = 1, anyproto = -1, val, nb;
-	struct sockaddr_in		*our_address = (struct sockaddr_in *)src;
-	struct sockaddr_in		*peer_address = (struct sockaddr_in *)dst;
+	struct sockaddr_in		*our_address = ALIGNED_CAST(struct sockaddr_in *)src;
+	struct sockaddr_in		*peer_address = ALIGNED_CAST(struct sockaddr_in *)dst;
+	uint					aggressive_mode;
 
-	// remove as soon as we add dh_group 5 to the loop
-#define ADD_DHGROUP5 1
-#ifdef ADD_DHGROUP5
-	int		add_group5 = 0, val5 = 5;
-	CFNumberRef	dhgroup5 = NULL;
-#endif
-	
 	/* create the main ipsec dictionary */
 	ipsec_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
-	src_string = CFStringCreateWithCString(0, addr2ascii(AF_INET, &our_address->sin_addr, sizeof(our_address->sin_addr), 0), kCFStringEncodingASCII);
+	if (src->sa_family == AF_INET6) {
+		char addrstr[MAX_ADDRESS_STRLEN];
+		getnameinfo((const struct sockaddr *)src, src->sa_len, addrstr, sizeof(addrstr), NULL, 0, NI_NUMERICHOST | NI_NUMERICSERV);
+		syslog(LOG_ERR, "IPv6 IPSec Address: %s\n", addrstr);
+		src_string = CFStringCreateWithCString(0, addrstr, kCFStringEncodingUTF8);
+	} else {
+		src_string = CFStringCreateWithCString(0, addr2ascii(AF_INET, &our_address->sin_addr, sizeof(our_address->sin_addr), 0), kCFStringEncodingASCII);
+	}
 	dst_string = CFStringCreateWithCString(0, addr2ascii(AF_INET, &peer_address->sin_addr, sizeof(peer_address->sin_addr), 0), kCFStringEncodingASCII);
 	val = ntohs(our_address->sin_port); /* because there is no uint16 type */
 	src_port_num = CFNumberCreate(0, kCFNumberIntType, &val);
@@ -2899,9 +3167,6 @@ IPSecCreateCiscoDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in
 	CFDictionarySetValue(ipsec_dict, kRASPropIPSecRemoteAddress, dst_string);
 	CFDictionarySetValue(ipsec_dict, kRASPropIPSecProposalsBehavior, isClient ? kRASValIPSecProposalsBehaviorObey : kRASValIPSecProposalsBehaviorClaim);
 	if (isClient && CFEqual(authenticationMethod, kRASValIPSecAuthenticationMethodCertificate)) {
-#ifdef ADD_DHGROUP5
-		add_group5 = 1;
-#endif
 		if (identifierVerification) {
 			CFDictionarySetValue(ipsec_dict, kRASPropIPSecIdentifierVerification, identifierVerification);
 		}
@@ -2912,9 +3177,12 @@ IPSecCreateCiscoDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in
 			} else
 				CFDictionarySetValue(ipsec_dict, kRASPropIPSecIdentifierVerification, kRASValIPSecIdentifierVerificationGenerateFromRemoteAddress);
 		}
-	} else /*server or no certificate */
+	} else { /*server or no certificate */
 		CFDictionarySetValue(ipsec_dict, kRASPropIPSecIdentifierVerification, kRASValIPSecIdentifierVerificationNone);
-		
+	}
+
+	aggressive_mode = IPSecIsAggressiveMode(authenticationMethod, hasLocalIdentifier, isClient);
+
 	/* if server - set natt multiple user mode */
 	if (!isClient)
 		CFDictionarySetValue(ipsec_dict, kRASPropIPSecNattMultipleUsersEnabled, natt_multiuser_mode);
@@ -2942,34 +3210,37 @@ IPSecCreateCiscoDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in
 	lifetime = CFNumberCreate(0, kCFNumberIntType, &val);
 
 	nb = 0;
-	
-	/* should support group 1, 2, and 5 for main monde and only group 2 for aggressive mode
+
+	/* should support group 2, 5, and 14 for main mode and only group 2 for aggressive mode
 		supporting so many proposals could require to turn on ike fragmentation and needs more testing */
-	//int i, dh_group[] = { 1, 2, 5, 0 };
-	int i, dh_group[] = { 2, 0 }; 
+	int i, dh_group[] = { DHGROUP14, DHGROUP5, DHGROUP2, 0};    // prefer group 14, then 5, 2.
 	
+	if (aggressive_mode) {
+		// only a single group can be used
+        if (dhgroup2_aggressive) {
+            dh_group[0] = DHGROUP2;
+        } else {
+            dh_group[0] = DHGROUP14;
+        }
+		dh_group[1] = 0;
+	};
+
 	for (i = 0; (val = dh_group[i]); i++) {
 
 		dhgroup = CFNumberCreate(0, kCFNumberIntType, &val);
 
-#ifdef ADD_DHGROUP5
-		if (add_group5)
-				dhgroup5 = CFNumberCreate(0, kCFNumberIntType, &val5);
-#endif
-		
-		// --- AES256/SHA1
-#ifdef ADD_DHGROUP5
-		if (add_group5) {
+		if (val >= DHGROUP5) {
+			// --- AES256/SHA256
 			proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
-			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
-			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup5);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA256);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
 			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
 			CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
 			CFRelease(proposal_dict);
 		}
-#endif
-		
+
+		// --- AES256/SHA1  
 		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);		
 		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
 		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
@@ -2978,29 +3249,8 @@ IPSecCreateCiscoDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in
 		CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
 		CFRelease(proposal_dict);
 
-		// --- AES/SHA1
-		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
-		CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
-		CFRelease(proposal_dict);
-
-		// --- AES256/MD5
-#ifdef ADD_DHGROUP5
-		if (add_group5) {
-			proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
-			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
-			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup5);
-			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
-			CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
-			CFRelease(proposal_dict);
-		}
-#endif
-		
-		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		// --- AES256/MD5  
+		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);		
 		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
 		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
 		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
@@ -3008,58 +3258,74 @@ IPSecCreateCiscoDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in
 		CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
 		CFRelease(proposal_dict);
 
-		// --- AES/MD5
-		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
-		CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
-		CFRelease(proposal_dict);
+		if (val >= DHGROUP14) {
+			// --- AES256/SHA512
+			proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA512);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+			CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
+			CFRelease(proposal_dict);
+		}
 
-		// --- 3DES/SHA1
-		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithm3DES);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
-		CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
-		CFRelease(proposal_dict);
+		if (val <= DHGROUP2) {
+			// --- AES/SHA1
+			proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+			CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
+			CFRelease(proposal_dict);
 
-		// --- 3DES/MD5
-		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithm3DES);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
-		CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
-		CFRelease(proposal_dict);
+			// --- AES/MD5
+			proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+			CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
+			CFRelease(proposal_dict);
 
-		// --- DES/SHA1
-		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmDES);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
-		CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
-		CFRelease(proposal_dict);
+			// --- 3DES/SHA1
+			proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithm3DES);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+			CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
+			CFRelease(proposal_dict);
 
-		// --- DES/MD5
-		proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmDES);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
-		CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
-		CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
-		CFRelease(proposal_dict);
+			// --- 3DES/MD5
+			proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithm3DES);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+			CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
+			CFRelease(proposal_dict);
 
-		// ---
-		
+			// --- DES/SHA1
+			proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmDES);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+			CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
+			CFRelease(proposal_dict);
+
+			// --- DES/MD5
+			proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmDES);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+			CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+			CFArraySetValueAtIndex(proposal_array, nb++, proposal_dict);
+			CFRelease(proposal_dict);
+		}
+
 		CFRelease(dhgroup);
-#ifdef ADD_DHGROUP5
-		if (add_group5)
-			CFRelease(dhgroup5);
-#endif
 	}
 	
 	CFRelease(lifetime);

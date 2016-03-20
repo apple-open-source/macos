@@ -41,7 +41,7 @@ namespace CodeSigning {
 // A SecCode object represents running code in the system. It must be subclassed
 // to implement a particular notion of code.
 //
-class SecCodeSigner : public SecCFObject, public DiskRep::SigningContext {
+class SecCodeSigner : public SecCFObject {
 	NOCOPY(SecCodeSigner)
 public:
 	class Parser;
@@ -62,13 +62,10 @@ public:
 	void remove(SecStaticCode *code, SecCSFlags flags);
 	
 	void returnDetachedSignature(BlobCore *blob, Signer &signer);
-
-protected:
-	std::string sdkPath(const std::string &path) const;
-	bool isAdhoc() const;
-	SecCSFlags signingFlags() const;
 	
-private:
+	const CodeDirectory::HashAlgorithms &digestAlgorithms() const { return mDigestAlgorithms; }
+	
+public:
 	// parsed parameter set
 	SecCSFlags mOpFlags;			// operation flags
 	CFRef<SecIdentityRef> mSigner;	// signing identity
@@ -83,7 +80,7 @@ private:
 	uint32_t mCdFlags;				// CodeDirectory flags
 	uint32_t mPreserveMetadata;		// metadata preservation options
 	bool mCdFlagsGiven;				// CodeDirectory flags were specified
-	CodeDirectory::HashAlgorithm mDigestAlgorithm; // interior digest (hash) algorithm
+	CodeDirectory::HashAlgorithms mDigestAlgorithms; // interior digest (hash) algorithm
 	std::string mIdentifier;		// unique identifier override
 	std::string mIdentifierPrefix;	// prefix for un-dotted default identifiers
 	std::string mTeamID;            // teamID

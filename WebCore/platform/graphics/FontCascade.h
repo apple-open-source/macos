@@ -31,7 +31,6 @@
 #include "FontDescription.h"
 #include "Path.h"
 #include "TextFlags.h"
-#include "TypesettingFeatures.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/WeakPtr.h>
@@ -153,7 +152,7 @@ public:
     int offsetForPosition(const TextRun&, float position, bool includePartialGlyphs) const;
     void adjustSelectionRectForText(const TextRun&, LayoutRect& selectionRect, int from = 0, int to = -1) const;
 
-    bool isSmallCaps() const { return m_fontDescription.smallCaps(); }
+    bool isSmallCaps() const { return m_fontDescription.variantCaps() == FontVariantCaps::Small; }
 
     float wordSpacing() const { return m_wordSpacing; }
     float letterSpacing() const { return m_letterSpacing; }
@@ -163,7 +162,8 @@ public:
     
     FontRenderingMode renderingMode() const { return m_fontDescription.renderingMode(); }
 
-    TypesettingFeatures typesettingFeatures() const { return static_cast<TypesettingFeatures>(m_typesettingFeatures); }
+    bool enableKerning() const { return m_enableKerning; }
+    bool requiresShaping() const { return m_requiresShaping; }
 
     const AtomicString& firstFamily() const { return m_fontDescription.firstFamily(); }
     unsigned familyCount() const { return m_fontDescription.familyCount(); }
@@ -191,7 +191,11 @@ public:
     GlyphData glyphDataForCharacter(UChar32, bool mirror, FontVariant = AutoVariant) const;
     
 #if PLATFORM(COCOA)
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000)
+    const Font* fontForCombiningCharacterSequence(const UChar*, size_t length) const;
+#else
     const Font* fontForCombiningCharacterSequence(const UChar*, size_t length, FontVariant) const;
+#endif
 #endif
 
     static bool isCJKIdeograph(UChar32);
@@ -270,9 +274,6 @@ public:
     static CodePath codePath();
     static CodePath s_codePath;
 
-    WEBCORE_EXPORT static void setDefaultTypesettingFeatures(TypesettingFeatures);
-    static TypesettingFeatures defaultTypesettingFeatures();
-
     static const uint8_t s_roundingHackCharacterTable[256];
     static bool isRoundingHackCharacter(UChar32 c)
     {
@@ -305,49 +306,40 @@ public:
 private:
     bool isLoadingCustomFonts() const;
 
-    TypesettingFeatures computeTypesettingFeatures() const
+    bool advancedTextRenderingMode() const
     {
-        TextRenderingMode textRenderingMode = m_fontDescription.textRenderingMode();
-        TypesettingFeatures features = s_defaultTypesettingFeatures;
-
-        switch (textRenderingMode) {
-        case AutoTextRendering:
-            break;
-        case OptimizeSpeed:
-            features &= ~(Kerning | Ligatures);
-            break;
-        case GeometricPrecision:
-        case OptimizeLegibility:
-            features |= Kerning | Ligatures;
-            break;
-        }
-
-        switch (m_fontDescription.kerning()) {
-        case FontDescription::NoneKerning:
-            features &= ~Kerning;
-            break;
-        case FontDescription::NormalKerning:
-            features |= Kerning;
-            break;
-        case FontDescription::AutoKerning:
-            break;
-        }
-
-        switch (m_fontDescription.commonLigaturesState()) {
-        case FontDescription::DisabledLigaturesState:
-            features &= ~Ligatures;
-            break;
-        case FontDescription::EnabledLigaturesState:
-            features |= Ligatures;
-            break;
-        case FontDescription::NormalLigaturesState:
-            break;
-        }
-
-        return features;
+        auto textRenderingMode = m_fontDescription.textRenderingMode();
+        if (textRenderingMode == GeometricPrecision || textRenderingMode == OptimizeLegibility)
+            return true;
+        if (textRenderingMode == OptimizeSpeed)
+            return false;
+#if PLATFORM(COCOA)
+        return true;
+#else
+        return false;
+#endif
     }
 
-    static TypesettingFeatures s_defaultTypesettingFeatures;
+    bool computeEnableKerning() const
+    {
+        auto kerning = m_fontDescription.kerning();
+        if (kerning == Kerning::Normal)
+            return true;
+        if (kerning == Kerning::NoShift)
+            return false;
+        return advancedTextRenderingMode();
+    }
+
+    bool computeRequiresShaping() const
+    {
+#if PLATFORM(COCOA)
+        if (!m_fontDescription.variantSettings().isAllNormal())
+            return true;
+        if (m_fontDescription.featureSettings().size())
+            return true;
+#endif
+        return advancedTextRenderingMode();
+    }
 
     FontDescription m_fontDescription;
     mutable RefPtr<FontCascadeFonts> m_fonts;
@@ -355,7 +347,8 @@ private:
     float m_letterSpacing;
     float m_wordSpacing;
     mutable bool m_useBackslashAsYenSymbol;
-    mutable unsigned m_typesettingFeatures : 2; // (TypesettingFeatures) Caches values computed from m_fontDescription.
+    mutable unsigned m_enableKerning : 1; // Computed from m_fontDescription.
+    mutable unsigned m_requiresShaping : 1; // Computed from m_fontDescription.
 };
 
 void invalidateFontCascadeCache();

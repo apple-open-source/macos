@@ -44,7 +44,8 @@ enum
 #define kAppleLVMMessageVolumeChanged	('lvol')
 
 enum {
-    kAppleRAIDMaxUUIDStringSize = 64				// 128bit UUID (in ascii hex plus some dashes) "uuidgen | wc" == 37
+    kAppleRAIDUUIDStringSize = 36,				// 128bit UUID (in ascii hex plus some dashes) "uuidgen | wc" == 37
+    kAppleRAIDMaxUUIDStringSize = 64
 };
 
 // update set sub commands

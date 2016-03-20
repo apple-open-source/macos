@@ -1,6 +1,6 @@
 
-#ifndef SOSTransportCoder_h
-#define SOSTransportCoder_h
+#ifndef SOSPeerCoder_h
+#define SOSPeerCoder_h
 #include <Security/SecureObjectSync/SOSTransportMessage.h>
 #include <Security/SecureObjectSync/SOSCoder.h>
 

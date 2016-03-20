@@ -72,7 +72,7 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
     bool                queueFull = false;
     bool                result    = true;
     
-    if ( tail > getQueueSize() || head > getQueueSize() )
+    if ( tail > getQueueSize() || head > getQueueSize() || entrySize < dataSize)
     {
         return false;
     }
@@ -80,7 +80,7 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
     if ( tail >= head )
     {
         // Is there enough room at the end for the entry?
-        if ( (tail + entrySize) <= getQueueSize() )
+        if ( (getQueueSize() - tail) >= entrySize )
         {
             entry = (IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail);
 
@@ -126,7 +126,7 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
         // Do not allow the tail to catch up to the head when the queue is full.
         // That's why the comparison uses a '>' rather than '>='.
 
-        if ( ( (head - tail) > entrySize ) && (tail + entrySize <= getQueueSize() ) )
+        if ( (head - tail) > entrySize  )
         {
             entry = (IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail);
 

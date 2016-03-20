@@ -209,6 +209,7 @@ OSStatus SecCodeCheckValidityWithErrors(SecCodeRef codeRef, SecCSFlags flags,
 
 	checkFlags(flags,
 		  kSecCSConsiderExpiration
+		| kSecCSStrictValidate
 		| kSecCSEnforceRevocationChecks);
 	SecPointer<SecCode> code = SecCode::required(codeRef);
 	code->checkValidity(flags);
@@ -271,6 +272,7 @@ const CFStringRef kSecCodeInfoEntitlementsDict =	CFSTR("entitlements-dict");
 const CFStringRef kSecCodeInfoFlags =			CFSTR("flags");
 const CFStringRef kSecCodeInfoFormat =			CFSTR("format");
 const CFStringRef kSecCodeInfoDigestAlgorithm =	CFSTR("digest-algorithm");
+const CFStringRef kSecCodeInfoDigestAlgorithms = CFSTR("digest-algorithms");
 const CFStringRef kSecCodeInfoPlatformIdentifier = CFSTR("platform-identifier");
 const CFStringRef kSecCodeInfoIdentifier =		CFSTR("identifier");
 const CFStringRef kSecCodeInfoImplicitDesignatedRequirement = CFSTR("implicit-requirement");
@@ -285,6 +287,8 @@ const CFStringRef kSecCodeInfoTime =			CFSTR("signing-time");
 const CFStringRef kSecCodeInfoTimestamp =		CFSTR("signing-timestamp");
 const CFStringRef kSecCodeInfoTrust =			CFSTR("trust");
 const CFStringRef kSecCodeInfoUnique =			CFSTR("unique");
+const CFStringRef kSecCodeInfoCdHashes =        CFSTR("cdhashes");
+
 
 const CFStringRef kSecCodeInfoCodeDirectory =	CFSTR("CodeDirectory");
 const CFStringRef kSecCodeInfoCodeOffset =		CFSTR("CodeOffset");

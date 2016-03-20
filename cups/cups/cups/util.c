@@ -1,5 +1,5 @@
 /*
- * "$Id: util.c 12489 2015-02-05 19:40:10Z msweet $"
+ * "$Id: util.c 12992 2015-11-19 15:19:00Z msweet $"
  *
  * Printing utilities for CUPS.
  *
@@ -1528,10 +1528,9 @@ cups_get_printer_uri(
     }
 
     if (device_uri &&
-        (!strncmp(device_uri, "ipp://", 6) ||
-         !strncmp(device_uri, "ipps://", 7) ||
-         ((strstr(device_uri, "._ipp.") != NULL ||
-           strstr(device_uri, "._ipps.") != NULL) &&
+        (((!strncmp(device_uri, "ipp://", 6) || !strncmp(device_uri, "ipps://", 7)) &&
+	  (strstr(device_uri, "/printers/") != NULL || strstr(device_uri, "/classes/") != NULL)) ||
+         ((strstr(device_uri, "._ipp.") != NULL || strstr(device_uri, "._ipps.") != NULL) &&
           !strcmp(device_uri + strlen(device_uri) - 5, "/cups"))))
     {
      /*
@@ -1655,5 +1654,5 @@ cups_get_printer_uri(
 
 
 /*
- * End of "$Id: util.c 12489 2015-02-05 19:40:10Z msweet $".
+ * End of "$Id: util.c 12992 2015-11-19 15:19:00Z msweet $".
  */

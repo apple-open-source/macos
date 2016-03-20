@@ -37,7 +37,6 @@
 
 #if USE_KEYSTORE
 #include <libaks.h>
-void kc_dbhandle_reset(void);
 
 int secd_01_items(int argc, char *const *argv)
 {
@@ -63,7 +62,7 @@ int secd_01_items(int argc, char *const *argv)
     ok(state&keybag_state_locked, "keybag locked");
 
     
-    kc_dbhandle_reset();
+    SecKeychainDbReset(NULL);
 
     /* Creating a password */
     int v_eighty = 80;
@@ -139,7 +138,7 @@ int secd_01_items(int argc, char *const *argv)
     /* Reset keybag and custom $HOME */
     SecItemServerResetKeychainKeybag();
     SetCustomHomeURL(NULL);
-    kc_dbhandle_reset();
+    SecKeychainDbReset(NULL);
 
     
     CFReleaseNull(pwdata);

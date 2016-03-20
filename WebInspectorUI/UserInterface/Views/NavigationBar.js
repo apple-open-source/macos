@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,59 +23,42 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.NavigationBar = function(element, navigationItems, role, label) {
-    // FIXME: Convert this to a WebInspector.Object subclass, and call super().
-    // WebInspector.Object.call(this);
+WebInspector.NavigationBar = class NavigationBar extends WebInspector.View
+{
+    constructor(element, navigationItems, role, label)
+    {
+        super(element);
 
-    this._element = element || document.createElement("div");
-    this._element.classList.add(this.constructor.StyleClassName || WebInspector.NavigationBar.StyleClassName);
-    this._element.tabIndex = 0;
+        this.element.classList.add(this.constructor.StyleClassName || "navigation-bar");
+        this.element.tabIndex = 0;
 
-    if (role)
-        this._element.setAttribute("role", role);
-    if (label)
-        this._element.setAttribute("aria-label", label);
+        if (role)
+            this.element.setAttribute("role", role);
+        if (label)
+            this.element.setAttribute("aria-label", label);
 
-    this._element.addEventListener("focus", this._focus.bind(this), false);
-    this._element.addEventListener("blur", this._blur.bind(this), false);
-    this._element.addEventListener("keydown", this._keyDown.bind(this), false);
-    this._element.addEventListener("mousedown", this._mouseDown.bind(this), false);
+        this.element.addEventListener("focus", this._focus.bind(this), false);
+        this.element.addEventListener("blur", this._blur.bind(this), false);
+        this.element.addEventListener("keydown", this._keyDown.bind(this), false);
+        this.element.addEventListener("mousedown", this._mouseDown.bind(this), false);
 
-    document.addEventListener("load", this.updateLayout.bind(this), false);
+        this._minimumWidth = NaN;
+        this._navigationItems = [];
 
-    this._styleElement = document.createElement("style");
-
-    this._navigationItems = [];
-
-    if (navigationItems) {
-        for (var i = 0; i < navigationItems.length; ++i)
-            this.addNavigationItem(navigationItems[i]);
+        if (navigationItems) {
+            for (var i = 0; i < navigationItems.length; ++i)
+                this.addNavigationItem(navigationItems[i]);
+        }
     }
-
-    document.head.appendChild(this._styleElement);
-};
-
-// FIXME: Move to a WebInspector.Object subclass and we can remove this.
-WebInspector.Object.deprecatedAddConstructorFunctions(WebInspector.NavigationBar);
-
-WebInspector.NavigationBar.StyleClassName = "navigation-bar";
-WebInspector.NavigationBar.CollapsedStyleClassName = "collapsed";
-
-WebInspector.NavigationBar.Event = {
-    NavigationItemSelected: "navigation-bar-navigation-item-selected"
-};
-
-WebInspector.NavigationBar.prototype = {
-    constructor: WebInspector.NavigationBar,
 
     // Public
 
-    addNavigationItem: function(navigationItem, parentElement)
+    addNavigationItem(navigationItem, parentElement)
     {
         return this.insertNavigationItem(navigationItem, this._navigationItems.length, parentElement);
-    },
+    }
 
-    insertNavigationItem: function(navigationItem, index, parentElement)
+    insertNavigationItem(navigationItem, index, parentElement)
     {
         console.assert(navigationItem instanceof WebInspector.NavigationItem);
         if (!(navigationItem instanceof WebInspector.NavigationItem))
@@ -92,7 +75,7 @@ WebInspector.NavigationBar.prototype = {
         this._navigationItems.splice(index, 0, navigationItem);
 
         if (!parentElement)
-            parentElement = this._element;
+            parentElement = this.element;
 
         var nextSibling = this._navigationItems[index + 1];
         var nextSiblingElement = nextSibling ? nextSibling.element : null;
@@ -101,15 +84,14 @@ WebInspector.NavigationBar.prototype = {
 
         parentElement.insertBefore(navigationItem.element, nextSiblingElement);
 
-        this._minimumWidthNeedsRecalculation = true;
-        this._needsStyleUpdated = true;
+        this._minimumWidth = NaN;
 
-        this.updateLayoutSoon();
+        this.needsLayout();
 
         return navigationItem;
-    },
+    }
 
-    removeNavigationItem: function(navigationItemOrIdentifierOrIndex)
+    removeNavigationItem(navigationItemOrIdentifierOrIndex)
     {
         var navigationItem = this._findNavigationItem(navigationItemOrIdentifierOrIndex);
         if (!navigationItem)
@@ -123,80 +105,17 @@ WebInspector.NavigationBar.prototype = {
         this._navigationItems.remove(navigationItem);
         navigationItem.element.remove();
 
-        this._minimumWidthNeedsRecalculation = true;
-        this._needsStyleUpdated = true;
+        this._minimumWidth = NaN;
 
-        this.updateLayoutSoon();
+        this.needsLayout();
 
         return navigationItem;
-    },
-
-    updateLayoutSoon: function()
-    {
-        if (this._updateLayoutTimeout)
-            return;
-
-        this._needsLayout = true;
-
-        function update()
-        {
-            delete this._updateLayoutTimeout;
-
-            if (this._needsLayout || this._needsStyleUpdated)
-                this.updateLayout();
-        }
-
-        this._updateLayoutTimeout = setTimeout(update.bind(this), 0);
-    },
-
-    updateLayout: function()
-    {
-        if (this._updateLayoutTimeout) {
-            clearTimeout(this._updateLayoutTimeout);
-            delete this._updateLayoutTimeout;
-        }
-
-        if (this._needsStyleUpdated)
-            this._updateStyle();
-
-        this._needsLayout = false;
-
-        if (typeof this.customUpdateLayout === "function") {
-            this.customUpdateLayout();
-            return;
-        }
-
-        // Remove the collapsed style class to test if the items can fit at full width.
-        this._element.classList.remove(WebInspector.NavigationBar.CollapsedStyleClassName);
-
-        // Tell each navigation item to update to full width if needed.
-        for (var i = 0; i < this._navigationItems.length; ++i)
-            this._navigationItems[i].updateLayout(true);
-
-        var totalItemWidth = 0;
-        for (var i = 0; i < this._navigationItems.length; ++i) {
-            // Skip flexible space items since they can take up no space at the minimum width.
-            if (this._navigationItems[i] instanceof WebInspector.FlexibleSpaceNavigationItem)
-                continue;
-
-            totalItemWidth += this._navigationItems[i].element.realOffsetWidth;
-        }
-
-        var barWidth = this._element.realOffsetWidth;
-
-        // Add the collapsed class back if the items are wider than the bar.
-        if (totalItemWidth > barWidth)
-            this._element.classList.add(WebInspector.NavigationBar.CollapsedStyleClassName);
-
-        // Give each navigation item the opportunity to collapse further.
-        for (var i = 0; i < this._navigationItems.length; ++i)
-            this._navigationItems[i].updateLayout();
-    },
+    }
 
     get selectedNavigationItem()
     {
         return this._selectedNavigationItem || null;
-    },
+    }
 
     set selectedNavigationItem(navigationItemOrIdentifierOrIndex)
     {
@@ -221,37 +140,58 @@ WebInspector.NavigationBar.prototype = {
         // This prevents sending the event while the user is scrubbing the bar.
         if (!this._mouseIsDown)
             this.dispatchEventToListeners(WebInspector.NavigationBar.Event.NavigationItemSelected);
-    },
+    }
 
     get navigationItems()
     {
         return this._navigationItems;
-    },
-
-    get element()
-    {
-        return this._element;
-    },
+    }
 
     get minimumWidth()
     {
-        if (this._minimumWidth === undefined || this._minimumWidthNeedsRecalculation) {
+        if (isNaN(this._minimumWidth))
             this._minimumWidth = this._calculateMinimumWidth();
-            delete this._minimumWidthNeedsRecalculation;
-        }
-
         return this._minimumWidth;
-    },
+    }
 
     get sizesToFit()
     {
         // Can be overriden by subclasses.
         return false;
-    },
+    }
+
+    layout()
+    {
+        // Remove the collapsed style class to test if the items can fit at full width.
+        this.element.classList.remove(WebInspector.NavigationBar.CollapsedStyleClassName);
+
+        // Tell each navigation item to update to full width if needed.
+        for (var navigationItem of this._navigationItems)
+            navigationItem.updateLayout(true);
+
+        var totalItemWidth = 0;
+        for (var navigationItem of this._navigationItems) {
+            // Skip flexible space items since they can take up no space at the minimum width.
+            if (navigationItem instanceof WebInspector.FlexibleSpaceNavigationItem)
+                continue;
+
+            totalItemWidth += navigationItem.element.realOffsetWidth;
+        }
+
+        var barWidth = this.element.realOffsetWidth;
+
+        // Add the collapsed class back if the items are wider than the bar.
+        if (totalItemWidth > barWidth)
+            this.element.classList.add(WebInspector.NavigationBar.CollapsedStyleClassName);
+
+        // Give each navigation item the opportunity to collapse further.
+        for (var navigationItem of this._navigationItems)
+            navigationItem.updateLayout(false);
+    }
 
     // Private
 
-    _findNavigationItem: function(navigationItemOrIdentifierOrIndex)
+    _findNavigationItem(navigationItemOrIdentifierOrIndex)
     {
         var navigationItem = null;
 
@@ -270,9 +210,9 @@ WebInspector.NavigationBar.prototype = {
         }
 
         return navigationItem;
-    },
+    }
 
-    _mouseDown: function(event)
+    _mouseDown(event)
     {
         // Only handle left mouse clicks.
         if (event.button !== 0)
@@ -281,7 +221,7 @@ WebInspector.NavigationBar.prototype = {
         // Remove the tabIndex so clicking the navigation bar does not give it focus.
         // Only keep the tabIndex if already focused from keyboard navigation. This matches Xcode.
         if (!this._focused)
-            this._element.removeAttribute("tabindex");
+            this.element.removeAttribute("tabindex");
 
         var itemElement = event.target.enclosingNodeOrSelfWithClass(WebInspector.RadioButtonNavigationItem.StyleClassName);
         if (!itemElement || !itemElement.navigationItem)
@@ -295,15 +235,20 @@ WebInspector.NavigationBar.prototype = {
         this._mouseMovedEventListener = this._mouseMoved.bind(this);
         this._mouseUpEventListener = this._mouseUp.bind(this);
 
+        if (typeof this.selectedNavigationItem.dontPreventDefaultOnNavigationBarMouseDown === "function"
+            && this.selectedNavigationItem.dontPreventDefaultOnNavigationBarMouseDown()
+            && this._previousSelectedNavigationItem === this.selectedNavigationItem)
+            return;
+
         // Register these listeners on the document so we can track the mouse if it leaves the navigation bar.
         document.addEventListener("mousemove", this._mouseMovedEventListener, false);
         document.addEventListener("mouseup", this._mouseUpEventListener, false);
 
         event.preventDefault();
         event.stopPropagation();
-    },
+    }
 
-    _mouseMoved: function(event)
+    _mouseMoved(event)
     {
         console.assert(event.button === 0);
         console.assert(this._mouseIsDown);
@@ -314,15 +259,15 @@ WebInspector.NavigationBar.prototype = {
         event.stopPropagation();
 
         var itemElement = event.target.enclosingNodeOrSelfWithClass(WebInspector.RadioButtonNavigationItem.StyleClassName);
-        if (!itemElement || !itemElement.navigationItem || !this._element.contains(itemElement)) {
+        if (!itemElement || !itemElement.navigationItem || !this.element.contains(itemElement)) {
             // Find the element that is at the X position of the mouse, even when the mouse is no longer
             // vertically in the navigation bar.
-            var element = document.elementFromPoint(event.pageX, this._element.totalOffsetTop + (this._element.offsetHeight / 2));
+            var element = document.elementFromPoint(event.pageX, this.element.totalOffsetTop + (this.element.offsetHeight / 2));
             if (!element)
                 return;
 
             itemElement = element.enclosingNodeOrSelfWithClass(WebInspector.RadioButtonNavigationItem.StyleClassName);
-            if (!itemElement || !itemElement.navigationItem || !this._element.contains(itemElement))
+            if (!itemElement || !itemElement.navigationItem || !this.element.contains(itemElement))
                 return;
         }
 
@@ -332,9 +277,9 @@ WebInspector.NavigationBar.prototype = {
         this.selectedNavigationItem = itemElement.navigationItem;
 
         this.selectedNavigationItem.active = true;
-    },
+    }
 
-    _mouseUp: function(event)
+    _mouseUp(event)
     {
         console.assert(event.button === 0);
         console.assert(this._mouseIsDown);
@@ -353,7 +298,7 @@ WebInspector.NavigationBar.prototype = {
         delete this._mouseUpEventListener;
 
         // Restore the tabIndex so the navigation bar can be in the keyboard tab loop.
-        this._element.tabIndex = 0;
+        this.element.tabIndex = 0;
 
         // Dispatch the selected event here since the selectedNavigationItem setter surpresses it
         // while the mouse is down to prevent sending it while scrubbing the bar.
@@ -364,9 +309,9 @@ WebInspector.NavigationBar.prototype = {
 
         event.preventDefault();
         event.stopPropagation();
-    },
+    }
 
-    _keyDown: function(event)
+    _keyDown(event)
     {
         if (!this._focused)
             return;
@@ -396,43 +341,25 @@ WebInspector.NavigationBar.prototype = {
             return;
 
         this.selectedNavigationItem = this._navigationItems[selectedNavigationItemIndex];
-    },
+    }
 
-    _focus: function(event)
+    _focus(event)
     {
         this._focused = true;
-    },
+    }
 
-    _blur: function(event)
+    _blur(event)
     {
         this._focused = false;
-    },
+    }
 
-    _updateStyle: function()
+    _calculateMinimumWidth()
     {
-        this._needsStyleUpdated = false;
-
-        var parentSelector = "." + (this.constructor.StyleClassName || WebInspector.NavigationBar.StyleClassName);
-
-        var styleText = "";
-        for (var i = 0; i < this._navigationItems.length; ++i) {
-            if (!this._navigationItems[i].generateStyleText)
-                continue;
-            if (styleText)
-                styleText += "\n";
-            styleText += this._navigationItems[i].generateStyleText(parentSelector);
-        }
-
-        this._styleElement.textContent = styleText;
-    },
-
-    _calculateMinimumWidth: function()
-    {
-        var wasCollapsed = this._element.classList.contains(WebInspector.NavigationBar.CollapsedStyleClassName);
+        var wasCollapsed = this.element.classList.contains(WebInspector.NavigationBar.CollapsedStyleClassName);
 
         // Add the collapsed style class to calculate the width of the items when they are collapsed.
         if (!wasCollapsed)
-            this._element.classList.add(WebInspector.NavigationBar.CollapsedStyleClassName);
+            this.element.classList.add(WebInspector.NavigationBar.CollapsedStyleClassName);
 
         var totalItemWidth = 0;
         for (var i = 0; i < this._navigationItems.length; ++i) {
@@ -444,10 +371,14 @@ WebInspector.NavigationBar.prototype = {
 
         // Remove the collapsed style class if we were not collapsed before.
         if (!wasCollapsed)
-            this._element.classList.remove(WebInspector.NavigationBar.CollapsedStyleClassName);
+            this.element.classList.remove(WebInspector.NavigationBar.CollapsedStyleClassName);
 
         return totalItemWidth;
     }
 };
 
-WebInspector.NavigationBar.prototype.__proto__ = WebInspector.Object.prototype;
+WebInspector.NavigationBar.CollapsedStyleClassName = "collapsed";
+
+WebInspector.NavigationBar.Event = {
+    NavigationItemSelected: "navigation-bar-navigation-item-selected"
+};

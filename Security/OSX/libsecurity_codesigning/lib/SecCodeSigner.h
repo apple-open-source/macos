@@ -164,7 +164,8 @@ enum {
     kSecCodeSignerPreserveEntitlements = 1 << 2,	// preserve entitlements
     kSecCodeSignerPreserveResourceRules = 1 << 3,	// preserve resource rules (and thus resources)
     kSecCodeSignerPreserveFlags = 1 << 4,			// preserve signing flags
-    kSecCodeSignerPreserveTeamIdentifier = 1 << 5,  // preserve team identifier flags
+	kSecCodeSignerPreserveTeamIdentifier = 1 << 5,  // preserve team identifier flags
+	kSecCodeSignerPreserveDigestAlgorithm = 1 << 6,  // preserve digest algorithms used
 };
 
 

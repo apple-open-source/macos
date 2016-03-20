@@ -83,7 +83,6 @@ bool SOSCreateErrorWithFormatAndArguments(CFIndex errorCode, CFErrorRef previous
                                           CFDictionaryRef formatOptions, CFStringRef formatString, va_list args)
                                 CF_FORMAT_FUNCTION(5,0);
 
-
 static inline bool isSOSErrorCoded(CFErrorRef error, CFIndex sosErrorCode) {
     return error && CFErrorGetCode(error) == sosErrorCode && CFEqualSafe(CFErrorGetDomain(error), kSOSErrorDomain);
 }

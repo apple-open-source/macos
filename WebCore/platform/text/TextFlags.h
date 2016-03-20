@@ -72,6 +72,191 @@ enum FontSynthesisValues {
 typedef unsigned FontSynthesis;
 const unsigned FontSynthesisWidth = 2;
 
+enum class FontVariantLigatures {
+    Normal,
+    Yes,
+    No
+};
+
+enum class FontVariantPosition {
+    Normal,
+    Subscript,
+    Superscript
+};
+
+enum class FontVariantCaps {
+    Normal,
+    Small,
+    AllSmall,
+    Petite,
+    AllPetite,
+    Unicase,
+    Titling
+};
+
+enum class FontVariantNumericFigure {
+    Normal,
+    LiningNumbers,
+    OldStyleNumbers
+};
+
+enum class FontVariantNumericSpacing {
+    Normal,
+    ProportionalNumbers,
+    TabularNumbers
+};
+
+enum class FontVariantNumericFraction {
+    Normal,
+    DiagonalFractions,
+    StackedFractions
+};
+
+enum class FontVariantNumericOrdinal {
+    Normal,
+    Yes
+};
+
+enum class FontVariantNumericSlashedZero {
+    Normal,
+    Yes
+};
+
+enum class FontVariantAlternates {
+    Normal,
+    HistoricalForms
+};
+
+enum class FontVariantEastAsianVariant {
+    Normal,
+    Jis78,
+    Jis83,
+    Jis90,
+    Jis04,
+    Simplified,
+    Traditional
+};
+
+enum class FontVariantEastAsianWidth {
+    Normal,
+    Full,
+    Proportional
+};
+
+enum class FontVariantEastAsianRuby {
+    Normal,
+    Yes
+};
+
+struct FontVariantSettings {
+    FontVariantSettings()
+        : commonLigatures(FontVariantLigatures::Normal)
+        , discretionaryLigatures(FontVariantLigatures::Normal)
+        , historicalLigatures(FontVariantLigatures::Normal)
+        , contextualAlternates(FontVariantLigatures::Normal)
+        , position(FontVariantPosition::Normal)
+        , caps(FontVariantCaps::Normal)
+        , numericFigure(FontVariantNumericFigure::Normal)
+        , numericSpacing(FontVariantNumericSpacing::Normal)
+        , numericFraction(FontVariantNumericFraction::Normal)
+        , numericOrdinal(FontVariantNumericOrdinal::Normal)
+        , numericSlashedZero(FontVariantNumericSlashedZero::Normal)
+        , alternates(FontVariantAlternates::Normal)
+        , eastAsianVariant(FontVariantEastAsianVariant::Normal)
+        , eastAsianWidth(FontVariantEastAsianWidth::Normal)
+        , eastAsianRuby(FontVariantEastAsianRuby::Normal)
+    {
+    }
+
+    FontVariantSettings(
+        FontVariantLigatures commonLigatures,
+        FontVariantLigatures discretionaryLigatures,
+        FontVariantLigatures historicalLigatures,
+        FontVariantLigatures contextualAlternates,
+        FontVariantPosition position,
+        FontVariantCaps caps,
+        FontVariantNumericFigure numericFigure,
+        FontVariantNumericSpacing numericSpacing,
+        FontVariantNumericFraction numericFraction,
+        FontVariantNumericOrdinal numericOrdinal,
+        FontVariantNumericSlashedZero numericSlashedZero,
+        FontVariantAlternates alternates,
+        FontVariantEastAsianVariant eastAsianVariant,
+        FontVariantEastAsianWidth eastAsianWidth,
+        FontVariantEastAsianRuby eastAsianRuby)
+            : commonLigatures(commonLigatures)
+            , discretionaryLigatures(discretionaryLigatures)
+            , historicalLigatures(historicalLigatures)
+            , contextualAlternates(contextualAlternates)
+            , position(position)
+            , caps(caps)
+            , numericFigure(numericFigure)
+            , numericSpacing(numericSpacing)
+            , numericFraction(numericFraction)
+            , numericOrdinal(numericOrdinal)
+            , numericSlashedZero(numericSlashedZero)
+            , alternates(alternates)
+            , eastAsianVariant(eastAsianVariant)
+            , eastAsianWidth(eastAsianWidth)
+            , eastAsianRuby(eastAsianRuby)
+    {
+    }
+
+    bool isAllNormal() const
+    {
+        return commonLigatures == FontVariantLigatures::Normal
+            && discretionaryLigatures == FontVariantLigatures::Normal
+            && historicalLigatures == FontVariantLigatures::Normal
+            && contextualAlternates == FontVariantLigatures::Normal
+            && position == FontVariantPosition::Normal
+            && caps == FontVariantCaps::Normal
+            && numericFigure == FontVariantNumericFigure::Normal
+            && numericSpacing == FontVariantNumericSpacing::Normal
+            && numericFraction == FontVariantNumericFraction::Normal
+            && numericOrdinal == FontVariantNumericOrdinal::Normal
+            && numericSlashedZero == FontVariantNumericSlashedZero::Normal
+            && alternates == FontVariantAlternates::Normal
+            && eastAsianVariant == FontVariantEastAsianVariant::Normal
+            && eastAsianWidth == FontVariantEastAsianWidth::Normal
+            && eastAsianRuby == FontVariantEastAsianRuby::Normal;
+    }
+
+    bool operator==(const FontVariantSettings& other)
+    {
+        return commonLigatures == other.commonLigatures
+            && discretionaryLigatures == other.discretionaryLigatures
+            && historicalLigatures == other.historicalLigatures
+            && contextualAlternates == other.contextualAlternates
+            && position == other.position
+            && caps == other.caps
+            && numericFigure == other.numericFigure
+            && numericSpacing == other.numericSpacing
+            && numericFraction == other.numericFraction
+            && numericOrdinal == other.numericOrdinal
+            && numericSlashedZero == other.numericSlashedZero
+            && alternates == other.alternates
+            && eastAsianVariant == other.eastAsianVariant
+            && eastAsianWidth == other.eastAsianWidth
+            && eastAsianRuby == other.eastAsianRuby;
+    }
+
+    FontVariantLigatures commonLigatures;
+    FontVariantLigatures discretionaryLigatures;
+    FontVariantLigatures historicalLigatures;
+    FontVariantLigatures contextualAlternates;
+    FontVariantPosition position;
+    FontVariantCaps caps;
+    FontVariantNumericFigure numericFigure;
+    FontVariantNumericSpacing numericSpacing;
+    FontVariantNumericFraction numericFraction;
+    FontVariantNumericOrdinal numericOrdinal;
+    FontVariantNumericSlashedZero numericSlashedZero;
+    FontVariantAlternates alternates;
+    FontVariantEastAsianVariant eastAsianVariant;
+    FontVariantEastAsianWidth eastAsianWidth;
+    FontVariantEastAsianRuby eastAsianRuby;
+};
+
 enum FontWidthVariant {
     RegularWidth,
     HalfWidth,
@@ -111,8 +296,6 @@ enum FontSmallCaps {
 enum {
     FontStyleNormalBit = 0,
     FontStyleItalicBit,
-    FontVariantNormalBit,
-    FontVariantSmallCapsBit,
     FontWeight100Bit,
     FontWeight200Bit,
     FontWeight300Bit,
@@ -130,10 +313,6 @@ enum FontTraitsMask {
     FontStyleItalicMask = 1 << FontStyleItalicBit,
     FontStyleMask = FontStyleNormalMask | FontStyleItalicMask,
 
-    FontVariantNormalMask = 1 << FontVariantNormalBit,
-    FontVariantSmallCapsMask = 1 << FontVariantSmallCapsBit,
-    FontVariantMask = FontVariantNormalMask | FontVariantSmallCapsMask,
-
     FontWeight100Mask = 1 << FontWeight100Bit,
     FontWeight200Mask = 1 << FontWeight200Bit,
     FontWeight300Mask = 1 << FontWeight300Bit,
@@ -144,6 +323,12 @@ enum FontTraitsMask {
     FontWeight800Mask = 1 << FontWeight800Bit,
     FontWeight900Mask = 1 << FontWeight900Bit,
     FontWeightMask = FontWeight100Mask | FontWeight200Mask | FontWeight300Mask | FontWeight400Mask | FontWeight500Mask | FontWeight600Mask | FontWeight700Mask | FontWeight800Mask | FontWeight900Mask
+};
+
+enum class Kerning {
+    Auto,
+    Normal,
+    NoShift
 };
 
 }

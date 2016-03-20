@@ -76,12 +76,15 @@ protected:
 	bool verifyAnchor(SecCertificateRef cert, const unsigned char *digest);
 	bool appleSigned();
 	bool appleAnchored();
+
 	bool trustedCerts();
 	bool trustedCert(int slot);
 	
 	static SecTrustSettingsResult trustSetting(SecCertificateRef cert, bool isAnchor);
 	
 private:
+    CFArrayRef getAdditionalTrustedAnchors();
+    bool appleLocalAnchored();
 	const Context * const mContext;
 };
 

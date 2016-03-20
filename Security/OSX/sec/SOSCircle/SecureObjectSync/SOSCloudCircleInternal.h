@@ -116,6 +116,27 @@ bool SOSCCIDSPingTest(CFStringRef message, CFErrorRef *error);
  */
 bool SOSCCIDSDeviceIDIsAvailableTest(CFErrorRef *error);
 
+/*!
+ @function SOSWrapToBackupSliceKeyBagForView
+ @abstract Encrypts the given plaintext, and wraps the encryption key to the backup slice keybag for this view
+ @param viewName The view to wrap to
+ @param input The plaintext to encrypt
+ @param output The ciphertext
+ @param bskbEncoded The encoded backup slice keybag used to wrap the data
+ @param error What went wrong if we returned false
+ */
+bool SOSWrapToBackupSliceKeyBagForView(CFStringRef viewName, CFDataRef input, CFDataRef* output, CFDataRef* bskbEncoded, CFErrorRef* error);
+
+//
+// Security Tool calls
+//
+CFDataRef SOSCCCopyAccountState(CFErrorRef* error);
+bool SOSCCDeleteAccountState(CFErrorRef *error);
+CFDataRef SOSCCCopyEngineData(CFErrorRef* error);
+bool SOSCCDeleteEngineState(CFErrorRef *error);
+
+char *SOSCCSysdiagnose(const char *directoryname);
+
 __END_DECLS
 
 #endif

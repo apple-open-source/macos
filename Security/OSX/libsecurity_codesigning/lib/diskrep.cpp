@@ -32,6 +32,7 @@
 #include "filediskrep.h"
 #include "bundlediskrep.h"
 #include "slcrep.h"
+#include "diskimagerep.h"
 
 
 namespace Security {
@@ -109,6 +110,8 @@ DiskRep *DiskRep::bestGuess(const char *path, const Context *ctx)
 		AutoFileDesc fd(path, O_RDONLY);
 		if (MachORep::candidate(fd))
 			return new MachORep(path, ctx);
+		if (DiskImageRep::candidate(fd))
+			return new DiskImageRep(path);
 		if (DYLDCacheRep::candidate(fd))
 			return new DYLDCacheRep(path);
 
@@ -178,6 +181,11 @@ void DiskRep::adjustResources(ResourceBuilder &builder)
 {
 	// do nothing
 }
+	
+void DiskRep::prepareForSigning(SigningContext &state)
+{
+	// do nothing
+}
 
 Universal *DiskRep::mainExecutableImage()
 {
@@ -218,9 +226,11 @@ size_t DiskRep::pageSize(const SigningContext &)
 }
 
 
-void DiskRep::strictValidate(const CodeDirectory*, const ToleratedErrors&)
+void DiskRep::strictValidate(const CodeDirectory*, const ToleratedErrors& tolerated, SecCSFlags flags)
 {
-	// do nothing
+	if (flags & kSecCSRestrictToAppLike)
+		if (tolerated.find(errSecCSNotAppLike) == tolerated.end())
+			MacOSError::throwMe(errSecCSNotAppLike);
 }
 
 CFArrayRef DiskRep::allowedResourceOmissions()

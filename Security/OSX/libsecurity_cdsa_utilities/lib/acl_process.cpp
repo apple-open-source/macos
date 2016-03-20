@@ -34,7 +34,7 @@
 // Validate a credential set against this subject.
 // No credential is required for this match.
 //
-bool ProcessAclSubject::validate(const AclValidationContext &context) const
+bool ProcessAclSubject::validates(const AclValidationContext &context) const
 {
     // reality check (internal structure was validated when created)
     assert(select.uses(CSSM_ACL_MATCH_BITS));

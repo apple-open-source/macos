@@ -92,6 +92,8 @@ public:
 	// Create KC if it doesn't exist, add it to the search list if it exists and is not already on it.
     Keychain makeKeychain(const DLDbIdentifier &dLDbIdentifier, bool add = true);
 
+    // Reload a keychain from the on-disk database
+    void reloadKeychain(Keychain keychain);
 
 	// Keychain list maintenance
 
@@ -155,14 +157,17 @@ private:
 	static void convertList(DLDbList &ids, const KeychainList &kcs);
 	void convertList(KeychainList &kcs, const DLDbList &ids);
 
+    DLDbIdentifier makeDLDbIdentifier(const char* pathName);
+    CssmClient::Db makeDb(DLDbIdentifier dLDbIdentifier);
+
     // Only add if not there yet.  Writes out CFPref and broadcasts KCPrefListChanged notification
 	void addAndNotify(const Keychain& keychainToAdd);
 
 	// remove a keychain from the sync list
 	void removeKeychainFromSyncList (const DLDbIdentifier &id);
 
-    typedef map<DLDbIdentifier, __weak KeychainImpl *> KeychainMap;
-	// Weak reference map of all keychains we know about that aren't deleted
+    typedef map<DLDbIdentifier, KeychainImpl *> KeychainMap;
+	// Reference map of all keychains we know about that aren't deleted
 	// or removed
     KeychainMap mKeychains;
 

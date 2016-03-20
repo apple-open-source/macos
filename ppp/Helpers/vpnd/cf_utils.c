@@ -212,13 +212,11 @@ int GetStrFromDict (CFDictionaryRef dict, CFStringRef property, char *outstr, in
 Boolean GetStrAddrFromDict (CFDictionaryRef dict, CFStringRef property, char *outstr, int maxlen)
 {
     CFStringRef		ref;
-	in_addr_t               addr;
 	
 	ref  = CFDictionaryGetValue(dict, property);
 	if (isString(ref)
 			&& CFStringGetCString(ref, outstr, maxlen, kCFStringEncodingUTF8)) {
-					addr = inet_addr(outstr);
-					return addr != INADDR_NONE;
+		return TRUE;
 	}
 	
 	return FALSE;

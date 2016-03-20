@@ -46,6 +46,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0C406A831C0FA0690053517B /* BuildTrustedCTLogsPlist.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; name = BuildTrustedCTLogsPlist.rb; path = BuildiOSAsset/BuildTrustedCTLogsPlist.rb; sourceTree = SOURCE_ROOT; };
+		0C406A891C0FA9410053517B /* TrustedCTLogs.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = TrustedCTLogs.plist; sourceTree = "<group>"; };
 		5D0A2B8C1694AA7000024C1B /* BuildAsset.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; name = BuildAsset.rb; path = BuildiOSAsset/BuildAsset.rb; sourceTree = SOURCE_ROOT; };
 		5D0A2B8D1694AA7000024C1B /* BuildPListFiles.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; name = BuildPListFiles.rb; path = BuildiOSAsset/BuildPListFiles.rb; sourceTree = SOURCE_ROOT; };
 		5D3D603016826C99007B4B06 /* CertificateTool */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = CertificateTool; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -208,6 +210,7 @@
 			children = (
 				5D0A2B8C1694AA7000024C1B /* BuildAsset.rb */,
 				5D0A2B8D1694AA7000024C1B /* BuildPListFiles.rb */,
+				0C406A831C0FA0690053517B /* BuildTrustedCTLogsPlist.rb */,
 			);
 			name = BuildiOSAsset;
 			path = BuildAsset;
@@ -240,6 +243,7 @@
 				BE43DA551A71D140000A4297 /* GrayListedKeys.plist */,
 				BE43DA561A71D140000A4297 /* manifest.data */,
 				BE06D73A1A93FCE0008535D4 /* TrustStore.html */,
+				0C406A891C0FA9410053517B /* TrustedCTLogs.plist */,
 			);
 			path = BuiltAssets;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -367,7 +371,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "ASSETS=\"$BUILT_PRODUCTS_DIR/BuiltAssets\"\nmkdir -p \"$ASSETS\"\n\necho \"Generating html file\"\n\"$PROJECT_DIR\"/BuildiOSAsset/printroots -d \"$PROJECT_TEMP_DIR\" \"$PROJECT_DIR\"/../certificates > \"$ASSETS\"/TrustStore.html 2>/dev/null\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\n    echo \"printroots failed with exit status $STATUS\"\n    exit 1\nfi\necho \"Finished generating html file\"\n\necho \"Starting plist file build\"\nruby \"$PROJECT_DIR\"/BuildiOSAsset/BuildPListFiles.rb\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\n    echo \"BuildPListFiles.rb failed with exit status $STATUS\"\n    exit 1\nfi\necho \"Finished plist file build\"\n\necho \"Starting asset file build\"\nruby \"$PROJECT_DIR\"/BuildiOSAsset/BuildAsset.rb\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\n    echo \"BuildAsset.rb failed with exit status $STATUS\"\n    exit 1\nfi\necho \"Finished asset file build\"\n\nexit 0\n";
+			shellScript = "ASSETS=\"$BUILT_PRODUCTS_DIR/BuiltAssets\"\nmkdir -p \"$ASSETS\"\n\necho \"Generating html file\"\n\"$PROJECT_DIR\"/BuildiOSAsset/printroots -d \"$PROJECT_TEMP_DIR\" \"$PROJECT_DIR\"/../certificates > \"$ASSETS\"/TrustStore.html 2>/dev/null\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\n    echo \"printroots failed with exit status $STATUS\"\n    exit 1\nfi\necho \"Finished generating html file\"\n\necho \"Starting plist file build\"\nruby \"$PROJECT_DIR\"/BuildiOSAsset/BuildPListFiles.rb\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\n    echo \"BuildPListFiles.rb failed with exit status $STATUS\"\n    exit 1\nfi\necho \"Finished plist file build\"\n\necho \"Starting TrustedCTLogs.plist file build\"\nruby \"$PROJECT_DIR\"/BuildiOSAsset/BuildTrustedCTLogsPlist.rb\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\necho \"BuildTrustedCTLogsPlist.rb failed with exit status $STATUS\"\nexit 1\nfi\necho \"Finished TrustedCTLogs.plist file build\"\n\necho \"Starting asset file build\"\nruby \"$PROJECT_DIR\"/BuildiOSAsset/BuildAsset.rb\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\n    echo \"BuildAsset.rb failed with exit status $STATUS\"\n    exit 1\nfi\necho \"Finished asset file build\"\n\nexit 0\n";
 		};
 		BE88D63D1A78358300D1232E /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;

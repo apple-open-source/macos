@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008-2010 Apple Inc. All Rights Reserved.
+# Copyright (c) 2008-2010, 2015 Apple Inc. All Rights Reserved.
 ##
 #
 
@@ -24,10 +24,8 @@ Install_Man	= $(Install_Prefix)/share/man
 Install_Info	= $(Install_Prefix)/info
 
 # Automatic Extract & Patch
-AEP		= YES
-AEP_Version	= 9
-AEP_Filename	= jpegsrc.v$(AEP_Version).tar.gz
-AEP_ExtractDir	= jpeg-$(AEP_Version)
+AEP		= NO
+AEP_ExtractDir	= jpeg
 AEP_Patches	=
 # License file must be empty as this is a subproject.
 AEP_LicenseFile	=
@@ -143,6 +141,10 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(Sources)
 	$(_v) $(RM) $(GNUConfigStamp)
 	$(MV) $(AEP_ExtractRoot)/$(AEP_ExtractDir) $(Sources)
+else
+	@echo "Source extraction for $(Project) skipped!"
+	$(_v) $(CP) $(SRCROOT)/$(AEP_ExtractDir) $(Sources)
+endif
 ifdef AEP_Patches
 	for patchfile in $(AEP_Patches); do \
 	   echo "Applying $$patchfile..."; \
@@ -154,9 +156,6 @@ ifneq ($(Sources),$(BuildDirectory))
 	@echo "Copying sources to build directory..."
 	$(_v) $(CP) $(Sources) $(BuildDirectory)
 endif
-endif
-else
-	@echo "Source extraction for $(Project) skipped!"
 endif
 
 # Common.make's recurse doesn't reset SRCROOT and misdefines Sources

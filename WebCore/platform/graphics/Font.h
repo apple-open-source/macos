@@ -35,7 +35,8 @@
 #if ENABLE(OPENTYPE_VERTICAL)
 #include "OpenTypeVerticalData.h"
 #endif
-#include "TypesettingFeatures.h"
+#include <wtf/BitVector.h>
+#include <wtf/Optional.h>
 #include <wtf/TypeCasts.h>
 #include <wtf/text/StringHash.h>
 
@@ -105,9 +106,15 @@ public:
     PassRefPtr<Font> emphasisMarkFont(const FontDescription&) const;
     PassRefPtr<Font> brokenIdeographFont() const;
     PassRefPtr<Font> nonSyntheticItalicFont() const;
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000)
+    const Font& noSynthesizableFeaturesFont() const;
+#endif
 
     PassRefPtr<Font> variantFont(const FontDescription& description, FontVariant variant) const
     {
+#if PLATFORM(COCOA) && (!PLATFORM(MAC) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000)
+        ASSERT(variant != SmallCapsVariant);
+#endif
         switch (variant) {
         case SmallCapsVariant:
             return smallCapsFont(description);
@@ -122,6 +129,8 @@ public:
         ASSERT_NOT_REACHED();
         return const_cast<Font*>(this);
     }
+
+    bool variantCapsSupportsCharacterForSynthesis(FontVariantCaps, UChar32) const;
 
     PassRefPtr<Font> verticalRightOrientationFont() const;
     PassRefPtr<Font> uprightOrientationFont() const;
@@ -194,15 +203,20 @@ public:
     bool shouldNotBeUsedForArabic() const { return m_shouldNotBeUsedForArabic; };
 #endif
 #if PLATFORM(COCOA)
-    CFDictionaryRef getCFStringAttributes(TypesettingFeatures, FontOrientation) const;
+    CFDictionaryRef getCFStringAttributes(bool enableKerning, FontOrientation) const;
+
     bool hasCustomTracking() const { return isSystemFont(); }
+    const BitVector& glyphsSupportedBySmallCaps() const;
+    const BitVector& glyphsSupportedByAllSmallCaps() const;
+    const BitVector& glyphsSupportedByPetiteCaps() const;
+    const BitVector& glyphsSupportedByAllPetiteCaps() const;
 #endif
 
 #if PLATFORM(COCOA) || USE(HARFBUZZ)
     bool canRenderCombiningCharacterSequence(const UChar*, size_t) const;
 #endif
 
-    bool applyTransforms(GlyphBufferGlyph*, GlyphBufferAdvance*, size_t glyphCount, TypesettingFeatures) const;
+    bool applyTransforms(GlyphBufferGlyph*, GlyphBufferAdvance*, size_t glyphCount, bool enableKerning, bool requiresShaping) const;
 
 #if PLATFORM(COCOA) || PLATFORM(WIN)
     bool isSystemFont() const { return m_isSystemFont; }
@@ -230,6 +244,7 @@ private:
 
     void initCharWidths();
 
+    RefPtr<Font> createFontWithoutSynthesizableFeatures() const;
     PassRefPtr<Font> createScaledFont(const FontDescription&, float scaleFactor) const;
     PassRefPtr<Font> platformCreateScaledFont(const FontDescription&, float scaleFactor) const;
 
@@ -275,6 +290,7 @@ private:
 
         bool forCustomFont;
         RefPtr<Font> smallCaps;
+        RefPtr<Font> noSynthesizableFeatures;
         RefPtr<Font> emphasisMark;
         RefPtr<Font> brokenIdeograph;
         RefPtr<Font> verticalRightOrientation;
@@ -293,6 +309,10 @@ private:
 
 #if PLATFORM(COCOA)
     mutable HashMap<unsigned, RetainPtr<CFDictionaryRef>> m_CFStringAttributes;
+    mutable Optional<BitVector> m_glyphsSupportedBySmallCaps;
+    mutable Optional<BitVector> m_glyphsSupportedByAllSmallCaps;
+    mutable Optional<BitVector> m_glyphsSupportedByPetiteCaps;
+    mutable Optional<BitVector> m_glyphsSupportedByAllPetiteCaps;
 #endif
 
 #if PLATFORM(COCOA) || USE(HARFBUZZ)

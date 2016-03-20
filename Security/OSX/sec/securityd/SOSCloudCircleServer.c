@@ -68,6 +68,8 @@
 #include <TargetConditionals.h>
 
 #include <utilities/iCloudKeychainTrace.h>
+#include <Security/SecAccessControlPriv.h>
+#include <securityd/SecDbKeychainItem.h>
 
 #if TARGET_OS_EMBEDDED || TARGET_IPHONE_SIMULATOR
 #include <MobileGestalt.h>
@@ -115,8 +117,6 @@ CFStringRef kSOSAccountLabel = CFSTR("iCloud Keychain Account Meta-data");
 CFStringRef kSOSBurnedRecoveryAttemptCount = CFSTR("Burned Recovery Attempt Count");
 
 CFStringRef kSOSBurnedRecoveryAttemptAttestationDate = CFSTR("Burned Recovery Attempt Attestation Date");
-
-static CFStringRef accountFileName = CFSTR("PersistedAccount.plist");
 
 static CFDictionaryRef SOSItemCopyQueryForSyncItems(CFStringRef service, bool returnData)
 {
@@ -450,7 +450,7 @@ static SOSAccountRef GetSharedAccount(void) {
         }
         
         sSharedAccount = SOSKeychainAccountCreateSharedAccount(gestalt);
-
+        
         SOSAccountAddChangeBlock(sSharedAccount, ^(SOSCircleRef circle,
                                                    CFSetRef peer_additions,      CFSetRef peer_removals,
                                                    CFSetRef applicant_additions, CFSetRef applicant_removals) {
@@ -531,6 +531,8 @@ static SOSAccountRef GetSharedAccount(void) {
 }
 
 static void do_with_account_dynamic(void (^action)(SOSAccountRef account), bool sync) {
+    Boolean keyExistsAndHasValue = false;
+    whichTransportType = CFPreferencesGetAppIntegerValue(CFSTR("Transport"), CFSTR("com.apple.security"), &keyExistsAndHasValue);
     SOSAccountRef account = GetSharedAccount();
     
     if(account){
@@ -538,7 +540,7 @@ static void do_with_account_dynamic(void (^action)(SOSAccountRef account), bool 
             SOSPeerInfoRef mpi = SOSAccountGetMyPeerInfo(account);
             bool wasInCircle = SOSAccountIsInCircle(account, NULL);
             CFSetRef beforeViews = mpi ? SOSPeerInfoCopyEnabledViews(mpi) : NULL;
-
+            
             action(account);
 
             // Fake transaction around using the account object
@@ -1356,33 +1358,120 @@ CFArrayRef SOSCCCopyEngineState_Server(CFErrorRef* error)
     return result;
 }
 
-bool SOSCCWaitForInitialSync_Server(CFErrorRef* error) {
-    __block dispatch_semaphore_t inSyncSema = NULL;
+static CFStringRef CreateUUIDString() {
+    CFUUIDRef uuid = CFUUIDCreate(kCFAllocatorDefault);
+    CFStringRef result = CFUUIDCreateString(kCFAllocatorDefault, uuid);
+    CFReleaseNull(uuid);
+    return result;
+}
+
+static CFStringRef SOSAccountCallWhenInSync(SOSAccountRef account, SOSAccountWaitForInitialSyncBlock syncBlock) {
+    //if we are not initially synced
+    CFStringRef id = NULL;
+    CFTypeRef unSyncedViews = SOSAccountGetValue(account, kSOSUnsyncedViewsKey, NULL);
+    if (unSyncedViews != NULL) {
+        id = CreateUUIDString();
+        secnotice("initial-sync", "adding sync block [%@] to array!", id);
+        SOSAccountWaitForInitialSyncBlock copy = Block_copy(syncBlock);
+        CFDictionarySetValue(account->waitForInitialSync_blocks, id, copy);
+        Block_release(copy);
+    } else {
+        syncBlock(account);
+    }
     
-    bool result = do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
+    return id;
+}
+
+static bool SOSAccountUnregisterCallWhenInSync(SOSAccountRef account, CFStringRef id) {
+    bool removed = CFDictionaryGetValueIfPresent(account->waitForInitialSync_blocks, id, NULL);
+    CFDictionaryRemoveValue(account->waitForInitialSync_blocks, id);
+    return removed;
+}
+
+bool SOSCCWaitForInitialSync_Server(CFErrorRef* error) {
+    
+    __block dispatch_semaphore_t inSyncSema = NULL;
+    __block bool result = false;
+    __block bool synced = false;
+    bool timed_out = false;
+    
+    __block CFStringRef inSyncCallID = NULL;
+    
+    secnotice("initial sync", "Wait for initial sync start!");
+    
+    result = do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {        
         bool alreadyInSync = SOSAccountCheckHasBeenInSync(account);
-        int token = -1;
+
         if (!alreadyInSync) {
             inSyncSema = dispatch_semaphore_create(0);
-            dispatch_retain(inSyncSema);
-            notify_register_dispatch(kSOSCCInitialSyncChangedNotification, &token,
-                                     dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(int token) {
-                                         dispatch_semaphore_signal(inSyncSema);
-                                         dispatch_release(inSyncSema);
-
-                                         notify_cancel(token);
-                                     });
+            dispatch_retain(inSyncSema); // For the block
+            
+            inSyncCallID = SOSAccountCallWhenInSync(account, ^bool(SOSAccountRef mightBeSynced) {
+                secerror("might be synced!");
+                synced = SOSAccountCheckHasBeenInSync(mightBeSynced);
+                    
+                dispatch_semaphore_signal(inSyncSema);
+                dispatch_release(inSyncSema);
+                SOSAccountEnsureBackupStarts(account);
+                return true;
+            });
+        }
+        else{
+            SOSAccountEnsureBackupStarts(account);
+            synced = true;
         }
         return true;
     });
-
-    if (result && inSyncSema != NULL) {
-        dispatch_semaphore_wait(inSyncSema, DISPATCH_TIME_FOREVER);
+    
+    require_quiet(result, fail);
+    if(inSyncSema){
+     timed_out = dispatch_semaphore_wait(inSyncSema, dispatch_time(DISPATCH_TIME_NOW, 300ull * NSEC_PER_SEC));
+    }
+    if (timed_out) {
+        do_with_account(^(SOSAccountRef account) {
+            if (SOSAccountUnregisterCallWhenInSync(account, inSyncCallID)) {
+                dispatch_release(inSyncSema); // if we unregistered we release the sema
+            }
+        });
+        
+        if (!synced) {
+            secerror("waiting for initial sync timed out, resetting account");
+            result = false;
+            
+            SOSCCLoggedOutOfAccount_Server(error);
+            SOSErrorCreate(kSOSInitialSyncFailed, error, NULL, CFSTR("InitialSyncTimedOut"));
+        }
+    }
+    if(inSyncSema)
         dispatch_release(inSyncSema);
+    inSyncSema = NULL; // We've canceled the timeout so we must be the last.
+    
+    require_quiet(result, fail);
+    
+    
+    xpc_transaction_begin();
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        result =  do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
+            result = SOSAccountIsInCircle(account, NULL);
+            xpc_transaction_end();
+            return result;
+        });
+    });
+    
+    if (!synced) {
+        secerror("waiting for initial sync: left circle");
+        result = false;
+        
+        SOSErrorCreate(kSOSInitialSyncFailed, error, NULL, CFSTR("Left circle before initial sync."));
     }
 
+    secnotice("initial sync", "Finished!: %d", result);
+fail:
+    CFReleaseNull(inSyncCallID);
     return result;
 }
+
 
 static CFArrayRef SOSAccountCopyYetToSyncViews(SOSAccountRef account, CFErrorRef *error) {
     __block CFArrayRef result = NULL;
@@ -1417,6 +1506,63 @@ CFArrayRef SOSCCCopyYetToSyncViewsList_Server(CFErrorRef* error) {
     });
 
     return views;
+}
+
+bool SOSWrapToBackupSliceKeyBagForView_Server(CFStringRef viewName, CFDataRef input, CFDataRef* output, CFDataRef* bskbEncoded, CFErrorRef* error) {
+    CFErrorRef localerror = NULL;
+    SOSBackupSliceKeyBagRef bskb = SOSBackupSliceKeyBagForView(viewName, &localerror);
+
+    if(bskbEncoded && bskb) {
+        *bskbEncoded = SOSBSKBCopyEncoded(bskb, &localerror);
+    }
+
+    if(output) {
+        *output = SOSWrapToBackupSliceKeyBag(bskb, input, &localerror);
+    }
+
+    if(error) {
+        *error = localerror;
+    }
+    return localerror == NULL;
+}
+
+SOSBackupSliceKeyBagRef SOSBackupSliceKeyBagForView(CFStringRef viewName, CFErrorRef* error){
+    __block SOSBackupSliceKeyBagRef bskb = NULL;
+    (void) do_with_account(^ (SOSAccountRef account) {
+            bskb = SOSAccountBackupSliceKeyBagForView(account, viewName, error);
+            });
+    return bskb;
+}
+
+CFDataRef SOSWrapToBackupSliceKeyBag(SOSBackupSliceKeyBagRef bskb, CFDataRef input, CFErrorRef* error) {
+    CFDataRef encrypted = NULL;
+    bskb_keybag_handle_t bskb_handle = 0;
+
+    require_quiet(bskb, exit);
+
+    bskb_handle = SOSBSKBLoadLocked(bskb, error);
+    require_quiet(bskb_handle, exit);
+
+    SecAccessControlRef access = NULL;
+    require_quiet(access = SecAccessControlCreate(kCFAllocatorDefault, error), exit);
+    require_quiet(SecAccessControlSetProtection(access, kSecAttrAccessibleWhenUnlocked, error), exit);
+
+    // ks_encrypt_data takes a dictionary as its plaintext.
+    CFMutableDictionaryRef plaintext = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(plaintext, CFSTR("data"), input);
+
+    require_quiet(ks_encrypt_data(bskb_handle, access, NULL, plaintext, NULL, &encrypted, error), exit);
+
+exit:
+    CFReleaseNull(bskb);
+    if(bskb_handle != 0) {
+        ks_close_keybag(bskb_handle, error);
+    }
+    if(error && *error) {
+        secnotice("backup", "Failed to wrap to a BKSB: %@", *error);
+    }
+    return encrypted;
+
 }
 
 CFDictionaryRef SOSCCCopyEscrowRecord_Server(CFErrorRef *error){
@@ -1579,6 +1725,60 @@ SOSPeerInfoRef SOSCCCopyMyPeerInfo_Server(CFErrorRef* error)
 
     return result;
 }
+
+CFDataRef SOSCCCopyAccountState_Server(CFErrorRef* error)
+{
+    __block CFDataRef accountState = NULL;
+    
+    (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
+        // Copy account state from the keychain
+        accountState = SOSAccountCopyAccountStateFromKeychain(block_error);
+        return accountState != NULL;
+    });
+    
+    return accountState;
+}
+
+bool SOSCCDeleteAccountState_Server(CFErrorRef* error)
+{
+    __block bool result = NULL;
+    
+    (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
+        // Delete account state from the keychain
+        result = SOSAccountDeleteAccountStateFromKeychain(block_error);
+        return result;
+    });
+    
+    return result;
+}
+
+CFDataRef SOSCCCopyEngineData_Server(CFErrorRef* error)
+{
+    __block CFDataRef engineState = NULL;
+    
+    (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
+        // Copy engine state from the keychain
+        engineState = SOSAccountCopyEngineStateFromKeychain(block_error);
+        return engineState != NULL;
+    });
+    
+    return engineState;
+}
+
+bool SOSCCDeleteEngineState_Server(CFErrorRef* error)
+{
+    __block bool result = NULL;
+    
+    (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountRef account, CFErrorRef* block_error) {
+        // Delete engine state from the keychain
+        result = SOSAccountDeleteEngineStateFromKeychain(block_error);
+        return result;
+    });
+    
+    return result;
+}
+
+
 
 SOSPeerInfoRef SOSCCSetNewPublicBackupKey_Server(CFDataRef newPublicBackup, CFErrorRef *error){
     __block SOSPeerInfoRef result = NULL;

@@ -85,6 +85,8 @@ PassRefPtr<Font> FontCache::getSystemFontFallbackForCharacters(const FontDescrip
     if (!substituteFont)
         return nullptr;
 
+    substituteFont = applyFontFeatureSettings(substituteFont.get(), nullptr, nullptr, description.featureSettings(), description.variantSettings());
+
     CTFontSymbolicTraits originalTraits = CTFontGetSymbolicTraits(ctFont);
     CTFontSymbolicTraits actualTraits = 0;
     if (isFontWeightBold(description.weight()) || description.italic())
@@ -462,6 +464,13 @@ RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& descr
     return lastResortFallbackFont(description);
 }
 
+Vector<String> FontCache::systemFontFamilies()
+{
+    // FIXME: <https://webkit.org/b/147033> Web Inspector: [iOS] Allow inspector to retrieve a list of system fonts
+    Vector<String> fontFamilies;
+    return fontFamilies;
+}
+
 RefPtr<Font> FontCache::similarFont(const FontDescription& description)
 {
     // Attempt to find an appropriate font using a match based on the presence of keywords in
@@ -542,7 +551,6 @@ FontPlatformData* FontCache::getCustomFallbackFont(const UInt32 c, const FontDes
 static inline FontTraitsMask toTraitsMask(CTFontSymbolicTraits ctFontTraits)
 {
     return static_cast<FontTraitsMask>(((ctFontTraits & kCTFontTraitItalic) ? FontStyleItalicMask : FontStyleNormalMask)
-        | FontVariantNormalMask
         // FontWeight600 or higher is bold for CTFonts, so choose middle values for
         // bold (600-900) and non-bold (100-500)
         | ((ctFontTraits & kCTFontTraitBold) ? FontWeight700Mask : FontWeight300Mask));
@@ -691,6 +699,8 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
         ctFont = adoptCF(createCTFontWithFamilyNameAndWeight(family, traits, size, toCTFontWeight(fontDescription.weight())));
     if (!ctFont)
         return nullptr;
+
+    ctFont = applyFontFeatureSettings(ctFont.get(), nullptr, nullptr, fontDescription.featureSettings(), fontDescription.variantSettings());
 
     CTFontSymbolicTraits actualTraits = 0;
     if (isFontWeightBold(fontDescription.weight()) || fontDescription.italic())

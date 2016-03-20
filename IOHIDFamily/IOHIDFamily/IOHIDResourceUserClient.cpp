@@ -23,6 +23,10 @@
 
 #include <AssertMacros.h>
 #include <IOKit/IOLib.h>
+#include <sys/proc.h>
+#include <TargetConditionals.h>
+
+#define kIOHIDManagerUserAccessUserDeviceEntitlement "com.apple.hid.manager.user-access-device"
 
 #ifdef enqueue
     #undef enqueue
@@ -78,10 +82,21 @@ bool IOHIDResourceDeviceUserClient::initWithTask(task_t owningTask, void * secur
 {
     bool result = false;
     
-#if !TARGET_OS_EMBEDDED
-    require_noerr_action(clientHasPrivilege(owningTask, kIOClientPrivilegeAdministrator), exit, result=false);
-#endif
-    
+    OSObject* entitlement = copyClientEntitlement(owningTask, kIOHIDManagerUserAccessUserDeviceEntitlement);
+    if (entitlement) {
+      result = (entitlement == kOSBooleanTrue);
+      entitlement->release();
+    }
+    if (!result) {
+      proc_t      process;
+      process = (proc_t)get_bsdtask_info(owningTask);
+      char name[255];
+      bzero(name, sizeof(name));
+      proc_name(proc_pid(process), name, sizeof(name));
+      IOLog("IOHIDResourceDeviceUserClient: %s is not entitled\n", name);
+      goto exit;
+    }
+ //   require_noerr_action(clientHasPrivilege(owningTask, kIOClientPrivilegeAdministrator), exit, result=false);
     result = super::initWithTask(owningTask, security_id, type);
     require_action(result, exit, IOLog("%s failed\n", __FUNCTION__));
     
@@ -169,7 +184,11 @@ void IOHIDResourceDeviceUserClient::free()
     
     if ( _device )
         _device->release();
-
+    
+    if (_pending) {
+        _pending->release();
+    }
+    
     if ( _queue )
         _queue->release();
     
@@ -342,6 +361,8 @@ IOReturn IOHIDResourceDeviceUserClient::createAndStartDevice()
     IOReturn    result;
     OSNumber *  number = NULL;
     
+    require_action(_device==NULL, exit, result=kIOReturnInternalError);
+    
     number = OSDynamicCast(OSNumber, _properties->getObject(kIOHIDRequestTimeoutKey));
     if ( number )
         _maxClientTimeoutUS = number->unsigned32BitValue();
@@ -412,7 +433,9 @@ IOReturn IOHIDResourceDeviceUserClient::createDevice(IOExternalMethodArguments *
 
     object = OSUnserializeXML((const char *)propertiesData, propertiesLength);
     require_action(object, exit, result=kIOReturnInternalError);
-
+    
+    OSSafeReleaseNULL(_properties);
+    
     _properties = OSDynamicCast(OSDictionary, object);
     require_action(_properties, exit, result=kIOReturnNoMemory);
     
@@ -834,7 +857,7 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
     const UInt32        entrySize   = dataSize + DATA_QUEUE_ENTRY_HEADER_SIZE;
     IODataQueueEntry *  entry;
 
-    if ( ( tail > getQueueSize() || head > getQueueSize() ) )
+    if ( tail > getQueueSize() || head > getQueueSize() || dataSize < headerSize || entrySize < dataSize)
     {
         return false;
     }
@@ -842,7 +865,7 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
     if ( tail >= head )
     {
         // Is there enough room at the end for the entry?
-        if ( (tail + entrySize) <= getQueueSize() )
+        if ((getQueueSize() - tail) >= entrySize )
         {
             entry = (IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail);
 
@@ -891,7 +914,7 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
         // Do not allow the tail to catch up to the head when the queue is full.
         // That's why the comparison uses a '>' rather than '>='.
 
-        if ( ( ( head - tail) > entrySize ) && ( tail + entrySize <= getQueueSize() ) )
+        if ( (head - tail) > entrySize )
         {
             entry = (IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail);
 

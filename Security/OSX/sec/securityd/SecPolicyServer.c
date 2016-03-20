@@ -1083,6 +1083,8 @@ static void SecPolicyCheckAnchorApple(SecPVCRef pvc,
     if (isDictionary(value)) {
         if (CFDictionaryGetValue(value, kSecPolicyAppleAnchorIncludeTestRoots))
             flags |= kSecAppleTrustAnchorFlagsIncludeTestAnchors;
+        if (CFDictionaryGetValue(value, kSecPolicyAppleAnchorAllowTestRootsOnProduction))
+            flags |= kSecAppleTrustAnchorFlagsAllowNonProduction;
     }
 
     bool foundMatch = SecIsAppleTrustAnchor(cert, flags);
@@ -1613,6 +1615,11 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
         /* Already done by chain builder. */
         if (!SecCertificateIsValid(cert, verify_time)) {
             CFStringRef fail_key = i == n ? kSecPolicyCheckValidLeaf : kSecPolicyCheckValidIntermediates;
+            if (!SecPVCSetResult(pvc, fail_key, n - i, kCFBooleanFalse))
+                return;
+        }
+        if (SecCertificateIsWeak(cert)) {
+            CFStringRef fail_key = i == n ? kSecPolicyCheckWeakLeaf : kSecPolicyCheckWeakIntermediates;
             if (!SecPVCSetResult(pvc, fail_key, n - i, kCFBooleanFalse))
                 return;
         }
@@ -2320,7 +2327,7 @@ static void SecPolicyCheckCT(SecPVCRef pvc, CFStringRef key)
     require(operatorsValidatingExternalScts, out);
 
     if(trustedLogs) { // Don't bother trying to validate SCTs if we don't have any trusted logs.
-        if(embeddedScts) {
+        if(embeddedScts && precertEntry) { // Don't bother if we could not get the precert.
             CFArrayForEach(embeddedScts, ^(const void *value){
                 bool validLogAtVerifyTime = false;
                 CFStringRef operator = get_valid_sct_operator(value, 1, precertEntry, pvc->verifyTime, SecCertificateNotValidBefore(leafCert), trustedLogs, &validLogAtVerifyTime);
@@ -2329,7 +2336,7 @@ static void SecPolicyCheckCT(SecPVCRef pvc, CFStringRef key)
             });
         }
 
-        if(builderScts) {
+        if(builderScts && x509Entry) { // Don't bother if we could not get the cert.
             CFArrayForEach(builderScts, ^(const void *value){
                 bool validLogAtVerifyTime = false;
                 CFStringRef operator = get_valid_sct_operator(value, 0, x509Entry, pvc->verifyTime, SecCertificateNotValidBefore(leafCert), trustedLogs, &validLogAtVerifyTime);
@@ -2338,7 +2345,7 @@ static void SecPolicyCheckCT(SecPVCRef pvc, CFStringRef key)
             });
         }
 
-        if(ocspScts) {
+        if(ocspScts && x509Entry) {
             CFArrayForEach(ocspScts, ^(const void *value){
                 bool validLogAtVerifyTime = false;
                 CFStringRef operator = get_valid_sct_operator(value, 0, x509Entry, pvc->verifyTime, SecCertificateNotValidBefore(leafCert), trustedLogs, &validLogAtVerifyTime);
@@ -2443,6 +2450,41 @@ static void SecPolicyCheckRevocationResponseRequired(SecPVCRef pvc,
 static void SecPolicyCheckNoNetworkAccess(SecPVCRef pvc,
 	CFStringRef key) {
     SecPathBuilderSetCanAccessNetwork(pvc->builder, false);
+}
+
+static void SecPolicyCheckWeakIntermediates(SecPVCRef pvc,
+    CFStringRef key) {
+    CFIndex ix, count = SecPVCGetCertificateCount(pvc);
+    for (ix = 1; ix < count - 1; ++ix) {
+        SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
+        if (cert && SecCertificateIsWeak(cert)) {
+            /* Intermediate certificate has a weak key. */
+            if (!SecPVCSetResult(pvc, key, ix, kCFBooleanFalse))
+                return;
+        }
+    }
+}
+
+static void SecPolicyCheckWeakLeaf(SecPVCRef pvc,
+    CFStringRef key) {
+    SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, 0);
+    if (cert && SecCertificateIsWeak(cert)) {
+        /* Leaf certificate has a weak key. */
+        if (!SecPVCSetResult(pvc, key, 0, kCFBooleanFalse))
+            return;
+    }
+}
+
+static void SecPolicyCheckWeakRoot(SecPVCRef pvc,
+    CFStringRef key) {
+    CFIndex ix, count = SecPVCGetCertificateCount(pvc);
+    ix = count - 1;
+    SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
+    if (cert && SecCertificateIsWeak(cert)) {
+        /* Root certificate has a weak key. */
+        if (!SecPVCSetResult(pvc, key, ix, kCFBooleanFalse))
+            return;
+    }
 }
 
 // MARK: -
@@ -2882,11 +2924,12 @@ static bool SecPVCCheckRevocation(SecPVCRef pvc) {
         secdebug("ocsp", "Checking cached responses for cert %ld", certIX);
         SecRVCConsumeOCSPResponse(rvc, SecOCSPCacheCopyMatching(rvc->ocspRequest, NULL), NULL_TIME, false);
 
-        /* Unless we successfully checked the revocation status of this cert
-           based on the cache or stapled responses, attempt to fire off an async http request
-           for this cert's revocation status. */
+        /* If the cert is EV or if revocation checking was explicitly enabled, attempt to fire off an
+           async http request for this cert's revocation status, unless we already successfully checked
+           the revocation status of this cert based on the cache or stapled responses,  */
+        bool allow_fetch = SecPathBuilderCanAccessNetwork(pvc->builder) && (pvc->is_ev || pvc->check_revocation);
         bool fetch_done = true;
-        if (rvc->done || !SecPathBuilderCanAccessNetwork(pvc->builder) ||
+        if (rvc->done || !allow_fetch ||
             (fetch_done = SecRVCFetchNext(rvc))) {
             /* We got a cache hit or we aren't allowed to access the network,
                or the async http post failed. */
@@ -3015,6 +3058,15 @@ void SecPolicyServerInitalize(void) {
 	CFDictionaryAddValue(gSecPolicyLeafCallbacks,
 		kSecPolicyCheckCertificatePolicy,
 		SecPolicyCheckCertificatePolicyOid);
+    CFDictionaryAddValue(gSecPolicyPathCallbacks,
+        kSecPolicyCheckWeakIntermediates,
+        SecPolicyCheckWeakIntermediates);
+    CFDictionaryAddValue(gSecPolicyLeafCallbacks,
+        kSecPolicyCheckWeakLeaf,
+        SecPolicyCheckWeakLeaf);
+    CFDictionaryAddValue(gSecPolicyPathCallbacks,
+        kSecPolicyCheckWeakRoot,
+        SecPolicyCheckWeakRoot);
 }
 
 /* AUDIT[securityd](done):
@@ -3287,6 +3339,13 @@ bool SecPVCParentCertificateChecks(SecPVCRef pvc, CFIndex ix) {
             goto errOut;
 	}
 
+    if (SecCertificateIsWeak(cert)) {
+        /* Certificate uses weak key. */
+        if (!SecPVCSetResult(pvc, is_anchor ? kSecPolicyCheckWeakRoot
+            : kSecPolicyCheckWeakIntermediates, ix, kCFBooleanFalse))
+            goto errOut;
+    }
+
     if (is_anchor) {
         /* Perform anchor specific checks. */
         /* Don't think we have any of these. */
@@ -3423,10 +3482,10 @@ bool SecPVCPathChecks(SecPVCRef pvc) {
            as a non EV one, if it was valid as such. */
         pvc->result = pre_ev_check_result;
     }
-    /* Check revocation only if the chain is valid so far.  Then only check
-       revocation if the client asked for it explicitly or is_ev is
-       true. */
-    if (pvc->result && (pvc->is_ev || pvc->check_revocation)) {
+    /* Check revocation only if the chain is valid so far. The revocation will
+       only fetch OCSP response over the network if the client asked for revocation
+       check explicitly or is_ev is true. */
+    if (pvc->result) {
         completed = SecPVCCheckRevocation(pvc);
     }
 

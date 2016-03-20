@@ -106,6 +106,8 @@ SEC_CONST_DECL (kSecAttrCRLType, "crlt");
 SEC_CONST_DECL (kSecAttrCRLEncoding, "crle");
 SEC_CONST_DECL (kSecAttrSynchronizable, "sync");
 SEC_CONST_DECL (kSecAttrTombstone, "tomb");
+SEC_CONST_DECL (kSecAttrMultiUser, "musr");
+SEC_CONST_DECL (kSecAttrNoLegacy, "nleg");
 
 /* Search Constants */
 SEC_CONST_DECL (kSecMatchPolicy, "m_Policy");
@@ -133,18 +135,15 @@ SEC_CONST_DECL (kSecValueData, "v_Data");
 SEC_CONST_DECL (kSecValueRef, "v_Ref");
 SEC_CONST_DECL (kSecValuePersistentRef, "v_PersistentRef");
 
-/* Other Constants */
+/* kSecUse Constants */
 SEC_CONST_DECL (kSecUseItemList, "u_ItemList");
 SEC_CONST_DECL (kSecUseTombstones, "u_Tomb");
 SEC_CONST_DECL (kSecUseCredentialReference, "u_CredRef");
 SEC_CONST_DECL (kSecUseOperationPrompt, "u_OpPrompt");
 SEC_CONST_DECL (kSecUseNoAuthenticationUI, "u_NoAuthUI");
 SEC_CONST_DECL (kSecUseAuthenticationUI, "u_AuthUI");
-#if defined(MULTIPLE_KEYCHAINS)
-/* Other Constants (Private) */
-SEC_CONST_DECL (kSecUseKeychain, "u_Keychain");
-SEC_CONST_DECL (kSecUseKeychainList, "u_KeychainList");
-#endif /* !defined(MULTIPLE_KEYCHAINS) */
+SEC_CONST_DECL (kSecUseSystemKeychain, "u_SystemKeychain");
+SEC_CONST_DECL (kSecUseSyncBubbleKeychain, "u_SyncBubbleKeychain");
 
 /* kSecAttrAccessible Value Constants. */
 SEC_CONST_DECL (kSecAttrAccessibleWhenUnlocked, "ak");

@@ -49,13 +49,13 @@ public:
 	CFDataRef identification();								// partial file hash
 	std::string mainExecutablePath();						// base path
 	CFURLRef copyCanonicalPath();							// base path
-	size_t signingLimit();									// size of file
+	virtual size_t signingLimit();									// size of file
 	UnixPlusPlus::FileDesc &fd();							// readable fd for this file
 	void flush();											// close cached fd
 	
 	std::string recommendedIdentifier(const SigningContext &ctx); // basename(path)
 
-	void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated);
+	void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags);
 
 public:
 	class Writer;

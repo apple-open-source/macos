@@ -312,12 +312,13 @@ void mt2RecordAssertionEvent(assertionOps action, assertion_t *theAssertion);
 void mt2RecordAppTimeouts(CFStringRef sleepReason, CFStringRef procName);
 
 /*
- * mt2RecordWakeReason
- * powerd should call to report wake reason claimed by the driver
+ * mt2PublishSleepWakeInfo
+ * powerd should call to report sleep wake info
  * @arg wakeType     Wake Type
  * @arg claimedWake  Wake reason string as provided by the driver
+ * @arg success      Wake was successful (not a sleep/wake failure)
  */
-void mt2RecordWakeReason(CFStringRef wakeType, CFStringRef claimedWake);
+void mt2PublishSleepWakeInfo(CFStringRef wakeType, CFStringRef claimedWake, bool success);
 
 /* mt2PublishReports
  * Debug routines. Should only be used for debugging to influence the mt2 publishing cycle.

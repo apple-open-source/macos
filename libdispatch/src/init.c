@@ -1177,6 +1177,9 @@ const struct dispatch_source_type_s _dispatch_source_type_vfs = {
 #if HAVE_DECL_VQ_VERYLOWDISK
 			|VQ_VERYLOWDISK
 #endif
+#if HAVE_DECL_VQ_QUOTA
+			|VQ_QUOTA
+#endif
 			,
 };
 

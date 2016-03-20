@@ -1560,7 +1560,6 @@
 			buildSettings = {
 				ALTERNATE_GROUP = "$(inherited)";
 				ALTERNATE_MODE = "";
-				ALTERNATE_OWNER = "$(inherited)";
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
@@ -1580,7 +1579,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/lib;
 				LEXFLAGS = "$(LEXFLAGS) -P__libipsec";
 				PRODUCT_NAME = ipsec.A;
@@ -1595,7 +1593,6 @@
 			buildSettings = {
 				ALTERNATE_GROUP = "$(inherited)";
 				ALTERNATE_MODE = "";
-				ALTERNATE_OWNER = "$(inherited)";
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
@@ -1613,7 +1610,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/lib;
 				LEXFLAGS = "$(LEXFLAGS) -P__libipsec";
 				PRODUCT_NAME = ipsec.A;
@@ -1627,7 +1623,6 @@
 			buildSettings = {
 				ALTERNATE_GROUP = "$(inherited)";
 				ALTERNATE_MODE = "";
-				ALTERNATE_OWNER = "$(inherited)";
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
@@ -1644,7 +1639,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/lib;
 				LEXFLAGS = "$(LEXFLAGS) -P__libipsec";
 				PRODUCT_NAME = ipsec.A;
@@ -1729,7 +1723,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				LEXFLAGS = "";
 				OTHER_CFLAGS = (
@@ -1744,6 +1737,7 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = racoon;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
 				WARNING_CFLAGS = (
@@ -1786,7 +1780,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				OTHER_CFLAGS = (
 					"$(OTHER_CFLAGS_QUOTED_1)",
@@ -1800,6 +1793,7 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = racoon;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -1840,7 +1834,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				OTHER_CFLAGS = (
 					"$(OTHER_CFLAGS_QUOTED_1)",
@@ -1854,6 +1847,7 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = racoon;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -1884,7 +1878,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				LIBRARY_SEARCH_PATHS = "";
 				MACH_O_TYPE = mh_execute;
@@ -1922,7 +1915,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				LIBRARY_SEARCH_PATHS = "";
 				MACH_O_TYPE = mh_execute;
@@ -1959,7 +1951,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				LIBRARY_SEARCH_PATHS = "";
 				MACH_O_TYPE = mh_execute;
@@ -2019,6 +2010,7 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
 			};
 			name = Development;
 		};
@@ -2027,6 +2019,7 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
 			};
 			name = Deployment;
 		};
@@ -2035,6 +2028,7 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
 			};
 			name = Default;
 		};
@@ -2087,6 +2081,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
 			};
 			name = Development;
 		};
@@ -2094,6 +2089,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
 			};
 			name = Deployment;
 		};
@@ -2101,6 +2097,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
 			};
 			name = Default;
 		};
@@ -2121,6 +2118,7 @@
 				PRODUCT_NAME = "IPSec Embedded (Aggregate)";
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = NO;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2146,6 +2144,7 @@
 				PRODUCT_NAME = "IPSec Embedded (Aggregate)";
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = NO;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2171,6 +2170,7 @@
 				PRODUCT_NAME = "IPSec Embedded (Aggregate)";
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = NO;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2184,8 +2184,6 @@
 			buildSettings = {
 				ALTERNATE_GROUP = "$(inherited)";
 				ALTERNATE_MODE = "$(inherited)";
-				ALTERNATE_OWNER = "$(inherited)";
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/entitlements.plist";
 				CODE_SIGN_IDENTITY = "";
 				COPY_PHASE_STRIP = NO;
@@ -2207,7 +2205,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				LEXFLAGS = "";
 				OTHER_CFLAGS = (
@@ -2223,8 +2220,10 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = racoon;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2241,8 +2240,6 @@
 			buildSettings = {
 				ALTERNATE_GROUP = "$(inherited)";
 				ALTERNATE_MODE = "$(inherited)";
-				ALTERNATE_OWNER = "$(inherited)";
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/entitlements.plist";
 				CODE_SIGN_IDENTITY = "";
 				COPY_PHASE_STRIP = NO;
@@ -2264,7 +2261,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				OTHER_CFLAGS = (
 					"$(OTHER_CFLAGS_QUOTED_1)",
@@ -2279,7 +2275,9 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = racoon;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2295,8 +2293,6 @@
 			buildSettings = {
 				ALTERNATE_GROUP = "$(inherited)";
 				ALTERNATE_MODE = "$(inherited)";
-				ALTERNATE_OWNER = "$(inherited)";
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/entitlements.plist";
 				CODE_SIGN_IDENTITY = "";
 				COPY_PHASE_STRIP = NO;
@@ -2318,7 +2314,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				OTHER_CFLAGS = (
 					"$(OTHER_CFLAGS_QUOTED_1)",
@@ -2333,7 +2328,9 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = racoon;
+				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -2365,7 +2362,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				LIBRARY_SEARCH_PATHS = "";
 				MACH_O_TYPE = mh_execute;
@@ -2406,7 +2402,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				LIBRARY_SEARCH_PATHS = "";
 				MACH_O_TYPE = mh_execute;
@@ -2446,7 +2441,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				LIBRARY_SEARCH_PATHS = "";
 				MACH_O_TYPE = mh_execute;
@@ -2471,7 +2465,6 @@
 			buildSettings = {
 				ALTERNATE_GROUP = "$(inherited)";
 				ALTERNATE_MODE = "";
-				ALTERNATE_OWNER = "$(inherited)";
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_IDENTITY = "";
 				COPY_PHASE_STRIP = NO;
@@ -2493,7 +2486,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/lib;
 				LEXFLAGS = "$(LEXFLAGS) -P__libipsec";
 				PRODUCT_NAME = ipsec.A;
@@ -2509,7 +2501,6 @@
 			buildSettings = {
 				ALTERNATE_GROUP = "$(inherited)";
 				ALTERNATE_MODE = "";
-				ALTERNATE_OWNER = "$(inherited)";
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_IDENTITY = "";
 				COPY_PHASE_STRIP = NO;
@@ -2529,7 +2520,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/lib;
 				LEXFLAGS = "$(LEXFLAGS) -P__libipsec";
 				PRODUCT_NAME = ipsec.A;
@@ -2544,7 +2534,6 @@
 			buildSettings = {
 				ALTERNATE_GROUP = "$(inherited)";
 				ALTERNATE_MODE = "";
-				ALTERNATE_OWNER = "$(inherited)";
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_IDENTITY = "";
 				COPY_PHASE_STRIP = NO;
@@ -2563,7 +2552,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/lib;
 				LEXFLAGS = "$(LEXFLAGS) -P__libipsec";
 				PRODUCT_NAME = ipsec.A;

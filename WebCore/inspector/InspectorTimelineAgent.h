@@ -38,9 +38,7 @@
 #include <inspector/InspectorFrontendDispatchers.h>
 #include <inspector/InspectorValues.h>
 #include <inspector/ScriptDebugListener.h>
-#include <wtf/Stopwatch.h>
 #include <wtf/Vector.h>
-#include <wtf/WeakPtr.h>
 
 namespace JSC {
 class Profile;
@@ -59,8 +57,6 @@ class URL;
 class Page;
 class PageScriptDebugServer;
 class RenderObject;
-class ResourceRequest;
-class ResourceResponse;
 class RunLoopObserver;
 
 typedef String ErrorString;
@@ -76,16 +72,11 @@ enum class TimelineRecordType {
     RenderingFrame,
     ScrollLayer,
 
-    ParseHTML,
-
     TimerInstall,
     TimerRemove,
     TimerFire,
 
     EvaluateScript,
-
-    MarkLoad,
-    MarkDOMContent,
 
     TimeStamp,
     Time,
@@ -163,11 +154,7 @@ public:
     void willRecalculateStyle(Frame*);
     void didRecalculateStyle();
     void didScheduleStyleRecalculation(Frame*);
-    void willWriteHTML(unsigned startLine, Frame*);
-    void didWriteHTML(unsigned endLine);
     void didTimeStamp(Frame&, const String&);
-    void didMarkDOMContentEvent(Frame&);
-    void didMarkLoadEvent(Frame&);
     void didRequestAnimationFrame(int callbackId, Frame*);
     void didCancelAnimationFrame(int callbackId, Frame*);
     void willFireAnimationFrame(int callbackId, Frame*);

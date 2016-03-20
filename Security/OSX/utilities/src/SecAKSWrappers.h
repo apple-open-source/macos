@@ -128,6 +128,14 @@ static inline bool SecAKSGetHasBeenUnlocked(bool* hasBeenUnlocked, CFErrorRef* e
 
 bool SecAKSDoWhileUserBagLocked(CFErrorRef *error, dispatch_block_t action);
 
+//
+// if you can't use the block version above, use these.
+// !!!!!Remember to balance them!!!!!!
+//
+bool SecAKSUnLockUserKeybag(CFErrorRef *error);
+bool SecAKSLockUserKeybag(uint64_t timeout, CFErrorRef *error);
+
+
 CFDataRef SecAKSCopyBackupBagWithSecret(size_t size, uint8_t *secret, CFErrorRef *error);
 
 #endif

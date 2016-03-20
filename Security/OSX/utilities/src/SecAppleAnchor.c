@@ -16,7 +16,7 @@ bool
 SecIsAppleTrustAnchorData(CFDataRef cert,
 			  SecAppleTrustAnchorFlags flags)
 {
-    CFDictionaryRef anchors;
+    CFDictionaryRef anchors = NULL;
     CFTypeRef value = NULL;
     bool res = false;
 
@@ -24,11 +24,12 @@ SecIsAppleTrustAnchorData(CFDataRef cert,
     require(anchors, fail);
 
     value = CFDictionaryGetValue(anchors, cert);
-    require(value, fail);
+    require_quiet(value, fail);
 
     require(isBoolean(value), fail);
 
-    if (SecIsInternalRelease() && (flags & kSecAppleTrustAnchorFlagsIncludeTestAnchors)) {
+    if ((SecIsInternalRelease() || flags & kSecAppleTrustAnchorFlagsAllowNonProduction)
+        && flags & kSecAppleTrustAnchorFlagsIncludeTestAnchors) {
         res = true;
     } else {
         res = CFBooleanGetValue(value);

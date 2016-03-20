@@ -221,7 +221,12 @@ OALSource::~OALSource()
     // release the 3DMixer bus if necessary
 	if (mCurrentPlayBus != kSourceNeedsBus)
 	{
-		ReleaseNotifyAndRenderProcs();
+        try
+        {
+            // catch any exceptions that may be thrown by this method
+            ReleaseNotifyAndRenderProcs();
+        }
+        catch(...){}
 		mOwningContext->SetBusAsAvailable (mCurrentPlayBus);
 		mCurrentPlayBus = kSourceNeedsBus;		
 	}

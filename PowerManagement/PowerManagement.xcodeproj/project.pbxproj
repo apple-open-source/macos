@@ -129,7 +129,6 @@
 		729A75740A01EC19000AB587 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA8019747120ACA2928 /* SystemConfiguration.framework */; };
 		729A75750A01EC2A000AB587 /* pmset.c in Sources */ = {isa = PBXBuildFile; fileRef = 40D4F0DC01F4A1F40ACA2928 /* pmset.c */; };
 		729A758A0A01EE85000AB587 /* IOUPSPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F7828186058E83D30055547B /* IOUPSPrivate.h */; };
-		729A758B0A01EE8F000AB587 /* IOUPSPlugIn.h in Headers */ = {isa = PBXBuildFile; fileRef = F7828188058E83D30055547B /* IOUPSPlugIn.h */; };
 		729A758C0A01EEA0000AB587 /* ioupspluginmig.defs in Sources */ = {isa = PBXBuildFile; fileRef = F7828183058E83D30055547B /* ioupspluginmig.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		729A758D0A01EEA0000AB587 /* IOUPSPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828184058E83D30055547B /* IOUPSPrivate.c */; };
 		729A758E0A01EEA0000AB587 /* upsd.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828185058E83D30055547B /* upsd.c */; };
@@ -138,7 +137,6 @@
 		729A75910A01EEB9000AB587 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
 		729A75920A01EEB9000AB587 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA8019747120ACA2928 /* SystemConfiguration.framework */; };
 		729A75930A01EED1000AB587 /* ioupsd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72FE7EA409AE4931003E0C4C /* ioupsd.8 */; };
-		729A75940A01EEED000AB587 /* IOUPSPlugIn.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = F7828188058E83D30055547B /* IOUPSPlugIn.h */; };
 		729A75AA0A01F2C9000AB587 /* AutoWakeScheduler.h in Headers */ = {isa = PBXBuildFile; fileRef = A9E20B7C03EB129200CA28D7 /* AutoWakeScheduler.h */; };
 		729A75AB0A01F2C9000AB587 /* RepeatingAutoWake.h in Headers */ = {isa = PBXBuildFile; fileRef = A999C3F50450D9290018C661 /* RepeatingAutoWake.h */; };
 		729A75AC0A01F2C9000AB587 /* PrivateLib.h in Headers */ = {isa = PBXBuildFile; fileRef = A9FD4B73047C482B00FA82A6 /* PrivateLib.h */; };
@@ -220,7 +218,6 @@
 		80780E181AB0C600003409C8 /* libenergytrace.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 80780E171AB0C600003409C8 /* libenergytrace.dylib */; };
 		80780E1A1AB12D52003409C8 /* libenergytrace.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 80780E191AB12D52003409C8 /* libenergytrace.dylib */; };
 		8C1DA6DC1986BFE90041B69A /* IOUPSPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F7828186058E83D30055547B /* IOUPSPrivate.h */; };
-		8C1DA6DD1986BFE90041B69A /* IOUPSPlugIn.h in Headers */ = {isa = PBXBuildFile; fileRef = F7828188058E83D30055547B /* IOUPSPlugIn.h */; };
 		8C1DA6DF1986BFE90041B69A /* ioupspluginmig.defs in Sources */ = {isa = PBXBuildFile; fileRef = F7828183058E83D30055547B /* ioupspluginmig.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		8C1DA6E01986BFE90041B69A /* IOUPSPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828184058E83D30055547B /* IOUPSPrivate.c */; };
 		8C1DA6E11986BFE90041B69A /* upsd.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828185058E83D30055547B /* upsd.c */; };
@@ -229,7 +226,6 @@
 		8C1DA6E51986BFE90041B69A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA6019747120ACA2928 /* CoreFoundation.framework */; };
 		8C1DA6E61986BFE90041B69A /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
 		8C1DA6E71986BFE90041B69A /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA8019747120ACA2928 /* SystemConfiguration.framework */; };
-		8C1DA6E91986BFE90041B69A /* IOUPSPlugIn.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = F7828188058E83D30055547B /* IOUPSPlugIn.h */; };
 		8C1DA6EB1986BFE90041B69A /* ioupsd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72FE7EA409AE4931003E0C4C /* ioupsd.8 */; };
 		C19023350EBA720300AE2356 /* SystemLoad.c in Sources */ = {isa = PBXBuildFile; fileRef = 72DC9D6B0E1D98210066B287 /* SystemLoad.c */; };
 		D81001D21755323100140DD3 /* com.apple.powerd-embedded.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D81001D11755320200140DD3 /* com.apple.powerd-embedded.plist */; };
@@ -417,16 +413,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		729A75840A01EE43000AB587 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/ps";
-			dstSubfolderSpec = 0;
-			files = (
-				729A75940A01EEED000AB587 /* IOUPSPlugIn.h in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		729A75850A01EE43000AB587 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -542,16 +528,6 @@
 			dstSubfolderSpec = 0;
 			files = (
 				72EB16BB14C75EB0002F68C3 /* AppWorkaround.plist in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		8C1DA6E81986BFE90041B69A /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/ps";
-			dstSubfolderSpec = 0;
-			files = (
-				8C1DA6E91986BFE90041B69A /* IOUPSPlugIn.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -675,7 +651,6 @@
 		F7828185058E83D30055547B /* upsd.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = upsd.c; sourceTree = "<group>"; };
 		F7828186058E83D30055547B /* IOUPSPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOUPSPrivate.h; sourceTree = "<group>"; };
 		F7828187058E83D30055547B /* ioupsplugin.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ioupsplugin.c; sourceTree = "<group>"; };
-		F7828188058E83D30055547B /* IOUPSPlugIn.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOUPSPlugIn.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1052,7 +1027,6 @@
 				F7828185058E83D30055547B /* upsd.c */,
 				F7828187058E83D30055547B /* ioupsplugin.c */,
 				F7828183058E83D30055547B /* ioupspluginmig.defs */,
-				F7828188058E83D30055547B /* IOUPSPlugIn.h */,
 				F7828184058E83D30055547B /* IOUPSPrivate.c */,
 				F7828186058E83D30055547B /* IOUPSPrivate.h */,
 				72FE7EA409AE4931003E0C4C /* ioupsd.8 */,
@@ -1068,7 +1042,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				729A758A0A01EE85000AB587 /* IOUPSPrivate.h in Headers */,
-				729A758B0A01EE8F000AB587 /* IOUPSPlugIn.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1111,7 +1084,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				8C1DA6DC1986BFE90041B69A /* IOUPSPrivate.h in Headers */,
-				8C1DA6DD1986BFE90041B69A /* IOUPSPlugIn.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1226,7 +1198,6 @@
 				729A75830A01EE43000AB587 /* Headers */,
 				729A757B0A01EDED000AB587 /* Sources */,
 				729A757C0A01EDED000AB587 /* Frameworks */,
-				729A75840A01EE43000AB587 /* CopyFiles */,
 				729A75850A01EE43000AB587 /* CopyFiles */,
 			);
 			buildRules = (
@@ -1373,7 +1344,6 @@
 				8C1DA6DB1986BFE90041B69A /* Headers */,
 				8C1DA6DE1986BFE90041B69A /* Sources */,
 				8C1DA6E31986BFE90041B69A /* Frameworks */,
-				8C1DA6E81986BFE90041B69A /* CopyFiles */,
 				8C1DA6EA1986BFE90041B69A /* CopyFiles */,
 			);
 			buildRules = (

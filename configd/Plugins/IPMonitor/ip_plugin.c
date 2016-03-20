@@ -366,6 +366,8 @@ typedef struct {
     ROUTE_COMMON
 } Route, * RouteRef;
 
+#define PREFIX_LENGTH_IN_CLASSC		24
+
 typedef struct {
     ROUTE_COMMON
     struct in_addr	dest;
@@ -2748,7 +2750,7 @@ IPv4RouteListCreateWithDictionary(IPv4RouteListRef routes,
 				  CFDictionaryRef dict,
 				  CFNumberRef rank_assertion)
 {
-    boolean_t		add_broadcast = FALSE;
+    boolean_t		add_broadcast_multicast = FALSE;
     boolean_t		add_default = FALSE;
     boolean_t		add_router_subnet = FALSE;
     boolean_t		add_subnet = FALSE;
@@ -2883,9 +2885,12 @@ IPv4RouteListCreateWithDictionary(IPv4RouteListRef routes,
 	    add_default = TRUE;
 	    n++;
 	}
-	/* allow traffic to 255.255.255.255 (rdar://problem/22794309) */
-	add_broadcast = TRUE;
-	n++;
+#define UTUN_PREFIX		"utun"
+#define UTUN_PREFIX_LENGTH	(sizeof(UTUN_PREFIX) - 1)
+	if (strncmp(ifname, UTUN_PREFIX, UTUN_PREFIX_LENGTH) != 0) {
+	    add_broadcast_multicast = TRUE;
+	    n += 2;
+	}
     }
     if (allow_additional_routes) {
 	additional_routes
@@ -2905,9 +2910,12 @@ IPv4RouteListCreateWithDictionary(IPv4RouteListRef routes,
     }
     if (routes == NULL || routes->size < n) {
 	routes = (IPv4RouteListRef)malloc(IPv4RouteListComputeSize(n));
+	bzero(routes, IPv4RouteListComputeSize(n));
 	routes->size = n;
     }
-    bzero(routes, IPv4RouteListComputeSize(n));
+    else {
+	bzero(routes->list, sizeof(routes->list[0]) * n);
+    }
     routes->count = n;
     if (exclude_from_nwi) {
 	routes->flags |= kRouteListFlagsExcludeNWI;
@@ -2934,8 +2942,8 @@ IPv4RouteListCreateWithDictionary(IPv4RouteListRef routes,
 	r->rank = primary_rank;
 	r++;
     }
-    if (add_broadcast) {
-	/* add the broadcast route */
+    if (add_broadcast_multicast) {
+	/* add the broadcast route (rdar://problem/22149738) */
 	if ((flags & kRouteFlagsIsNULL) != 0) {
 	    r->flags |= kRouteFlagsIsNULL;
 	}
@@ -2946,6 +2954,19 @@ IPv4RouteListCreateWithDictionary(IPv4RouteListRef routes,
 	r->ifa = addr;
 	r->rank = primary_rank;
 	r++;
+
+	/* add local net multicast route (rdar://problem/22184650) */
+	if ((flags & kRouteFlagsIsNULL) != 0) {
+	    r->flags |= kRouteFlagsIsNULL;
+	}
+	r->dest.s_addr = htonl(INADDR_UNSPEC_GROUP);
+	r->mask.s_addr = htonl(IN_CLASSC_NET);
+	r->prefix_length = PREFIX_LENGTH_IN_CLASSC;
+	r->ifindex = ifindex;
+	r->ifa = addr;
+	r->rank = primary_rank;
+	r++;
+
     }
 
     /* add the subnet route */
@@ -3008,6 +3029,26 @@ IPv4RouteListCreateWithDictionary(IPv4RouteListRef routes,
     }
     return (routes);
 }
+
+#if	!TARGET_OS_SIMULATOR
+static IPv4RouteListRef
+IPv4RouteListCopyMulticastLoopback(void)
+{
+    IPv4RouteRef	r;
+    IPv4RouteListRef	routes;
+
+    routes = (IPv4RouteListRef)malloc(IPv4RouteListComputeSize(1));
+    bzero(routes, IPv4RouteListComputeSize(1));
+    routes->count = routes->size = 1;
+
+    r = routes->list;
+    r->dest.s_addr = htonl(INADDR_UNSPEC_GROUP);
+    r->mask.s_addr = htonl(IN_CLASSC_NET);
+    r->prefix_length = PREFIX_LENGTH_IN_CLASSC;
+    r->ifindex = lo0_ifindex();
+    return (routes);
+}
+#endif /* !TARGET_OS_SIMULATOR */
 
 /**
  ** IPv6Route*
@@ -3410,9 +3451,12 @@ IPv6RouteListCreateWithDictionary(IPv6RouteListRef routes,
 
     if (routes == NULL || routes->size < n) {
 	routes = (IPv6RouteListRef)malloc(IPv6RouteListComputeSize(n));
+	bzero(routes, IPv6RouteListComputeSize(n));
 	routes->size = n;
     }
-    bzero(routes, IPv6RouteListComputeSize(n));
+    else {
+	bzero(routes->list, sizeof(routes->list[0]) * n);
+    }
     routes->count = n;
     if (exclude_from_nwi) {
 	routes->flags |= kRouteListFlagsExcludeNWI;
@@ -5528,22 +5572,6 @@ services_info_copy(SCDynamicStoreRef session, CFArrayRef service_list)
 
 #if	!TARGET_IPHONE_SIMULATOR
 
-static int
-multicast_route(int sockfd, int cmd)
-{
-    IPv4Route	route;
-
-    bzero(&route, sizeof(route));
-    route.dest.s_addr = htonl(INADDR_UNSPEC_GROUP);
-    route.mask.s_addr = htonl(IN_CLASSD_NET);
-    route.ifindex = lo0_ifindex();
-    return (IPv4RouteApply((RouteRef)&route, cmd, sockfd));
-}
-
-#endif	/* !TARGET_IPHONE_SIMULATOR */
-
-#if	!TARGET_IPHONE_SIMULATOR
-
 static boolean_t
 set_ipv6_default_interface(IFIndex ifindex)
 {
@@ -5753,6 +5781,14 @@ update_ipv4(CFStringRef		primary,
 #if	!TARGET_IPHONE_SIMULATOR
     sockfd = open_routing_socket();
     if (sockfd != -1) {
+	/* go through routelist and bind any unbound routes */
+	if (new_routelist != NULL) {
+	    IPv4RouteListFinalize(new_routelist);
+	}
+	else {
+	    /* provide a routelist with just loopback multicast */
+	    new_routelist = IPv4RouteListCopyMulticastLoopback();
+	}
 	if ((S_IPMonitor_debug & kDebugFlag1) != 0) {
 	    if (S_ipv4_routelist == NULL) {
 		my_log(LOG_DEBUG, "Old Routes = <none>");
@@ -5769,15 +5805,7 @@ update_ipv4(CFStringRef		primary,
 		IPv4RouteListLog(LOG_DEBUG, new_routelist);
 	    }
 	}
-	/* go through routelist and bind any unbound routes */
-	IPv4RouteListFinalize(new_routelist);
 	IPv4RouteListApply(S_ipv4_routelist, new_routelist, sockfd);
-	if (new_routelist != NULL) {
-	    (void)multicast_route(sockfd, RTM_DELETE);
-	}
-	else {
-	    (void)multicast_route(sockfd, RTM_ADD);
-	}
 	close(sockfd);
     }
     if (S_ipv4_routelist != NULL) {
@@ -5865,6 +5893,8 @@ update_ipv6(CFStringRef		primary,
 #if	!TARGET_IPHONE_SIMULATOR
     sockfd = open_routing_socket();
     if (sockfd != -1) {
+	/* go through routelist and bind any unbound routes */
+	IPv6RouteListFinalize(new_routelist);
 	if ((S_IPMonitor_debug & kDebugFlag1) != 0) {
 	    if (S_ipv6_routelist == NULL) {
 		my_log(LOG_DEBUG, "Old Routes = <none>");
@@ -5881,8 +5911,6 @@ update_ipv6(CFStringRef		primary,
 		IPv6RouteListLog(LOG_DEBUG, new_routelist);
 	    }
 	}
-	/* go through routelist and bind any unbound routes */
-	IPv6RouteListFinalize(new_routelist);
 	IPv6RouteListApply(S_ipv6_routelist, new_routelist, sockfd);
 	close(sockfd);
     }

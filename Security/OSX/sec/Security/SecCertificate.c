@@ -68,6 +68,11 @@
 #include "SecBase64.h"
 #include "AppleBaselineEscrowCertificates.h"
 #include <ipc/securityd_client.h>
+#include <Security/SecKeyInternal.h>
+
+/* The minimum key sizes necessary to not be considered "weak" */
+#define MIN_RSA_KEY_SIZE    128     // 1024-bit
+#define MIN_EC_KEY_SIZE     20      // 160-bit
 
 typedef struct SecCertificateExtension {
 	DERItem extnID;
@@ -192,7 +197,7 @@ struct __SecCertificate {
     SecCertificateExtension *_extensions;
 
 	/* Optional cached fields. */
-	SecKeyRef			_pubKey;
+	SecKeyRef			_pubKey; /* never set, never used */
 	CFDataRef			_der_data;
 	CFArrayRef			_properties;
     CFDataRef			_serialNumber;
@@ -4939,6 +4944,31 @@ SecKeyRef SecCertificateCopyPublicKey(SecCertificateRef certificate)
     };
     return SecKeyCreatePublicFromDER(kCFAllocatorDefault, &oid1, &params1,
         &keyData1);
+}
+
+bool SecCertificateIsWeak(SecCertificateRef certificate) {
+    bool weak = true;
+    SecKeyRef pubKey = NULL;
+#if SECTRUST_OSX
+    require_quiet(pubKey = SecCertificateCopyPublicKey_ios(certificate), out);
+#else
+    require_quiet(pubKey = SecCertificateCopyPublicKey(certificate) ,out);
+#endif
+    size_t size = SecKeyGetBlockSize(pubKey);
+    switch (SecKeyGetAlgorithmIdentifier(pubKey)) {
+        case kSecRSAAlgorithmID:
+            if (MIN_RSA_KEY_SIZE <= size) weak = false;
+            break;
+        case kSecECDSAAlgorithmID:
+            if (MIN_EC_KEY_SIZE <= size) weak = false;
+            break;
+        default:
+            weak = true;
+    }
+
+out:
+    CFReleaseSafe(pubKey);
+    return weak;
 }
 
 CFDataRef SecCertificateGetSHA1Digest(SecCertificateRef certificate) {

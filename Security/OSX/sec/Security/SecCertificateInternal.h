@@ -329,6 +329,8 @@ OSStatus SecCertificateParseGeneralNameContentProperty(DERTag tag,
 OSStatus SecCertificateParseGeneralNames(const DERItem *generalNames, void *context,
                                          parseGeneralNameCallback callback);
 
+bool SecCertificateIsWeak(SecCertificateRef certificate);
+
 __END_DECLS
 
 #endif /* !_SECURITY_SECCERTIFICATEINTERNAL_H_ */

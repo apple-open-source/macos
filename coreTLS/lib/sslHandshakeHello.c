@@ -161,6 +161,11 @@ SSLEncodeServerHello(tls_buffer *serverHello, tls_handshake_t ctx)
         extnsLen += 2 + 2; /* ext hdr + ext len */
     }
 
+    if (ctx->secure_renegotiation) {
+        extnsLen += 2 + 2 + 1 /* ext hdr + ext len + data len */
+                    + ctx->ownVerifyData.length+ctx->peerVerifyData.length;
+    }
+
     if (extnsLen) {
 		msglen +=
 			2 /* ServerHello extns length */
@@ -229,12 +234,12 @@ SSLEncodeServerHello(tls_buffer *serverHello, tls_handshake_t ctx)
             charPtr = SSLEncodeInt(charPtr, 0, 2);
         }
 
-            /* We are confirming we support NPN, and sending a list of protocols */
-		if (ctx->npn_confirmed) {
-			charPtr = SSLEncodeInt(charPtr, SSL_HE_NPN, 2);
-			charPtr = SSLEncodeInt(charPtr, ctx->npnOwnData.length, 2);
-			memcpy(charPtr, ctx->npnOwnData.data, ctx->npnOwnData.length);
-			charPtr += ctx->npnOwnData.length;
+        /* We are confirming we support NPN, and sending a list of protocols */
+        if (ctx->npn_confirmed) {
+            charPtr = SSLEncodeInt(charPtr, SSL_HE_NPN, 2);
+            charPtr = SSLEncodeInt(charPtr, ctx->npnOwnData.length, 2);
+            memcpy(charPtr, ctx->npnOwnData.data, ctx->npnOwnData.length);
+            charPtr += ctx->npnOwnData.length;
 		}
 
         if(ctx->alpn_confirmed) {
@@ -256,6 +261,17 @@ SSLEncodeServerHello(tls_buffer *serverHello, tls_handshake_t ctx)
             charPtr = SSLEncodeInt(charPtr, sctLen + 2, 2);
             charPtr = SSLEncodeInt(charPtr, sctLen, 2);
             charPtr = SSLEncodeBufferList(ctx->sct_list, 2, charPtr);
+        }
+
+        /* RFC 5746: Secure Renegotiation */
+        if(ctx->secure_renegotiation) {
+            charPtr = SSLEncodeInt(charPtr, SSL_HE_SecureRenegotation, 2);
+            charPtr = SSLEncodeInt(charPtr, ctx->ownVerifyData.length+ctx->peerVerifyData.length+1, 2);
+            charPtr = SSLEncodeInt(charPtr, ctx->ownVerifyData.length+ctx->peerVerifyData.length, 1);
+            memcpy(charPtr, ctx->peerVerifyData.data, ctx->peerVerifyData.length);
+            charPtr += ctx->peerVerifyData.length;
+            memcpy(charPtr, ctx->ownVerifyData.data, ctx->ownVerifyData.length);
+            charPtr += ctx->ownVerifyData.length;
         }
 	}
 
@@ -309,7 +325,7 @@ SSLProcessServerHelloVerifyRequest(tls_buffer message, tls_handshake_t ctx)
     unsigned int        cookieLen;
     UInt8               *p;
 
-    assert(ctx->isServer);
+    assert(!ctx->isServer);
 
     /* TODO: those length values should not be hardcoded */
     /* 3 bytes at least with empty cookie */
@@ -349,7 +365,7 @@ SSLProcessServerHelloExtension_SecureRenegotiation(tls_handshake_t ctx, UInt16 e
     if(extLen!= (1 + ctx->ownVerifyData.length + ctx->peerVerifyData.length))
         return;
 
-    if(*p!=ctx->ownVerifyData.length + ctx->ownVerifyData.length)
+    if(*p!=ctx->ownVerifyData.length + ctx->peerVerifyData.length)
         return;
     p++;
 
@@ -472,6 +488,7 @@ SSLProcessServerHelloExtensions(tls_handshake_t ctx, UInt16 extensionsLen, UInt8
     /* Reset state of Server Hello extensions */
     ctx->ocsp_peer_enabled = false;
     ctx->sct_peer_enabled = false;
+    ctx->secure_renegotiation_received = false;
     tls_free_buffer_list(ctx->sct_list);
 
     remaining = SSLDecodeInt(p, 2); p+=2;
@@ -595,7 +612,7 @@ SSLProcessServerHello(tls_buffer message, tls_handshake_t ctx)
         return err;
     }
 
-    sslLogNegotiateDebug("===SSL3 client: negVersion is %d_%d",
+    sslLogNegotiateDebug("SSLProcessServerHello: negVersion is %d_%d",
 		(negVersion >> 8) & 0xff, negVersion & 0xff);
 
     memcpy(ctx->serverRandom, p, 32);
@@ -616,7 +633,7 @@ SSLProcessServerHello(tls_buffer message, tls_handshake_t ctx)
     p += sessionIDLen;
 
     ctx->selectedCipher = (UInt16)SSLDecodeInt(p,2);
-    sslLogNegotiateDebug("===ssl3: server requests cipherKind %x",
+    sslLogNegotiateDebug("SSLProcessServerHello: server selected ciphersuite %04x",
     	(unsigned)ctx->selectedCipher);
     p += 2;
     if ((err = ValidateSelectedCiphersuite(ctx)) != 0) {
@@ -694,8 +711,9 @@ SSLEncodeClientHello(tls_buffer *clientHello, tls_handshake_t ctx)
     {
         sessionTicket = ctx->externalSessionTicket;
     }
-    else if (ctx->resumableSession.data != 0)
+    else if ((ctx->resumableSession.data != 0) && (SSLClientValidateSessionDataBefore(ctx->resumableSession, ctx) == 0))
     {
+
         /* We should always have a sessionID, even when using tickets. */
         err = SSLRetrieveSessionID(ctx->resumableSession, &sessionIdentifier);
         if(err != 0) {
@@ -709,8 +727,7 @@ SSLEncodeClientHello(tls_buffer *clientHello, tls_handshake_t ctx)
 
         /* We resume if this is not a ticket, or if tickets are enabled 
            and if other session parameters are valid for the current context */
-        if (((sessionTicket.length==0) || (ctx->sessionTicket_enabled)) &&
-            (SSLClientValidateSessionDataBefore(ctx->resumableSession, ctx)==0))
+        if ((sessionTicket.length == 0) || (ctx->sessionTicket_enabled))
         {
             sessionIDLen = sessionIdentifier.length;
             SSLCopyBuffer(&sessionIdentifier, &ctx->proposedSessionID);
@@ -1281,6 +1298,26 @@ SSLProcessClientHelloExtension_SignatureAlgorithms(tls_handshake_t ctx, uint16_t
     return 0;
 }
 
+static int
+SSLProcessClientHelloExtension_SecureRenegotiation(tls_handshake_t ctx, uint16_t extenLen, uint8_t *charPtr)
+{
+    ctx->secure_renegotiation_received = false;
+
+    if(extenLen!= (1 + ctx->peerVerifyData.length))
+        return errSSLNegotiation;
+
+    if(*charPtr != ctx->peerVerifyData.length)
+        return errSSLNegotiation;
+    charPtr++;
+
+    if(memcmp(charPtr, ctx->peerVerifyData.data, ctx->peerVerifyData.length))
+        return errSSLNegotiation;
+
+    ctx->secure_renegotiation_received = true;
+
+    return 0;
+}
+
 
 
 static int
@@ -1355,6 +1392,10 @@ SSLProcessClientHelloExtensions(tls_handshake_t ctx, uint16_t extensionsLen, uin
                 break;
             case SSL_HE_SCT:
                 if((err=SSLProcessClientHelloExtension_SCT(ctx, extLen, p))!=0)
+                    return err;
+                break;
+            case SSL_HE_SecureRenegotation:
+                if((err=SSLProcessClientHelloExtension_SecureRenegotiation(ctx, extLen, p))!=0)
                     return err;
                 break;
             default:
@@ -1473,9 +1514,15 @@ SSLProcessClientHello(tls_buffer message, tls_handshake_t ctx)
     if(ctx->requestedCipherSuites==NULL)
         return errSSLAllocate;
 
+    ctx->empty_renegotation_info_scsv = false;
+
+
     ctx->numRequestedCipherSuites = cipherListLen/2;
     for(int i = 0; i<ctx->numRequestedCipherSuites; i++) {
         ctx->requestedCipherSuites[i] = SSLDecodeInt(charPtr, 2);
+        if(ctx->requestedCipherSuites[i] == TLS_EMPTY_RENEGOTIATION_INFO_SCSV) {
+            ctx->empty_renegotation_info_scsv = true;
+        }
         charPtr+=2;
     }
 
@@ -1499,6 +1546,28 @@ SSLProcessClientHello(tls_buffer message, tls_handshake_t ctx)
 		ptrdiff_t remLen = eom - charPtr;
         SSLProcessClientHelloExtensions(ctx, remLen, charPtr);
 	}
+
+
+    /* RFC 5746: Secure Renegotiation */
+    if(ctx->peerVerifyData.length) {
+        // This is a renegotiation.
+        if(ctx->secure_renegotiation) { //client supports RFC 5746
+            if(ctx->empty_renegotation_info_scsv) {
+                return errSSLNegotiation;
+            }
+            if(!ctx->secure_renegotiation_received) {
+                return errSSLNegotiation;
+            }
+        }
+    } else {
+        // This is an initial handshake.
+        if(ctx->empty_renegotation_info_scsv || ctx->secure_renegotiation_received) {
+            ctx->secure_renegotiation = true;
+        } else {
+            ctx->secure_renegotiation = false;
+        }
+    }
+
 
     if ((err = SSLInitMessageHashes(ctx)) != 0)
         return err;

@@ -1,10 +1,24 @@
 /*
- *  crypto-embedded.c
- *  libsecurity_smime
+ * Copyright (c) 2008-2011,2013,2015 Apple Inc. All Rights Reserved.
  *
- *  Created by Conrad Sauerwald on 2/7/08.
- *  Copyright (c) 2008-2011,2013 Apple Inc. All Rights Reserved.
+ * @APPLE_LICENSE_HEADER_START@
  *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
  */
 
 #include <stdio.h>
@@ -28,6 +42,7 @@
 #include <Security/oidsalg.h>
 #include <Security/SecPolicy.h>
 #include <Security/SecItem.h>
+#include <Security/SecItemPriv.h>
 #include <Security/SecIdentity.h>
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecKeyPriv.h>
@@ -83,11 +98,44 @@ CERT_VerifyCert(SecKeychainRef keychainOrArray __unused, CFArrayRef certs,
     return SECSuccess;
 loser:
     if (trust)
-	CFRelease(trust);
+        CFRelease(trust);
 
     return rv;
 }
 
+static CFTypeRef CERT_FindItemInAllAvailableKeychains(CFDictionaryRef query) {
+    CFTypeRef item = NULL;
+    CFMutableDictionaryRef q = NULL;
+    CFDictionaryRef whoAmI = NULL;
+    CFErrorRef error = NULL;
+    CFDataRef musr = NULL;
+    const uint8_t activeUserUuid[16] = "\xA7\x5A\x3A\x35\xA5\x57\x4B\x10\xBE\x2E\x83\x94\x7E\x4A\x34\x72";
+
+    /* Do the standard keychain query */
+    require_quiet(errSecItemNotFound == SecItemCopyMatching(query, &item), out);
+
+    /* No item found. Can caller use the system keychain? */
+    whoAmI = _SecSecuritydCopyWhoAmI(&error);
+    require_quiet(NULL == error && whoAmI && CFDictionaryGetValue(whoAmI, CFSTR("status")), out);
+    musr = CFDictionaryGetValue(whoAmI, CFSTR("musr"));
+    /* Caller has system-keychain entitlement, is in multi-user mode, and is an active user. */
+    if (CFDictionaryGetValue(whoAmI, CFSTR("system-keychain")) && musr &&
+        (16 == CFDataGetLength(musr)) && (0 == memcmp(activeUserUuid,CFDataGetBytePtr(musr),12))) {
+        q = CFDictionaryCreateMutableCopy(NULL, CFDictionaryGetCount(query) + 1, query);
+        CFDictionaryAddValue(q, kSecUseSystemKeychain, kCFBooleanTrue);
+        SecItemCopyMatching(q, &item);
+    }
+
+out:
+    if (q)
+        CFRelease(q);
+    if (whoAmI)
+        CFRelease(whoAmI);
+    if (error)
+        CFRelease(error);
+
+    return item;
+}
 
 SecCertificateRef CERT_FindUserCertByUsage(SecKeychainRef keychainOrArray,
 			 char *nickname,SECCertUsage usage,Boolean validOnly,void *proto_win)
@@ -97,7 +145,7 @@ SecCertificateRef CERT_FindUserCertByUsage(SecKeychainRef keychainOrArray,
 	const void *values[] = { kSecClassCertificate,  nickname_cfstr };
 	CFDictionaryRef query = CFDictionaryCreate(kCFAllocatorDefault, keys, values, sizeof(keys)/sizeof(*keys), NULL, NULL);
 	CFTypeRef result = NULL;
-	SecItemCopyMatching(query, &result);
+	result = CERT_FindItemInAllAvailableKeychains(query);
 	CFRelease(query);
 	CFRelease(nickname_cfstr);
 	return (SecCertificateRef)result;
@@ -257,7 +305,7 @@ static CFTypeRef CERT_FindByIssuerAndSN (CFTypeRef keychainOrArray, CFTypeRef cl
 	const void *keys[] = { kSecClass, kSecAttrIssuer, kSecAttrSerialNumber, kSecReturnRef };
 	const void *values[] = { class, issuer, serial, kCFBooleanTrue };
 	query = CFDictionaryCreate(kCFAllocatorDefault, keys, values, sizeof(keys)/sizeof(*keys), NULL, NULL);
-	require_noerr_quiet(SecItemCopyMatching(query, (CFTypeRef*)&ident), out);
+	ident = CERT_FindItemInAllAvailableKeychains(query);
 
 out:
     if (query)
@@ -289,9 +337,8 @@ SecIdentityRef CERT_FindIdentityBySubjectKeyID (CFTypeRef keychainOrArray __unus
 	const void *keys[] = { kSecClass, kSecAttrSubjectKeyID, kSecReturnRef };
 	const void *values[] = { kSecClassIdentity, subjectkeyid, kCFBooleanTrue };
 	query = CFDictionaryCreate(kCFAllocatorDefault, keys, values, sizeof(keys)/sizeof(*keys), NULL, NULL);
-	require_noerr_quiet(SecItemCopyMatching(query, (CFTypeRef*)&ident), out);
+	ident = (SecIdentityRef) CERT_FindItemInAllAvailableKeychains(query);
 
-out:
     if (query)
         CFRelease(query);
     if (subjectkeyid)

@@ -913,7 +913,7 @@ XML_SetParamEntityParsing(XML_Parser parser,
 */
 XMLPARSEAPI(int)
 XML_SetHashSalt(XML_Parser parser,
-                unsigned long hash_salt);
+                unsigned long hash_salt) __OSX_AVAILABLE_STARTING(__MAC_10_11_2, __IPHONE_NA);
 
 /* If XML_Parse or XML_ParseBuffer have returned XML_STATUS_ERROR, then
    XML_GetErrorCode returns information about the error.

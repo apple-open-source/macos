@@ -54,6 +54,7 @@
 #define kMTKextLoadingDomain        "com.apple.libkext.kext.loading.v3"
 #define kMTKextBlockedDomain        "com.apple.libkext.kext.blocked"
 
+void    messageTraceStrictValidateFailure(OSKextRef theKext, OSStatus theResult);
 void    messageTraceExcludedKext(OSKextRef aKext);
 void    recordKextLoadListForMT(CFArrayRef kextList);
 void    recordKextLoadForMT(OSKextRef aKext);

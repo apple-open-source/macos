@@ -116,6 +116,7 @@ enum {
 #define     kDebuggerDelayMS                    2500
 #define     kDebuggerLongDelayMS                5000
 #define     kATVChordDelayMS                    5000
+#define     kDelayedStackshotMask               (1 << 31)
 
 //===========================================================================
 // IOHIDClientData class
@@ -354,6 +355,14 @@ void IOHIDEventService::stop( IOService * provider )
         _keyboard.debug.nmiTimer = 0;
     }
 
+    if ( _keyboard.debug.stackshotTimer ) {
+        _keyboard.debug.stackshotTimer->cancelTimeout();
+        if ( _workLoop )
+            _workLoop->removeEventSource(_keyboard.debug.stackshotTimer);
+
+        _keyboard.debug.stackshotTimer->release();
+        _keyboard.debug.stackshotTimer = 0;
+    }
 #else
 
     NUB_LOCK;
@@ -677,22 +686,18 @@ IOReturn IOHIDEventService::setSystemProperties( OSDictionary * properties )
         }
     }
 
-    if (setCapsDelay)
+    if (setCapsDelay) {
         calculateCapsLockDelay();
-
+    }
     if ( properties->getObject(kIOHIDDeviceParametersKey) == kOSBooleanTrue ) {
         OSDictionary * eventServiceProperties = (OSDictionary*)copyProperty(kIOHIDEventServicePropertiesKey);
         if ( OSDynamicCast(OSDictionary, eventServiceProperties) ) {
             if (eventServiceProperties->setOptions(0, 0) & OSDictionary::kImmutable) {
-                OSDictionary * temp = eventServiceProperties;
-                eventServiceProperties = OSDynamicCast(OSDictionary, temp->copyCollection());
-                temp->release();
+                OSDictionary * copyEventServiceProperties = (OSDictionary*)eventServiceProperties->copyCollection();
+                eventServiceProperties ->release();
+                eventServiceProperties = copyEventServiceProperties;
             }
-            else {
-                // do nothing
-            }
-        }
-        else {
+        } else {
             OSSafeReleaseNULL(eventServiceProperties);
             eventServiceProperties = OSDictionary::withCapacity(4);
         }
@@ -702,7 +707,6 @@ IOReturn IOHIDEventService::setSystemProperties( OSDictionary * properties )
             eventServiceProperties->removeObject(kIOHIDResetKeyboardKey);
             eventServiceProperties->removeObject(kIOHIDResetPointerKey);
             eventServiceProperties->removeObject(kIOHIDDeviceParametersKey);
-
             setProperty(kIOHIDEventServicePropertiesKey, eventServiceProperties);
             eventServiceProperties->release();
         }
@@ -910,7 +914,10 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
                 usagePageRef->release();
             }
         }
-
+        
+        if (_deviceUsagePairs) {
+            _deviceUsagePairs->release();
+        }
         _deviceUsagePairs = functions;
     }
 
@@ -950,15 +957,19 @@ IOHIDPointing * IOHIDEventService::newPointingShim (
 #if !TARGET_OS_EMBEDDED // {
     bool            isDispatcher = ((options & kShimEventProcessor) == 0);
     IOHIDPointing   *pointingNub = IOHIDPointing::Pointing(buttonCount, pointerResolution, scrollResolution, isDispatcher);;
-
+    OSNumber        *value;
+    
     require(pointingNub, no_nub);
 
 	SET_HID_PROPERTIES(pointingNub);
 
     require(pointingNub->attach(this), no_attach);
     require(pointingNub->start(this), no_start);
-    pointingNub->setProperty(kIOHIDAltSenderIdKey, OSNumber::withNumber(getRegistryEntryID(), 64));
-
+    value = OSNumber::withNumber(getRegistryEntryID(), 64);
+    if (value) {
+        pointingNub->setProperty(kIOHIDAltSenderIdKey, value);
+        value->release();
+    }
     return pointingNub;
 
 no_start:
@@ -1132,12 +1143,12 @@ void IOHIDEventService::free()
         _keyboard.caps.timer = 0;
     }
 
-#if TARGET_OS_EMBEDDED
     if ( _deviceUsagePairs ) {
         _deviceUsagePairs->release();
         _deviceUsagePairs = NULL;
     }
-
+    
+#if TARGET_OS_EMBEDDED
     if ( _clientDict ) {
         assert(_clientDict->getCount() == 0);
         _clientDict->release();
@@ -1150,6 +1161,14 @@ void IOHIDEventService::free()
 
         _keyboard.debug.nmiTimer->release();
         _keyboard.debug.nmiTimer = 0;
+    }
+
+    if (_keyboard.debug.stackshotTimer) {
+        if ( _workLoop )
+            _workLoop->removeEventSource(_keyboard.debug.stackshotTimer);
+
+        _keyboard.debug.stackshotTimer->release();
+        _keyboard.debug.stackshotTimer = 0;
     }
 
 #endif /* TARGET_OS_EMBEDDED */
@@ -1469,8 +1488,8 @@ void IOHIDEventService::debuggerTimerCallback(IOTimerEventSource *sender)
 //==============================================================================
 void IOHIDEventService::stackshotTimerCallback(IOTimerEventSource *sender)
 {
-    if ( _keyboard.debug.mask && _keyboard.debug.mask == _keyboard.debug.startMask   ) {
-        handle_stackshot_keychord(_keyboard.debug.mask);
+    if ( _keyboard.debug.mask && _keyboard.debug.mask == _keyboard.debug.startMask ) {
+        _keyboard.debug.stackshotHeld = 1;
     }
 }
 
@@ -1597,9 +1616,35 @@ void IOHIDEventService::dispatchKeyboardEvent(
        _keyboard.debug.mask == 0x6 || // Menu (Home)  + Volume
        _keyboard.debug.mask == 0xc || // Menu (Crown) + Help (Pill)
        _keyboard.debug.mask == 0x30) {// ATV PlayPause + Volume-
+       // Only create the timer for the watch.
+       if (_keyboard.debug.mask == 0xc ) {
+            if ( !_keyboard.debug.stackshotTimer ) {
+                _keyboard.debug.stackshotTimer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDEventService::stackshotTimerCallback));
+                if ( _keyboard.debug.stackshotTimer ) {
+                    if ((_workLoop->addEventSource(_keyboard.debug.stackshotTimer) != kIOReturnSuccess)) {
+                        _keyboard.debug.stackshotTimer->release();
+                        _keyboard.debug.stackshotTimer = NULL;
+                    }
+                }
+            }
+            if ( _keyboard.debug.stackshotTimer ) {
+                _keyboard.debug.stackshotTimer->setTimeoutMS( 1000 );
+                _keyboard.debug.startMask = _keyboard.debug.mask;
+            }
+        }
         handle_stackshot_keychord(_keyboard.debug.mask);
     }
-    
+    if ( _keyboard.debug.mask == 0x0 ) {
+        // Always reset flag on release.
+        if ( _keyboard.debug.stackshotHeld ) {
+            handle_stackshot_keychord( 0xc | kDelayedStackshotMask);
+        }
+		if ( _keyboard.debug.stackshotTimer ) {
+			_keyboard.debug.stackshotTimer->cancelTimeout();
+		}
+        _keyboard.debug.stackshotHeld = 0;
+    }
+
     // Keyboard caps lock delay - quick taps of caps lock could be accidental, so ignore
     if ( _keyboard.caps.delayMS && (usagePage == kHIDPage_KeyboardOrKeypad) && (usage == kHIDUsage_KeyboardCapsLock ) ) {
         if ( (options & kDelayedOption) == 0) {

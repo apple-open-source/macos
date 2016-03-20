@@ -323,9 +323,9 @@ SOSAccountRef SOSAccountCreateFromDER(CFAllocatorRef allocator,
         SOSAccountUpdateFullPeerInfo(account, viewsToEnsure, SOSViewsGetV0ViewSet()); // We don't permit V0 view proper, only sub-views
         CFReleaseNull(viewsToEnsure);
     }
-
+    
     SOSAccountCheckHasBeenInSync(account);
-
+    
     SOSUpdateKeyInterest(account);
 
     result = CFRetainSafe(account);

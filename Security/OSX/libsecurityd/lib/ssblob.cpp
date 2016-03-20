@@ -31,6 +31,34 @@
 namespace Security {
 namespace SecurityServer {
 
+uint32 CommonBlob::getCurrentVersion() {
+  uint32 ret = version_MacOS_10_0;
+  // If the integrity protections are turned on, use version_partition.
+  // else, use version_MacOS_10_0.
+  CFTypeRef integrity = (CFNumberRef)CFPreferencesCopyValue(CFSTR("KeychainIntegrity"), CFSTR("com.apple.security"), kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+  if (integrity && CFGetTypeID(integrity) == CFBooleanGetTypeID()) {
+    bool integrityProtections = CFBooleanGetValue((CFBooleanRef)integrity);
+
+    if(integrityProtections) {
+      secdebugfunc("integrity", "creating a partition keychain; global is on");
+      ret = version_partition;
+    } else {
+      secdebugfunc("integrity", "creating a old-style keychain; global is off");
+      ret = version_MacOS_10_0;
+    }
+    CFRelease(integrity);
+  }
+
+  return ret;
+}
+
+
+void CommonBlob::initialize()
+{
+    magic = magicNumber;
+
+    this->blobVersion = getCurrentVersion();
+}
 
 //
 // Initialize the blob header for a given version
@@ -38,6 +66,8 @@ namespace SecurityServer {
 void CommonBlob::initialize(uint32 version)
 {
     magic = magicNumber;
+
+    secdebugfunc("integrity", "creating a partition keychain with version %d", version);
     this->blobVersion = version;
 }
 

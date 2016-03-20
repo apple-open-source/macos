@@ -77,7 +77,9 @@ extern const DERItem
     oidAppleCertExtATVAppSigningProd,
     oidAppleCertExtATVAppSigningTest,
     oidAppleCertExtATVVPNProfileSigning,
-    oidAppleCertExtCryptoServicesExtEncryption;
+    oidAppleCertExtCryptoServicesExtEncryption,
+    oidAppleCertExtAST2DiagnosticsServerAuthTest,
+    oidAppleCertExtAST2DiagnosticsServerAuthProd;
 
     /* Compare two decoded OIDs.  Returns true iff they are equivalent. */
     bool DEROidCompare(const DERItem *oid1, const DERItem *oid2);

@@ -73,6 +73,12 @@
 @property (atomic) dispatch_queue_t calloutQueue;
 @property (atomic) dispatch_queue_t freshParamsQueue;
 
+@property (atomic) dispatch_queue_t ckdkvsproxy_queue;
+@property (atomic) dispatch_source_t penaltyTimer;
+@property (atomic) bool penaltyTimerScheduled;
+@property (retain, atomic) NSMutableDictionary *monitor;
+@property (retain, atomic) NSDictionary *queuedMessages;
+
 + (UbiqitousKVSProxy *) sharedKVSProxy;
 - (NSString *)description;
 - (id)init;
@@ -116,6 +122,7 @@
 - (void) calloutWith: (void(^)(NSSet *pending, bool syncWithPeersPending, bool ensurePeerRegistration, dispatch_queue_t queue, void(^done)(NSSet *handledKeys, bool handledSyncWithPeers, bool handledEnsurePeerRegistration))) callout;
 - (void) sendKeysCallout: (NSSet *(^)(NSSet* pending, NSError **error)) handleKeys;
 
-
+- (void)recordWriteToKVS:(NSDictionary *)values;
+- (NSDictionary*)recordHaltedValuesAndReturnValuesToSafelyWrite:(NSDictionary *)values;
 
 @end

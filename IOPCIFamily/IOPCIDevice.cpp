@@ -50,8 +50,9 @@
 enum
 {
     // reserved->pmSleepEnabled
-    kPMEnable  = 0x01,
-    kPMEOption = 0x02
+    kPMEnable           = 0x01,
+    kPMEOption          = 0x02,
+    kPMEOptionS3Disable = 0x04
 };
 
 #define DLOG(fmt, args...)                   \
@@ -350,20 +351,27 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 {
 	uint16_t            pmeState;
 	uint8_t             prevState;
+	uint8_t             effectiveState;
 
-    DLOG("%s[%p]::pciSetPowerState(%d->%d)\n", getName(), this, reserved->pciPMState, powerState);
+	if ((powerState == kIOPCIDeviceOffState) && (kIOPCIConfiguratorDeepIdle & gIOPCIFlags))
+	{
+		 effectiveState = kIOPCIDeviceDozeState;
+	}
+	else effectiveState = powerState;
+
+    DLOG("%s[%p]::pciSetPowerState(%d->%d,%d)\n", getName(), this, reserved->pciPMState, powerState, effectiveState);
 
 #if ACPI_SUPPORT
 	IOACPIPlatformDevice * device;
 	int8_t  idx;
 	IOReturn ret;
 	uint64_t time;
-	if ((idx = reserved->psMethods[powerState]) >= 0)
+	if ((idx = reserved->psMethods[effectiveState]) >= 0)
 	{
 		if ((idx != reserved->lastPSMethod) && !(kMachineRestoreDehibernate & options))
 		{
 			IOPCIConfigShadow * shadow = configShadow(this);
-			if ((powerState >= kIOPCIDeviceOnState)
+			if ((effectiveState >= kIOPCIDeviceOnState)
 				&& !space.s.busNum 
 				&& (shadow)
 				&& (shadow->bridge)
@@ -383,7 +391,7 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 			DLOG("%s::evaluateObject(%s) ret 0x%x %qd ms\n", 
 				getName(), gIOPCIPSMethods[idx]->getCStringNoCopy(), ret, time / 1000000ULL);
 
-			if ((powerState < kIOPCIDeviceOnState) && shadow) shadow->restoreCount = 0;
+			if ((effectiveState < kIOPCIDeviceOnState) && shadow) shadow->restoreCount = 0;
 		}
 		reserved->lastPSMethod = idx;
 	}
@@ -411,13 +419,26 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 					UInt16 bits = reserved->sleepControlBits;
 					if (kPMEOption & reserved->pmSleepEnabled)
 					{
-						// we don't clear the PME_Status at this time. Instead, we cleared it in powerStateWillChangeTo
-						// so this write will change our power state to the desired state and will also set PME_En
-						bits &= ~kPCIPMCSPMEStatus;
+						if ((kPMEOptionS3Disable & reserved->pmSleepEnabled) && (kIOPCIDeviceOffState == powerState))
+						{
+							bits &= ~kPCIPMCSPMEEnable;
+							bits |= kPCIPMCSPMEStatus;
+							prevState = -1U;
+						}
+						else
+						{
+							// we don't clear the PME_Status at this time. Instead, we cleared it in powerStateWillChangeTo
+							// so this write will change our power state to the desired state and will also set PME_En
+							bits &= ~kPCIPMCSPMEStatus;
+						}
 					}
-					DLOG("%s[%p]::setPCIPowerState(OFF) - writing 0x%x to PMCS currently (0x%x)\n", getName(), this, bits, extendedConfigRead16(reserved->pmControlStatus));
-					extendedConfigWrite16(reserved->pmControlStatus, bits);
-					DLOG("%s[%p]::setPCIPowerState(OFF) - did move PMCS to D3\n", getName(), this);
+
+					if (effectiveState != prevState)
+					{
+						DLOG("%s[%p]::setPCIPowerState(OFF) - writing 0x%x to PMCS currently (0x%x)\n", getName(), this, bits, extendedConfigRead16(reserved->pmControlStatus));
+						extendedConfigWrite16(reserved->pmControlStatus, bits);
+						DLOG("%s[%p]::setPCIPowerState(OFF) - did move PMCS to D3\n", getName(), this);
+					}
 				}
 				break;
 			
@@ -875,7 +896,7 @@ OSMetaClassDefineReservedUsed(IOPCIDevice,  1);
 IOReturn IOPCIDevice::enablePCIPowerManagement(IOOptionBits state)
 {
     IOReturn    ret = kIOReturnSuccess;
-    
+
     if (!reserved->pmControlStatus)
     {
         ret = kIOReturnBadArgument;
@@ -908,11 +929,8 @@ IOReturn IOPCIDevice::enablePCIPowerManagement(IOOptionBits state)
         else
         {
             DLOG("%s[%p] - enablePCIPwrMgmt, enabling\n", getName(), this);
-            reserved->pmSleepEnabled = true;
-#if VERSION_MAJOR < 10
-            if (getProperty(kIOPCIPMEOptionsKey))
-#endif
-                reserved->pmSleepEnabled |= kPMEOption;
+            reserved->pmSleepEnabled = kPMEnable | kPMEOption;
+			if (kPCIPMCSPMEDisableInS3 & state) reserved->pmSleepEnabled |= kPMEOptionS3Disable;
         }
     }
     return ret;

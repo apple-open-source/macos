@@ -47,6 +47,8 @@
 */
 #define kIOUPSPlugInServerName		"com.apple.IOUPSPlugInServer" 
 
+#define MAKE_UNIQ_SOURCE_ID(pid, psID)      (((pid & 0xffff) << 16) | (psID & 0xffff))
+#define GET_UPSID(srcId)                    (srcId & 0xffff)
 
 Boolean IOUPSMIGServerIsRunning(mach_port_t * bootstrap_port_ref, mach_port_t * upsd_port_ref);
 

@@ -333,3 +333,9 @@ routine stashDbCheck(UCSP_PORTS; in db: IPCDbHandle);
 routine verifyKeyStorePassphrase(UCSP_PORTS; in retries: uint32_t);
 routine resetKeyStorePassphrase(UCSP_PORTS; in passPhrase: Data);
 routine changeKeyStorePassphrase(UCSP_PORTS);
+
+//
+// Keychain version change support calls
+//
+routine recodeDbToVersion(UCSP_PORTS; in newVersion: uint32;
+    in srcDb: IPCDbHandle; out newDb: IPCDbHandle);

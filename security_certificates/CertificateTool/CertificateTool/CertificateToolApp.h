@@ -19,21 +19,20 @@
 	NSString*	   		_distrusted_directory;
 	NSString*	   		_allowlist_directory;
 	NSString*	   		_certs_directory;
-    NSString*      		_evroot_config_path;
+	NSString*	   		_evroot_config_path;
 	NSString*	   		_ev_plist_path;
-    NSString*      		_info_plist_path;
+	NSString*	   		_info_plist_path;
 	NSString*	   		_top_level_directory;
-    //NSString*      		_outputDir;
-    NSString*           _version_number_plist_path;
-    NSNumber*           _version_number;
+	NSString*	   		_version_number_plist_path;
+	NSNumber*	   		_version_number;
 
-    PSCertData*         _certRootsData;
+	PSCertData*         _certRootsData;
 
-    NSMutableDictionary* _EVRootsData;
-    NSMutableDictionary* _allow_list_data;
-	NSMutableArray*		_blacked_listed_keys;
-    NSMutableArray*     _gray_listed_keys;
-	NSData*				_derData;
+	NSMutableDictionary* _EVRootsData;
+	NSMutableDictionary* _allow_list_data;
+	NSMutableArray*      _blocked_keys;
+	NSMutableArray*      _gray_listed_keys;
+	NSData*              _derData;
 }
 
 @property (readonly) NSString* app_name;

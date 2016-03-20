@@ -31,14 +31,16 @@
 #include "agentquery.h"
 #include "tokendatabase.h"
 #include "acl_keychain.h"
+#include "acl_partition.h"
 
 // ACL subjects whose Environments we implement
 #include <security_cdsa_utilities/acl_any.h>
 #include <security_cdsa_utilities/acl_password.h>
-#include <security_cdsa_utilities/acl_threshold.h>
+#include "acl_keychain.h"
 
 #include <sys/sysctl.h>
 #include <security_utilities/logging.h>
+#include <security_utilities/cfmunge.h>
 
 //
 // SecurityServerAcl is virtual
@@ -71,7 +73,27 @@ void SecurityServerAcl::changeAcl(const AclEdit &edit, const AccessCredentials *
 {
 	StLock<Mutex> _(aclSequence);
 	SecurityServerEnvironment env(*this, db);
-	ObjectAcl::cssmChangeAcl(edit, cred, &env);
+
+    // if we're setting the INTEGRITY entry, check if you're in the partition list.
+    if (const AclEntryInput* input = edit.newEntry()) {
+        if (input->proto().authorization().containsOnly(CSSM_ACL_AUTHORIZATION_INTEGRITY)) {
+            // Only prompt the user if these creds allow UI.
+            bool ui = (!!cred) && cred->authorizesUI();
+            validatePartition(env, ui); // throws if fail
+
+            // If you passed partition validation, bypass the owner ACL check entirely.
+            env.forceSuccess = true;
+        }
+    }
+
+    // If these access credentials, by themselves, protect this database, force success and don't
+    // restrict changing PARTITION_ID
+    if(db && db->checkCredentials(cred)) {
+        env.forceSuccess = true;
+        ObjectAcl::cssmChangeAcl(edit, cred, &env, NULL);
+    } else {
+        ObjectAcl::cssmChangeAcl(edit, cred, &env, CSSM_APPLE_ACL_TAG_PARTITION_ID);
+    }
 }
 
 void SecurityServerAcl::changeOwner(const AclOwnerPrototype &newOwner,
@@ -92,13 +114,156 @@ void SecurityServerAcl::validate(AclAuthorization auth, const AccessCredentials 
 	
 	StLock<Mutex> objectSequence(aclSequence);
 	StLock<Mutex> processSequence(Server::process().aclSequence);
-    ObjectAcl::validate(auth, cred, &env);
+	ObjectAcl::validate(auth, cred, &env);
+
+    // partition validation happens outside the normal acl validation flow, in addition
+    bool ui = (!!cred) && cred->authorizesUI();
+
+    // we should only offer the chance to extend the partition ID list on a "read" operation, so check the AclAuthorization
+    bool readOperation =
+        (auth == CSSM_ACL_AUTHORIZATION_CHANGE_ACL)     ||
+        (auth == CSSM_ACL_AUTHORIZATION_DECRYPT)        ||
+        (auth == CSSM_ACL_AUTHORIZATION_GENKEY)         ||
+        (auth == CSSM_ACL_AUTHORIZATION_EXPORT_WRAPPED) ||
+        (auth == CSSM_ACL_AUTHORIZATION_EXPORT_CLEAR)   ||
+        (auth == CSSM_ACL_AUTHORIZATION_IMPORT_WRAPPED) ||
+        (auth == CSSM_ACL_AUTHORIZATION_IMPORT_CLEAR)   ||
+        (auth == CSSM_ACL_AUTHORIZATION_SIGN)           ||
+        (auth == CSSM_ACL_AUTHORIZATION_DECRYPT)        ||
+        (auth == CSSM_ACL_AUTHORIZATION_MAC)            ||
+        (auth == CSSM_ACL_AUTHORIZATION_DERIVE);
+
+    validatePartition(env, ui && readOperation);
 }
 
 void SecurityServerAcl::validate(AclAuthorization auth, const Context &context, Database *db)
 {
 	validate(auth,
 		context.get<AccessCredentials>(CSSM_ATTRIBUTE_ACCESS_CREDENTIALS), db);
+}
+
+
+//
+// Partitioning support
+//
+void SecurityServerAcl::validatePartition(SecurityServerEnvironment& env, bool prompt)
+{
+    // For the Keychain Migrator, don't even check the partition list
+    Process &process = Server::process();
+    if (process.checkAppleSigned() && process.hasEntitlement(migrationEntitlement)) {
+        secdebug("integrity", "bypassing partition check for keychain migrator");
+        return;   // migrator client -> automatic win
+    }
+
+	if (CFRef<CFDictionaryRef> partition = this->createPartitionPayload()) {
+		CFArrayRef partitionList;
+		if (cfscan(partition, "{Partitions=%AO}", &partitionList)) {
+			CFRef<CFStringRef> partitionDebug = CFCopyDescription(partitionList);	// for debugging only
+			secdebugfunc("integrity", "ACL partitionID = %s", cfString(partitionDebug).c_str());
+			if (env.database) {
+				CFRef<CFStringRef> clientPartitionID = makeCFString(env.database->process().partitionId());
+				if (CFArrayContainsValue(partitionList, CFRangeMake(0, CFArrayGetCount(partitionList)), clientPartitionID)) {
+					secdebugfunc("integrity", "ACL partitions match: %s", cfString(clientPartitionID).c_str());
+					return;
+				} else {
+					secdebugfunc("integrity", "ACL partition mismatch: client %s ACL %s", cfString(clientPartitionID).c_str(), cfString(partitionDebug).c_str());
+					if (prompt && extendPartition(env))
+						return;
+					MacOSError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
+				}
+			}
+		}
+		secdebugfunc("integrity", "failed to parse partition payload");
+		MacOSError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
+    } else {
+        // There's no partition list. This is keychain is either old or recently upgraded.
+        // If there's no database, let it pass.
+        if((!env.database) || env.database->dbVersion() < SecurityServer::CommonBlob::version_partition) {
+            secdebugfunc("integrity", "no partition ACL - legacy case");
+            //@@@ I guess we let this pass...
+        } else {
+            secdebugfunc("integrity", "no partition ACL - adding");
+            env.acl.instantiateAcl();
+            this->createClientPartitionID(env.database->process());
+            env.acl.changedAcl();
+            Server::connection().overrideReturn(CSSMERR_CSP_APPLE_ADD_APPLICATION_ACL_SUBJECT);
+        }
+    }
+}
+
+
+bool SecurityServerAcl::extendPartition(SecurityServerEnvironment& env)
+{
+	// brute-force find the KeychainAclSubject in the ACL
+	KeychainPromptAclSubject *kcSubject = NULL;
+	SecurityServerAcl& acl = env.acl;
+	for (EntryMap::const_iterator it = acl.begin(); it != acl.end(); ++it) {
+		AclSubjectPointer subject = it->second.subject;
+		if (ThresholdAclSubject *threshold = dynamic_cast<ThresholdAclSubject *>(subject.get())) {
+			unsigned size = threshold->count();
+			if (KeychainPromptAclSubject* last = dynamic_cast<KeychainPromptAclSubject *>(threshold->subject(size-1))) {
+				// looks standard enough
+				kcSubject = last;
+				break;
+			}
+		}
+	}
+	
+	if (kcSubject) {
+		BaseValidationContext ctx(NULL, CSSM_ACL_AUTHORIZATION_PARTITION_ID, &env);
+		return kcSubject->validateExplicitly(ctx, ^{
+            secdebugfunc("integrity", "adding partition to list");
+            env.acl.instantiateAcl();
+			this->addClientPartitionID(env.database->process());
+			env.acl.changedAcl();
+			// trigger a special notification code on (otherwise successful) return
+			Server::connection().overrideReturn(CSSMERR_CSP_APPLE_ADD_APPLICATION_ACL_SUBJECT);
+		});
+	}
+    secdebugfunc("integrity", "failure extending partition");
+	return false;
+}
+
+
+PartitionAclSubject* SecurityServerAcl::findPartitionSubject()
+{
+	pair<EntryMap::const_iterator, EntryMap::const_iterator> range;
+	switch (this->getRange(CSSM_APPLE_ACL_TAG_PARTITION_ID, range, true)) {
+		case 0:
+			secdebugfunc("integrity", "no partition tag on ACL");
+			return NULL;
+		default:
+			secdebugfunc("integrity", "multiple partition ACL entries");
+			MacOSError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
+		case 1:
+			break;
+	}
+	const AclEntry& entry = range.first->second;
+	if (!entry.authorizes(CSSM_ACL_AUTHORIZATION_PARTITION_ID)) {
+		secdebugfunc("integrity", "partition entry does not authorize CSSM_ACL_AUTHORIZATION_PARTITION_ID");
+		MacOSError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
+	}
+	if (PartitionAclSubject* partition = dynamic_cast<PartitionAclSubject*>(entry.subject.get())) {
+		return partition;
+	} else {
+		secdebugfunc("integrity", "partition entry is not PartitionAclSubject");
+		MacOSError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
+	}
+}
+
+
+CFDictionaryRef SecurityServerAcl::createPartitionPayload()
+{
+	if (PartitionAclSubject* subject = this->findPartitionSubject()) {
+		if (CFDictionaryRef result = subject->createDictionaryPayload()) {
+			return result;
+		} else {
+			secdebugfunc("integrity", "partition entry is malformed XML");
+			MacOSError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
+		}
+	} else {
+		return NULL;
+	}
 }
 
 
@@ -184,6 +349,47 @@ bool SecurityServerAcl::looksLikeLegacyDotMac(const AclValidationContext &contex
 		}
 	}
 	return false;
+}
+
+
+//
+// ACL manipulations related to keychain partitions
+//
+bool SecurityServerAcl::createClientPartitionID(Process& process)
+{
+    // Make sure the ACL is ready for edits
+    instantiateAcl();
+
+	// create partition payload
+	std::string partitionID = process.partitionId();
+	CFTemp<CFDictionaryRef> payload("{Partitions=[%s]}", partitionID.c_str());
+	ObjectAcl::AclSubjectPointer subject = new PartitionAclSubject();
+	static_cast<PartitionAclSubject*>(subject.get())->setDictionaryPayload(Allocator::standard(), payload);
+	ObjectAcl::AclEntry partition(subject);
+	partition.addAuthorization(CSSM_ACL_AUTHORIZATION_PARTITION_ID);
+	this->add(CSSM_APPLE_ACL_TAG_PARTITION_ID, partition);
+	secdebugfunc("integrity", "added partition %s to new key", partitionID.c_str());
+	return true;
+}
+
+
+bool SecurityServerAcl::addClientPartitionID(Process& process)
+{
+	if (PartitionAclSubject* subject = this->findPartitionSubject()) {
+		std::string partitionID = process.partitionId();
+		if (CFRef<CFDictionaryRef> payload = subject->createDictionaryPayload()) {
+			CFArrayRef partitionList;
+			if (cfscan(payload, "{Partitions=%AO}", &partitionList)) {
+				CFTemp<CFDictionaryRef> newPayload("{Partitions=[+%O,%s]}", partitionList, partitionID.c_str());
+				subject->setDictionaryPayload(Allocator::standard(), newPayload);
+			}
+			return true;
+		} else {
+			MacOSError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
+		}
+	} else {
+		return createClientPartitionID(process);
+	}
 }
 
 

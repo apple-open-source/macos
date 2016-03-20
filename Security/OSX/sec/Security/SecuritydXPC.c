@@ -67,6 +67,7 @@ const char *kSecXPCKeyDisabledViewsKey = "disabledViews";
 const char *kSecXPCKeyEscrowLabel = "escrow";
 const char *kSecXPCKeyTriesLabel = "tries";
 const char *kSecXPCKeyAvailability = "availability";
+const char *kSecXPCKeyFileDescriptor = "fileDescriptor";
 
 
 //
@@ -241,6 +242,20 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("SetEscrowRecord");
         case kSecXPCOpGetEscrowRecord:
             return CFSTR("GetEscrowRecord");
+        case kSecXPCOpWhoAmI:
+            return CFSTR("WhoAmI");
+        case kSecXPCOpTransmogrifyToSyncBubble:
+            return CFSTR("TransmogrifyToSyncBubble");
+        case kSecXPCOpWrapToBackupSliceKeyBagForView:
+            return CFSTR("WrapToBackupSliceKeyBagForView");
+        case kSecXPCOpCopyAccountData:
+            return CFSTR("CopyAccountDataFromKeychain");
+        case kSecXPCOpDeleteAccountData:
+            return CFSTR("DeleteAccountDataFromKeychain");
+        case kSecXPCOpCopyEngineData:
+            return CFSTR("CopyEngineDataFromKeychain");
+        case kSecXPCOpDeleteEngineData:
+            return CFSTR("DeleteEngineDataFromKeychain");
         default:
             return CFSTR("Unknown xpc operation");
     }
@@ -278,6 +293,12 @@ bool SecXPCDictionarySetData(xpc_object_t message, const char *key, CFDataRef da
         return SecError(errSecParam, error, CFSTR("data for key %s is NULL"), key);
 
     xpc_dictionary_set_data(message, key, CFDataGetBytePtr(data), CFDataGetLength(data));
+    return true;
+}
+
+bool SecXPCDictionarySetBool(xpc_object_t message, const char *key, bool value, CFErrorRef *error)
+{
+    xpc_dictionary_set_bool(message, key, value);
     return true;
 }
 
@@ -359,6 +380,10 @@ CFDataRef SecXPCDictionaryCopyData(xpc_object_t message, const char *key, CFErro
         SecError(errSecParam, error, CFSTR("failed to create data for key %s"), key);
 
     return data;
+}
+
+bool SecXPCDictionaryGetBool(xpc_object_t message, const char *key, CFErrorRef *__unused error) {
+    return xpc_dictionary_get_bool(message, key);
 }
 
 bool SecXPCDictionaryCopyDataOptional(xpc_object_t message, const char *key, CFDataRef *pdata, CFErrorRef *error) {

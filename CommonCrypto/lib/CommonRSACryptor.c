@@ -409,7 +409,7 @@ CCRSACryptorCreatePairFromData(uint32_t e,
     __Require_Action(ccn_read_uint(ccn_nof_size(xq2Length), x_q2, xq2Length, xq2) == 0, errOut, retval = kCCParamError);
     __Require_Action(ccn_read_uint(ccn_nof_size(xqLength), x_q, xqLength, xq) == 0, errOut, retval = kCCParamError);
     
-	__Require_Action(ccrsa_make_931_key(nbits, 1, e_value, 
+	__Require_Action(ccrsa_make_fips186_key(nbits, 1, e_value,
                                         ccn_nof_size(xp1Length), x_p1, ccn_nof_size(xp2Length), x_p2, ccn_nof_size(xpLength), x_p,
                                         ccn_nof_size(xq1Length), x_q1, ccn_nof_size(xq2Length), x_q2, ccn_nof_size(xqLength), x_q,
                                         privateCryptor->fk,

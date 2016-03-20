@@ -40,6 +40,7 @@
 #import <float.h>
 #import <unicode/uchar.h>
 #import <wtf/Assertions.h>
+#import <wtf/NeverDestroyed.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/StdLibExtras.h>
 
@@ -314,8 +315,308 @@ void Font::platformDestroy()
 {
 }
 
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000)
+bool Font::variantCapsSupportsCharacterForSynthesis(FontVariantCaps fontVariantCaps, UChar32 character) const
+{
+#if (PLATFORM(IOS) && TARGET_OS_IOS && __IPHONE_OS_VERSION_MIN_REQUIRED >= 90300) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100 && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101104)
+    Glyph glyph = glyphForCharacter(character);
+    if (!glyph)
+        return false;
+
+    switch (fontVariantCaps) {
+    case FontVariantCaps::Small: {
+        auto& supported = glyphsSupportedBySmallCaps();
+        return supported.size() > glyph && supported.get(glyph);
+    }
+    case FontVariantCaps::Petite: {
+        auto& supported = glyphsSupportedByPetiteCaps();
+        return supported.size() > glyph && supported.get(glyph);
+    }
+    case FontVariantCaps::AllSmall: {
+        auto& supported = glyphsSupportedByAllSmallCaps();
+        return supported.size() > glyph && supported.get(glyph);
+    }
+    case FontVariantCaps::AllPetite: {
+        auto& supported = glyphsSupportedByAllPetiteCaps();
+        return supported.size() > glyph && supported.get(glyph);
+    }
+    default:
+        // Synthesis only supports the variant-caps values listed above.
+        return true;
+    }
+#else
+    UNUSED_PARAM(character);
+
+    switch (fontVariantCaps) {
+    case FontVariantCaps::Small:
+    case FontVariantCaps::Petite:
+    case FontVariantCaps::AllSmall:
+    case FontVariantCaps::AllPetite:
+        return false;
+    default:
+        // Synthesis only supports the variant-caps values listed above.
+        return true;
+    }
+#endif
+}
+
+#if (PLATFORM(IOS) && TARGET_OS_IOS && __IPHONE_OS_VERSION_MIN_REQUIRED >= 90300) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100 && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101104)
+static RetainPtr<CFDictionaryRef> smallCapsOpenTypeDictionary(CFStringRef key, int rawValue)
+{
+    RetainPtr<CFNumberRef> value = adoptCF(CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &rawValue));
+    CFTypeRef keys[] = { kCTFontOpenTypeFeatureTag, kCTFontOpenTypeFeatureValue };
+    CFTypeRef values[] = { key, value.get() };
+    return adoptCF(CFDictionaryCreate(kCFAllocatorDefault, keys, values, WTF_ARRAY_LENGTH(keys), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+}
+
+static RetainPtr<CFDictionaryRef> smallCapsTrueTypeDictionary(int rawKey, int rawValue)
+{
+    RetainPtr<CFNumberRef> key = adoptCF(CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &rawKey));
+    RetainPtr<CFNumberRef> value = adoptCF(CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &rawValue));
+    CFTypeRef keys[] = { kCTFontFeatureTypeIdentifierKey, kCTFontFeatureSelectorIdentifierKey };
+    CFTypeRef values[] = { key.get(), value.get() };
+    return adoptCF(CFDictionaryCreate(kCFAllocatorDefault, keys, values, WTF_ARRAY_LENGTH(keys), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+}
+
+static void unionBitVectors(BitVector& result, CFBitVectorRef source)
+{
+    CFIndex length = CFBitVectorGetCount(source);
+    result.ensureSize(length);
+    CFIndex min = 0;
+    while (min < length) {
+        CFIndex nextIndex = CFBitVectorGetFirstIndexOfBit(source, CFRangeMake(min, length - min), 1);
+        if (nextIndex == kCFNotFound)
+            break;
+        result.set(nextIndex, true);
+        min = nextIndex + 1;
+    }
+}
+
+static void injectOpenTypeCoverage(CFStringRef feature, CTFontRef font, BitVector& result)
+{
+    RetainPtr<CFBitVectorRef> source = adoptCF(CTFontCopyGlyphCoverageForFeature(font, smallCapsOpenTypeDictionary(feature, 1).get()));
+    unionBitVectors(result, source.get());
+}
+
+static void injectTrueTypeCoverage(int type, int selector, CTFontRef font, BitVector& result)
+{
+    RetainPtr<CFBitVectorRef> source = adoptCF(CTFontCopyGlyphCoverageForFeature(font, smallCapsTrueTypeDictionary(type, selector).get()));
+    unionBitVectors(result, source.get());
+}
+
+const BitVector& Font::glyphsSupportedBySmallCaps() const
+{
+    if (!m_glyphsSupportedBySmallCaps) {
+        m_glyphsSupportedBySmallCaps = BitVector();
+        injectOpenTypeCoverage(CFSTR("smcp"), platformData().font(), m_glyphsSupportedBySmallCaps.value());
+        injectTrueTypeCoverage(kLowerCaseType, kLowerCaseSmallCapsSelector, platformData().font(), m_glyphsSupportedBySmallCaps.value());
+    }
+    return m_glyphsSupportedBySmallCaps.value();
+}
+
+const BitVector& Font::glyphsSupportedByAllSmallCaps() const
+{
+    if (!m_glyphsSupportedByAllSmallCaps) {
+        m_glyphsSupportedByAllSmallCaps = BitVector();
+        injectOpenTypeCoverage(CFSTR("smcp"), platformData().font(), m_glyphsSupportedByAllSmallCaps.value());
+        injectOpenTypeCoverage(CFSTR("c2sc"), platformData().font(), m_glyphsSupportedByAllSmallCaps.value());
+        injectTrueTypeCoverage(kLowerCaseType, kLowerCaseSmallCapsSelector, platformData().font(), m_glyphsSupportedByAllSmallCaps.value());
+        injectTrueTypeCoverage(kUpperCaseType, kUpperCaseSmallCapsSelector, platformData().font(), m_glyphsSupportedByAllSmallCaps.value());
+    }
+    return m_glyphsSupportedByAllSmallCaps.value();
+}
+
+const BitVector& Font::glyphsSupportedByPetiteCaps() const
+{
+    if (!m_glyphsSupportedByPetiteCaps) {
+        m_glyphsSupportedByPetiteCaps = BitVector();
+        injectOpenTypeCoverage(CFSTR("pcap"), platformData().font(), m_glyphsSupportedByPetiteCaps.value());
+        injectTrueTypeCoverage(kLowerCaseType, kLowerCasePetiteCapsSelector, platformData().font(), m_glyphsSupportedByPetiteCaps.value());
+    }
+    return m_glyphsSupportedByPetiteCaps.value();
+}
+
+const BitVector& Font::glyphsSupportedByAllPetiteCaps() const
+{
+    if (!m_glyphsSupportedByAllPetiteCaps) {
+        m_glyphsSupportedByAllPetiteCaps = BitVector();
+        injectOpenTypeCoverage(CFSTR("pcap"), platformData().font(), m_glyphsSupportedByAllPetiteCaps.value());
+        injectOpenTypeCoverage(CFSTR("c2pc"), platformData().font(), m_glyphsSupportedByAllPetiteCaps.value());
+        injectTrueTypeCoverage(kLowerCaseType, kLowerCasePetiteCapsSelector, platformData().font(), m_glyphsSupportedByAllPetiteCaps.value());
+        injectTrueTypeCoverage(kUpperCaseType, kUpperCasePetiteCapsSelector, platformData().font(), m_glyphsSupportedByAllPetiteCaps.value());
+    }
+    return m_glyphsSupportedByAllPetiteCaps.value();
+}
+#endif
+
+static RefPtr<Font> createDerivativeFont(CTFontRef font, float size, FontOrientation orientation, CTFontSymbolicTraits fontTraits, bool syntheticBold, bool syntheticItalic)
+{
+    if (!font)
+        return nullptr;
+
+    FontPlatformData scaledFontData(font, size, false, false, orientation);
+
+    if (syntheticBold)
+        fontTraits |= kCTFontBoldTrait;
+    if (syntheticItalic)
+        fontTraits |= kCTFontItalicTrait;
+
+    CTFontSymbolicTraits scaledFontTraits = CTFontGetSymbolicTraits(scaledFontData.font());
+    scaledFontData.m_syntheticBold = (fontTraits & kCTFontBoldTrait) && !(scaledFontTraits & kCTFontTraitBold);
+    scaledFontData.m_syntheticOblique = (fontTraits & kCTFontItalicTrait) && !(scaledFontTraits & kCTFontTraitItalic);
+
+    return Font::create(scaledFontData);
+}
+
+static inline bool isOpenTypeFeature(CFDictionaryRef feature)
+{
+    return CFDictionaryContainsKey(feature, kCTFontOpenTypeFeatureTag) && CFDictionaryContainsKey(feature, kCTFontOpenTypeFeatureValue);
+}
+
+static inline bool isTrueTypeFeature(CFDictionaryRef feature)
+{
+    return CFDictionaryContainsKey(feature, kCTFontFeatureTypeIdentifierKey) && CFDictionaryContainsKey(feature, kCTFontFeatureSelectorIdentifierKey);
+}
+
+static inline Optional<CFStringRef> openTypeFeature(CFDictionaryRef feature)
+{
+    ASSERT(isOpenTypeFeature(feature));
+    CFStringRef tag = static_cast<CFStringRef>(CFDictionaryGetValue(feature, kCTFontOpenTypeFeatureTag));
+    int rawValue;
+    CFNumberRef value = static_cast<CFNumberRef>(CFDictionaryGetValue(feature, kCTFontOpenTypeFeatureValue));
+    auto success = CFNumberGetValue(value, kCFNumberIntType, &rawValue);
+    ASSERT_UNUSED(success, success);
+    return rawValue ? Optional<CFStringRef>(tag) : Nullopt;
+}
+
+static inline std::pair<int, int> trueTypeFeature(CFDictionaryRef feature)
+{
+    ASSERT(isTrueTypeFeature(feature));
+    int rawType;
+    CFNumberRef type = static_cast<CFNumberRef>(CFDictionaryGetValue(feature, kCTFontFeatureTypeIdentifierKey));
+    auto success = CFNumberGetValue(type, kCFNumberIntType, &rawType);
+    ASSERT_UNUSED(success, success);
+    int rawSelector;
+    CFNumberRef selector = static_cast<CFNumberRef>(CFDictionaryGetValue(feature, kCTFontFeatureSelectorIdentifierKey));
+    success = CFNumberGetValue(selector, kCFNumberIntType, &rawSelector);
+    ASSERT_UNUSED(success, success);
+    return std::make_pair(rawType, rawSelector);
+}
+
+static inline CFNumberRef defaultSelectorForTrueTypeFeature(int key, CTFontRef font)
+{
+    RetainPtr<CFArrayRef> features = adoptCF(CTFontCopyFeatures(font));
+    CFIndex featureCount = CFArrayGetCount(features.get());
+    for (CFIndex i = 0; i < featureCount; ++i) {
+        CFDictionaryRef featureType = static_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(features.get(), i));
+        CFNumberRef featureKey = static_cast<CFNumberRef>(CFDictionaryGetValue(featureType, kCTFontFeatureTypeIdentifierKey));
+        if (!featureKey)
+            continue;
+        int rawFeatureKey;
+        CFNumberGetValue(featureKey, kCFNumberIntType, &rawFeatureKey);
+        if (rawFeatureKey != key)
+            continue;
+
+        CFArrayRef featureSelectors = static_cast<CFArrayRef>(CFDictionaryGetValue(featureType, kCTFontFeatureTypeSelectorsKey));
+        if (!featureSelectors)
+            continue;
+        CFIndex selectorsCount = CFArrayGetCount(featureSelectors);
+        for (CFIndex j = 0; j < selectorsCount; ++j) {
+            CFDictionaryRef featureSelector = static_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(featureSelectors, j));
+            CFNumberRef isDefault = static_cast<CFNumberRef>(CFDictionaryGetValue(featureSelector, kCTFontFeatureSelectorDefaultKey));
+            if (!isDefault)
+                continue;
+            int rawIsDefault;
+            CFNumberGetValue(isDefault, kCFNumberIntType, &rawIsDefault);
+            if (!rawIsDefault)
+                continue;
+            return static_cast<CFNumberRef>(CFDictionaryGetValue(featureSelector, kCTFontFeatureSelectorIdentifierKey));
+        }
+    }
+    return nullptr;
+}
+
+static inline RetainPtr<CFDictionaryRef> removedFeature(CFDictionaryRef feature, CTFontRef font)
+{
+    bool isOpenType = isOpenTypeFeature(feature);
+    bool isTrueType = isTrueTypeFeature(feature);
+    if (!isOpenType && !isTrueType)
+        return feature; // We don't understand this font format.
+    RetainPtr<CFMutableDictionaryRef> result = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+    if (isOpenType) {
+        auto featureTag = openTypeFeature(feature);
+        if (featureTag && (CFEqual(featureTag.value(), CFSTR("smcp"))
+            || CFEqual(featureTag.value(), CFSTR("c2sc"))
+            || CFEqual(featureTag.value(), CFSTR("pcap"))
+            || CFEqual(featureTag.value(), CFSTR("c2pc")))) {
+            int rawZero = 0;
+            RetainPtr<CFNumberRef> zero = adoptCF(CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &rawZero));
+            CFDictionaryAddValue(result.get(), kCTFontOpenTypeFeatureTag, featureTag.value());
+            CFDictionaryAddValue(result.get(), kCTFontOpenTypeFeatureValue, zero.get());
+        } else {
+            CFDictionaryAddValue(result.get(), kCTFontOpenTypeFeatureTag, CFDictionaryGetValue(feature, kCTFontOpenTypeFeatureTag));
+            CFDictionaryAddValue(result.get(), kCTFontOpenTypeFeatureValue, CFDictionaryGetValue(feature, kCTFontOpenTypeFeatureValue));
+        }
+    }
+    if (isTrueType) {
+        auto trueTypeFeaturePair = trueTypeFeature(feature);
+        if (trueTypeFeaturePair.first == kLowerCaseType && (trueTypeFeaturePair.second == kLowerCaseSmallCapsSelector || trueTypeFeaturePair.second == kLowerCasePetiteCapsSelector)) {
+            CFDictionaryAddValue(result.get(), kCTFontFeatureTypeIdentifierKey, CFDictionaryGetValue(feature, kCTFontFeatureTypeIdentifierKey));
+            if (CFNumberRef defaultSelector = defaultSelectorForTrueTypeFeature(kLowerCaseType, font))
+                CFDictionaryAddValue(result.get(), kCTFontFeatureSelectorIdentifierKey, defaultSelector);
+            else
+                CFDictionaryAddValue(result.get(), kCTFontFeatureSelectorIdentifierKey, CFDictionaryGetValue(feature, kCTFontFeatureSelectorIdentifierKey));
+        } else if (trueTypeFeaturePair.first == kUpperCaseType && (trueTypeFeaturePair.second == kUpperCaseSmallCapsSelector || trueTypeFeaturePair.second == kUpperCasePetiteCapsSelector)) {
+            CFDictionaryAddValue(result.get(), kCTFontFeatureTypeIdentifierKey, CFDictionaryGetValue(feature, kCTFontFeatureTypeIdentifierKey));
+            if (CFNumberRef defaultSelector = defaultSelectorForTrueTypeFeature(kUpperCaseType, font))
+                CFDictionaryAddValue(result.get(), kCTFontFeatureSelectorIdentifierKey, defaultSelector);
+            else
+                CFDictionaryAddValue(result.get(), kCTFontFeatureSelectorIdentifierKey, CFDictionaryGetValue(feature, kCTFontFeatureSelectorIdentifierKey));
+        } else {
+            CFDictionaryAddValue(result.get(), kCTFontFeatureTypeIdentifierKey, CFDictionaryGetValue(feature, kCTFontFeatureTypeIdentifierKey));
+            CFDictionaryAddValue(result.get(), kCTFontFeatureSelectorIdentifierKey, CFDictionaryGetValue(feature, kCTFontFeatureSelectorIdentifierKey));
+        }
+    }
+    return result;
+}
+
+static RetainPtr<CTFontRef> createCTFontWithoutSynthesizableFeatures(CTFontRef font)
+{
+    RetainPtr<CFArrayRef> features = adoptCF(static_cast<CFArrayRef>(CTFontCopyAttribute(font, kCTFontFeatureSettingsAttribute)));
+    if (!features)
+        return font;
+    CFIndex featureCount = CFArrayGetCount(features.get());
+    RetainPtr<CFMutableArrayRef> newFeatures = adoptCF(CFArrayCreateMutable(kCFAllocatorDefault, featureCount, &kCFTypeArrayCallBacks));
+    for (CFIndex i = 0; i < featureCount; ++i) {
+        CFDictionaryRef feature = static_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(features.get(), i));
+        CFArrayAppendValue(newFeatures.get(), removedFeature(feature, font).get());
+    }
+    CFTypeRef keys[] = { kCTFontFeatureSettingsAttribute };
+    CFTypeRef values[] = { newFeatures.get() };
+    RetainPtr<CFDictionaryRef> attributes = adoptCF(CFDictionaryCreate(kCFAllocatorDefault, keys, values, WTF_ARRAY_LENGTH(keys), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+    RetainPtr<CTFontDescriptorRef> newDescriptor = adoptCF(CTFontDescriptorCreateWithAttributes(attributes.get()));
+    return adoptCF(CTFontCreateCopyWithAttributes(font, CTFontGetSize(font), nullptr, newDescriptor.get()));
+}
+
+RefPtr<Font> Font::createFontWithoutSynthesizableFeatures() const
+{
+    float size = m_platformData.size();
+    CTFontSymbolicTraits fontTraits = CTFontGetSymbolicTraits(m_platformData.font());
+    RetainPtr<CTFontRef> ctFont = createCTFontWithoutSynthesizableFeatures(m_platformData.font());
+    return createDerivativeFont(ctFont.get(), size, m_platformData.orientation(), fontTraits, m_platformData.m_syntheticBold, m_platformData.m_syntheticOblique);
+}
+#endif
+
 PassRefPtr<Font> Font::platformCreateScaledFont(const FontDescription&, float scaleFactor) const
 {
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000)
+    float size = m_platformData.size() * scaleFactor;
+    CTFontSymbolicTraits fontTraits = CTFontGetSymbolicTraits(m_platformData.font());
+    RetainPtr<CTFontDescriptorRef> fontDescriptor = adoptCF(CTFontCopyFontDescriptor(m_platformData.font()));
+    RetainPtr<CTFontRef> scaledFont = adoptCF(CTFontCreateWithFontDescriptor(fontDescriptor.get(), size, nullptr));
+
+    return createDerivativeFont(scaledFont.get(), size, m_platformData.orientation(), fontTraits, m_platformData.m_syntheticBold, m_platformData.m_syntheticOblique);
+#else
 #if !CORETEXT_WEB_FONTS
     if (isCustomFont()) {
         FontPlatformData scaledFontData(m_platformData);
@@ -369,6 +670,7 @@ PassRefPtr<Font> Font::platformCreateScaledFont(const FontDescription&, float sc
     }
 
     return nullptr;
+#endif
 #endif
 }
 
@@ -525,7 +827,7 @@ bool Font::canRenderCombiningCharacterSequence(const UChar* characters, size_t l
 
     RetainPtr<CFTypeRef> fontEqualityObject = platformData().objectForEqualityCheck();
 
-    ProviderInfo info = { characters, length, getCFStringAttributes(0, platformData().orientation()) };
+    ProviderInfo info = { characters, length, getCFStringAttributes(false, platformData().orientation()) };
     RetainPtr<CTLineRef> line = adoptCF(CTLineCreateWithUniCharProvider(&provideStringAndAttributes, 0, &info));
 
     CFArrayRef runArray = CTLineGetGlyphRuns(line.get());

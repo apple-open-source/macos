@@ -281,8 +281,10 @@ WebInspector.TreeOutline = class TreeOutline extends WebInspector.Object
 
     _forgetTreeElement(element)
     {
-        if (this.selectedTreeElement === element)
+        if (this.selectedTreeElement === element) {
+            element.deselect(true)
             this.selectedTreeElement = null;
+        }
         if (this._knownTreeElements[element.identifier])
             this._knownTreeElements[element.identifier].remove(element, true);
     }
@@ -504,6 +506,19 @@ WebInspector.TreeOutline = class TreeOutline extends WebInspector.Object
     {
         // this is the root, do nothing
     }
+
+    get selectedTreeElementIndex()
+    {
+        if (!this.hasChildren || !this.selectedTreeElement)
+            return;
+
+        for (var i = 0; i < this.children.length; ++i) {
+            if (this.children[i] === this.selectedTreeElement)
+                return i;
+        }
+
+        return false;
+    }
 };
 
 WebInspector.TreeOutline._knownTreeElementNextIdentifier = 1;
@@ -607,7 +622,6 @@ WebInspector.TreeElement = class TreeElement extends WebInspector.Object
         this._tooltip = x;
         if (this._listItemNode)
             this._listItemNode.title = x ? x : "";
-        this.didChange();
     }
 
     get hasChildren()
@@ -677,7 +691,7 @@ WebInspector.TreeElement = class TreeElement extends WebInspector.Object
 
     _fireDidChange()
     {
-        delete this._didChangeTimeoutIdentifier;
+        this._didChangeTimeoutIdentifier = undefined;
 
         if (this.treeOutline)
             this.treeOutline._treeElementDidChange(this);
@@ -877,7 +891,7 @@ WebInspector.TreeElement = class TreeElement extends WebInspector.Object
             for (var i = 0; i < this.children.length; ++i)
                 this.children[i]._attach();
 
-            delete this._shouldRefreshChildren;
+            this._shouldRefreshChildren = false;
         }
 
         if (this._listItemNode) {

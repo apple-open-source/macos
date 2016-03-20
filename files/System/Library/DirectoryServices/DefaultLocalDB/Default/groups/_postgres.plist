@@ -15,6 +15,7 @@
 		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA000000DC</string>
 		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA0000005D</string>
 		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA0000005E</string>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA000000FB</string>
 	</array>
 	<key>name</key>
 	<array>
@@ -33,6 +34,7 @@
 		<string>_devicemgr</string>
 		<string>_calendar</string>
 		<string>_teamsserver</string>
+		<string>_xserverdocs</string>
 	</array>
 </dict>
 </plist>

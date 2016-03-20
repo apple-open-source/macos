@@ -30,6 +30,9 @@
 #include <Security/SecCertificatePriv.h>
 #include <security_utilities/memutils.h>
 #include <security_utilities/logging.h>
+#include <sys/csr.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/IOCFUnserialize.h>
 #include "csutilities.h"
 
 namespace Security {
@@ -303,23 +306,91 @@ bool Requirement::Interpreter::certFieldPolicy(const CssmOid &oid, const Match &
 bool Requirement::Interpreter::appleAnchored()
 {
 	if (SecCertificateRef cert = mContext->cert(anchorCert))
-		if (isAppleCA(cert)
-#if defined(TEST_APPLE_ANCHOR)
-			|| verifyAnchor(cert, testAppleAnchorHash())
-#endif
-		)
+		if (isAppleCA(cert))
 		return true;
 	return false;
 }
 
+static CFStringRef kAMFINVRAMTrustedKeys = CFSTR("AMFITrustedKeys");
+
+CFArrayRef Requirement::Interpreter::getAdditionalTrustedAnchors()
+{
+    __block CFRef<CFMutableArrayRef> keys = makeCFMutableArray(0);
+
+    try {
+        io_registry_entry_t entry = IORegistryEntryFromPath(kIOMasterPortDefault, "IODeviceTree:/options");
+        if (entry == IO_OBJECT_NULL)
+            return NULL;
+
+        CFRef<CFDataRef> configData = (CFDataRef)IORegistryEntryCreateCFProperty(entry, kAMFINVRAMTrustedKeys, kCFAllocatorDefault, 0);
+        IOObjectRelease(entry);
+        if (!configData)
+            return NULL;
+
+        CFRef<CFDictionaryRef> configDict = CFDictionaryRef(IOCFUnserialize((const char *)CFDataGetBytePtr(configData), kCFAllocatorDefault, 0, NULL));
+        if (!configDict)
+            return NULL;
+
+        CFArrayRef trustedKeys = CFArrayRef(CFDictionaryGetValue(configDict, CFSTR("trustedKeys")));
+        if (!trustedKeys && CFGetTypeID(trustedKeys) != CFArrayGetTypeID())
+            return NULL;
+
+        cfArrayApplyBlock(trustedKeys, ^(const void *value) {
+            CFDictionaryRef key = CFDictionaryRef(value);
+            if (!key && CFGetTypeID(key) != CFDictionaryGetTypeID())
+                return;
+
+            CFDataRef hash = CFDataRef(CFDictionaryGetValue(key, CFSTR("certDigest")));
+            if (!hash && CFGetTypeID(hash) != CFDataGetTypeID())
+                return;
+            CFArrayAppendValue(keys, hash);
+        });
+
+    } catch (...) {
+    }
+
+    if (CFArrayGetCount(keys) == 0)
+        return NULL;
+
+    return keys.yield();
+}
+
+bool Requirement::Interpreter::appleLocalAnchored()
+{
+    static CFArrayRef additionalTrustedCertificates = NULL;
+
+    if (csr_check(CSR_ALLOW_APPLE_INTERNAL))
+        return false;
+
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        additionalTrustedCertificates = getAdditionalTrustedAnchors();
+    });
+
+    if (additionalTrustedCertificates == NULL)
+        return false;
+
+    CFRef<CFDataRef> hash = SecCertificateCopySHA256Digest(mContext->cert(leafCert));
+    if (!hash)
+        return false;
+
+    if (CFArrayContainsValue(additionalTrustedCertificates, CFRangeMake(0, CFArrayGetCount(additionalTrustedCertificates)), hash))
+        return true;
+
+    return false;
+}
+
 bool Requirement::Interpreter::appleSigned()
 {
-	if (appleAnchored())
+    if (appleAnchored()) {
 		if (SecCertificateRef intermed = mContext->cert(-2))	// first intermediate
 			// first intermediate common name match (exact)
 			if (certFieldValue("subject.CN", Match(appleIntermediateCN, matchEqual), intermed)
 					&& certFieldValue("subject.O", Match(appleIntermediateO, matchEqual), intermed))
 				return true;
+    } else if (appleLocalAnchored()) {
+        return true;
+    }
 	return false;
 }
 

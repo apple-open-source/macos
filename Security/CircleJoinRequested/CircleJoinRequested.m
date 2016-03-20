@@ -422,9 +422,11 @@ static void postApplicationReminderAlert(NSDate *nowish, PersistentState *state,
 
 	if (CPIsInternalDevice() &&
 		state.defaultPendingApplicationReminderAlertInterval != state.pendingApplicationReminderAlertInterval) {
+#if !defined(NDEBUG)
 		body = [body stringByAppendingFormat: @"〖debug interval %u; wait time %@〗",
 					state.pendingApplicationReminderAlertInterval,
 					[nowish copyDescriptionOfIntervalSince:state.applicationDate]];
+#endif
     }
 
     NSDictionary *pendingAttributes = @{

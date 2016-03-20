@@ -65,12 +65,6 @@ static inline bool retire_me(piStuff *pi, size_t seconds) {
     return SOSPeerInfoRetireRetirementTicket(seconds, pi->resignation_ticket);
 }
 
-// Copied from SOSPeerInfo.c
-static CFStringRef sFlatticket = CFSTR("flatticket");
-static CFStringRef sSignature = CFSTR("RetirementPsig");
-static CFStringRef sPeerid = CFSTR("peerid");
-
-
 static inline bool chkBasicTicket(piStuff *pi) {
     return CFEqual(SOSPeerInfoInspectRetirementTicket(pi->resignation_ticket, NULL), SOSPeerInfoGetPeerID(pi->pi));
 }

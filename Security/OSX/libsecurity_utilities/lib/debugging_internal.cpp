@@ -45,3 +45,23 @@ void secdebug_internal(const char* scope, const char* format, ...)
         va_end(list);
     }
 }
+
+void secdebugfunc_internal(const char* scope, const char* functionname, const char* format, ...)
+{
+    if (__builtin_expect(SECURITY_DEBUG_LOG_ENABLED(), 0))
+    {
+        va_list list;
+        va_start(list, format);
+
+        CFStringRef formatString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s: %s"), functionname, format);
+        CFStringRef message = CFStringCreateWithFormatAndArguments(kCFAllocatorDefault, NULL, formatString, list);
+        CFRelease(formatString);
+        CFIndex maxLength = CFStringGetMaximumSizeForEncoding(CFStringGetLength(message), kCFStringEncodingUTF8) + 1;
+        char buffer[maxLength];
+        CFStringGetCString(message, buffer, sizeof(buffer), kCFStringEncodingUTF8);
+        CFRelease(message);
+        SECURITY_DEBUG_LOG((char *)(scope), (buffer));
+
+        va_end(list);
+    }
+}

@@ -198,6 +198,7 @@ isakmp_info_recv(phase1_handle_t *iph1, vchar_t *msg0)
 	u_int8_t np;
 	int encrypted;
 	int flag = 0;
+	int disconnect = 0;
 
 	plog(ASL_LEVEL_DEBUG, "receive Information.\n");
 
@@ -348,6 +349,7 @@ isakmp_info_recv(phase1_handle_t *iph1, vchar_t *msg0)
                  (iph1->side == RESPONDER && iph1->status == IKEV1_STATE_AGG_R_MSG3RCVD))) {
                     break;
                 }
+			/*FALLTHRU*/
 		case ISAKMP_ETYPE_IDENT:
             if (!FSM_STATE_IS_ESTABLISHED(iph1->status) &&
                 ((iph1->side == INITIATOR && (iph1->status == IKEV1_STATE_IDENT_I_MSG5SENT
@@ -357,9 +359,16 @@ isakmp_info_recv(phase1_handle_t *iph1, vchar_t *msg0)
 			}
 			/*FALLTHRU*/
 		default:
+            if ((np == ISAKMP_NPTYPE_NONE) && 
+                !FSM_STATE_IS_ESTABLISHED(iph1->status) &&
+                (iph1->side == INITIATOR && (iph1->status == IKEV1_STATE_AGG_I_MSG1SENT))) {
+                // proposal rejected by peer, terminate now.
+                disconnect = 1;
+            }
+ 
 			plog(ASL_LEVEL_ERR,
-				"%s message must be encrypted\n",
-				s_isakmp_nptype(np));
+				"%s message must be encrypted, status 0x%x, side %d\n",
+				s_isakmp_nptype(np), iph1->status, iph1->side);
 			error = 0;
 			goto end;
 		}
@@ -379,6 +388,16 @@ isakmp_info_recv(phase1_handle_t *iph1, vchar_t *msg0)
 			/* Handled above */
 			break;
 		case ISAKMP_NPTYPE_N:
+			if ((ntohs(((struct isakmp_pl_n *)pa->ptr)->type) == ISAKMP_NTYPE_NO_PROPOSAL_CHOSEN) &&
+			    !FSM_STATE_IS_ESTABLISHED(iph1->status) &&
+			    (iph1->side == INITIATOR && (iph1->status == IKEV1_STATE_AGG_I_MSG1SENT))) {
+				// proposal rejected by peer, terminate now.
+				disconnect = 1;
+				plog(ASL_LEVEL_ERR,
+				     "%s message with %s notification receveid, status 0x%x, side %d\n",
+				     s_isakmp_nptype(np), s_isakmp_notify_msg(ISAKMP_NTYPE_NO_PROPOSAL_CHOSEN), iph1->status, iph1->side);
+				break;
+			}
 			error = isakmp_info_recv_n(iph1,
 				(struct isakmp_pl_n *)pa->ptr,
 				msgid, encrypted);
@@ -424,6 +443,17 @@ end:
 		vfree(msg);
 	if (pbuf != NULL)
 		vfree(pbuf);
+	if (disconnect) {
+		ike_session_t *session = NULL;
+
+		if (session = iph1->parent_session) {
+			gettimeofday(&session->stop_timestamp, NULL);
+			if (!session->term_reason) {
+				session->term_reason = ike_session_stopped_by_peer;
+			}
+			ike_session_purge_ph1s_by_session(session);
+		}
+	}
 	return error;
 }
 
@@ -556,15 +586,11 @@ isakmp_info_recv_n(phase1_handle_t *iph1, struct isakmp_pl_n *notify, u_int32_t 
 static void
 isakmp_info_vpncontrol_notify_ike_failed (phase1_handle_t *iph1, int isakmp_info_initiator, int type, vchar_t *data)
 {
-	u_int32_t address;
+	u_int32_t address = iph1_get_remote_v4_address(iph1);
 	u_int32_t fail_reason;
 
 	/* notify the API that we have received the delete */
-	if (iph1->remote->ss_family == AF_INET)
-		address = ((struct sockaddr_in *)(iph1->remote))->sin_addr.s_addr;
-	else
-		address = 0;
-	
+
 	if (isakmp_info_initiator == FROM_REMOTE) {
 		int premature = oakley_find_status_in_certchain(iph1->cert, CERT_STATUS_PREMATURE);
 		int expired = oakley_find_status_in_certchain(iph1->cert, CERT_STATUS_EXPIRED);
@@ -1839,11 +1865,6 @@ isakmp_info_recv_lb(phase1_handle_t *iph1, struct isakmp_pl_lb *n, int encrypted
 			"LOAD-BALANCE notification ignored - we are not the initiator.\n");
 		return 0;
 	}
-	if (iph1->remote->ss_family != AF_INET) {
-		plog(ASL_LEVEL_DEBUG, 
-			"LOAD-BALANCE notification ignored - only supported for IPv4.\n");
-		return 0;
-	}
 	if (!encrypted) {
 		plog(ASL_LEVEL_DEBUG, 
 			"LOAD-BALANCE notification ignored - not protected.\n");
@@ -1853,9 +1874,10 @@ isakmp_info_recv_lb(phase1_handle_t *iph1, struct isakmp_pl_lb *n, int encrypted
 		plog(ASL_LEVEL_DEBUG, 
 			"Invalid length of payload\n");
 		return -1;
-	}	
+	}
+
 	vpncontrol_notify_ike_failed(ISAKMP_NTYPE_LOAD_BALANCE, FROM_REMOTE,
-		((struct sockaddr_in*)iph1->remote)->sin_addr.s_addr, 4, (u_int8_t*)(&(n->address)));
+		iph1_get_remote_v4_address(iph1), 4, (u_int8_t*)(&(n->address)));
 	
 	plog(ASL_LEVEL_NOTICE,
 			"Received LOAD_BALANCE notification.\n");
@@ -2011,18 +2033,12 @@ isakmp_info_send_r_u(void *arg)
     }
 
 	if (iph1->dpd_fails >= iph1->rmconf->dpd_maxfails) {
-		u_int32_t address;
-
 		IPSECSESSIONTRACEREVENT(iph1->parent_session,
 								IPSECSESSIONEVENTCODE_IKEV1_DPD_MAX_RETRANSMIT,
 								CONSTSTR("DPD maximum retransmits"),
 								CONSTSTR("maxed-out of DPD requests without receiving an ack"));
 
-		if (iph1->remote->ss_family == AF_INET)
-			address = ((struct sockaddr_in *)iph1->remote)->sin_addr.s_addr;
-		else
-			address = 0;
-		(void)vpncontrol_notify_ike_failed(VPNCTL_NTYPE_PEER_DEAD, FROM_LOCAL, address, 0, NULL);
+		(void)vpncontrol_notify_ike_failed(VPNCTL_NTYPE_PEER_DEAD, FROM_LOCAL, iph1_get_remote_v4_address(iph1), 0, NULL);
 
 		purge_remote(iph1);
 		plog(ASL_LEVEL_DEBUG,
