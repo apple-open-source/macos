@@ -72,8 +72,13 @@ int run_one_test(struct one_test_s *test, int argc, char * const *argv);
 })
 #define isnt(THIS, THAT, TESTNAME) \
 	cmp_ok((THIS), !=, (THAT), (TESTNAME))
+
+#define log(do_print, MSG, ARGS...) \
+if(do_print){test_diag(test_directive, test_reason, __FILE__, __LINE__, MSG, ## ARGS);}
+
 #define diag(MSG, ARGS...) \
 	test_diag(test_directive, test_reason, __FILE__, __LINE__, MSG, ## ARGS)
+
 #define cmp_ok(THIS, OP, THAT, TESTNAME) \
 ({ \
 	__typeof__(THIS) _this = (THIS); \

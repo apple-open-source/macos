@@ -136,6 +136,8 @@ enum {
 	@constant kSecAssessmentContextKeyOperation Type of operation (see overview above). This defaults
 		to the kSecAssessmentOperationTypeExecute.
  */
+extern CFStringRef kSecAssessmentContextKeyUTI;			// caller determination of UTI for primary assessment subject
+
 extern CFStringRef kSecAssessmentContextKeyFeedback;	// feedback reporting block
 typedef Boolean (^SecAssessmentFeedback)(CFStringRef type, CFDictionaryRef information);
 extern CFStringRef kSecAssessmentFeedbackProgress;		// progress reporting feedback

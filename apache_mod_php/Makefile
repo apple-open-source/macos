@@ -25,8 +25,8 @@ SDKROOT = $(shell xcrun --show-sdk-path --sdk macosx.internal)
 SDK = -isysroot $(SDKROOT)
 APXS = $(shell xcrun -find -sdk $(SDKROOT) apxs)
 SDKUSRDIR = $(SDKROOT)$(USRDIR)
-OPENSSL_INCDIR = $(SDKUSRDIR)/local
-OPENSSL_LIBDIR = $(SDKUSRDIR)
+OPENSSL_INCDIR = /usr/local/libressl/include
+OPENSSL_LIBDIR = /usr/lib 
 OPENSSL_DIRS = "$(OPENSSL_INCDIR) $(OPENSSL_LIBDIR)"
 			
 # This allows extra variables to be passed _just_ to configure.

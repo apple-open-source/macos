@@ -66,7 +66,7 @@ int CommonCryptoSymRC2(int argc, char *const *argv) {
     keyStr =    "0000000000000000";
     plainText = "0000000000000000";
     cipherText = "ebb773f993278eff";
-    retval = CCCryptTestCase(keyStr, iv, alg, options, cipherText, plainText);
+    retval = CCCryptTestCase(keyStr, iv, alg, options, cipherText, plainText, true);
     sprintf(printString, "RC2 %d byte Key (effective %d bits) One-Shot", rkeylen, ekeylenBits);
     ok(retval == 0, printString);
     retval = CCMultiCryptTestCase(keyStr, iv, alg, options, cipherText, plainText);
@@ -78,7 +78,7 @@ int CommonCryptoSymRC2(int argc, char *const *argv) {
     keyStr =    "ffffffffffffffff";
     plainText = "ffffffffffffffff";
     cipherText = "278b27e42e2f0d49";
-    retval = CCCryptTestCase(keyStr, iv, alg, options, cipherText, plainText);
+    retval = CCCryptTestCase(keyStr, iv, alg, options, cipherText, plainText, true);
     sprintf(printString, "RC2 %d byte Key (effective %d bits) One-Shot", rkeylen, ekeylenBits);
     ok(retval == 0, printString);
     retval = CCMultiCryptTestCase(keyStr, iv, alg, options, cipherText, plainText);
@@ -90,7 +90,7 @@ int CommonCryptoSymRC2(int argc, char *const *argv) {
     keyStr =    "3000000000000000";
     plainText = "1000000000000001";
     cipherText = "30649edf9be7d2c2";
-    retval = CCCryptTestCase(keyStr, iv, alg, options, cipherText, plainText);
+    retval = CCCryptTestCase(keyStr, iv, alg, options, cipherText, plainText, true);
     sprintf(printString, "RC2 %d byte Key (effective %d bits) One-Shot", rkeylen, ekeylenBits);
     ok(retval == 0, printString);
     retval = CCMultiCryptTestCase(keyStr, iv, alg, options, cipherText, plainText);
@@ -140,7 +140,7 @@ int CommonCryptoSymRC2(int argc, char *const *argv) {
     keyStr = "88bca90e90875a7f0f79c384627bafb2";
     plainText = "0000000000000000";
     cipherText = "2269552ab0f85ca6";
-    retval = CCCryptTestCase(keyStr, iv, alg, options, cipherText, plainText);
+    retval = CCCryptTestCase(keyStr, iv, alg, options, cipherText, plainText, true);
     sprintf(printString, "RC2 %d byte Key (effective %d bits) One-Shot", rkeylen, ekeylenBits);
     ok(retval == 0, printString);
     retval = CCMultiCryptTestCase(keyStr, iv, alg, options, cipherText, plainText);

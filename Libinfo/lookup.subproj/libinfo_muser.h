@@ -66,6 +66,7 @@
 /* Reply keys from group queries. */
 #define kLIMMessageReplyGroupname "gr_name" // string
 #define kLIMMessageReplyGroupID "gr_gid" // int64
+#define kLIMMessageReplyGroupMembers "gr_members" // array of strings
 
 /* Reply keys from grouplist queries. */
 #define kLIMMessageReplyGrouplist "grouplist" // array of int64

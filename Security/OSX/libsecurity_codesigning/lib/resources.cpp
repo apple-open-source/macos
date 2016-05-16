@@ -396,6 +396,8 @@ const Hashing::Byte *ResourceSeal::hash(CodeDirectory::HashAlgorithm type) const
 {
 	std::string name = ResourceBuilder::hashName(type);
 	CFTypeRef hash = CFDictionaryGetValue(mDict, CFTempString(name));
+	if (hash == NULL)	// pre-agility fallback
+		hash = CFDictionaryGetValue(mDict, CFSTR("hash"));
 	if (hash == NULL || CFGetTypeID(hash) != CFDataGetTypeID())
 		MacOSError::throwMe(errSecCSResourcesInvalid);
 	return CFDataGetBytePtr(CFDataRef(hash));

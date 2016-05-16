@@ -407,6 +407,8 @@
 		CDF9BBE11B03E24D00D1AF0F /* secd-52-offering-gencount-reset.c in Sources */ = {isa = PBXBuildFile; fileRef = CDF9BBE01B03E24D00D1AF0F /* secd-52-offering-gencount-reset.c */; };
 		D40294A91C20A806008CE4B6 /* si-91-sectrust-ast2.c in Sources */ = {isa = PBXBuildFile; fileRef = D40294A71C20A806008CE4B6 /* si-91-sectrust-ast2.c */; };
 		D40294AA1C20A806008CE4B6 /* si-91-sectrust-ast2.h in Headers */ = {isa = PBXBuildFile; fileRef = D40294A81C20A806008CE4B6 /* si-91-sectrust-ast2.h */; };
+		D41380C91C6E529500F1A4B6 /* si-92-sectrust-homekit.c in Sources */ = {isa = PBXBuildFile; fileRef = D41380C71C6E529500F1A4B6 /* si-92-sectrust-homekit.c */; };
+		D41380CA1C6E529500F1A4B6 /* si-92-sectrust-homekit.h in Headers */ = {isa = PBXBuildFile; fileRef = D41380C81C6E529500F1A4B6 /* si-92-sectrust-homekit.h */; };
 		D4273AA61B5D54E70007D67B /* nameconstraints.c in Sources */ = {isa = PBXBuildFile; fileRef = D4273AA21B5D54CA0007D67B /* nameconstraints.c */; };
 		D445CDE11B44D53C005040AC /* si-84-sectrust-atv-appsigning.c in Sources */ = {isa = PBXBuildFile; fileRef = D445CDDF1B44D372005040AC /* si-84-sectrust-atv-appsigning.c */; };
 		D4B4A9A81B8BB9B70097B393 /* si-85-sectrust-ssl-policy.c in Sources */ = {isa = PBXBuildFile; fileRef = D4B4A9A61B8801960097B393 /* si-85-sectrust-ssl-policy.c */; };
@@ -997,6 +999,8 @@
 		CDF9BBE01B03E24D00D1AF0F /* secd-52-offering-gencount-reset.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "secd-52-offering-gencount-reset.c"; sourceTree = "<group>"; };
 		D40294A71C20A806008CE4B6 /* si-91-sectrust-ast2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-91-sectrust-ast2.c"; sourceTree = "<group>"; };
 		D40294A81C20A806008CE4B6 /* si-91-sectrust-ast2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "si-91-sectrust-ast2.h"; sourceTree = "<group>"; };
+		D41380C71C6E529500F1A4B6 /* si-92-sectrust-homekit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-92-sectrust-homekit.c"; sourceTree = "<group>"; };
+		D41380C81C6E529500F1A4B6 /* si-92-sectrust-homekit.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "si-92-sectrust-homekit.h"; sourceTree = "<group>"; };
 		D4273AA21B5D54CA0007D67B /* nameconstraints.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nameconstraints.c; sourceTree = "<group>"; };
 		D4273AA31B5D54CA0007D67B /* nameconstraints.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nameconstraints.h; sourceTree = "<group>"; };
 		D445CDDF1B44D372005040AC /* si-84-sectrust-atv-appsigning.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-84-sectrust-atv-appsigning.c"; sourceTree = "<group>"; };
@@ -1614,6 +1618,8 @@
 				EB69AB051BF425F300913AF1 /* si-90-emcs.m */,
 				D40294A71C20A806008CE4B6 /* si-91-sectrust-ast2.c */,
 				D40294A81C20A806008CE4B6 /* si-91-sectrust-ast2.h */,
+				D41380C71C6E529500F1A4B6 /* si-92-sectrust-homekit.c */,
+				D41380C81C6E529500F1A4B6 /* si-92-sectrust-homekit.h */,
 			);
 			name = secitem;
 			path = Regressions/secitem;
@@ -2212,6 +2218,7 @@
 				4CC92A9B15A3ABD400C6D578 /* UTN-USERFirst-Hardware.cer.h in Headers */,
 				4CC92A9C15A3ABD400C6D578 /* addons.mozilla.org.cer.h in Headers */,
 				4CC92A9D15A3ABD400C6D578 /* login.live.com.cer.h in Headers */,
+				D41380CA1C6E529500F1A4B6 /* si-92-sectrust-homekit.h in Headers */,
 				4CC92A9E15A3ABD400C6D578 /* login.skype.com.cer.h in Headers */,
 				4CC92A9F15A3ABD400C6D578 /* login.yahoo.com.1.cer.h in Headers */,
 				4CC92AA015A3ABD400C6D578 /* login.yahoo.com.2.cer.h in Headers */,
@@ -2919,6 +2926,7 @@
 				4CC92A7515A3ABD400C6D578 /* si-24-sectrust-mobileasset.c in Sources */,
 				4477A8D918F28AB700B5BB9F /* si-78-query-attrs.c in Sources */,
 				4CC92A7615A3ABD400C6D578 /* si-24-sectrust-nist.c in Sources */,
+				D41380C91C6E529500F1A4B6 /* si-92-sectrust-homekit.c in Sources */,
 				4CC92A7715A3ABD400C6D578 /* si-24-sectrust-otatasking.c in Sources */,
 				4CC92A7815A3ABD400C6D578 /* si-24-sectrust-shoebox.c in Sources */,
 				EB8F48DD1AE4CC7000CE93A7 /* si-25-sectrust-apple-authentication.c in Sources */,

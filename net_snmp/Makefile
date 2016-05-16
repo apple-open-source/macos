@@ -7,7 +7,7 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 149
+Submission	= 151
 
 
 #
@@ -42,7 +42,7 @@ CFLAGS += -DNETSNMP_NO_INLINE
 
 DEFINES			= -DBUILD=$(Submission) \
 			-DMACOSX_DEPLOYMENT_TARGET=$(MACOSX_DEPLOYMENT_TARGET)
-INCLUDES		= -F$(SDKROOT)/System/Library/PrivateFrameworks/ -F$(SDKROOT)/System/Library/Frameworks/
+INCLUDES		= -F$(SDKROOT)/System/Library/PrivateFrameworks/ -F$(SDKROOT)/System/Library/Frameworks/ -I/usr/local/libressl/include
 
 # For Perl to build correctly, both CFLAGS (CC_Flags) and CCFLAGS (Cxx_Flags)
 # must be properly defined.
@@ -69,6 +69,7 @@ Extra_Configure_Flags	= --sysconfdir=/etc \
 			--with-perl-modules \
 			--disable-perl-cc-checks \
 			--disable-embedded-perl  \
+			--with-openssl=/usr/libressl/ \
 			--without-kmem-usage
 
 # ucd-snmp/lmSensorsTables
@@ -138,7 +139,7 @@ MIBDIR		= $(SHAREDIR)/snmp/mibs
 AEP		= YES
 AEP_Version	= 5.6.2.1
 AEP_Patches    = diskio.patch IPv6.patch universal_builds.patch \
-			container.patch darwin-header.patch \
+			container.patch darwin-header.patch 10268440.patch \
 			host.patch CVE-2012-6151.patch CVE-2014-3565.patch \
 			lmsensors.patch darwin-sensors.patch \
 			darwin64.patch perl-cc.patch 

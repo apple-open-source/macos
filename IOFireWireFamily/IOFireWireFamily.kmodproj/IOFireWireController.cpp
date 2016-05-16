@@ -909,6 +909,7 @@ void IOFireWireController::free()
 		IOFireWireLink * fwim = fFWIM ;
 		fFWIM = NULL ;
 		fwim->release() ;
+        fwim=NULL;
 	}
 	
 	openGate() ;
@@ -1127,8 +1128,10 @@ IOReturn IOFireWireController::poweredStart( void )
         localNode->attach(this);
         localNode->registerService();
     } while (false);
-    if(propTable)
+    if(propTable) {
         propTable->release();	// done with it after init
+        propTable=NULL;
+    }
 
 #ifdef LEGACY_SHUTDOWN
 	// install power change handler
@@ -2790,6 +2793,7 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
 			scan->fCmd->release();
 			scan->fLockCmd->release();
 			IOFree(scan, sizeof(*scan));
+            scan = NULL;
 			FWKLOG(( "IOFireWireController::readDeviceROM exited\n" ));
 			return;
 		}

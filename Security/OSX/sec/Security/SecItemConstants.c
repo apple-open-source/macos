@@ -144,6 +144,7 @@ SEC_CONST_DECL (kSecUseNoAuthenticationUI, "u_NoAuthUI");
 SEC_CONST_DECL (kSecUseAuthenticationUI, "u_AuthUI");
 SEC_CONST_DECL (kSecUseSystemKeychain, "u_SystemKeychain");
 SEC_CONST_DECL (kSecUseSyncBubbleKeychain, "u_SyncBubbleKeychain");
+SEC_CONST_DECL (kSecUseCallerName, "u_CallerName");
 
 /* kSecAttrAccessible Value Constants. */
 SEC_CONST_DECL (kSecAttrAccessibleWhenUnlocked, "ak");

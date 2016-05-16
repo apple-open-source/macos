@@ -124,6 +124,7 @@ IOFireWireUserClientIniter::start(
 		{
 			merge_properties->setObject(gIOUserClientClassKey, (OSObject *) userClientClassSymbol);
 			userClientClassSymbol->release();
+            userClientClassSymbol=NULL;
 		}
 		
 	}
@@ -143,6 +144,7 @@ IOFireWireUserClientIniter::start(
 	IORecursiveLockUnlock( sIniterLock );
 
 	merge_properties->release();
+    merge_properties=NULL;
 
 	//IOLog( "IOFireWireUserClientIniter<0x%08lx>::start - return\n", this );
 	
@@ -331,6 +333,7 @@ IOFireWireUserClientIniter::dictionaryDeepCopy(
 					// it after we add it to our dictionary
 					
 					srcObject->release();
+                    srcObject=NULL;
 				}
 				else
 				{
@@ -339,6 +342,7 @@ IOFireWireUserClientIniter::dictionaryDeepCopy(
 			}
 		
 			srcIterator->release();
+            srcIterator=NULL;
 		}
 	}
 

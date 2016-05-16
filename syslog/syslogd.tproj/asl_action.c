@@ -2325,7 +2325,6 @@ int
 asl_action_control_set_param(const char *s)
 {
 	__block char **l;
-	__block char *p;
 	uint32_t count = 0;
 
 	if (s == NULL) return -1;
@@ -2355,8 +2354,8 @@ asl_action_control_set_param(const char *s)
 	/* create / modify a module */
 	if ((!strcasecmp(l[1], "define")) && (strcmp(l[0], "*")))
 	{
-		p = strdup(s);
-		if (p == NULL)
+		char *str = strdup(s);
+		if (str == NULL)
 		{
 			asldebug("asl_action_control_set_param: memory allocation failed\n");
 			free_string_list(l);
@@ -2366,6 +2365,7 @@ asl_action_control_set_param(const char *s)
 		dispatch_sync(asl_action_queue, ^{
 			asl_out_module_t *m;
 			asl_out_rule_t *r;
+			char *p = str;
 
 			/* skip name, whitespace, "define" */
 			while ((*p != ' ') && (*p != '\t')) p++;
@@ -2394,7 +2394,7 @@ asl_action_control_set_param(const char *s)
 			}
 		});
 
-		free(p);
+		free(str);
 		free_string_list(l);
 		return 0;
 	}

@@ -503,6 +503,7 @@ IOFWUserWriteCommand::submit(
 		{
 			fMem->complete() ;
 			fMem->release() ;
+            fMem = NULL;
 		}
 		
 		if ( copyFlag )	// is this command using in-line data?
@@ -1052,6 +1053,7 @@ IOFWUserAsyncStreamCommand::submit(
 		{
 			fMem->complete() ;
 			fMem->release() ;
+            fMem =NULL;
 		}
 	
 		if (NULL == (fMem = IOMemoryDescriptor::withAddressRange( params->newBuffer, 

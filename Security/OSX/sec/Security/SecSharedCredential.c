@@ -65,7 +65,7 @@ OSStatus SecAddSharedWebCredentialSync(CFStringRef fqdn,
         bool xpc_result;
         bool internal_spi = false; // TODO: support this for SecurityDevTests
         if(internal_spi && gSecurityd && gSecurityd->sec_add_shared_web_credential) {
-            xpc_result = gSecurityd->sec_add_shared_web_credential(args, NULL, NULL, SecAccessGroupsGetCurrent(), &raw_result, error);
+            xpc_result = gSecurityd->sec_add_shared_web_credential(args, NULL, NULL, NULL, SecAccessGroupsGetCurrent(), &raw_result, error);
         } else {
             xpc_result = cftype_client_to_bool_cftype_error_request(sec_add_shared_web_credential_id, args, SecSecurityClientGet(), &raw_result, error);
         }
@@ -162,7 +162,7 @@ OSStatus SecCopySharedWebCredentialSync(CFStringRef fqdn,
         bool xpc_result;
         bool internal_spi = false; // TODO: support this for SecurityDevTests
         if(internal_spi && gSecurityd && gSecurityd->sec_copy_shared_web_credential) {
-            xpc_result = gSecurityd->sec_copy_shared_web_credential(args, NULL, NULL, SecAccessGroupsGetCurrent(), &raw_result, error);
+            xpc_result = gSecurityd->sec_copy_shared_web_credential(args, NULL, NULL, NULL, SecAccessGroupsGetCurrent(), &raw_result, error);
         } else {
             xpc_result = cftype_client_to_bool_cftype_error_request(sec_copy_shared_web_credential_id, args, SecSecurityClientGet(), &raw_result, error);
         }

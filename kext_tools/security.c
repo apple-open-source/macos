@@ -429,14 +429,18 @@ static void getAdhocSignatureHash(CFURLRef kextURL, char ** signatureBuffer)
     
     /* get the hash info
      */
-    if (SecCodeCopySigningInformation(staticCodeRef, kSecCSDefaultFlags, &signingDict) != 0) {
+    if (SecCodeCopySigningInformation(staticCodeRef, kSecCSDefaultFlags, &signingDict) != 0
+        || signingDict == NULL) {
         OSKextLog(NULL, kOSKextLogDebugLevel | kOSKextLogGeneralFlag,
                   "%s - SecCodeCopySigningInformation failed", __func__);
         goto finish;
     }
     
-    cdhash = CFRetain(CFDictionaryGetValue(signingDict, kSecCodeInfoUnique));
-    if (cdhash) {
+    cdhash = (CFDataRef) CFDictionaryGetValue(signingDict, kSecCodeInfoUnique);
+    // <rdar://problem/24539186> protect against badly signed kexts
+    if (cdhash && CFGetTypeID(cdhash) == CFDataGetTypeID()) {
+        CFRetain(cdhash);
+        
         const UInt8 *   hashDataPtr     = NULL;  // don't free
         CFIndex         hashDataLen     = 0;
         

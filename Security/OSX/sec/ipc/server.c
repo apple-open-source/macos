@@ -77,7 +77,7 @@
 #include <xpc/xpc.h>
 
 #if TARGET_OS_IPHONE
-static int inMultiUser = -1;
+static int inMultiUser = 0;
 #endif
 
 
@@ -497,8 +497,6 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
 
 #if TARGET_OS_IOS && !TARGET_OS_SIMULATOR
         if (inMultiUser) {
-            assert(inMultiUser != -1);
-
             client.activeUser = MKBForegroundUserSessionID(&error);
             if (client.activeUser == -1 || client.activeUser == 0) {
                 assert(0);
@@ -961,7 +959,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 if (query) {
                     CFTypeRef result = NULL;
                     CFStringRef appID = (client.task) ? SecTaskCopyApplicationIdentifier(client.task) : NULL;
-                    if (_SecAddSharedWebCredential(query, &auditToken, appID, domains, &result, &error) && result) {
+                    if (_SecAddSharedWebCredential(query, &client, &auditToken, appID, domains, &result, &error) && result) {
                         SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
                         CFRelease(result);
                     }
@@ -976,7 +974,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 if (query) {
                     CFTypeRef result = NULL;
                     CFStringRef appID = (client.task) ? SecTaskCopyApplicationIdentifier(client.task) : NULL;
-                    if (_SecCopySharedWebCredential(query, &auditToken, appID, domains, &result, &error) && result) {
+                    if (_SecCopySharedWebCredential(query, &client, &auditToken, appID, domains, &result, &error) && result) {
                         SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
                         CFRelease(result);
                     }
@@ -1753,6 +1751,19 @@ int main(int argc, char *argv[])
 		kill(getpid(), SIGSTOP);
 	}
 
+#if TARGET_OS_IOS && !TARGET_OS_SIMULATOR
+    {
+        CFDictionaryRef deviceMode = MKBUserTypeDeviceMode(NULL, NULL);
+        CFTypeRef value = NULL;
+
+        if (deviceMode && CFDictionaryGetValueIfPresent(deviceMode, kMKBDeviceModeKey, &value) && CFEqual(value, kMKBDeviceModeMultiUser)) {
+            inMultiUser = 1;
+        }
+        CFReleaseNull(deviceMode);
+    }
+#endif
+
+
     const char *serviceName = kSecuritydXPCServiceName;
 #if TRUSTD_SERVER
     serviceName = kTrustdXPCServiceName;
@@ -1763,21 +1774,6 @@ int main(int argc, char *argv[])
     securityd_init_server();
     securityd_xpc_init(serviceName);
 
-#if TARGET_OS_IOS && !TARGET_OS_SIMULATOR
-    if (inMultiUser == -1) {
-        CFDictionaryRef deviceMode = MKBUserTypeDeviceMode(NULL, NULL);
-        CFTypeRef value = NULL;
-
-        if (deviceMode && CFDictionaryGetValueIfPresent(deviceMode, kMKBDeviceModeKey, &value) && CFEqual(value, kMKBDeviceModeMultiUser)) {
-            inMultiUser = 1;
-        } else {
-            inMultiUser = 0;
-        }
-        CFReleaseNull(deviceMode);
-    }
-#elif TARGET_OS_IPHONE
-    inMultiUser = 0;
-#endif
 
 	// <rdar://problem/22425706> 13B104+Roots:Device never moved past spinner after using approval to ENABLE icdp
 #if TARGET_OS_EMBEDDED

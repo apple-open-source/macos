@@ -127,7 +127,7 @@ bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt,
                                     CFErrorRef *error);
 
 #if TARGET_OS_IPHONE
-bool SecServerDeleteAllForUser(SecDbConnectionRef dbt, CFDataRef musrView, CFErrorRef *error);
+bool SecServerDeleteAllForUser(SecDbConnectionRef dbt, CFDataRef musrView, bool keepU, CFErrorRef *error);
 #endif
 
 bool kc_transaction(SecDbConnectionRef dbt, CFErrorRef *error, bool(^perform)());

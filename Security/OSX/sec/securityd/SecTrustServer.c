@@ -705,7 +705,11 @@ static void SecPathBuilderInit(SecPathBuilderRef builder,
 
     builder->nextParentSource = 1;
     builder->considerPartials = false;
+#if !TARGET_OS_WATCH
     builder->canAccessNetwork = true;
+#else
+    builder->canAccessNetwork = false;
+#endif
 
     builder->anchorSources = CFArrayCreateMutable(allocator, 0, NULL);
     builder->parentSources = CFArrayCreateMutable(allocator, 0, NULL);
@@ -750,7 +754,9 @@ static void SecPathBuilderInit(SecPathBuilderRef builder,
         CFArrayAppendValue(builder->anchorSources, &kSecSystemAnchorSource);
         CFArrayAppendValue(builder->anchorSources, &kSecUserAnchorSource);
     }
-    CFArrayAppendValue(builder->parentSources, &kSecCAIssuerSource);
+    if (builder->canAccessNetwork) {
+        CFArrayAppendValue(builder->parentSources, &kSecCAIssuerSource);
+    }
 
 	/* Now let's get the leaf cert and turn it into a path. */
 	SecCertificateRef leaf =
@@ -813,6 +819,9 @@ static void SecPathBuilderDestroy(SecPathBuilderRef builder) {
 	CFReleaseSafe(builder->rejectedPaths);
 	CFReleaseSafe(builder->candidatePaths);
 	CFReleaseSafe(builder->leafDetails);
+    CFReleaseSafe(builder->ocspResponses);
+    CFReleaseSafe(builder->signedCertificateTimestamps);
+    CFReleaseSafe(builder->trustedLogs);
 
     SecPVCDelete(&builder->path);
 }
@@ -825,10 +834,15 @@ void SecPathBuilderSetCanAccessNetwork(SecPathBuilderRef builder, bool allow) {
     if (builder->canAccessNetwork != allow) {
         builder->canAccessNetwork = allow;
         if (allow) {
+#if !TARGET_OS_WATCH
             secdebug("http", "network access re-enabled by policy");
             /* re-enabling network_access re-adds kSecCAIssuerSource as
                a parent source. */
             CFArrayAppendValue(builder->parentSources, &kSecCAIssuerSource);
+#else
+            secdebug("http", "network access not allowed on WatchOS");
+            builder->canAccessNetwork = false;
+#endif
         } else {
             secdebug("http", "network access disabled by policy");
             /* disabling network_access removes kSecCAIssuerSource from

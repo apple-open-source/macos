@@ -81,6 +81,7 @@ private:
         struct {
             IOHIDElement *      deviceModeElement;
             OSArray *           transducers;
+            IOHIDElement *      touchCancelElement;
             bool                native;
         } digitizer;
         
@@ -178,7 +179,7 @@ private:
     void                    handleGameControllerReport(AbsoluteTime timeStamp, UInt32 reportID);
     void                    handleMultiAxisPointerReport(AbsoluteTime timeStamp, UInt32 reportID);
     void                    handleDigitizerReport(AbsoluteTime timeStamp, UInt32 reportID);
-    void                    handleDigitizerTransducerReport(DigitizerTransducer * transducer, AbsoluteTime timeStamp, UInt32 reportID);
+    IOHIDEvent*             handleDigitizerTransducerReport(DigitizerTransducer * transducer, AbsoluteTime timeStamp, UInt32 reportID);
     void                    handleScrollReport(AbsoluteTime timeStamp, UInt32 reportID);
     void                    handleKeboardReport(AbsoluteTime timeStamp, UInt32 reportID);
     void                    handleUnicodeReport(AbsoluteTime timeStamp, UInt32 reportID);

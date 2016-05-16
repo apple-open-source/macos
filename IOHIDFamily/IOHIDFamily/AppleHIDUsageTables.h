@@ -49,6 +49,7 @@ enum
     kHIDPage_AppleVendorIRRemote                = 0xff0E,
     kHIDPage_AppleVendorDebug                   = 0xff0F,
     kHIDPage_AppleVendorFilteredEvent           = 0xff50,
+    kHIDPage_AppleVendorMultitouch              = 0xff60,
     kHIDPage_AppleVendorDisplay                 = 0xff92,
     kHIDPage_AppleVendorTopCase                 = 0x00ff
 };
@@ -154,6 +155,16 @@ enum {
     kHIDUsage_AppleVendorDebug_Stackshot            = 0x0002,
     kHIDUsage_AppleVendorDebug_SendLogs             = 0x0003,
     kHIDUsage_AppleVendorDebug_BlackScreenRecover   = 0x0004,
+};
+
+/* AppleVendor Multitouch Page (0xff60) */
+enum
+{
+    kHIDUsage_AppleVendorMultitouch_PowerOff            = 0x0001,
+    kHIDUsage_AppleVendorMultitouch_DeviceReady         = 0x0002,
+    kHIDUsage_AppleVendorMultitouch_ExternalMessage     = 0x0003,
+    kHIDUsage_AppleVendorMultitouch_WillPowerOn         = 0x0004,
+    kHIDUsage_AppleVendorMultitouch_TouchCancel         = 0x0005
 };
 
 /* AppleVendor Page Top Case (0x00ff) */

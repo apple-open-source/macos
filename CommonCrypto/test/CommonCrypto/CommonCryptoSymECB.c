@@ -62,7 +62,7 @@ int CommonCryptoSymECB(int argc, char *const *argv) {
 	// 16
     plainText  = "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a";
 	cipherText = "d307b25d3abaf87c0053e8188152992a";
-    retval = CCCryptTestCase(keyStr, iv, alg, options, cipherText, plainText);
+    retval = CCCryptTestCase(keyStr, iv, alg, options, cipherText, plainText, true);
     ok(retval == 0, "ECB with Padding 16 byte CCCrypt NULL IV");
     retval = CCMultiCryptTestCase(keyStr, iv, alg, options, cipherText, plainText);
     ok(retval == 0, "ECB with Padding 16 byte Multiple Updates NULL IV");
@@ -71,7 +71,7 @@ int CommonCryptoSymECB(int argc, char *const *argv) {
 	// 32
 	plainText  = "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a";
 	cipherText = "d307b25d3abaf87c0053e8188152992ad307b25d3abaf87c0053e8188152992a";
-    retval = CCCryptTestCase(keyStr, iv, alg, options, cipherText, plainText);
+    retval = CCCryptTestCase(keyStr, iv, alg, options, cipherText, plainText, true);
     ok(retval == 0, "ECB 32 byte CCCrypt NULL IV");
     accum |= retval;
     retval = CCMultiCryptTestCase(keyStr, iv, alg, options, cipherText, plainText);

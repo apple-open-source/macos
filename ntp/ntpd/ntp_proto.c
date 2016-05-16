@@ -934,6 +934,24 @@ receive(
 				sys_restricted++;
 				return;
 			}
+			/* [Bug 2941]
+			 * If we got here, the packet isn't part of an
+			 * existing association, it isn't correctly
+			 * authenticated, and it didn't meet either of
+			 * the previous two special cases so we should
+			 * just drop it on the floor.  For example,
+			 * crypto-NAKs (is_authentic == AUTH_CRYPTO)
+			 * will make it this far.  This is just
+			 * debug-printed and not logged to avoid log
+			 * flooding.
+			 */
+			DPRINTF(1, ("receive: at %ld refusing to mobilize passive association"
+				    " with unknown peer %s mode %d keyid %08x len %d auth %d\n",
+				    current_time, stoa(&rbufp->recv_srcadr),
+				    hismode, skeyid, (authlen + has_mac),
+				    is_authentic));
+			sys_declined++;
+			return;
 		}
 
 		/*

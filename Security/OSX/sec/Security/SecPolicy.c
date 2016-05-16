@@ -283,6 +283,7 @@ static CFStringRef kSecPolicyOIDApplePayIssuerEncryption = CFSTR("ApplePayIssuer
 static CFStringRef kSecPolicyOIDAppleOSXProvisioningProfileSigning = CFSTR("AppleOSXProvisioningProfileSigning");
 static CFStringRef kSecPolicyOIDAppleATVVPNProfileSigning = CFSTR("AppleATVVPNProfileSigning");
 static CFStringRef kSecPolicyOIDAppleAST2Service = CFSTR("AST2Service");
+static CFStringRef kSecPolicyOIDAppleHomeKitServerAuth = CFSTR("HomeKitServerAuth");
 
 /* Policies will now change to multiple categories of checks.
 
@@ -3003,5 +3004,53 @@ SecPolicyRef SecPolicyCreateAppleATVVPNProfileSigning(void)
 errOut:
     CFReleaseSafe(options);
     CFReleaseSafe(appleAnchorOptions);
+    return result;
+}
+
+SecPolicyRef SecPolicyCreateAppleHomeKitServerAuth(CFStringRef hostname) {
+    CFMutableDictionaryRef appleAnchorOptions = NULL;
+    CFMutableDictionaryRef options = NULL;
+    SecPolicyRef result = NULL;
+    CFDataRef oid = NULL;
+
+    options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    require(options, errOut);
+
+    SecPolicyAddBasicX509Options(options);
+
+    CFDictionaryAddValue(options, kSecPolicyCheckSSLHostname, hostname);
+
+    add_eku(options, &oidExtendedKeyUsageServerAuth);
+
+    if (requirePinning(false, CFSTR("HomeKit"))) {
+        bool allowUAT = allowUATRoot(false, CFSTR("HomeKit"), NULL);
+
+        // Cert chain length 3
+        require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+
+        // Apple anchors, allowing test anchors for internal releases properly configured
+        appleAnchorOptions = CFDictionaryCreateMutableForCFTypes(NULL);
+        require(appleAnchorOptions, errOut);
+        if (allowUAT) {
+            CFDictionarySetValue(appleAnchorOptions,
+                                 kSecPolicyAppleAnchorIncludeTestRoots, kCFBooleanTrue);
+        }
+        add_element(options, kSecPolicyCheckAnchorApple, appleAnchorOptions);
+
+        add_leaf_marker(options, &oidAppleCertExtHomeKitServerAuth);
+
+        add_oid(options, kSecPolicyCheckIntermediateMarkerOid, &oidAppleIntmMarkerAppleHomeKitServerCA);
+    }
+
+
+    CFDictionaryAddValue(options, kSecPolicyCheckRevocation, kCFBooleanTrue);
+
+    result = SecPolicyCreate(kSecPolicyOIDAppleHomeKitServerAuth, options);
+    require(result, errOut);
+
+errOut:
+    CFReleaseSafe(appleAnchorOptions);
+    CFReleaseSafe(options);
+    CFReleaseSafe(oid);
     return result;
 }

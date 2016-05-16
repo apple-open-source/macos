@@ -554,6 +554,7 @@ IOFWUserLocalIsochPort::initWithUserDCLProgram (
 				// If we created a custom workloop, it will be retained by the program...
 				// We can release our reference...
 				infoAux.u.v2.workloop->release() ;
+                infoAux.u.v2.workloop=NULL;
 			}
 			
 			DebugLogCond( !program, "createDCLProgram returned nil\n" ) ;

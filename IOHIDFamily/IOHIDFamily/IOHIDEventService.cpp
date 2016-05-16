@@ -118,6 +118,22 @@ enum {
 #define     kATVChordDelayMS                    5000
 #define     kDelayedStackshotMask               (1 << 31)
 
+#define STACKSHOT_MASK_ATV          0x30        // ATV PlayPause + Volume-)
+#define STACKSHOT_MASK_WATCH        0x0C        // Menu (Crown) + Help (Pill)
+
+
+#if TARGET_OS_WATCH
+// Watch
+#define DELAYED_STACKSHOT_TIMEOUT   1000
+#define DELAYED_STACKSHOT_MASK      (STACKSHOT_MASK_WATCH | kDelayedStackshotMask)
+#else
+// TV and all other (currently only TV is applicable)
+#define DELAYED_STACKSHOT_TIMEOUT   5000
+#define DELAYED_STACKSHOT_MASK      (STACKSHOT_MASK_ATV | kDelayedStackshotMask)
+#endif
+
+
+
 //===========================================================================
 // IOHIDClientData class
 class IOHIDClientData : public OSObject
@@ -1614,10 +1630,10 @@ void IOHIDEventService::dispatchKeyboardEvent(
     // stackshot keychord check
     if(_keyboard.debug.mask == 0x3 || // Power + Volume
        _keyboard.debug.mask == 0x6 || // Menu (Home)  + Volume
-       _keyboard.debug.mask == 0xc || // Menu (Crown) + Help (Pill)
-       _keyboard.debug.mask == 0x30) {// ATV PlayPause + Volume-
-       // Only create the timer for the watch.
-       if (_keyboard.debug.mask == 0xc ) {
+       _keyboard.debug.mask == STACKSHOT_MASK_WATCH ||
+       _keyboard.debug.mask == STACKSHOT_MASK_ATV) {
+       // Only create the timer for the watch and ATV
+       if (_keyboard.debug.mask == STACKSHOT_MASK_WATCH ||  _keyboard.debug.mask == STACKSHOT_MASK_ATV) {
             if ( !_keyboard.debug.stackshotTimer ) {
                 _keyboard.debug.stackshotTimer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDEventService::stackshotTimerCallback));
                 if ( _keyboard.debug.stackshotTimer ) {
@@ -1628,7 +1644,7 @@ void IOHIDEventService::dispatchKeyboardEvent(
                 }
             }
             if ( _keyboard.debug.stackshotTimer ) {
-                _keyboard.debug.stackshotTimer->setTimeoutMS( 1000 );
+                _keyboard.debug.stackshotTimer->setTimeoutMS(DELAYED_STACKSHOT_TIMEOUT);
                 _keyboard.debug.startMask = _keyboard.debug.mask;
             }
         }
@@ -1637,7 +1653,7 @@ void IOHIDEventService::dispatchKeyboardEvent(
     if ( _keyboard.debug.mask == 0x0 ) {
         // Always reset flag on release.
         if ( _keyboard.debug.stackshotHeld ) {
-            handle_stackshot_keychord( 0xc | kDelayedStackshotMask);
+            handle_stackshot_keychord(DELAYED_STACKSHOT_MASK);
         }
 		if ( _keyboard.debug.stackshotTimer ) {
 			_keyboard.debug.stackshotTimer->cancelTimeout();

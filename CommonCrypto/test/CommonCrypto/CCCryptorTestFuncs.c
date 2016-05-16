@@ -204,65 +204,74 @@ ccConditionalTextBuffer(char *inputText)
 }
 
 int
-CCCryptTestCase(char *keyStr, char *ivStr, CCAlgorithm alg, CCOptions options, char *cipherText, char *plainText)
+CCCryptTestCase(char *keyStr, char *ivStr, CCAlgorithm alg, CCOptions options, char *cipherText, char *plainText, bool log)
 {
     byteBuffer key, iv;
     byteBuffer pt, ct;
-    
-    
+    byteBuffer bb=NULL, bb2=NULL;
+    int rc=1; //error
+
 	CCCryptorStatus retval;
     char cipherDataOut[4096];
     char plainDataOut[4096];
     size_t dataOutMoved;
-    byteBuffer bb;
+
             
     key = hexStringToBytes(keyStr);        
     pt = ccConditionalTextBuffer(plainText);
     ct = ccConditionalTextBuffer(cipherText);
     iv = ccConditionalTextBuffer(ivStr);
-    
+
+    if (alg==kCCAlgorithmAES) {
+        //feed a wrong key length
+        retval = CCCrypt(kCCEncrypt, alg, options, key->bytes, key->len-2, iv->bytes, pt->bytes, pt->len, cipherDataOut, 4096, &dataOutMoved);
+        if (retval!=kCCParamError)
+            goto errOut;
+    }
         
     if((retval = CCCrypt(kCCEncrypt, alg, options, key->bytes, key->len, iv->bytes, pt->bytes, pt->len, cipherDataOut, 4096, &dataOutMoved)) != kCCSuccess) {
-    	diag("Encrypt Failed %d\n", retval);
-        return 1;
+    	log(log, "Encrypt Failed %d\n", retval);
+        goto errOut;
     }
     
-    bb = bytesToBytes(cipherDataOut, dataOutMoved);    	
+    bb = bytesToBytes(cipherDataOut, dataOutMoved);
 
     // If ct isn't defined we're gathering data - print the ciphertext result
     if(!ct->bytes) {
-    	diag("Input Length %d Result: %s\n", (int) pt->len, bytesToHexString(bb));
+    	log(log, "Input Length %d Result: %s\n", (int) pt->len, bytesToHexString(bb));
     } else {
         if (!bytesAreEqual(ct, bb)) {
-            diag("FAIL Encrypt Output %s\nEncrypt Expect %s\n", bytesToHexString(bb), bytesToHexString(ct));
-        	return 1;
+            log(log, "FAIL Encrypt Output %s\nEncrypt Expect %s\n", bytesToHexString(bb), bytesToHexString(ct));
+        	goto errOut;
         }
     }
-    
-    free(bb);
+
     
     if((retval = CCCrypt(kCCDecrypt, alg, options, key->bytes, key->len, iv->bytes, cipherDataOut, dataOutMoved, plainDataOut, 4096, &dataOutMoved)) != kCCSuccess) {
-    	diag("Decrypt Failed\n");
-        return 1;
+    	log(log, "Decrypt Failed\n");
+        goto errOut;
     }
     
-    bb = bytesToBytes(plainDataOut, dataOutMoved);
+    bb2 = bytesToBytes(plainDataOut, dataOutMoved);
     
-	if (!bytesAreEqual(pt, bb)) {
-        diag("FAIL Decrypt Output %s\nDecrypt Expect %s\n", bytesToHexString(bb), bytesToHexString(pt));
-        return 1;
+	if (!bytesAreEqual(pt, bb2)) {
+        log(log, "FAIL Decrypt Output %s\nDecrypt Expect %s\n", bytesToHexString(bb), bytesToHexString(pt));
+        goto errOut;
     }
 
-    free(bb);
+    rc=0;
 
     // if(ct->bytes && iv->bytes) diag("PASS Test for length %d\n", (int) pt->len);
     // if(ct && (iv->bytes == NULL)) diag("PASS NULL IV Test for length %d\n", (int) pt->len);
 
+errOut:
+    free(bb2);
+    free(bb);
     free(pt);
     free(ct);
     free(key);
     free(iv);
-	return 0;
+	return rc;
 }
 
 

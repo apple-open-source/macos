@@ -63,7 +63,7 @@
 #include <Security/SecuritydXPC.h>
 #include "swcagent_client.h"
 
-#if TARGET_OS_IPHONE && !TARGET_OS_NANO
+#if TARGET_OS_IPHONE && !TARGET_OS_WATCH
 #include <dlfcn.h>
 #include <SharedWebCredentials/SharedWebCredentials.h>
 
@@ -1119,7 +1119,9 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
     }
     if (ok) {
         ok = kc_with_dbt(true, error, ^(SecDbConnectionRef dbt) {
-            return s3dl_query_update(dbt, q, attributesToUpdate, accessGroups, error);
+            return kc_transaction(dbt, error, ^{
+                return s3dl_query_update(dbt, q, attributesToUpdate, accessGroups, error);
+            });
         });
     }
     if (q) {
@@ -1178,7 +1180,9 @@ _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error)
             ok = SecError(errSecItemIllegalQuery, error, CFSTR("rowid and other attributes are mutually exclusive"));
         } else {
             ok = kc_with_dbt(true, error, ^(SecDbConnectionRef dbt) {
-                return s3dl_query_delete(dbt, q, accessGroups, error);
+                return kc_transaction(dbt, error, ^{
+                    return s3dl_query_delete(dbt, q, accessGroups, error);
+                });
             });
         }
         ok = query_notify_and_destroy(q, ok, error);
@@ -1341,7 +1345,7 @@ _SecEntitlementContainsDomainForService(CFArrayRef domains, CFStringRef domain, 
 #endif
 
 static bool
-_SecAddNegativeWebCredential(CFStringRef fqdn, CFStringRef appID, bool forSafari)
+_SecAddNegativeWebCredential(SecurityClient *client, CFStringRef fqdn, CFStringRef appID, bool forSafari)
 {
     bool result = false;
     if (!fqdn) { return result; }
@@ -1377,12 +1381,13 @@ _SecAddNegativeWebCredential(CFStringRef fqdn, CFStringRef appID, bool forSafari
 
     CFErrorRef error = NULL;
     CFStringRef accessGroup = CFSTR("*");
-    SecurityClient client = {
+    SecurityClient swcclient = {
         .task = NULL,
         .accessGroups =  CFArrayCreate(kCFAllocatorDefault, (const void **)&accessGroup, 1, &kCFTypeArrayCallBacks),
         .allowSystemKeychain = false,
         .allowSyncBubbleKeychain = false,
         .isNetworkExtension = false,
+        .musr = client->musr,
     };
 
     CFDictionaryAddValue(attrs, kSecClass, kSecClassInternetPassword);
@@ -1392,7 +1397,7 @@ _SecAddNegativeWebCredential(CFStringRef fqdn, CFStringRef appID, bool forSafari
     CFDictionaryAddValue(attrs, kSecAttrServer, fqdn);
     CFDictionaryAddValue(attrs, kSecAttrSynchronizable, kCFBooleanTrue);
 
-    (void)_SecItemDelete(attrs, &client, &error);
+    (void)_SecItemDelete(attrs, &swcclient, &error);
     CFReleaseNull(error);
 
     CFDictionaryAddValue(attrs, kSecAttrAccount, kSecSafariPasswordsNotSaved);
@@ -1413,12 +1418,12 @@ _SecAddNegativeWebCredential(CFStringRef fqdn, CFStringRef appID, bool forSafari
     }
 
     CFTypeRef addResult = NULL;
-    result = _SecItemAdd(attrs, &client, &addResult, &error);
+    result = _SecItemAdd(attrs, &swcclient, &addResult, &error);
 
     CFReleaseSafe(addResult);
     CFReleaseSafe(error);
     CFReleaseSafe(attrs);
-    CFReleaseSafe(client.accessGroups);
+    CFReleaseSafe(swcclient.accessGroups);
 
     return result;
 }
@@ -1426,26 +1431,23 @@ _SecAddNegativeWebCredential(CFStringRef fqdn, CFStringRef appID, bool forSafari
 /* Specialized version of SecItemAdd for shared web credentials */
 bool
 _SecAddSharedWebCredential(CFDictionaryRef attributes,
-    const audit_token_t *clientAuditToken,
-    CFStringRef appID,
-    CFArrayRef domains,
-    CFTypeRef *result,
-    CFErrorRef *error) {
+                           SecurityClient *client,
+                           const audit_token_t *clientAuditToken,
+                           CFStringRef appID,
+                           CFArrayRef domains,
+                           CFTypeRef *result,
+                           CFErrorRef *error)
+{
 
-    SecurityClient client = {};
+    SecurityClient swcclient = {};
 
     CFStringRef fqdn = CFRetainSafe(CFDictionaryGetValue(attributes, kSecAttrServer));
-    CFStringRef account = CFRetainSafe(CFDictionaryGetValue(attributes, kSecAttrAccount));
-#if TARGET_OS_IPHONE && !TARGET_OS_WATCH
-    CFStringRef password = CFRetainSafe(CFDictionaryGetValue(attributes, kSecSharedPassword));
-#else
-    CFStringRef password = CFRetainSafe(CFDictionaryGetValue(attributes, CFSTR("spwd")));
-#endif
+    CFStringRef account = CFDictionaryGetValue(attributes, kSecAttrAccount);
+    CFStringRef password = CFDictionaryGetValue(attributes, CFSTR("spwd") /* kSecSharedPassword */);
     CFStringRef accessGroup = CFSTR("*");
     CFMutableDictionaryRef query = NULL, attrs = NULL;
     SInt32 port = -1;
-    bool ok = false, update = false;
-    //bool approved = false;
+    bool ok = false;
 
     // check autofill enabled status
     if (!swca_autofill_enabled(clientAuditToken)) {
@@ -1509,18 +1511,19 @@ _SecAddSharedWebCredential(CFDictionaryRef attributes,
 #else
     // get approval status for this app/domain pair
     SWCFlags flags = _SecAppDomainApprovalStatus(appID, fqdn, error);
-    //approved = ((flags & kSWCFlag_SiteApproved) && (flags & kSWCFlag_UserApproved));
     if (!(flags & kSWCFlag_SiteApproved)) {
         goto cleanup;
     }
 #endif
 
     // give ourselves access to see matching items for kSecSafariAccessGroup
-    client.task = NULL;
-    client.accessGroups =  CFArrayCreate(kCFAllocatorDefault, (const void **)&accessGroup, 1, &kCFTypeArrayCallBacks);
-    client.allowSystemKeychain = false;
-    client.allowSyncBubbleKeychain = false;
-    client.isNetworkExtension = false;
+    swcclient.task = NULL;
+    swcclient.accessGroups =  CFArrayCreate(kCFAllocatorDefault, (const void **)&accessGroup, 1, &kCFTypeArrayCallBacks);
+    swcclient.allowSystemKeychain = false;
+    swcclient.musr = client->musr;
+    swcclient.allowSystemKeychain = false;
+    swcclient.allowSyncBubbleKeychain = false;
+    swcclient.isNetworkExtension = false;
 
 
     // create lookup query
@@ -1537,7 +1540,7 @@ _SecAddSharedWebCredential(CFDictionaryRef attributes,
 
     // check for presence of Safari's negative entry ('passwords not saved')
     CFDictionarySetValue(query, kSecAttrAccount, kSecSafariPasswordsNotSaved);
-    ok = _SecItemCopyMatching(query, &client, result, error);
+    ok = _SecItemCopyMatching(query, &swcclient, result, error);
     if(result) CFReleaseNull(*result);
     CFReleaseNull(*error);
     if (ok) {
@@ -1555,11 +1558,11 @@ _SecAddSharedWebCredential(CFDictionaryRef attributes,
     }
 
     // look up existing password
-    if (_SecItemCopyMatching(query, &client, result, error)) {
+    if (_SecItemCopyMatching(query, &swcclient, result, error)) {
         // found it, so this becomes either an "update password" or "delete password" operation
         if(result) CFReleaseNull(*result);
         CFReleaseNull(*error);
-        update = (password != NULL);
+        bool update = (password != NULL);
         if (update) {
             attrs = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
             CFDataRef credential = CFStringCreateExternalRepresentation(kCFAllocatorDefault, password, kCFStringEncodingUTF8, 0);
@@ -1570,18 +1573,18 @@ _SecAddSharedWebCredential(CFDictionaryRef attributes,
             // confirm the update
             // (per rdar://16676310 we always prompt, even if there was prior user approval)
             ok = /*approved ||*/ swca_confirm_operation(swca_update_request_id, clientAuditToken, query, error,
-                ^void (CFStringRef fqdn) { _SecAddNegativeWebCredential(fqdn, appID, false); });
+                ^void (CFStringRef fqdn) { _SecAddNegativeWebCredential(client, fqdn, appID, false); });
             if (ok) {
-                ok = _SecItemUpdate(query, attrs, &client, error);
+                ok = _SecItemUpdate(query, attrs, &swcclient, error);
             }
         }
         else {
             // confirm the delete
             // (per rdar://16676288 we always prompt, even if there was prior user approval)
             ok = /*approved ||*/ swca_confirm_operation(swca_delete_request_id, clientAuditToken, query, error,
-                ^void (CFStringRef fqdn) { _SecAddNegativeWebCredential(fqdn, appID, false); });
+                ^void (CFStringRef fqdn) { _SecAddNegativeWebCredential(client, fqdn, appID, false); });
             if (ok) {
-                ok = _SecItemDelete(query, &client, error);
+                ok = _SecItemDelete(query, &swcclient, error);
             }
         }
         if (ok) {
@@ -1612,8 +1615,8 @@ _SecAddSharedWebCredential(CFDictionaryRef attributes,
         CFReleaseSafe(credential);
         CFDictionarySetValue(query, kSecAttrComment, kSecSafariDefaultComment);
 
-        CFReleaseSafe(client.accessGroups);
-        client.accessGroups = CFArrayCreate(kCFAllocatorDefault, (const void **)&kSecSafariAccessGroup, 1, &kCFTypeArrayCallBacks);
+        CFReleaseSafe(swcclient.accessGroups);
+        swcclient.accessGroups = CFArrayCreate(kCFAllocatorDefault, (const void **)&kSecSafariAccessGroup, 1, &kCFTypeArrayCallBacks);
 
         // mark the item as created by this function
         const int32_t creator_value = 'swca';
@@ -1627,41 +1630,31 @@ _SecAddSharedWebCredential(CFDictionaryRef attributes,
             // confirm the add
             // (per rdar://16680019, we won't prompt here in the normal case)
             ok = /*approved ||*/ swca_confirm_operation(swca_add_request_id, clientAuditToken, query, error,
-                ^void (CFStringRef fqdn) { _SecAddNegativeWebCredential(fqdn, appID, false); });
+                ^void (CFStringRef fqdn) { _SecAddNegativeWebCredential(client, fqdn, appID, false); });
         }
     }
     if (ok) {
-        ok = _SecItemAdd(query, &client, result, error);
+        ok = _SecItemAdd(query, &swcclient, result, error);
     }
 
 cleanup:
-#if 0 /* debugging */
-{
-    const char *op_str = (password) ? ((update) ? "updated" : "added") : "deleted";
-    const char *result_str = (ok) ? "true" : "false";
-    secerror("result=%s, %s item %@, error=%@", result_str, op_str, *result, *error);
-}
-#else
-    (void)update;
-#endif
     CFReleaseSafe(attrs);
     CFReleaseSafe(query);
-    CFReleaseSafe(client.accessGroups);
+    CFReleaseSafe(swcclient.accessGroups);
     CFReleaseSafe(fqdn);
-    CFReleaseSafe(account);
-    CFReleaseSafe(password);
     return ok;
 }
 
 /* Specialized version of SecItemCopyMatching for shared web credentials */
 bool
 _SecCopySharedWebCredential(CFDictionaryRef query,
-    const audit_token_t *clientAuditToken,
-    CFStringRef appID,
-    CFArrayRef domains,
-    CFTypeRef *result,
-    CFErrorRef *error) {
-
+			    SecurityClient *client,
+			    const audit_token_t *clientAuditToken,
+			    CFStringRef appID,
+			    CFArrayRef domains,
+			    CFTypeRef *result,
+			    CFErrorRef *error)
+{
     CFMutableArrayRef credentials = NULL;
     CFMutableArrayRef foundItems = NULL;
     CFMutableArrayRef fqdns = NULL;
@@ -1678,12 +1671,13 @@ _SecCopySharedWebCredential(CFDictionaryRef query,
 
     // give ourselves access to see matching items for kSecSafariAccessGroup
     CFStringRef accessGroup = CFSTR("*");
-    SecurityClient client = {
+    SecurityClient swcclient = {
         .task = NULL,
         .accessGroups =  CFArrayCreate(kCFAllocatorDefault, (const void **)&accessGroup, 1, &kCFTypeArrayCallBacks),
         .allowSystemKeychain = false,
         .allowSyncBubbleKeychain = false,
         .isNetworkExtension = false,
+	.musr = client->musr,
     };
 
     // On input, the query dictionary contains optional fqdn and account entries.
@@ -1749,9 +1743,9 @@ _SecCopySharedWebCredential(CFDictionaryRef query,
             }
         }
 
-    #if TARGET_IPHONE_SIMULATOR
+#if TARGET_IPHONE_SIMULATOR
         secerror("app/site association entitlements not checked in Simulator");
-    #else
+#else
 	    OSStatus status = errSecMissingEntitlement;
         if (!appID) {
             SecError(status, error, CFSTR("Missing application-identifier entitlement"));
@@ -1773,7 +1767,7 @@ _SecCopySharedWebCredential(CFDictionaryRef query,
             CFReleaseSafe(fqdn);
             goto cleanup;
         }
-    #endif
+#endif
 
         attrs = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
         if (!attrs) {
@@ -1799,7 +1793,7 @@ _SecCopySharedWebCredential(CFDictionaryRef query,
         CFDictionaryAddValue(attrs, kSecReturnAttributes, kCFBooleanTrue);
         CFDictionaryAddValue(attrs, kSecReturnData, kCFBooleanTrue);
 
-        ok = _SecItemCopyMatching(attrs, &client, (CFTypeRef*)&items, error);
+        ok = _SecItemCopyMatching(attrs, &swcclient, (CFTypeRef*)&items, error);
         if (count > 1) {
             // ignore interim error since we have multiple domains to search
             CFReleaseNull(*error);
@@ -1932,11 +1926,6 @@ _SecCopySharedWebCredential(CFDictionaryRef query,
             CFArrayAppendValue(credentials, selected);
         }
 
-#if 0
-        // confirm the access
-        ok = swca_confirm_operation(swca_copy_request_id, clientAuditToken, query, error,
-                    ^void (CFStringRef fqdn) { _SecAddNegativeWebCredential(fqdn, appID, false); });
-#endif
         if (ok) {
             #if TARGET_OS_IPHONE && !TARGET_OS_WATCH
             // register confirmation with database
@@ -1975,11 +1964,9 @@ cleanup:
     }
     CFReleaseSafe(foundItems);
     *result = credentials;
-    CFReleaseSafe(client.accessGroups);
+    CFReleaseSafe(swcclient.accessGroups);
     CFReleaseSafe(fqdns);
-#if 0 /* debugging */
-    secerror("result=%s, copied items %@, error=%@", (ok) ? "true" : "false", *result, *error);
-#endif
+
     return ok;
 }
 
@@ -2667,7 +2654,7 @@ _SecServerTransmogrifyToSystemKeychain(SecurityClient *client, CFErrorRef *error
 }
 
 /*
- * Migrate from user keychain to system keychain when switching to edu mode
+ * Delete account from local usage
  */
 
 bool
@@ -2683,8 +2670,8 @@ _SecServerDeleteMUSERViews(SecurityClient *client, uid_t uid, CFErrorRef *error)
         musrView = SecMUSRCreateActiveUserUUID(uid);
         require(musrView, fail);
 
-        require(ok = SecServerDeleteAllForUser(dbt, syncBubbleView, error), fail);
-        require(ok = SecServerDeleteAllForUser(dbt, musrView, error), fail);
+        require(ok = SecServerDeleteAllForUser(dbt, syncBubbleView, false, error), fail);
+        require(ok = SecServerDeleteAllForUser(dbt, musrView, false, error), fail);
 
     fail:
         CFReleaseNull(syncBubbleView);

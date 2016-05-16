@@ -30,7 +30,7 @@ int CommonCryptoSymZeroLength (int argc, char *const *argv)
 	// 1
 	plainText  = "";
 	cipherText = "efddc425a6fa0c5f25e444092eb0f503";
-    retval = CCCryptTestCase(keyStr, iv, kCCAlgorithmAES128, kCCOptionPKCS7Padding, cipherText, plainText);
+    retval = CCCryptTestCase(keyStr, iv, kCCAlgorithmAES128, kCCOptionPKCS7Padding, cipherText, plainText, true);
     ok(retval == 0, "CBC Zero Length String, IV defined");
     accum += retval;
     
@@ -38,7 +38,7 @@ int CommonCryptoSymZeroLength (int argc, char *const *argv)
 	// 1
 	plainText  = NULL;
 	cipherText = "efddc425a6fa0c5f25e444092eb0f503";
-    retval = CCCryptTestCase(keyStr, iv, kCCAlgorithmAES128, kCCOptionPKCS7Padding, cipherText, plainText);
+    retval = CCCryptTestCase(keyStr, iv, kCCAlgorithmAES128, kCCOptionPKCS7Padding, cipherText, plainText, true);
     ok(retval == 0, "CBC NULL String, IV defined");
     accum += retval;
     
@@ -50,7 +50,7 @@ int CommonCryptoSymZeroLength (int argc, char *const *argv)
 	// 1
 	plainText  = "";
 	cipherText = "954f64f2e4e86e9eee82d20216684899";
-    retval = CCCryptTestCase(keyStr, iv, kCCAlgorithmAES128, kCCOptionPKCS7Padding, cipherText, plainText);
+    retval = CCCryptTestCase(keyStr, iv, kCCAlgorithmAES128, kCCOptionPKCS7Padding, cipherText, plainText, true);
     ok(retval == 0, "CBC Zero Length String, IV NULL");
     accum += retval;
     
@@ -58,7 +58,7 @@ int CommonCryptoSymZeroLength (int argc, char *const *argv)
 	// 1
 	plainText  = NULL;
 	cipherText = "954f64f2e4e86e9eee82d20216684899";
-    retval = CCCryptTestCase(keyStr, iv, kCCAlgorithmAES128, kCCOptionPKCS7Padding, cipherText, plainText);
+    retval = CCCryptTestCase(keyStr, iv, kCCAlgorithmAES128, kCCOptionPKCS7Padding, cipherText, plainText, true);
     //retval = 0;
     ok(retval == 0, "CBC NULL String, IV NULL");
     accum += retval;

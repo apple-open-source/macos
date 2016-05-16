@@ -592,7 +592,7 @@ IOReturn IOHIDEventSystemUserClient::createEventQueueGated(void*p1,void*p2,void*
 IOReturn IOHIDEventSystemUserClient::destroyEventQueue(void*p1,void*p2,void*,void*,void*,void*) {
   IOReturn status = kIOReturnSuccess;
   if (!isInactive() && commandGate) {
-    status = commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventSystemUserClient::destroyEventQueue),p1, p2);
+    status = commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventSystemUserClient::destroyEventQueueGated),p1, p2);
   }
   return status;
 }

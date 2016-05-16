@@ -322,6 +322,15 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 	if (qtn.flag(QTN_FLAG_HARD))
 		MacOSError::throwMe(errSecCSFileHardQuarantined);
 	
+	// hack: if caller passed a UTI, use that to turn off app-only checks for some well-known ones
+	bool appOk = false;
+	if (CFStringRef uti = CFStringRef(CFDictionaryGetValue(context, kSecAssessmentContextKeyUTI))) {
+		appOk = CFEqual(uti, CFSTR("com.apple.systempreference.prefpane"))
+			|| CFEqual(uti, CFSTR("com.apple.systempreference.screen-saver"))
+			|| CFEqual(uti, CFSTR("com.apple.systempreference.screen-slide-saver"))
+			|| CFEqual(uti, CFSTR("com.apple.menu-extra"));
+	}
+	
 	CFCopyRef<SecStaticCodeRef> code;
 	MacOSError::check(SecStaticCodeCreateWithPath(path, kSecCSDefaultFlags, &code.aref()));
 	
@@ -377,7 +386,7 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 	
 	// go for it!
 	SecCSFlags topFlags = validationFlags | kSecCSCheckNestedCode | kSecCSRestrictSymlinks | kSecCSReportProgress;
-	if (type == kAuthorityExecute)
+	if (type == kAuthorityExecute && !appOk)
 		topFlags |= kSecCSRestrictToAppLike;
 	switch (rc = SecStaticCodeCheckValidity(code, topFlags, NULL)) {
 	case errSecSuccess:		// continue below

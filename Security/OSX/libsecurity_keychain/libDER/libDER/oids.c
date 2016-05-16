@@ -320,6 +320,13 @@
 #define APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_TEST    APPLE_SERVER_AUTHENTICATION, 8, 1
 #define APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_PROD    APPLE_SERVER_AUTHENTICATION, 8, 2
 
+/* HomeKit Server Authentication
+ *  Intermediate Marker OID: 1.2.840.113635.100.6.2.16
+ *  Leaf Marker OID: 1.2.840.113635.100.6.27.9
+ */
+#define APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLE_HOME_KIT_SERVER_AUTH   APPLE_CERT_EXT_INTERMEDIATE_MARKER, 16
+#define APPLE_CERT_EXT_HOME_KIT_SERVER_AUTH     APPLE_SERVER_AUTHENTICATION, 9
+
 /*
  * Netscape OIDs.
  */
@@ -547,7 +554,9 @@ __unused static const DERByte
     _oidAppleCertExtATVVPNProfileSigning[] = {APPLE_CERT_EXT_APPLE_ATV_VPN_PROFILE_SIGNING},
     _oidAppleCertExtCryptoServicesExtEncryption[] = {APPLE_CERT_EXT_CRYPTO_SERVICES_EXT_ENCRYPTION},
     _oidAppleCertExtAST2DiagnosticsServerAuthTest[] = {APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_TEST},
-    _oidAppleCertExtAST2DiagnosticsServerAuthProd[] = {APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_PROD};
+    _oidAppleCertExtAST2DiagnosticsServerAuthProd[] = {APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_PROD},
+    _oidAppleCertExtHomeKitServerAuth[] = {APPLE_CERT_EXT_HOME_KIT_SERVER_AUTH},
+    _oidAppleIntmMarkerAppleHomeKitServerCA[] = {APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLE_HOME_KIT_SERVER_AUTH};
 
 __unused const DERItem
     oidSubjectKeyIdentifier         = { (DERByte *)_oidSubjectKeyIdentifier,
@@ -738,7 +747,11 @@ __unused const DERItem
     oidAppleCertExtAST2DiagnosticsServerAuthTest = { (DERByte *)_oidAppleCertExtAST2DiagnosticsServerAuthTest,
                                         sizeof(_oidAppleCertExtAST2DiagnosticsServerAuthTest)},
     oidAppleCertExtAST2DiagnosticsServerAuthProd = { (DERByte *)_oidAppleCertExtAST2DiagnosticsServerAuthProd,
-                                        sizeof(_oidAppleCertExtAST2DiagnosticsServerAuthProd)};
+                                        sizeof(_oidAppleCertExtAST2DiagnosticsServerAuthProd)},
+    oidAppleCertExtHomeKitServerAuth = { (DERByte *)_oidAppleCertExtHomeKitServerAuth,
+                                        sizeof(_oidAppleCertExtHomeKitServerAuth)},
+    oidAppleIntmMarkerAppleHomeKitServerCA = { (DERByte *)_oidAppleIntmMarkerAppleHomeKitServerCA,
+                                        sizeof(_oidAppleIntmMarkerAppleHomeKitServerCA) };
 
 
 

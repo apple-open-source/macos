@@ -3675,14 +3675,13 @@ int racoon_restart_cisco_ipsec(struct service *serv, struct sockaddr_in *address
 
 		/* now create the default config */
 		CFStringRef remote_address = CFDictionaryGetValue(serv->systemprefs, kRASPropIPSecRemoteAddress);
-		CFStringRef localIdentifier = CFDictionaryGetValue(serv->systemprefs, kRASPropIPSecLocalIdentifier);
+		char str[256];
 
 		if (serv->u.ipsec.config) {
 			my_CFRelease(&serv->u.ipsec.config);
 		}
 		serv->u.ipsec.config = IPSecCreateCiscoDefaultConfiguration((struct sockaddr *)&serv->u.ipsec.our_address,
-			&serv->u.ipsec.peer_address, cfstring_is_ip(remote_address) ? NULL : remote_address, auth_method, isString(localIdentifier), 
-			1, 0, verify_id, retry_dhgroup2);
+			&serv->u.ipsec.peer_address, cfstring_is_ip(remote_address) ? NULL : remote_address, auth_method, GetStrFromDict(serv->systemprefs, kRASPropIPSecLocalIdentifier, str, sizeof(str), ""), 1, 0, verify_id, retry_dhgroup2);
 
 		if (!serv->u.ipsec.config) {
 			ipsec_log(LOG_ERR, CFSTR("IPSec Controller: cannot create IPSec dictionary..."));

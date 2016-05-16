@@ -60,6 +60,12 @@ enum {
 
 #define kHIDUsage_MFiGameController_LED0                0xFF00
 
+#if TARGET_OS_TV
+  #define FULL_DIGITIZER_COLLECTION_SUPPORT               1
+#else
+  #define FULL_DIGITIZER_COLLECTION_SUPPORT               0
+#endif
+
 //===========================================================================
 // EventElementCollection class
 class EventElementCollection: public OSObject
@@ -138,8 +144,14 @@ class DigitizerTransducer: public EventElementCollection
 {
     OSDeclareDefaultStructors(DigitizerTransducer)
 public:
-    uint32_t type;
-    
+
+    uint32_t  type;
+    uint32_t  touch;
+    boolean_t inRange;
+    IOFixed   X;
+    IOFixed   Y;
+    IOFixed   Z;
+  
     static DigitizerTransducer * transducer(uint32_t type, IOHIDElement * parent);
     
     virtual OSDictionary * copyProperties() const;
@@ -159,7 +171,10 @@ DigitizerTransducer * DigitizerTransducer::transducer(uint32_t digitzerType, IOH
     
     result->type        = digitzerType;
     result->collection  = digitizerCollection;
-    
+    result->touch       = 0;
+    result->X = result->Y = result->Z = 0;
+    result->inRange     = false;
+  
     if ( result->collection )
         result->collection->retain();
     
@@ -229,6 +244,7 @@ void IOHIDEventDriver::free ()
     OSSafeReleaseNULL(_relative.elements);
     OSSafeReleaseNULL(_multiAxis.elements);
     OSSafeReleaseNULL(_digitizer.transducers);
+    OSSafeReleaseNULL(_digitizer.touchCancelElement);
     OSSafeReleaseNULL(_digitizer.deviceModeElement);
     OSSafeReleaseNULL(_scroll.elements);
     OSSafeReleaseNULL(_led.elements);
@@ -766,10 +782,11 @@ void IOHIDEventDriver::setDigitizerProperties()
     
     require(properties, exit);
     require(_digitizer.transducers, exit);
-    
+
+    properties->setObject("touchCancelElement", _digitizer.touchCancelElement);
     properties->setObject("Transducers", _digitizer.transducers);
     properties->setObject("DeviceModeElement", _digitizer.deviceModeElement);
-    
+  
     setProperty("Digitizer", properties);
     
 exit:
@@ -980,7 +997,7 @@ bool IOHIDEventDriver::parseDigitizerElement(IOHIDElement * element)
 {
     IOHIDElement *          parent          = NULL;
     bool                    result          = false;
-    
+
     parent = element;
     while ( (parent = parent->getParentElement()) ) {
         bool application = false;
@@ -1017,6 +1034,12 @@ bool IOHIDEventDriver::parseDigitizerElement(IOHIDElement * element)
     }
     
     require_action(parent, exit, result=false);
+  
+    if (element->getUsagePage() == kHIDPage_AppleVendorMultitouch && element->getUsage() == kHIDUsage_AppleVendorMultitouch_TouchCancel) {
+        OSSafeReleaseNULL(_digitizer.touchCancelElement);
+        element->retain();
+        _digitizer.touchCancelElement = element;
+    }
 
     switch ( parent->getUsage() ) {
         case kHIDUsage_Dig_DeviceSettings:
@@ -1119,7 +1142,7 @@ bool IOHIDEventDriver::parseDigitizerTransducerElement(IOHIDElement * element, I
     
     if ( shouldCalibrate )
         calibrateJustifiedPreferredStateElement(element, _absoluteAxisRemovalPercentage);
-    
+  
     transducer->elements->setObject(element);
     result = true;
     
@@ -1982,26 +2005,116 @@ exit:
 void IOHIDEventDriver::handleDigitizerReport(AbsoluteTime timeStamp, UInt32 reportID)
 {
     UInt32 index, count;
-    
+
+
+
+#if FULL_DIGITIZER_COLLECTION_SUPPORT
+    IOHIDEvent* collectionEvent = NULL;
+    IOHIDEvent* event = NULL;
+  
+    bool    touch     = false;
+    bool    range     = false;
+    UInt32  mask      = 0;
+    UInt32  finger    = 0;
+    UInt32  buttons   = 0;
+    IOFixed touch_x   = 0;
+    IOFixed touch_y   = 0;
+    IOFixed touch_z   = 0;
+    IOFixed range_x   = 0;
+    IOFixed range_y   = 0;
+    IOFixed range_z   = 0;
+    int     touchCount= 0;
+    int     rangeCount= 0;
+  
+    if (_digitizer.touchCancelElement && _digitizer.touchCancelElement->getReportID()==reportID) {
+        AbsoluteTime elementTimeStamp =  _digitizer.touchCancelElement->getTimeStamp();
+        if (CMP_ABSOLUTETIME(&timeStamp, &elementTimeStamp)==0) {
+            collectionEvent = IOHIDEvent::digitizerEvent(timeStamp, 0, kIOHIDDigitizerTransducerTypeFinger, false, 0, 0, 0, 0, 0, 0, 0, 0);
+          mask |= _digitizer.touchCancelElement->getValue() ? kIOHIDDigitizerEventCancel : 0;
+        }
+    }
+#endif
+
     require_quiet(_digitizer.transducers, exit);
-    
+  
     for (index=0, count = _digitizer.transducers->getCount(); index<count; index++) {
         DigitizerTransducer * transducer = NULL;
-        
+      
         transducer = OSDynamicCast(DigitizerTransducer, _digitizer.transducers->getObject(index));
-        if ( !transducer )
+        if ( !transducer ) {
             continue;
+        }
 
+#if FULL_DIGITIZER_COLLECTION_SUPPORT == 0
         handleDigitizerTransducerReport(transducer, timeStamp, reportID);
+#else     
+        event = handleDigitizerTransducerReport(transducer, timeStamp, reportID);
+        if (event) {
+            if (collectionEvent == NULL) {
+                collectionEvent = IOHIDEvent::digitizerEvent(timeStamp, 0, kIOHIDDigitizerTransducerTypeFinger, false, 0, 0, 0, 0, 0, 0, 0, 0);
+                require_quiet(collectionEvent, exit);
+                collectionEvent->setIntegerValue(kIOHIDEventFieldDigitizerCollection, TRUE);
+            }
+            if (event->getIntegerValue(kIOHIDEventFieldDigitizerTouch)) {
+                touch_x += event->getFixedValue (kIOHIDEventFieldDigitizerX);
+                touch_y += event->getFixedValue (kIOHIDEventFieldDigitizerY);
+                touch_z += event->getFixedValue (kIOHIDEventFieldDigitizerZ);
+                ++touchCount;
+            }
+            if (event->getIntegerValue(kIOHIDEventFieldDigitizerRange)) {
+                range_x += event->getFixedValue (kIOHIDEventFieldDigitizerX);
+                range_y += event->getFixedValue (kIOHIDEventFieldDigitizerY);
+                range_z += event->getFixedValue (kIOHIDEventFieldDigitizerZ);
+                ++rangeCount;
+            }
+            mask  |= event->getIntegerValue(kIOHIDEventFieldDigitizerEventMask);
+            buttons |= event->getIntegerValue(kIOHIDEventFieldDigitizerButtonMask);
+            if (event->getIntegerValue(kIOHIDEventFieldDigitizerType) == kIOHIDDigitizerTransducerTypeFinger) {
+                finger++;
+            }
+            collectionEvent->appendChild(event);
+            collectionEvent->setIntegerValue(kIOHIDEventFieldDigitizerCollection, TRUE);
+            event->release();
+        }
     }
+  
+    if (collectionEvent) {
+        collectionEvent->setIntegerValue(kIOHIDEventFieldDigitizerEventMask, mask);
+        if (touchCount) {
+            collectionEvent->setFixedValue(kIOHIDEventFieldDigitizerX, IOFixedDivide(touch_x, touchCount << 16));
+            collectionEvent->setFixedValue(kIOHIDEventFieldDigitizerY, IOFixedDivide(touch_y, touchCount << 16));
+            collectionEvent->setFixedValue(kIOHIDEventFieldDigitizerZ, IOFixedDivide(touch_z, touchCount << 16));
+        } else if (rangeCount) {
+            collectionEvent->setFixedValue(kIOHIDEventFieldDigitizerX, IOFixedDivide(range_x, rangeCount << 16));
+            collectionEvent->setFixedValue(kIOHIDEventFieldDigitizerY, IOFixedDivide(range_y, rangeCount << 16));
+            collectionEvent->setFixedValue(kIOHIDEventFieldDigitizerZ, IOFixedDivide(range_z, rangeCount << 16));
+        }
+      
+        if (touchCount) {
+            collectionEvent->setIntegerValue(kIOHIDEventFieldDigitizerTouch, 1);
+        }
+        if (rangeCount) {
+            collectionEvent->setIntegerValue(kIOHIDEventFieldDigitizerRange, 1);
+        }
+      
+        collectionEvent->setIntegerValue(kIOHIDEventFieldDigitizerButtonMask, buttons);
+        if (finger > 1) {
+            collectionEvent->getIntegerValue(kIOHIDDigitizerTransducerTypeHand);
+        }
+      
+        dispatchEvent(collectionEvent);
+#endif  
+    }
+
 exit:
+
     return;
 }
     
 //====================================================================================================
 // IOHIDEventDriver::handleDigitizerReport
 //====================================================================================================
-void IOHIDEventDriver::handleDigitizerTransducerReport(DigitizerTransducer * transducer, AbsoluteTime timeStamp, UInt32 reportID)
+IOHIDEvent* IOHIDEventDriver::handleDigitizerTransducerReport(DigitizerTransducer * transducer, AbsoluteTime timeStamp, UInt32 reportID)
 {
     bool                    handled         = false;
     UInt32                  elementIndex    = 0;
@@ -2019,7 +2132,7 @@ void IOHIDEventDriver::handleDigitizerTransducerReport(DigitizerTransducer * tra
     bool                    invert          = false;
     bool                    inRange         = true;
     bool                    valid           = true;
-    
+  
     require_quiet(transducer->elements, exit);
 
     for (elementIndex=0, elementCount=transducer->elements->getCount(); elementIndex<elementCount; elementIndex++) {
@@ -2126,10 +2239,54 @@ void IOHIDEventDriver::handleDigitizerTransducerReport(DigitizerTransducer * tra
     require(handled, exit);
     
     require(valid, exit);
-    
+
+#if FULL_DIGITIZER_COLLECTION_SUPPORT == 0
     dispatchDigitizerEventWithTiltOrientation(timeStamp, transducerID, transducer->type, inRange, buttonState, X, Y, Z, tipPressure, barrelPressure, twist, tiltX, tiltY, invert ? IOHIDEventService::kDigitizerInvert : 0);
+#else
+{
+    UInt32                  eventMask       = 0;
+    UInt32                  eventOptions    = 0;
+    UInt32                  touch           = 0;
+    IOHIDEvent              *event          = NULL;
+
+    event = IOHIDEvent::digitizerEvent(timeStamp, transducerID, transducer->type, inRange, buttonState, X, Y, Z, tipPressure, barrelPressure, twist, eventOptions);
+    require(event, exit);
+
+
+    if ( tipPressure ) {
+        touch |= 1;
+    } else {
+        touch |= buttonState & 1;
+    }
+    event->setIntegerValue(kIOHIDEventFieldDigitizerTouch, touch);
+    if (touch != transducer->touch) {
+        eventMask |= kIOHIDDigitizerEventTouch;
+    }
+
+    if (inRange && ( (transducer->X != X) || (transducer->Y != Y) || (transducer->Z != Z))) {
+        eventMask |= kIOHIDDigitizerEventPosition;
+    }
+
+    if (inRange != transducer->inRange) {
+        eventMask |= kIOHIDDigitizerEventRange;
+
+        if ( inRange ) {
+            transducer->X = X;
+            transducer->Y = Y;
+            eventMask |= kIOHIDDigitizerEventIdentity;
+        }
+        transducer->inRange = inRange;
+    }
+
+    event->setIntegerValue(kIOHIDEventFieldDigitizerEventMask, eventMask);
+
+    return event;
+}
+#endif 
+
 exit:
-    return;
+
+    return NULL;
 }
 
 //====================================================================================================

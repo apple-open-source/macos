@@ -117,6 +117,8 @@ INSERT INTO feature (name, value, remarks)
 	VALUES ('codesignedpackages', 'present', 'builtin');
 INSERT INTO feature (name, value, remarks)
 	VALUES ('filter_unsigned', 'present', 'builtin');
+INSERT INTO feature (name, value, remarks)
+	VALUES ('document rules', 'present', 'builtin');
 
 
 --
@@ -148,6 +150,12 @@ insert into authority (type, allow, flags, label, requirement)
 	values (1, 1, 2, 'Developer ID', 'anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists');
 insert into authority (type, allow, flags, label, requirement)
 	values (2, 1, 2, 'Developer ID', 'anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and (certificate leaf[field.1.2.840.113635.100.6.1.14] or certificate leaf[field.1.2.840.113635.100.6.1.13])');
+
+-- Document signing
+insert into authority (type, allow, flags, label, requirement)
+	values (3, 1, 2, 'Apple System', 'anchor apple');
+insert into authority (type, allow, flags, label, requirement)
+values (3, 1, 2, 'Developer ID', 'anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists');
 
 
 --

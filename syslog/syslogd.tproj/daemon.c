@@ -453,8 +453,6 @@ aslmsg_verify(asl_msg_t *msg, uint32_t source, int32_t *kern_post_level, uid_t *
 		}
 	}
 
-	if (uid_out != NULL) *uid_out = uid;
-
 	gid = -2;
 	val = asl_msg_get_val_for_key(msg, ASL_KEY_GID);
 	if (val == NULL)
@@ -484,7 +482,6 @@ aslmsg_verify(asl_msg_t *msg, uint32_t source, int32_t *kern_post_level, uid_t *
 
 			break;
 		}
-		case SOURCE_UDP_SOCKET:
 		case SOURCE_ASL_MESSAGE:
 		case SOURCE_LAUNCHD:
 		{
@@ -506,6 +503,8 @@ aslmsg_verify(asl_msg_t *msg, uint32_t source, int32_t *kern_post_level, uid_t *
 			}
 		}
 	}
+
+	if (uid_out != NULL) *uid_out = uid;
 
 	/* Sender */
 	if (sval == NULL) sval = asl_msg_get_val_for_key(msg, ASL_KEY_SENDER);

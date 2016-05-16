@@ -650,6 +650,7 @@ _SecPolicyCreateSSL
 _SecPolicyCreateWithOID
 _SecPolicyCreateWithProperties
 _SecPolicyCreateAppleTimeStampingAndRevocationPolicies
+_SecPolicyCreateAppleHomeKitServerAuth
 _SecPolicyGetOID
 _SecPolicyGetTPHandle
 _SecPolicyGetTypeID

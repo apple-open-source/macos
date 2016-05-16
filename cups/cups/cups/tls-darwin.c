@@ -1,5 +1,5 @@
 /*
- * "$Id: tls-darwin.c 12698 2015-06-08 17:47:35Z msweet $"
+ * "$Id: tls-darwin.c 13104 2016-02-18 19:31:31Z msweet $"
  *
  * TLS support code for CUPS on OS X.
  *
@@ -221,7 +221,7 @@ cleanup:
                  "2048\n"		/* Key size in bits */
                  "y\n"			/* OK (y = yes) */
                  "b\n"			/* Usage (b=signing/encryption) */
-                 "s\n"			/* Sign with SHA1 */
+                 "2\n"			/* Sign with SHA256 */
                  "y\n"			/* OK (y = yes) */
                  "%s\n"			/* Common name */
                  "\n"			/* Country (default) */
@@ -1835,5 +1835,5 @@ http_cdsa_write(
 
 
 /*
- * End of "$Id: tls-darwin.c 12698 2015-06-08 17:47:35Z msweet $".
+ * End of "$Id: tls-darwin.c 13104 2016-02-18 19:31:31Z msweet $".
  */

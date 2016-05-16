@@ -33,3 +33,4 @@ _kSecUseAuthenticationUIAllow
 _kSecUseAuthenticationUIFail
 _kSecUseAuthenticationUISkip
 _kSecUseAuthenticationContext
+_kSecUseCallerName

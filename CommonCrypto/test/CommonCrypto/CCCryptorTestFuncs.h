@@ -40,7 +40,7 @@ CCMultiCryptWithMode(CCOperation op, CCMode mode, CCAlgorithm alg, CCPadding pad
 
 /* This is a Test Case "doer" using CCCrypt */
 int
-CCCryptTestCase(char *keyStr, char *ivStr, CCAlgorithm alg, CCOptions options, char *cipherText, char *plainText);
+CCCryptTestCase(char *keyStr, char *ivStr, CCAlgorithm alg, CCOptions options, char *cipherText, char *plainText, bool log);
 
 /* This is a Test Case "doer" using CCMultiCrypt */
 int

@@ -2020,9 +2020,10 @@ IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 coo
     // Return an error if no cookies are being set
     if (cookieCount == 0)
         return ret;
-
+    
     // Get the max report size
-    maxReportLength = max(_maxOutputReportSize, _maxFeatureReportSize);
+    maxReportLength = max(_maxOutputReportSize,
+                          max(_maxFeatureReportSize, _maxInputReportSize));
 
     // Allocate a buffer mem descriptor with the maxReportLength.
     // This way, we only have to allocate one mem buffer.
@@ -2200,7 +2201,7 @@ IOReturn IOHIDDevice::handleReportWithTime(
     if ( !report )
         return kIOReturnBadArgument;
 
-    if ( reportType >= kIOHIDReportTypeCount )
+    if ( ((unsigned int)reportType) >= kIOHIDReportTypeCount )
         return kIOReturnBadArgument;
 
     reportLength = report->getLength();

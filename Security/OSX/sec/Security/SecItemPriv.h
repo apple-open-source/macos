@@ -345,12 +345,18 @@ extern const CFStringRef kSecUseSyncBubbleKeychain
     @constant kSecUseCredentialReference Specifies a CFDataRef containing
         AppleCredentialManager reference handle to be used when authorizing access
         to the item.
+    @constant kSecUseCallerName Specifies a dictionary key whose value
+        is a CFStringRef that represents a user-visible string describing
+        the caller name for which the application is attempting to authenticate.
+        The caller must have 'com.apple.private.LocalAuthentication.CallerName'
+        entitlement set to YES to use this feature, otherwise it is ignored.
 */
 extern const CFStringRef kSecUseTombstones
     __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 extern const CFStringRef kSecUseCredentialReference
     __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
-
+extern const CFStringRef kSecUseCallerName
+    __OSX_AVAILABLE(10.11.4) __IOS_AVAILABLE(9.3) __TVOS_AVAILABLE(9.3) __WATCHOS_AVAILABLE(2.3);
 
 /*!
     @function SecItemCopyDisplayNames

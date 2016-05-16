@@ -2392,17 +2392,17 @@ AC_DEFUN([PHP_SETUP_OPENSSL],[
 
     PHP_ADD_INCLUDE($OPENSSL_INCDIR)
   
-    PHP_CHECK_LIBRARY(crypto, CRYPTO_free, [
-      PHP_ADD_LIBRARY(crypto,,$1)
+    PHP_CHECK_LIBRARY(crypto.35, CRYPTO_free, [
+      PHP_ADD_LIBRARY(crypto.35,,$1)
     ],[
-      AC_MSG_ERROR([libcrypto not found!])
+      AC_MSG_ERROR([libcrypto.35 not found!])
     ],[
       -L$OPENSSL_LIBDIR
     ])
 
     old_LIBS=$LIBS
-    LIBS="$LIBS -lcrypto"
-    PHP_CHECK_LIBRARY(ssl, SSL_CTX_set_ssl_version, [
+    LIBS="$LIBS -lcrypto.35"
+    PHP_CHECK_LIBRARY(ssl.35, SSL_CTX_set_ssl_version, [
       found_openssl=yes
     ],[
       AC_MSG_ERROR([libssl not found!])
@@ -2410,8 +2410,8 @@ AC_DEFUN([PHP_SETUP_OPENSSL],[
       -L$OPENSSL_LIBDIR
     ])
     LIBS=$old_LIBS
-    PHP_ADD_LIBRARY(ssl,,$1)
-    PHP_ADD_LIBRARY(crypto,,$1)
+    PHP_ADD_LIBRARY(ssl.35,,$1)
+    PHP_ADD_LIBRARY(crypto.35,,$1)
 
     PHP_ADD_LIBPATH($OPENSSL_LIBDIR, $1)
   fi

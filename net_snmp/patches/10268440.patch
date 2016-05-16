@@ -1,0 +1,66 @@
+diff -Naur net-snmp-5.6.2.1.orig/configure net-snmp-5.6.2.1.work/configure
+--- net-snmp-5.6.2.1.orig/configure	2016-02-22 17:11:26.000000000 -0800
++++ net-snmp-5.6.2.1.work/configure	2016-02-22 17:38:03.000000000 -0800
+@@ -32153,7 +32153,7 @@
+   $as_echo_n "(cached) " >&6
+ else
+   ac_check_lib_save_LIBS=$LIBS
+-LIBS="-lcrypto  $LIBS"
++LIBS="-lcrypto.35  $LIBS"
+ cat >conftest.$ac_ext <<_ACEOF
+ /* confdefs.h.  */
+ _ACEOF
+@@ -32213,7 +32213,7 @@
+ { $as_echo "$as_me:$LINENO: result: $ac_cv_lib_crypto_EVP_md5" >&5
+ $as_echo "$ac_cv_lib_crypto_EVP_md5" >&6; }
+ if test "x$ac_cv_lib_crypto_EVP_md5" = x""yes; then
+-  CRYPTO="crypto"
++  CRYPTO="crypto.35"
+ fi
+ 
+         fi
+@@ -32395,7 +32395,7 @@
+   $as_echo_n "(cached) " >&6
+ else
+   ac_check_lib_save_LIBS=$LIBS
+-LIBS="-lssl -lcrypto $LIBS"
++LIBS="-lssl.35 -lcrypto.35 $LIBS"
+ cat >conftest.$ac_ext <<_ACEOF
+ /* confdefs.h.  */
+ _ACEOF
+@@ -32460,7 +32460,7 @@
+ #define HAVE_LIBSSL_DTLS 1
+ _ACEOF
+ 
+-                LIBCRYPTO=" -lssl $LIBCRYPTO"
++                LIBCRYPTO=" -lssl.35 $LIBCRYPTO"
+ else
+   { { $as_echo "$as_me:$LINENO: error: The DTLS based transports require the libssl library from OpenSSL to be available and support DTLS" >&5
+ $as_echo "$as_me: error: The DTLS based transports require the libssl library from OpenSSL to be available and support DTLS" >&2;}
+@@ -32476,7 +32476,7 @@
+   $as_echo_n "(cached) " >&6
+ else
+   ac_check_lib_save_LIBS=$LIBS
+-LIBS="-lssl -lcrypto $LIBS"
++LIBS="-lssl.35 -lcrypto.35 $LIBS"
+ cat >conftest.$ac_ext <<_ACEOF
+ /* confdefs.h.  */
+ _ACEOF
+@@ -32541,7 +32541,7 @@
+ #define HAVE_LIBSSL 1
+ _ACEOF
+ 
+-                LIBCRYPTO=" -lssl $LIBCRYPTO"
++                LIBCRYPTO=" -lssl.35 $LIBCRYPTO"
+ else
+   { { $as_echo "$as_me:$LINENO: error: The DTLS based transports require the libssl library from OpenSSL to be available" >&5
+ $as_echo "$as_me: error: The DTLS based transports require the libssl library from OpenSSL to be available" >&2;}
+@@ -38489,7 +38489,7 @@
+ $as_echo_n "checking for BIO_dgram_get_peer... " >&6; }
+ 
+         oldLIBS="$LIBS"
+-        LIBS="$LIBS -lcrypto"
++        LIBS="$LIBS -lcrypto.35"
+         cat >conftest.$ac_ext <<_ACEOF
+ /* confdefs.h.  */
+ _ACEOF

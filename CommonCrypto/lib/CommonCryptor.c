@@ -117,7 +117,8 @@ static inline CCCryptorStatus setCryptorCipherMode(CCCryptor *ref, CCAlgorithm c
 }
 
 
-static inline CCCryptorStatus ccSetupCryptor(CCCryptor *ref, CCAlgorithm cipher, CCMode mode, CCOperation direction, CCPadding padding) {
+static inline CCCryptorStatus ccSetupCryptor(CCCryptor *ref, CCAlgorithm cipher, CCMode mode, CCOperation direction, CCPadding padding)
+{
     CCCryptorStatus retval;
     
     if(cipher > 6) return kCCParamError;
@@ -185,7 +186,35 @@ static inline bool ccIsStreaming(CCCryptor *ref) {
     return ref->modeDesc->mode_get_block_size(ref->symMode[ref->op]) == 1;
 }
 
-static inline CCCryptorStatus ccInitCryptor(CCCryptor *ref, const void *key, unsigned long key_len, const void *tweak_key, const void *iv) {
+static int check_algorithm_keysize(CCAlgorithm alg, size_t keysize)
+{
+    int rc;
+
+#if (kCCAlgorithmAES128!= kCCAlgorithmAES)
+#error If kCCAlgorithmAES128 and kCCAlgorithmAES are not the same, a case statement must be defined
+#endif
+
+    switch (alg) {
+        //case kCCAlgorithmAES128:
+        case kCCAlgorithmAES: rc = keysize==kCCKeySizeAES128 || keysize==kCCKeySizeAES192 || keysize==kCCKeySizeAES256; break;
+        case kCCAlgorithmDES: rc = keysize==kCCKeySizeDES; break;
+        case kCCAlgorithm3DES:rc = keysize==kCCKeySize3DES; break;
+        case kCCAlgorithmCAST:rc = keysize>=kCCKeySizeMinCAST && keysize<=kCCKeySizeMaxCAST; break;
+        case kCCAlgorithmRC4: rc = keysize>=kCCKeySizeMinRC4  && keysize<=kCCKeySizeMaxRC4; break;
+        case kCCAlgorithmRC2: rc = keysize>=kCCKeySizeMinRC2  && keysize<=kCCKeySizeMaxRC2; break;
+        case kCCAlgorithmBlowfish: rc = keysize>=kCCKeySizeMinBlowfish && keysize<=kCCKeySizeMaxBlowfish; break;
+
+        default: rc=0;
+    }
+    return rc==1?0:-1;
+
+}
+
+static inline CCCryptorStatus ccInitCryptor(CCCryptor *ref, const void *key, unsigned long key_len, const void *tweak_key, const void *iv)
+{
+    if( check_algorithm_keysize(ref->cipher, key_len) <0 )
+        return kCCParamError;
+
     size_t blocksize = ccGetCipherBlockSize(ref);
     uint8_t defaultIV[blocksize];
     

@@ -180,7 +180,6 @@ xsltDocumentFunctionLoadDocument(xmlXPathParserContextPtr ctxt, xmlChar* URI)
     resObj = xmlXPtrEval(fragment, xptrctxt);
     xmlXPathFreeContext(xptrctxt);
 #endif
-    xmlFree(fragment);
 
     if (resObj == NULL)
 	goto out_fragment;
@@ -204,6 +203,7 @@ xsltDocumentFunctionLoadDocument(xmlXPathParserContextPtr ctxt, xmlChar* URI)
     }
 
     valuePush(ctxt, resObj);
+    xmlFree(fragment);
     return;
 
 out_object:
@@ -211,6 +211,7 @@ out_object:
 
 out_fragment:
     valuePush(ctxt, xmlXPathNewNodeSet(NULL));
+    xmlFree(fragment);
 }
 
 /**

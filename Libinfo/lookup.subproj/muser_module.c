@@ -58,25 +58,16 @@ _muser_call(const char *procname, xpc_object_t payload)
 
 	int rv = xpc_pipe_routine(pipe, payload, &reply);
 	switch (rv) {
-		case EPIPE:
-			xpc_release(pipe);
-			break;
-		case EAGAIN:
-			/* try again? */
-			break;
 		case 0:
 			result = reply;
-			/* fallthrough */
+			break;
+		case EAGAIN:
+		case EPIPE:
 		default:
-			xpc_release(pipe);
-			pipe = NULL;
 			break;
 	}
 
-	if (pipe != NULL) {
-		xpc_release(pipe);
-	}
-
+	xpc_release(pipe);
 	return result;
 }
 
@@ -96,6 +87,7 @@ _muser_xpc_pipe_disabled(xpc_pipe_t pipe)
 	switch (rv) {
 	case 0:
 		disabled = !xpc_dictionary_get_bool(reply, kLIMMessageReplyAvailable);
+		xpc_release(reply);
 		break;
 	case EPIPE:
 	case EAGAIN:
@@ -104,6 +96,7 @@ _muser_xpc_pipe_disabled(xpc_pipe_t pipe)
 		break;
 	}
 
+	xpc_release(dict);
 	return disabled;
 }
 
@@ -254,13 +247,27 @@ _muser_extract_group(si_mod_t *si, xpc_object_t reply, uint64_t vg, uint64_t vc)
 				reqs--;
 			}
 		}
+		else if (!strcmp(key, kLIMMessageReplyGroupMembers)) {
+			if (xpc_get_type(value) == XPC_TYPE_ARRAY) {
+				size_t count = xpc_array_get_count(value);
+				g.gr_mem = (char **)malloc(sizeof(char *) * (count + 1));
+				g.gr_mem[count] = NULL;
+
+				for (size_t i=0; i<count; i++) {
+					g.gr_mem[i] = (char *)xpc_array_get_string(value, i);
+				}
+			}
+		}
 		return true;
 	});
 
 	if (reqs != 0) { return NULL; }
 
-	return (si_item_t *)LI_ils_create("L4488ss4*", (unsigned long)si, CATEGORY_GROUP, 1,
+	si_item_t *item = (si_item_t *)LI_ils_create("L4488ss4*", (unsigned long)si, CATEGORY_GROUP, 1,
 			vg, vc, g.gr_name, g.gr_passwd, g.gr_gid, g.gr_mem);
+
+	free(g.gr_mem);
+	return item;
 }
 
 static si_item_t *
@@ -411,7 +418,7 @@ muser_grouplist(struct si_mod_s *si, const char *name, uint32_t count)
 	if (!payload) { return NULL; }
 
 	xpc_dictionary_set_string(payload, kLIMMessageReqtype, kLIMMessageRequestGrouplist);
-	xpc_dictionary_set_int64(payload, kLIMMessageQuery, name);
+	xpc_dictionary_set_string(payload, kLIMMessageQuery, name);
 
 	xpc_object_t reply = _muser_call("getgrouplist", payload);
 	if (reply) {

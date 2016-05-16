@@ -1,0 +1,6 @@
+./test/HTML/apple_760263.html:1: HTML parser error : Misplaced DOCTYPE declaration
+0<!DOCTYPEa00 PUBLIC '0000000000000000000000000000000000000000000000000000000000
+ ^
+./test/HTML/apple_760263.html:1: HTML parser error : DOCTYPE improperly terminated
+0000000000000000000000000000000000000000000000000000000000000000000000000000000'
+                                                                               ^

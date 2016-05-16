@@ -2203,7 +2203,7 @@ static CFStringRef get_valid_sct_operator(CFDataRef sct, int entry_type, CFDataR
     q = SSLEncodeUint16(q, extensionsLen);
     memcpy(q, extensionsData, extensionsLen);
 
-    CFDataRef logIDData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, logID, 32, NULL);
+    CFDataRef logIDData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, logID, 32, kCFAllocatorNull);
 
     CFDictionaryRef logData = CFArrayGetValueMatching(trustedLogs, ^bool(const void *dict) {
         const void *key_data;
@@ -2215,6 +2215,7 @@ static CFStringRef get_valid_sct_operator(CFDataRef sct, int entry_type, CFDataR
         CFReleaseSafe(valueID);
         return result;
     });
+    CFReleaseSafe(logIDData);
     require(logData, out);
 
     /* If an expiry date is specified, and is a valid CFDate, then we check it against issuanceTime or verifyTime */
@@ -2290,8 +2291,8 @@ static CFArrayRef copy_ocsp_scts(SecPVCRef pvc)
                 }
                 SecOCSPSingleResponseDestroy(ocspSingleResponse);
             }
-            SecOCSPResponseFinalize(ocspResponse);
         }
+        if(ocspResponse) SecOCSPResponseFinalize(ocspResponse);
     });
 
     if(CFArrayGetCount(SCTs)==0) {

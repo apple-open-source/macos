@@ -51,7 +51,6 @@
 #define LOGD(ARG,...) secdebug("secdb", ARG, ## __VA_ARGS__)
 
 #define HAVE_UNLOCK_NOTIFY  0
-#define USE_BUSY_HANDLER  1
 
 struct __OpaqueSecDbStatement {
     CFRuntimeBase _base;
@@ -417,75 +416,46 @@ static bool SecDbWaitForUnlockNotify(SecDbConnectionRef dbconn, sqlite3_stmt *st
 
 #endif
 
-#if USE_BUSY_HANDLER
-
-// Return 0 to stop retrying.
-static int SecDbHandleBusy(void *ctx, int retryCount) {
-    SecDbConnectionRef dbconn __unused = ctx;
-    struct timespec sleeptime = { .tv_sec = 0, .tv_nsec = 10000 };
-    while (retryCount--) {
-        // Double sleeptime until we hit one second then add one
-        // second more every time we sleep.
-        if (sleeptime.tv_sec) {
-            sleeptime.tv_sec++;
-        } else {
-            sleeptime.tv_nsec *= 2;
-            if (sleeptime.tv_nsec > NSEC_PER_SEC) {
-                sleeptime.tv_nsec = 0;
-                sleeptime.tv_sec++;
-            }
-        }
-    }
-    struct timespec unslept = {};
-    nanosleep(&sleeptime, &unslept);
-
-    return 1;
-}
+#define BUSY_TIMEOUT_MS (5 * 60 * 1000)  /* 5 minutes */
 
 static bool SecDbBusyHandler(SecDbConnectionRef dbconn, CFErrorRef *error) {
-    return SecDbErrorWithDb(sqlite3_busy_handler(dbconn->handle, SecDbHandleBusy, dbconn), dbconn->handle, error, CFSTR("busy_handler"));
+    return SecDbErrorWithDb(sqlite3_busy_timeout(dbconn->handle, BUSY_TIMEOUT_MS), dbconn->handle, error, CFSTR("busy_handler"));
 }
 
-#endif // USE_BUSY_HANDLER
+static int sleepBackoff[] = { 10, 20, 50, 100, 250 };
+static int sumBackoff[]   = { 10, 30, 80, 180, 430 };
+static int numEntries = sizeof(sleepBackoff)/sizeof(sleepBackoff[0]);
 
 // Return true causes the operation to be tried again.
-static bool SecDbWaitIfNeeded(SecDbConnectionRef dbconn, int s3e, sqlite3_stmt *stmt, CFStringRef desc, struct timespec *sleeptime, CFErrorRef *error) {
+static bool SecDbWaitIfNeeded(SecDbConnectionRef dbconn, int s3e, sqlite3_stmt *stmt, CFStringRef desc, int nTries, CFErrorRef *error) {
 #if HAVE_UNLOCK_NOTIFY
     if (s3e == SQLITE_LOCKED) { // Optionally check for extended code being SQLITE_LOCKED_SHAREDCACHE
         return SecDbWaitForUnlockNotify(dbconn, stmt, error))
     }
 #endif
+    if (((0xFF & s3e) == SQLITE_BUSY) || ((0xFF & s3e) == SQLITE_LOCKED)) {
+        int totaltimeout, timeout;
 
-#if !USE_BUSY_HANDLER
-    if (s3e == SQLITE_LOCKED || s3e == SQLITE_BUSY) {
-        LOGV("sqlDb: %s", sqlite3_errmsg(dbconn->handle));
-        while (s3e == SQLITE_LOCKED || s3e == SQLITE_BUSY) {
-            struct timespec unslept = {};
-            nanosleep(sleeptime, &unslept);
-            s3e = SQLITE_OK;
-            if (stmt)
-                s3e = sqlite3_reset(stmt);
+        _Static_assert(sizeof(sumBackoff) == sizeof(sleepBackoff), "matching arrays not matching");
+        _Static_assert(sizeof(sumBackoff[0]) == sizeof(sleepBackoff[0]), "matching arrays not matching");
 
-            // Double sleeptime until we hit one second the add one
-            // second more every time we sleep.
-            if (sleeptime->tv_sec) {
-                sleeptime->tv_sec++;
-            } else {
-                sleeptime->tv_nsec *= 2;
-                if (sleeptime->tv_nsec > NSEC_PER_SEC) {
-                    sleeptime->tv_nsec = 0;
-                    sleeptime->tv_sec++;
-                }
-            }
+        if (nTries < numEntries) {
+            timeout = sleepBackoff[nTries];
+            totaltimeout = sumBackoff[nTries];
+        } else {
+            timeout = sleepBackoff[numEntries - 1];
+            totaltimeout = sumBackoff[numEntries - 1] + (timeout * (nTries - numEntries));
         }
-        if (s3e)
-            return SecDbErrorWithStmt(s3e, stmt, error, CFSTR("reset"));
-    } else
-#endif // !USE_BUSY_HANDLER
-    {
-        return SecDbConnectionCheckCode(dbconn, s3e, error, desc);
+        if (totaltimeout < BUSY_TIMEOUT_MS) {
+            LOGE("sqlite busy/locked: %d ntries: %d totaltimeout: %d", s3e, nTries, totaltimeout);
+            sqlite3_sleep(timeout);
+            return true;
+        } else {
+            LOGE("sqlite busy/locked: too long: %d ms, giving up", totaltimeout);
+        }
     }
-    return true;
+
+    return SecDbConnectionCheckCode(dbconn, s3e, error, desc);
 }
 
 enum SecDbStepResult {
@@ -498,15 +468,18 @@ typedef enum SecDbStepResult SecDbStepResult;
 static SecDbStepResult _SecDbStep(SecDbConnectionRef dbconn, sqlite3_stmt *stmt, CFErrorRef *error) {
     assert(stmt != NULL);
     int s3e;
-    struct timespec sleeptime = { .tv_sec = 0, .tv_nsec = 10000 };
+    int ntries = 0;
     for (;;) {
         s3e = sqlite3_step(stmt);
-        if (s3e == SQLITE_ROW)
+        if (s3e == SQLITE_ROW) {
+            ntries = 0;
             return kSecDbRowStep;
-        else if (s3e == SQLITE_DONE)
+        } else if (s3e == SQLITE_DONE)
             return kSecDbDoneStep;
-        else if (!SecDbWaitIfNeeded(dbconn, s3e, stmt, CFSTR("step"), &sleeptime, error))
+        else if (!SecDbWaitIfNeeded(dbconn, s3e, stmt, CFSTR("step"), ntries, error)) {
             return kSecDbErrorStep;
+        }
+        ntries++;
     };
 }
 
@@ -841,9 +814,7 @@ static bool SecDbOpenHandle(SecDbConnectionRef dbconn, bool *created, CFErrorRef
         if (ok && SecDbTraceEnabled()) {
             sqlite3_trace(dbconn->handle, SecDbTrace, dbconn);
         }
-#if USE_BUSY_HANDLER
         ok = ok && SecDbBusyHandler(dbconn, error);
-#endif
     });
 
 done:
@@ -1179,14 +1150,15 @@ sqlite3_stmt *SecDbPrepareV2(SecDbConnectionRef dbconn, const char *sql, size_t 
         SecDbErrorWithDb(SQLITE_TOOBIG, db, error, CFSTR("prepare_v2: sql bigger than INT_MAX"));
         return NULL;
     }
-    struct timespec sleeptime = { .tv_sec = 0, .tv_nsec = 10000 };
+    int ntries = 0;
     for (;;) {
         sqlite3_stmt *stmt = NULL;
         int s3e = sqlite3_prepare_v2(db, sql, (int)sqlLen, &stmt, sqlTail);
         if (s3e == SQLITE_OK)
             return stmt;
-        else if (!SecDbWaitIfNeeded(dbconn, s3e, NULL, CFSTR("preparev2"), &sleeptime, error))
+        else if (!SecDbWaitIfNeeded(dbconn, s3e, NULL, CFSTR("preparev2"), ntries, error))
             return NULL;
+        ntries++;
     }
 }
 

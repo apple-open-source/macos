@@ -125,11 +125,13 @@ IOFWUserAsyncStreamListener::serialize(OSSerialize *s) const
 void
 IOFWUserAsyncStreamListener::free()
 {
-	if ( fPacketQueuePrepared )
+    if ( fPacketQueuePrepared )
 		fPacketQueueBuffer->complete() ;
 
-	if ( fPacketQueueBuffer )
+    if ( fPacketQueueBuffer ) {
 		fPacketQueueBuffer->release() ;
+        fPacketQueueBuffer=NULL;
+    }
 
 	delete fLastWrittenHeader ;
 

@@ -206,6 +206,28 @@ See remaining rules for examples.
 			<key>timeout</key>
 			<integer>0</integer>
 		</dict>
+        <key>com.apple.Safari.allow-apple-events-to-run-javascript</key>
+        <dict>
+            <key>class</key>
+            <string>user</string>
+            <key>comment</key>
+            <string>This right is used by Safari to allow Apple Events to run JavaScript on web pages.</string>
+            <key>session-owner</key>
+            <true/>
+            <key>shared</key>
+            <false/>
+        </dict>
+        <key>com.apple.Safari.allow-javascript-in-smart-search-field</key>
+        <dict>
+            <key>class</key>
+            <string>user</string>
+            <key>comment</key>
+            <string>This right is used by Safari to allow JavaScript to be used in the Smart Search Field.</string>
+            <key>session-owner</key>
+            <true/>
+            <key>shared</key>
+            <false/>
+        </dict>
 		<key>com.apple.ServiceManagement.blesshelper</key>
 		<dict>
 			<key>allow-root</key>

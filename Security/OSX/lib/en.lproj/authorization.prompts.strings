@@ -40,6 +40,10 @@
 
 "com.apple.Safari.install-ephemeral-extensions" = "__APPNAME__ is trying to install an extension.";
 
+"com.apple.Safari.allow-apple-events-to-run-javascript" = "__APPNAME__ is trying to allow Apple Events to run JavaScript on web pages.";
+
+"com.apple.Safari.allow-javascript-in-smart-search-field" = "__APPNAME__ is trying to allow JavaScript to be used in the Smart Search Field.";
+
 "system.sharepoints." = "__APPNAME__ is trying to modify Sharing preferences.";
 
 "system.preferences.energysaver" = "__APPNAME__ is trying to unlock the Energy Saver preferences.";

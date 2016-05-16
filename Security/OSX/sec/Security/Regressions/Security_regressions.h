@@ -21,7 +21,11 @@ ONE_TEST(si_20_sectrust_activation)
 ONE_TEST(si_20_sectrust)
 ONE_TEST(si_21_sectrust_asr)
 ONE_TEST(si_22_sectrust_iap)
+#if !TARGET_OS_WATCH
 ONE_TEST(si_23_sectrust_ocsp)
+#else
+DISABLED_ONE_TEST(si_23_sectrust_ocsp)
+#endif
 ONE_TEST(si_24_sectrust_itms)
 ONE_TEST(si_24_sectrust_nist)
 ONE_TEST(si_24_sectrust_otatasking)
@@ -53,7 +57,11 @@ ONE_TEST(si_63_scep)
 ONE_TEST(si_64_ossl_cms)
 ONE_TEST(si_65_cms_cert_policy)
 ONE_TEST(si_66_smime)
+#if !TARGET_OS_WATCH
 ONE_TEST(si_67_sectrust_blacklist)
+#else
+DISABLED_ONE_TEST(si_67_sectrust_blacklist)
+#endif
 ONE_TEST(si_68_secmatchissuer)
 ONE_TEST(si_69_keydesc)
 ONE_TEST(si_70_sectrust_unified)
@@ -90,6 +98,7 @@ ONE_TEST(si_88_sectrust_vpnprofile)
 ONE_TEST(si_89_cms_hash_agility)
 ONE_TEST(si_90_emcs)
 ONE_TEST(si_91_sectrust_ast2)
+ONE_TEST(si_92_sectrust_homekit)
 
 ONE_TEST(vmdh_40)
 ONE_TEST(vmdh_41_example)

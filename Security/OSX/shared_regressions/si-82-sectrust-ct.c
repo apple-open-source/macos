@@ -1124,7 +1124,7 @@ static uint8_t invalid_ocsp_response_der[] = {
 static void tests()
 {
     SecCertificateRef certA=NULL, certD=NULL, certF=NULL, certCA_alpha=NULL, certCA_beta=NULL;
-    CFDataRef proofD=NULL, proofA_1, proofA_2;
+    CFDataRef proofD=NULL, proofA_1=NULL, proofA_2=NULL;
     SecCertificateRef www_digicert_com_cert=NULL, digicert_sha2_ev_server_ca=NULL;
     SecCertificateRef www_paypal_com_cert=NULL, www_paypal_com_issuer_cert=NULL;
     SecCertificateRef cfCert = NULL;

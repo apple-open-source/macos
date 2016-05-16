@@ -30,6 +30,7 @@
 		<string>fix for NTP bug 2797</string>
 		<string>CVE-2014-9296, a missing 'return'</string>
 		<string>CVE-2013-5211, disable REQ_MON_GETLIST and REQ_MON_GETLIST_1</string>
+		<string>CVE-2015-7871, NAK to the Future: Symmetric association authentication bypass via crypto-NAK</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>ntp</string>

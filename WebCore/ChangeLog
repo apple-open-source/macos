@@ -1,3 +1,336 @@
+2016-04-22  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r199881. rdar://problem/25879498
+
+    2016-04-22  Antti Koivisto  <antti@apple.com>
+
+            REGRESSION (r194898): Multi download of external SVG defs file by <use> xlinks:href (caching)
+            https://bugs.webkit.org/show_bug.cgi?id=156368
+            <rdar://problem/25611746>
+
+            Reviewed by Simon Fraser.
+
+            We would load svg resources with fragment identifier again because the encoding never matched.
+
+            Test: http/tests/svg/svg-use-external.html
+
+            * loader/TextResourceDecoder.cpp:
+            (WebCore::TextResourceDecoder::setEncoding):
+            (WebCore::TextResourceDecoder::hasEqualEncodingForCharset):
+
+                Encoding can depend on mime type. Add a comparison function that takes this into account.
+
+            (WebCore::findXMLEncoding):
+            * loader/TextResourceDecoder.h:
+            (WebCore::TextResourceDecoder::encoding):
+            * loader/cache/CachedCSSStyleSheet.h:
+            * loader/cache/CachedResource.h:
+            (WebCore::CachedResource::textResourceDecoder):
+
+                Add a way to get the TextResourceDecoder from a cached resource.
+
+            * loader/cache/CachedResourceLoader.cpp:
+            (WebCore::CachedResourceLoader::determineRevalidationPolicy):
+
+                Use the new comparison function.
+
+            * loader/cache/CachedSVGDocument.h:
+            * loader/cache/CachedScript.h:
+            * loader/cache/CachedXSLStyleSheet.h:
+
+2016-03-31  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Roll out r191180. rdar://problem/25448882
+
+        Landed on behalf of Chris Dumez.
+
+        * html/parser/HTMLPreloadScanner.cpp:
+        (WebCore::TokenPreloadScanner::StartTagScanner::shouldPreload):
+        (WebCore::TokenPreloadScanner::tagIdFor): Deleted.
+        (WebCore::TokenPreloadScanner::initiatorFor): Deleted.
+        (WebCore::TokenPreloadScanner::StartTagScanner::processAttribute): Deleted.
+        (WebCore::TokenPreloadScanner::StartTagScanner::resourceType): Deleted.
+        * html/parser/HTMLPreloadScanner.h:
+
+2016-03-30  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r198687. rdar://problem/25448871
+
+    2016-03-25  Brady Eidson  <beidson@apple.com>
+
+            Soften push/replaceState frequency restrictions.
+            <rdar://problem/25228439> and https://bugs.webkit.org/show_bug.cgi?id=155901
+
+            Rubber-stamped by Timothy Hatcher.
+
+            Covered by existing LayoutTests and a new Manual Test.
+
+            * page/History.cpp:
+            (WebCore::History::stateObjectAdded): Allow 100 state object operations every 30 seconds.
+            * page/History.h:
+
+2016-03-18  Brent Fulgham  <bfulgham@apple.com>
+
+        Merge r192285.
+
+        * dom/ContainerNode.cpp:
+        (WebCore::ContainerNode::ensurePreInsertionValidity): Added.
+        * dom/ContainerNode.h:
+
+    2015-11-10  Pranjal Jumde  <pjumde@apple.com>
+
+            Fixed crash loading Mozilla layout test editor/libeditor/crashtests/431086-1.xhtml.
+            https://bugs.webkit.org/show_bug.cgi?id=150252
+            <rdar://problem/23149470>
+
+            Reviewed by Brent Fulgham.
+
+            * Source/WebCore/editing/ios/EditorIOS.mm
+            * Source/WebCore/editing/mac/EditorMac.mm
+              In Editor::fontForSelection moved the node removal code, so that the
+              node is only removed if style is not NULL.
+            * Source/WebCore/editing/cocoa/EditorCocoa.mm
+              In Editor::styleForSelectionStart checking if the parentNode can 
+              accept the styleElement node.
+
+2016-03-18  Brent Fulgham  <bfulgham@apple.com>
+
+        Unreviewed build fix.
+
+        Get rid of infinitely recursive 'draw' implementation.
+
+        * platform/graphics/Image.cpp:
+        (WebCore::Image::draw): Deleted.
+        * platform/graphics/Image.h:
+
+2016-03-18  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r198377.
+
+    2016-03-17  Brent Fulgham  <bfulgham@apple.com>
+
+            [XSS Auditor] Off by one in XSSAuditor::canonicalizedSnippetForJavaScript()
+            https://bugs.webkit.org/show_bug.cgi?id=155624
+            <rdar://problem/25219962>
+
+            Unreviewed merge from Blink (patch by Tom Sepez <tsepez@chromium.org>):
+            <https://src.chromium.org/viewvc/blink?revision=201803&view=revision>
+
+            Test: http/tests/security/xssAuditor/script-tag-with-trailing-script-and-urlencode.html
+
+            * html/parser/XSSAuditor.cpp:
+            (WebCore::XSSAuditor::canonicalizedSnippetForJavaScript): Correct off-by-one error.
+
+2016-03-18  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r198372.
+
+    2016-03-17  Zalan Bujtas  <zalan@apple.com>
+
+            Don't initiate a style recall while drawing text 
+            https://bugs.webkit.org/show_bug.cgi?id=155618
+
+            Reviewed by Simon Fraser.
+
+            This patch ensures that we don't initiate a style recalc while in the middle of text drawing.
+
+            Test: fast/canvas/crash-while-resizing-canvas.html
+
+            * html/canvas/CanvasRenderingContext2D.cpp:
+            (WebCore::CanvasRenderingContext2D::drawTextInternal):
+
+2016-03-18  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r198370.
+
+    2016-03-17  Eric Carlson  <eric.carlson@apple.com>
+
+            Improve some metadata tests
+            https://bugs.webkit.org/show_bug.cgi?id=155616
+
+            Reviewed by Saam Barati.
+
+            * html/track/DataCue.cpp:
+            (WebCore::DataCue::DataCue):
+            (WebCore::DataCue::setData):
+
+2016-03-18  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r198361.
+
+    2016-03-17  Brent Fulgham  <bfulgham@apple.com>
+
+            Some media tests are flaky.
+            https://bugs.webkit.org/show_bug.cgi?id=155614
+
+            Reviewed by Eric Carlson.
+
+            * html/track/TextTrack.cpp:
+            (WebCore::TextTrack::~TextTrack):
+
+2016-03-18  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r192770.
+
+    2015-11-25  Pranjal Jumde  <pjumde@apple.com>
+
+            Checks for buffer-overflows when reading characters from textRun
+            https://bugs.webkit.org/show_bug.cgi?id=151055
+            <rdar://problem/23251789>
+
+            Reviewed by Myles C. Maxfield.
+
+            Prevents an off by one error when adding the last font data to the GlyphBuffer.
+
+            * Source/WebCore/platform/graphics/WidthIterator.cpp:
+            * Source/WebCore/platform/graphics/FontCascade.cpp:
+
+2016-03-18  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r192499.
+
+    2015-11-16  Pranjal Jumde  <pjumde@apple.com>
+
+            Fixes the buffer-overflow when reading characters from textRun
+            https://bugs.webkit.org/attachment.cgi?bugid=151055
+            <rdar://problem/23251789>
+
+            Reviewed by Brent Fulgham.
+
+            * platform/graphics/FontCascade.cpp
+
+2016-03-18  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r192252.
+
+    2015-11-10  Zalan Bujtas  <zalan@apple.com>
+
+            Force display: block on ::-webkit-media-controls.
+            https://bugs.webkit.org/show_bug.cgi?id=149178
+            <rdar://problem/23448397>
+
+            Reviewed by Simon Fraser.
+
+            This patch ensures that we always have a block level container for media controls
+            so that continuation never needs to split RenderMedia into multiple subtrees.
+
+            Current inline continuation logic assumes that only inline elements with RenderInline
+            type of renderers participate in continuation. This is mostly the case since other inline renderers
+            such as RenderReplaced, RenderImage, RenderEmbeddedObject etc can't have (accessible) children.
+            (Unlike video::-webkit-media-controls)
+
+            Test: media/webkit-media-controls-display.html
+
+            * Modules/mediacontrols/mediaControlsApple.css:
+            (::-webkit-media-controls):
+            * Modules/mediacontrols/mediaControlsiOS.css:
+            (::-webkit-media-controls):
+            * css/mediaControls.css:
+            (::-webkit-media-controls):
+
+2016-03-18  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r192853.
+
+    2015-11-30  Simon Fraser  <simon.fraser@apple.com>
+
+            Fix possible crash with animated layers in reflections
+            https://bugs.webkit.org/show_bug.cgi?id=151689
+            rdar://problem/23018612
+
+            Reviewed by Darin Adler.
+
+            Reflections create additional PlatformCALayers whose owner is set to the GraphicsLayerCA.
+            Those PlatformCALayers need their owner pointer cleared out when the GraphicsLayerCA
+            is destroyed.
+
+            Tested by compositing/reflections/nested-reflection-transition.html
+
+            * platform/graphics/ca/GraphicsLayerCA.cpp:
+            * platform/graphics/ca/GraphicsLayerCA.h:
+
+2016-03-16  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r188574. rdar://problem/25070230
+
+    2015-08-17  Alex Christensen  <achristensen@webkit.org>
+
+            WinCairo build fix after r188566
+
+            * platform/graphics/win/FontPlatformDataCairoWin.cpp:
+            (WebCore::FontPlatformData::FontPlatformData):
+            Remove reference to removed m_isCompositeFontReference.
+
+2016-03-16  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r188566. rdar://problem/25070230
+
+    2015-08-17  Myles C. Maxfield  <mmaxfield@apple.com>
+
+            [OS X] Remove support for composite fonts
+            https://bugs.webkit.org/show_bug.cgi?id=147920
+
+            Reviewed by Dan Bernstein.
+
+            Composite fonts were first introduced in [1]. These composite fonts are extremely rare
+            because:
+            1. None of the preinstalled fonts on either OS X nor iOS are composite fonts,
+            2. WebKit does not support loading web fonts from composite font files, and
+            3. WebKit's support only ever existed on OS X (none of the other ports).
+
+            In fact, no one I've consulted with has ever seen any of these fonts used in the wild.
+            The fonts also require a fundamentally broken code path, and add complexity to WebKit.
+
+            [1] https://bugs.webkit.org/attachment.cgi?id=134923&action=review
+
+            No new tests.
+
+            * platform/graphics/Font.h:
+            * platform/graphics/FontPlatformData.cpp:
+            (WebCore::FontPlatformData::FontPlatformData): Deleted.
+            (WebCore::FontPlatformData::operator=): Deleted.
+            * platform/graphics/FontPlatformData.h:
+            (WebCore::FontPlatformData::isCompositeFontReference): Deleted.
+            (WebCore::FontPlatformData::operator==): Deleted.
+            * platform/graphics/cocoa/FontCocoa.mm:
+            (WebCore::Font::compositeFontReferenceFont): Deleted.
+            * platform/graphics/cocoa/FontPlatformDataCocoa.mm:
+            (WebCore::FontPlatformData::FontPlatformData): Deleted.
+            (WebCore::FontPlatformData::setFont): Deleted.
+            * platform/graphics/mac/GlyphPageMac.cpp:
+            (WebCore::shouldUseCoreText):
+            (WebCore::GlyphPage::fill):
+
+2016-03-16  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r192054. rdar://problem/25152937
+
+        * rendering/OrderIterator.cpp:
+        (WebCore::OrderIterator::next):
+
+2016-02-26  Babak Shafiei  <bshafiei@apple.com>
+
+        Roll out r196637. rdar://problem/24494562
+
+2016-02-26  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge patch for rdar://problem/24826901.
+
+2016-02-19  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r196703. rdar://problem/24623986
+
+    2016-02-17  Eric Carlson  <eric.carlson@apple.com>
+
+            [Win] Allow ports to disable automatic text track selection
+            https://bugs.webkit.org/show_bug.cgi?id=154322
+            <rdar://problem/24623986>
+
+            Reviewed by Brent Fulgham.
+
+            * page/CaptionUserPreferencesMediaAF.cpp:
+            (MTEnableCaption2015BehaviorPtr): Implement for Windows.
+
 2016-02-12  Babak Shafiei  <bshafiei@apple.com>
 
         Merge patch for rdar://problem/24626412.

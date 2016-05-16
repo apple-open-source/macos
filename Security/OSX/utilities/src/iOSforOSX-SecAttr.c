@@ -51,5 +51,6 @@ SEC_CONST_DECL (kSecUseAuthenticationUISkip, "u_AuthUIS");
 SEC_CONST_DECL (kSecUseAuthenticationContext, "u_AuthCtx");
 SEC_CONST_DECL (kSecUseToken, "u_Token");
 SEC_CONST_DECL (kSecUseTokenObjectID, "u_TokenOID");
+SEC_CONST_DECL (kSecUseCallerName, "u_CallerName");
 
 #endif

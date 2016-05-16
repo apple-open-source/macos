@@ -257,6 +257,27 @@ SecPolicyRef SecPolicyCreateOSXProvisioningProfileSigning(void)
 SecPolicyRef SecPolicyCreateAppleATVVPNProfileSigning(void)
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 
+/*!
+ @function SecPolicyCreateAppleHomeKitServerAuth
+ @abstract Ensure we're appropriately pinned to the HomeKit service (SSL + Apple restrictions)
+ @param hostname Required; hostname to verify the certificate name against.
+ @discussion This policy uses the Basic X.509 policy with validity check
+ and pinning options:
+    * The chain is anchored to any of the production Apple Root CAs via full certificate
+    comparison. Test Apple Root CAs are permitted only on internal releases with defaults write.
+    * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.16
+    * The leaf has a marker extension with OID 1.2.840.113635.100.6.27.9.
+    * The leaf has the provided hostname in the DNSName of the SubjectAlternativeName
+    extension or Common Name.
+    * The leaf is checked against the Black and Gray lists.
+    * The leaf has ExtendedKeyUsage with the ServerAuth OID.
+    * Revocation is checked via CRL.
+ @result A policy object. The caller is responsible for calling CFRelease
+ on this when it is no longer needed.
+ */
+SecPolicyRef SecPolicyCreateAppleHomeKitServerAuth(CFStringRef hostname)
+    __OSX_AVAILABLE_STARTING(__MAC_10_11_4, __IPHONE_9_3);
+
 #if defined(__cplusplus)
 }
 #endif

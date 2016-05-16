@@ -78,7 +78,7 @@ static void tests(void)
                   (__bridge id)kSecUseSystemKeychain : @YES,
                   };
         
-        is(SecItemCopyMatching((CFTypeRef)query, NULL), multiUser ? noErr : errSecItemNotFound, "Blue tooth item - system keychain");
+        is(SecItemCopyMatching((CFTypeRef)query, NULL), noErr, "Blue tooth item - system keychain");
     }
 }
 

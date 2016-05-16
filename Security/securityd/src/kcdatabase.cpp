@@ -1674,7 +1674,7 @@ void KeychainDbCommon::activity()
 void KeychainDbCommon::sleepProcessing()
 {
 	secdebug("KCdb", "common %s(%p) sleep-lock processing", dbName(), this);
-    if (mParams.lockOnSleep) {
+    if (mParams.lockOnSleep && !isDefaultSystemKeychain()) {
         StLock<Mutex> _(*this);
 		lockDb();
     }
@@ -1693,11 +1693,18 @@ void KeychainDbCommon::lockProcessing()
 //
 bool KeychainDbCommon::belongsToSystem() const
 {
-	if (const char *name = this->dbName())
-		return !strncmp(name, "/Library/Keychains/", 19);
-	return false;
+    if (const char *name = this->dbName())
+        return !strncmp(name, "/Library/Keychains/", 19);
+    return false;
 }
 
+bool KeychainDbCommon::isDefaultSystemKeychain() const
+{
+    // /Library/Keychains/System.keychain (34)
+    if (const char *name = this->dbName())
+        return !strncmp(name, "/Library/Keychains/System.keychain", 34);
+    return false;
+}
 
 //
 // Keychain global objects

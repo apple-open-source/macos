@@ -3691,7 +3691,7 @@ ac_config_headers="$ac_config_headers main/php_config.h"
 
 PHP_MAJOR_VERSION=5
 PHP_MINOR_VERSION=5
-PHP_RELEASE_VERSION=31
+PHP_RELEASE_VERSION=34
 PHP_EXTRA_VERSION=""
 PHP_VERSION="$PHP_MAJOR_VERSION.$PHP_MINOR_VERSION.$PHP_RELEASE_VERSION$PHP_EXTRA_VERSION"
 PHP_VERSION_ID=`expr $PHP_MAJOR_VERSION \* 10000 + $PHP_MINOR_VERSION \* 100 + $PHP_RELEASE_VERSION`
@@ -23494,13 +23494,13 @@ fi
 
   fi
 
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for DSA_get_default_method in -lssl" >&5
-$as_echo_n "checking for DSA_get_default_method in -lssl... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for DSA_get_default_method in -lssl.35" >&5
+$as_echo_n "checking for DSA_get_default_method in -lssl.35... " >&6; }
 if ${ac_cv_lib_ssl_DSA_get_default_method+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lssl  $LIBS"
+LIBS="-lssl.35  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -23536,13 +23536,13 @@ $as_echo "#define HAVE_DSA_DEFAULT_METHOD 1" >>confdefs.h
 
 fi
 
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for X509_free in -lcrypto" >&5
-$as_echo_n "checking for X509_free in -lcrypto... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for X509_free in -lcrypto.35" >&5
+$as_echo_n "checking for X509_free in -lcrypto.35... " >&6; }
 if ${ac_cv_lib_crypto_X509_free+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lcrypto  $LIBS"
+LIBS="-lcrypto.35  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -23808,6 +23808,8 @@ fi
       fi
       test -n "$OPENSSL_INCDIR" && test -n "$OPENSSL_LIBDIR" && break
     done
+	OPENSSL_INCDIR=/usr/local/libressl/include
+	OPENSSL_LIBDIR=/usr/lib
 
     if test -z "$OPENSSL_INCDIR"; then
       as_fn_error $? "Cannot find OpenSSL's <evp.h>" "$LINENO" 5
@@ -23974,13 +23976,13 @@ rm -f conftest*
     esac
   done
 
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CRYPTO_free in -lcrypto" >&5
-$as_echo_n "checking for CRYPTO_free in -lcrypto... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CRYPTO_free in -lcrypto.35" >&5
+$as_echo_n "checking for CRYPTO_free in -lcrypto.35... " >&6; }
 if ${ac_cv_lib_crypto_CRYPTO_free+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lcrypto  $LIBS"
+LIBS="-lcrypto.35  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -24021,14 +24023,14 @@ if test "x$ac_cv_lib_crypto_CRYPTO_free" = xyes; then :
   c|c_r|pthread*) ;;
   *)
     if test "$ext_shared" = "yes"; then
-        OPENSSL_SHARED_LIBADD="-lcrypto $OPENSSL_SHARED_LIBADD"
+        OPENSSL_SHARED_LIBADD="-lcrypto.35 $OPENSSL_SHARED_LIBADD"
     else
 
 
   case crypto in
   c|c_r|pthread*) ;;
   *)
-      LIBS="-lcrypto $LIBS"
+      LIBS="-lcrypto.35 $LIBS"
    ;;
   esac
 
@@ -24053,7 +24055,7 @@ fi
 
 
     old_LIBS=$LIBS
-    LIBS="$LIBS -lcrypto"
+    LIBS="$LIBS -lcrypto.35"
 
   save_old_LDFLAGS=$LDFLAGS
   ac_stuff="
@@ -24151,13 +24153,13 @@ fi
     esac
   done
 
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for SSL_CTX_set_ssl_version in -lssl" >&5
-$as_echo_n "checking for SSL_CTX_set_ssl_version in -lssl... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for SSL_CTX_set_ssl_version in -lssl.35" >&5
+$as_echo_n "checking for SSL_CTX_set_ssl_version in -lssl.35... " >&6; }
 if ${ac_cv_lib_ssl_SSL_CTX_set_ssl_version+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lssl  $LIBS"
+LIBS="-lssl.35  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -24213,14 +24215,14 @@ fi
   c|c_r|pthread*) ;;
   *)
     if test "$ext_shared" = "yes"; then
-        OPENSSL_SHARED_LIBADD="-lssl $OPENSSL_SHARED_LIBADD"
+        OPENSSL_SHARED_LIBADD="-lssl.35 $OPENSSL_SHARED_LIBADD"
     else
 
 
   case ssl in
   c|c_r|pthread*) ;;
   *)
-      LIBS="-lssl $LIBS"
+      LIBS="-lssl.35 $LIBS"
    ;;
   esac
 
@@ -24236,14 +24238,14 @@ fi
   c|c_r|pthread*) ;;
   *)
     if test "$ext_shared" = "yes"; then
-        OPENSSL_SHARED_LIBADD="-lcrypto $OPENSSL_SHARED_LIBADD"
+        OPENSSL_SHARED_LIBADD="-lcrypto.35 $OPENSSL_SHARED_LIBADD"
     else
 
 
   case crypto in
   c|c_r|pthread*) ;;
   *)
-      LIBS="-lcrypto $LIBS"
+      LIBS="-lcrypto.35 $LIBS"
    ;;
   esac
 
@@ -37017,6 +37019,9 @@ fi
       test -n "$OPENSSL_INCDIR" && test -n "$OPENSSL_LIBDIR" && break
     done
 
+        OPENSSL_INCDIR=/usr/local/libressl/include
+        OPENSSL_LIBDIR=/usr/lib
+
     if test -z "$OPENSSL_INCDIR"; then
       as_fn_error $? "Cannot find OpenSSL's <evp.h>" "$LINENO" 5
     fi
@@ -37182,13 +37187,13 @@ rm -f conftest*
     esac
   done
 
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CRYPTO_free in -lcrypto" >&5
-$as_echo_n "checking for CRYPTO_free in -lcrypto... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CRYPTO_free in -lcrypto.35" >&5
+$as_echo_n "checking for CRYPTO_free in -lcrypto.35... " >&6; }
 if ${ac_cv_lib_crypto_CRYPTO_free+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lcrypto  $LIBS"
+LIBS="-lcrypto.35  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -37229,14 +37234,14 @@ if test "x$ac_cv_lib_crypto_CRYPTO_free" = xyes; then :
   c|c_r|pthread*) ;;
   *)
     if test "$ext_shared" = "yes"; then
-        FTP_SHARED_LIBADD="-lcrypto $FTP_SHARED_LIBADD"
+        FTP_SHARED_LIBADD="-lcrypto.35 $FTP_SHARED_LIBADD"
     else
 
 
   case crypto in
   c|c_r|pthread*) ;;
   *)
-      LIBS="-lcrypto $LIBS"
+      LIBS="-lcrypto.35 $LIBS"
    ;;
   esac
 
@@ -37261,7 +37266,7 @@ fi
 
 
     old_LIBS=$LIBS
-    LIBS="$LIBS -lcrypto"
+    LIBS="$LIBS -lcrypto.35"
 
   save_old_LDFLAGS=$LDFLAGS
   ac_stuff="
@@ -37359,13 +37364,13 @@ fi
     esac
   done
 
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for SSL_CTX_set_ssl_version in -lssl" >&5
-$as_echo_n "checking for SSL_CTX_set_ssl_version in -lssl... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for SSL_CTX_set_ssl_version in -lssl.35" >&5
+$as_echo_n "checking for SSL_CTX_set_ssl_version in -lssl.35... " >&6; }
 if ${ac_cv_lib_ssl_SSL_CTX_set_ssl_version+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lssl  $LIBS"
+LIBS="-lssl.35  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -37421,14 +37426,14 @@ fi
   c|c_r|pthread*) ;;
   *)
     if test "$ext_shared" = "yes"; then
-        FTP_SHARED_LIBADD="-lssl $FTP_SHARED_LIBADD"
+        FTP_SHARED_LIBADD="-lssl.35 $FTP_SHARED_LIBADD"
     else
 
 
   case ssl in
   c|c_r|pthread*) ;;
   *)
-      LIBS="-lssl $LIBS"
+      LIBS="-lssl.35 $LIBS"
    ;;
   esac
 
@@ -37444,14 +37449,14 @@ fi
   c|c_r|pthread*) ;;
   *)
     if test "$ext_shared" = "yes"; then
-        FTP_SHARED_LIBADD="-lcrypto $FTP_SHARED_LIBADD"
+        FTP_SHARED_LIBADD="-lcrypto.35 $FTP_SHARED_LIBADD"
     else
 
 
   case crypto in
   c|c_r|pthread*) ;;
   *)
-      LIBS="-lcrypto $LIBS"
+      LIBS="-lcrypto.35 $LIBS"
    ;;
   esac
 
@@ -48481,6 +48486,9 @@ fi
       test -n "$OPENSSL_INCDIR" && test -n "$OPENSSL_LIBDIR" && break
     done
 
+        OPENSSL_INCDIR=/usr/local/libressl/include
+        OPENSSL_LIBDIR=/usr/lib
+
     if test -z "$OPENSSL_INCDIR"; then
       as_fn_error $? "Cannot find OpenSSL's <evp.h>" "$LINENO" 5
     fi
@@ -48646,13 +48654,13 @@ rm -f conftest*
     esac
   done
 
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CRYPTO_free in -lcrypto" >&5
-$as_echo_n "checking for CRYPTO_free in -lcrypto... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CRYPTO_free in -lcrypto.35" >&5
+$as_echo_n "checking for CRYPTO_free in -lcrypto.35... " >&6; }
 if ${ac_cv_lib_crypto_CRYPTO_free+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lcrypto  $LIBS"
+LIBS="-lcrypto.35  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -48693,14 +48701,14 @@ if test "x$ac_cv_lib_crypto_CRYPTO_free" = xyes; then :
   c|c_r|pthread*) ;;
   *)
     if test "$ext_shared" = "yes"; then
-        IMAP_SHARED_LIBADD="-lcrypto $IMAP_SHARED_LIBADD"
+        IMAP_SHARED_LIBADD="-lcrypto.35 $IMAP_SHARED_LIBADD"
     else
 
 
   case crypto in
   c|c_r|pthread*) ;;
   *)
-      LIBS="-lcrypto $LIBS"
+      LIBS="-lcrypto.35 $LIBS"
    ;;
   esac
 
@@ -48725,7 +48733,7 @@ fi
 
 
     old_LIBS=$LIBS
-    LIBS="$LIBS -lcrypto"
+    LIBS="$LIBS -lcrypto.35"
 
   save_old_LDFLAGS=$LDFLAGS
   ac_stuff="
@@ -48823,13 +48831,13 @@ fi
     esac
   done
 
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for SSL_CTX_set_ssl_version in -lssl" >&5
-$as_echo_n "checking for SSL_CTX_set_ssl_version in -lssl... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for SSL_CTX_set_ssl_version in -lssl.35" >&5
+$as_echo_n "checking for SSL_CTX_set_ssl_version in -lssl.35... " >&6; }
 if ${ac_cv_lib_ssl_SSL_CTX_set_ssl_version+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lssl  $LIBS"
+LIBS="-lssl.35  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -48885,14 +48893,14 @@ fi
   c|c_r|pthread*) ;;
   *)
     if test "$ext_shared" = "yes"; then
-        IMAP_SHARED_LIBADD="-lssl $IMAP_SHARED_LIBADD"
+        IMAP_SHARED_LIBADD="-lssl.35 $IMAP_SHARED_LIBADD"
     else
 
 
   case ssl in
   c|c_r|pthread*) ;;
   *)
-      LIBS="-lssl $LIBS"
+      LIBS="-lssl.35 $LIBS"
    ;;
   esac
 
@@ -48908,14 +48916,14 @@ fi
   c|c_r|pthread*) ;;
   *)
     if test "$ext_shared" = "yes"; then
-        IMAP_SHARED_LIBADD="-lcrypto $IMAP_SHARED_LIBADD"
+        IMAP_SHARED_LIBADD="-lcrypto.35 $IMAP_SHARED_LIBADD"
     else
 
 
   case crypto in
   c|c_r|pthread*) ;;
   *)
-      LIBS="-lcrypto $LIBS"
+      LIBS="-lcrypto.35 $LIBS"
    ;;
   esac
 
@@ -101113,13 +101121,13 @@ $as_echo "#define MYSQLND_SSL_SUPPORTED 1" >>confdefs.h
   test -z "$PHP_OPENSSL" && PHP_OPENSSL=no
 
   if test "$PHP_OPENSSL" != "no" || test "$PHP_OPENSSL_DIR" != "no"; then
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for DSA_get_default_method in -lssl" >&5
-$as_echo_n "checking for DSA_get_default_method in -lssl... " >&6; }
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for DSA_get_default_method in -lssl.35" >&5
+$as_echo_n "checking for DSA_get_default_method in -lssl.35... " >&6; }
 if ${ac_cv_lib_ssl_DSA_get_default_method+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lssl  $LIBS"
+LIBS="-lssl.35  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -101155,13 +101163,13 @@ $as_echo "#define HAVE_DSA_DEFAULT_METHOD 1" >>confdefs.h
 
 fi
 
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for X509_free in -lcrypto" >&5
-$as_echo_n "checking for X509_free in -lcrypto... " >&6; }
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for X509_free in -lcrypto.35" >&5
+$as_echo_n "checking for X509_free in -lcrypto.35... " >&6; }
 if ${ac_cv_lib_crypto_X509_free+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lcrypto  $LIBS"
+LIBS="-lcrypto.35  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -101417,6 +101425,9 @@ fi
       test -n "$OPENSSL_INCDIR" && test -n "$OPENSSL_LIBDIR" && break
     done
 
+        OPENSSL_INCDIR=/usr/local/libressl/include
+        OPENSSL_LIBDIR=/usr/lib
+
     if test -z "$OPENSSL_INCDIR"; then
       as_fn_error $? "Cannot find OpenSSL's <evp.h>" "$LINENO" 5
     fi
@@ -101582,13 +101593,13 @@ rm -f conftest*
     esac
   done
 
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CRYPTO_free in -lcrypto" >&5
-$as_echo_n "checking for CRYPTO_free in -lcrypto... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CRYPTO_free in -lcrypto.35" >&5
+$as_echo_n "checking for CRYPTO_free in -lcrypto.35... " >&6; }
 if ${ac_cv_lib_crypto_CRYPTO_free+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lcrypto  $LIBS"
+LIBS="-lcrypto.35  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -101629,14 +101640,14 @@ if test "x$ac_cv_lib_crypto_CRYPTO_free" = xyes; then :
   c|c_r|pthread*) ;;
   *)
     if test "$ext_shared" = "yes"; then
-        MYSQLND_SHARED_LIBADD="-lcrypto $MYSQLND_SHARED_LIBADD"
+        MYSQLND_SHARED_LIBADD="-lcrypto.35 $MYSQLND_SHARED_LIBADD"
     else
 
 
   case crypto in
   c|c_r|pthread*) ;;
   *)
-      LIBS="-lcrypto $LIBS"
+      LIBS="-lcrypto.35 $LIBS"
    ;;
   esac
 
@@ -101661,7 +101672,7 @@ fi
 
 
     old_LIBS=$LIBS
-    LIBS="$LIBS -lcrypto"
+    LIBS="$LIBS -lcrypto.35"
 
   save_old_LDFLAGS=$LDFLAGS
   ac_stuff="
@@ -101759,13 +101770,13 @@ fi
     esac
   done
 
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for SSL_CTX_set_ssl_version in -lssl" >&5
-$as_echo_n "checking for SSL_CTX_set_ssl_version in -lssl... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for SSL_CTX_set_ssl_version in -lssl.35" >&5
+$as_echo_n "checking for SSL_CTX_set_ssl_version in -lssl.35... " >&6; }
 if ${ac_cv_lib_ssl_SSL_CTX_set_ssl_version+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lssl  $LIBS"
+LIBS="-lssl.35  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -101821,14 +101832,14 @@ fi
   c|c_r|pthread*) ;;
   *)
     if test "$ext_shared" = "yes"; then
-        MYSQLND_SHARED_LIBADD="-lssl $MYSQLND_SHARED_LIBADD"
+        MYSQLND_SHARED_LIBADD="-lssl.35 $MYSQLND_SHARED_LIBADD"
     else
 
 
   case ssl in
   c|c_r|pthread*) ;;
   *)
-      LIBS="-lssl $LIBS"
+      LIBS="-lssl.35 $LIBS"
    ;;
   esac
 
@@ -101844,14 +101855,14 @@ fi
   c|c_r|pthread*) ;;
   *)
     if test "$ext_shared" = "yes"; then
-        MYSQLND_SHARED_LIBADD="-lcrypto $MYSQLND_SHARED_LIBADD"
+        MYSQLND_SHARED_LIBADD="-lcrypto.35 $MYSQLND_SHARED_LIBADD"
     else
 
 
   case crypto in
   c|c_r|pthread*) ;;
   *)
-      LIBS="-lcrypto $LIBS"
+      LIBS="-lcrypto.35 $LIBS"
    ;;
   esac
 

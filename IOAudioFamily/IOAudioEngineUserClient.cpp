@@ -36,6 +36,8 @@
 
 #include <sys/random.h>
 
+#include <AssertMacros.h>
+
 // <rdar://8518215>
 enum
 {
@@ -471,6 +473,8 @@ IOReturn IOAudioEngineUserClient::safeRegisterClientBuffer(UInt32 audioStreamInd
 	
 	audioDebugIOLog(3, "+ IOAudioEngineUserClient::safeRegisterClientBuffer32 %p \n", sourceBuffer); 
 	
+	require_action_string(audioEngine != NULL, Exit, result = kIOReturnError, "audioEngine is NULL");
+
 	audioStream = audioEngine->getStreamForID(audioStreamIndex);
 	if (!audioStream)
 	{
@@ -481,6 +485,7 @@ IOReturn IOAudioEngineUserClient::safeRegisterClientBuffer(UInt32 audioStreamInd
 		result = registerClientBuffer(audioStream, sourceBuffer, bufSizeInBytes, bufferSetID);
 	}
 	
+ Exit:
 	audioDebugIOLog(3, "- IOAudioEngineUserClient::safeRegisterClientBuffer32 %p returns 0x%lX\n", sourceBuffer, (long unsigned int)result ); 
 	return result;
 	
@@ -494,6 +499,8 @@ IOReturn IOAudioEngineUserClient::safeRegisterClientBuffer64(UInt32 audioStreamI
 	IOAudioStream *			audioStream;
 	audioDebugIOLog(3, "+ IOAudioEngineUserClient::safeRegisterClientBuffer64 %p \n", sourceBuffer); 
 	
+	require_action_string(audioEngine != NULL, Exit, retVal = kIOReturnError, "audioEngine is NULL");
+
 	audioStream = audioEngine->getStreamForID(audioStreamIndex);
 	if (!audioStream) {
 		audioDebugIOLog(3, "  no stream associated with audioStreamIndex 0x%lx \n", (long unsigned int)audioStreamIndex);
@@ -502,6 +509,7 @@ IOReturn IOAudioEngineUserClient::safeRegisterClientBuffer64(UInt32 audioStreamI
 	{
 		retVal = registerClientBuffer64(audioStream, * sourceBuffer, bufSizeInBytes, bufferSetID);
 	}
+ Exit:
 	audioDebugIOLog(3, "- IOAudioEngineUserClient::safeRegisterClientBuffer64  returns 0x%lX\n", (long unsigned int)retVal  ); 
 	return retVal;
 }
@@ -692,7 +700,7 @@ IOReturn IOAudioEngineUserClient::getNearestStartTimeAction(OSObject *owner, voi
 
 IOReturn IOAudioEngineUserClient::getClientNearestStartTime(IOAudioStream *audioStream, IOAudioTimeStamp *ioTimeStamp, UInt32 isInput)
 {
-    IOReturn result = kIOReturnSuccess;
+    IOReturn result = kIOReturnError;
 
     if (audioEngine && !isInactive()) {
 		result = audioEngine->getNearestStartTime(audioStream, ioTimeStamp, isInput);
@@ -1115,6 +1123,7 @@ IOReturn IOAudioEngineUserClient::clientMemoryForType(UInt32 type, UInt32 *flags
     audioDebugIOLog(3, "+ IOAudioEngineUserClient[%p]::clientMemoryForType(0x%lx, 0x%lx, %p)\n", this, (long unsigned int)type, (long unsigned int)*flags, memory);
 
 	assert(audioEngine);
+	require_action_string(audioEngine != NULL, Exit, result = kIOReturnError, "audioEngine is NULL");
 
     switch(type) {
         case kIOAudioStatusBuffer:
@@ -1139,6 +1148,7 @@ IOReturn IOAudioEngineUserClient::clientMemoryForType(UInt32 type, UInt32 *flags
 		result = kIOReturnError;
 	}
 
+ Exit:
     audioDebugIOLog(3, "- IOAudioEngineUserClient[%p]::clientMemoryForType(0x%lx, 0x%lx, %p) returns 0x%lX\n", this, (long unsigned int)type, (long unsigned int)*flags, memory, (long unsigned int)result );
     return result;
 }
@@ -1484,7 +1494,9 @@ IOReturn IOAudioEngineUserClient::registerClientBuffer64(IOAudioStream *audioStr
         IOAudioClientBufferSet *clientBufferSet;
         IOAudioClientBuffer64 **clientBufferList;
         
-        if (!sourceBuffer || !audioStream || (bufSizeInBytes == 0) ) 
+	// rdar://problem/25156927
+	//   ensure bufSizeInBytes is minimally large enough for the IOAudioBufferDataDescriptor metadata
+        if (!sourceBuffer || !audioStream || (bufSizeInBytes < offsetof(IOAudioBufferDataDescriptor, fData)) )
 		{
 			audioDebugIOLog(3, "  bad argument\n");
            return kIOReturnBadArgument;
@@ -1583,6 +1595,30 @@ IOReturn IOAudioEngineUserClient::registerClientBuffer64(IOAudioStream *audioStr
             result = kIOReturnVMError;
             goto Exit;
         }
+
+	// rdar://problem/25156927
+	//   validate the IOAudioBufferDataDescriptor
+	do {
+		IOAudioBufferDataDescriptor *sourceDesc = (IOAudioBufferDataDescriptor *)(clientBuffer->mAudioClientBuffer32.sourceBuffer);
+
+		if (sourceDesc->fActualDataByteSize == 0 && sourceDesc->fActualNumSampleFrames == 0 &&
+		    sourceDesc->fTotalDataByteSize == 0  && sourceDesc->fNominalDataByteSize == 0) {
+			break;
+		}
+
+		UInt32 sampleSizeInBytes = (streamFormat->fIsMixable) ? kIOAudioEngineDefaultMixBufferSampleSize : streamFormat->fBitWidth;
+		UInt32 frameSizeInBytes = sampleSizeInBytes * streamFormat->fNumChannels;
+
+		if ((sourceDesc->fTotalDataByteSize != bufSizeInBytes) ||
+		    (sourceDesc->fActualDataByteSize > (bufSizeInBytes - offsetof(IOAudioBufferDataDescriptor, fData))) ||
+                    (sourceDesc->fNominalDataByteSize > (bufSizeInBytes - offsetof(IOAudioBufferDataDescriptor, fData))) ||
+		    ((sourceDesc->fActualNumSampleFrames * frameSizeInBytes) > sourceDesc->fActualDataByteSize)) {
+			audioDebugIOLog(3, "  bad argument\n");
+			result = kIOReturnBadArgument;
+			goto Exit;
+		}
+	} while (0);
+
 		// offset past per buffer info
         audioDebugIOLog(3, "  clientBuffer->mAudioClientBuffer32.sourceBuffer before offset: %p, offset size: %ld\n", clientBuffer->mAudioClientBuffer32.sourceBuffer, offsetof(IOAudioBufferDataDescriptor, fData));
 		clientBuffer->mAudioClientBuffer32.bufferDataDescriptor = (IOAudioBufferDataDescriptor *)(clientBuffer->mAudioClientBuffer32.sourceBuffer);
@@ -1884,6 +1920,7 @@ IOReturn IOAudioEngineUserClient::performClientIO(UInt32 firstSampleFrame, UInt3
 						(long unsigned int)sampleIntervalHi, 
 						(long unsigned int)sampleIntervalLo ); 	
     assert(audioEngine);
+    require_action_string(audioEngine != NULL, Exit, result = kIOReturnError, "audioEngine is NULL");
     
     if (!isInactive()) 
 	{
@@ -1930,6 +1967,7 @@ IOReturn IOAudioEngineUserClient::performClientIO(UInt32 firstSampleFrame, UInt3
         result = kIOReturnNoDevice;
     }
     
+ Exit:
 	audioDebugIOLog(7, "- IOAudioEngineUserClient::performClientIO result = 0x%lX\n", (long unsigned int)result);		// <rdar://9725460>
     return result;
 }
@@ -1990,6 +2028,7 @@ IOReturn IOAudioEngineUserClient::performClientOutput(UInt32 firstSampleFrame, U
 					(long int)sampleIntervalLo );
     
 	assert(audioEngine != NULL);
+	require_action_string(audioEngine != NULL, Exit, result = kIOReturnError, "audioEngine is NULL");
 
     // <rdar://10145205,15277619> Sanity check the loop count
 	if ( ( loopCount >= audioEngine->status->fCurrentLoopCount ) &&
@@ -2331,7 +2370,7 @@ void IOAudioEngineUserClient::performWatchdogOutput(IOAudioClientBufferSet *clie
 
     lockBuffers();
     
-    if (!isInactive() && isOnline()) {
+    if (audioEngine && !isInactive() && isOnline()) {
         if (clientBufferSet->timerPending) {
             // If the generation count of the clientBufferSet is different than the
             // generation count passed in, then a new client IO was received just before

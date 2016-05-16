@@ -546,13 +546,15 @@ void SecCodeSigner::Signer::signArchitectureAgnostic(const Requirement::Context 
 
 	// write out all CodeDirectories
 	cdSet.populate(writer);
-	writer->flush();
 
 	CFRef<CFArrayRef> hashes = cdSet.hashBag();
 	CFTemp<CFDictionaryRef> hashDict("{cdhashes=%O}", hashes.get());
 	CFRef<CFDataRef> hashBag = makeCFData(hashDict.get());
 	CFRef<CFDataRef> signature = signCodeDirectory(cdSet.primary(), hashBag);
 	writer->signature(signature);
+	
+	// commit to storage
+	writer->flush();
 }
 
 
@@ -600,7 +602,8 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 	
 	writer.addDiscretionary(builder);
 	
-	if ((signingFlags() & (kSecCSSignOpaque|kSecCSSignV1)) == 0) {
+#if 0 // rdar://problem/25720754
+	if ((signingFlags() & (kSecCSSignOpaque|kSecCSSignV1)) == 0 && builder.hashType() != kSecCodeSignatureHashSHA1) {
 		// calculate sorted list of top SuperBlob keys in this EmbeddedSignatureBlob (if any)
 		// (but not for opaque or V1 construction, which must remain bit-for-bit compatible)
 		std::vector<Endian<uint32_t> > slotVector;
@@ -615,6 +618,7 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 		writer.component(cdTopDirectorySlot, cfSlotVector);
 		builder.specialSlot(cdTopDirectorySlot, cfSlotVector);
 	}
+#endif
 }
 
 	

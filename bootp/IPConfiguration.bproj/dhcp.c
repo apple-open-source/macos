@@ -2150,12 +2150,15 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
       case IFEventID_bssid_changed_e: {
 	  arp_address_info_t info;
 	  
-	  if (S_dhcp_cstate_is_bound_renew_or_rebind(dhcp->state) 
-		== FALSE) {
+	  if (!S_dhcp_cstate_is_bound_renew_or_rebind(dhcp->state)) {
+	      /* we aren't in a state where roaming matters */
 	      break;
 	  }
-	  if (service_populate_router_arpinfo(service_p,
-	      &info)) {
+	  if (!ServiceIsPublished(service_p)) {
+	      /* we haven't published yet, ignore the roam event */
+	      break;
+	  }
+	  if (service_populate_router_arpinfo(service_p, &info)) {
 	      dhcp_check_router(service_p, IFEventID_start_e, 
 	          	        (void *)&info);
 	  }

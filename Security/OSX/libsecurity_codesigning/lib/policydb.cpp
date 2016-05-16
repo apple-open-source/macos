@@ -273,6 +273,15 @@ void PolicyDatabase::upgradeDatabase()
 		add.bind(":flags") = kAuthorityFlagDefault;
 		add.execute();
 	});
+	
+	simpleFeature("document rules", ^{
+		SQLite::Statement addApple(*this,
+			"INSERT INTO authority (type, allow, flags, label, requirement) VALUES (3, 1, 2, 'Apple System', 'anchor apple')");
+		addApple.execute();
+		SQLite::Statement addDevID(*this,
+			"INSERT INTO authority (type, allow, flags, label, requirement)	VALUES (3, 1, 2, 'Developer ID', 'anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists')");
+		addDevID.execute();
+	});
 }
 
 

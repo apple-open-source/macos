@@ -971,6 +971,13 @@ bool SecItemAuthDo(SecCFDictionaryCOW *auth_params, CFErrorRef *error, SecItemAu
                 CFRelease(key);
             }
 
+            CFStringRef caller_name = CFDictionaryGetValue(auth_params->dictionary, kSecUseCallerName);
+            if (caller_name != NULL) {
+                CFNumberRef key = CFNumberCreateWithCFIndex(NULL, kLAOptionCallerName);
+                CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&auth_options), key, caller_name);
+                CFRelease(key);
+            }
+
             CFTypeRef auth_ui = CFDictionaryGetValue(auth_params->dictionary, kSecUseAuthenticationUI);
             if (CFEqualSafe(auth_ui, kSecUseAuthenticationUIFail)) {
                 CFNumberRef key = CFNumberCreateWithCFIndex(NULL, kLAOptionNotInteractive);
@@ -1015,6 +1022,13 @@ void SecItemAuthCopyParams(SecCFDictionaryCOW *auth_params, SecCFDictionaryCOW *
     if (operation_prompt != NULL) {
         CFDictionarySetValue(SecCFDictionaryCOWGetMutable(auth_params), kSecUseOperationPrompt, operation_prompt);
         CFDictionaryRemoveValue(SecCFDictionaryCOWGetMutable(query), kSecUseOperationPrompt);
+    }
+
+    // Store caller name.
+    CFStringRef caller_name = CFDictionaryGetValue(query->dictionary, kSecUseCallerName);
+    if (caller_name != NULL) {
+        CFDictionarySetValue(SecCFDictionaryCOWGetMutable(auth_params), kSecUseCallerName, caller_name);
+        CFDictionaryRemoveValue(SecCFDictionaryCOWGetMutable(query), kSecUseCallerName);
     }
 
     // Find out whether we are allowed to pop up a UI.

@@ -391,6 +391,8 @@ void IOFireWireIRMAllocation::release() const
 			// auto-restored after bus-reset!
 			fControl->removeIRMAllocation((IOFireWireIRMAllocation*)this);
 		}
+
+		retainCnt--;
 	}
 
 	OSObject::release();
@@ -677,6 +679,7 @@ void IOFireWireIRMAllocation::threadFunc( void * arg )
 	// clean up thread info
 	IOFree( threadInfo, sizeof(threadInfo) );
     pIRMAllocation->release();		// retain occurred in handleBusReset
+    pIRMAllocation=NULL;
 	
 	FWTrace( kFWTIsoch, kTPIsochIRMThreadFunc, (uintptr_t)(threadInfo->fControl->getLink()), threadInfo->fIsochChannel, threadInfo->fBandwidthUnits, res );
 }

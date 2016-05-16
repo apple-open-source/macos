@@ -126,6 +126,8 @@ ModuleNexus<PolicyEngine> gEngine;
 //
 // Policy evaluation ("assessment") operations
 //
+CFStringRef kSecAssessmentContextKeyUTI = CFSTR("context:uti");
+
 CFStringRef kSecAssessmentContextKeyFeedback = CFSTR("context:feedback");
 CFStringRef kSecAssessmentFeedbackProgress = CFSTR("feedback:progress");
 CFStringRef kSecAssessmentFeedbackInfoCurrent = CFSTR("current");

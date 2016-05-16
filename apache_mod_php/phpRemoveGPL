@@ -29,6 +29,8 @@ rm -rf Zend/zend_language_parser.c
 rm -rf Zend/zend_language_parser.h
 rm -rf Zend/zend_ini_parser.c
 rm -rf Zend/zend_ini_parser.h
+rm -rf pear/install-pear-nozlib.phar
+rm -rf ext/phar/tests/tar/files/Structures_Graph-1.0.3.tgz
 popd
 mv $ARCHIVE ${ARCHIVE}-old
 COPYFILE_DISABLE=1 tar cj -f $ARCHIVE $ARCHIVE_DIR

@@ -857,6 +857,11 @@ SecPolicyRef SecPolicyCreateAppleAST2Service(CFStringRef hostname, CFDictionaryR
     return SecPolicyCreateSSL(true, hostname);
 }
 
+SecPolicyRef SecPolicyCreateAppleHomeKitServerAuth(CFStringRef hostname)
+{
+    return SecPolicyCreateSSL(true, hostname);
+}
+
 #if !SECTRUST_OSX
 /* new in 10.11 */
 SecPolicyRef SecPolicyCreateAppleATVAppSigning(void)

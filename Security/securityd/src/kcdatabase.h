@@ -123,6 +123,7 @@ public:
 	void lockProcessing();
 	
 	bool belongsToSystem() const;
+    bool isDefaultSystemKeychain() const;
 
 public:
     // debugging

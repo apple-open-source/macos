@@ -2329,7 +2329,7 @@ IOFireWireUserClient::externalMethod( uint32_t selector,
 		case kIRMAllocation_SetRef:
         {
             IOFireWireUserClient * fw_uc = OSDynamicCast( IOFireWireUserClient, targetObject );
-            if( fw_uc )
+            if( fw_uc && arguments->asyncReference )
             {
                 result = fw_uc->irmAllocation_setRef(arguments->asyncReference,
 																				  (UserObjectHandle)arguments->scalarInput[0],
@@ -3112,10 +3112,12 @@ IOFireWireUserClient::localConfigDirectory_addEntry_Buffer (
 		copyUserData( (IOVirtualAddress)buffer, (IOVirtualAddress)data->getBytesNoCopy(), kr_size ) ;
 		
 		OSString * desc = NULL ;
+        // 23545302
+        // check descLen  RBX: 0x00000000ffffffff
 		if ( descCString && (descLen < 1024) && (descLen > 0) )
 		{
 			char * cStr = new char[ descLen ];
-			if ( cStr )
+			if ( cStr  )
 			{
 				copyUserData( (IOVirtualAddress)descCString, (IOVirtualAddress)cStr, descLen ) ;
 				
@@ -3305,6 +3307,7 @@ IOFireWireUserClient::localConfigDirectory_Publish ( UserObjectHandle dirHandle 
 	if ( ! dir )
 	{
 		object->release() ;
+        object=NULL;
 		return kIOReturnBadArgument ;
 	}
 	
@@ -3389,6 +3392,7 @@ IOFireWireUserClient::addressSpace_GetInfo (
 	if (!me)
 	{
 		object->release() ;
+        object = NULL;
 		return kIOReturnBadArgument ;
 	}
 	
@@ -3416,6 +3420,7 @@ IOFireWireUserClient::addressSpace_ClientCommandIsComplete (
 	if (!me)
 	{
 		object->release() ;
+        object = NULL;
 		return kIOReturnBadArgument ;
 	}
 	
@@ -5433,6 +5438,8 @@ IOFireWireUserClient::irmAllocation_AllocateResources(UserObjectHandle irmAlloca
 {
 	IOReturn	result = kIOReturnBadArgument ;
 	
+    
+    
 	const OSObject * object = fExporter->lookupObject( irmAllocationHandle ) ;
 	if ( !object )
 	{
@@ -5526,6 +5533,40 @@ IOFireWireUserClient::irmAllocation_setDeallocateOnRelease(UserObjectHandle irmA
 	return;
 }
 
+/*
+ /Users/fabioduchene/iofirewirefamily/IOFireWireFamily.kmodproj/IOFireWireUserClient.cpp:5547:6: error: no matching function for call to 'copyin'
+ if (copyin(p, buf, len)) {
+ ^~~~~~
+ In file included from <built-in>:327:
+ In file included from <command line>:7:
+ In file included from /Users/fabioduchene/iofirewirefamily/IOFireWireFamily.kmodproj/prefix.h:23:
+ In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/System/Library/Frameworks/Kernel.framework/PrivateHeaders/IOKit/system.h:57:
+ /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/System/Library/Frameworks/Kernel.framework/PrivateHeaders/libkern/libkern.h:170:5: note:
+ candidate function not viable: no known conversion from 'unsigned long long *' to 'const user_addr_t' (aka 'const unsigned long long') for 1st argument; dereference the argument
+ with *
+ int     copyin(const user_addr_t uaddr, void *kaddr, size_t len);
+ ^
+
+ */
+/*
+int isBufferValid (const user_addr_t p, unsigned int len)
+{
+	unsigned char buf[kOSAsyncRef64Count * sizeof(void *)];
+
+	if (len != kOSAsyncRef64Count * sizeof(void *)) {
+		return 0;
+	}
+
+	// if copyin fails (and returns a non-zero code) then the buffer is not valid
+
+	if (copyin((const user_addr_t) p, buf, len)) {
+		return 0;
+	}
+
+	return 1;
+}*/
+
+
 IOReturn
 IOFireWireUserClient::irmAllocation_setRef(OSAsyncReference64 asyncRef,
 											 UserObjectHandle irmAllocationHandle,
@@ -5534,6 +5575,11 @@ IOFireWireUserClient::irmAllocation_setRef(OSAsyncReference64 asyncRef,
 {
 	IOReturn	result = kIOReturnBadArgument ;
 	
+    
+	/*if (!isBufferValid((unsigned char *) asyncRef, kOSAsyncRef64Count * sizeof(void *))) {
+		return result;
+	}*/
+    
 	const OSObject * object = fExporter->lookupObject( irmAllocationHandle ) ;
 	if ( !object )
 	{
@@ -5548,9 +5594,10 @@ IOFireWireUserClient::irmAllocation_setRef(OSAsyncReference64 asyncRef,
 	}
 	
 	UserIRMAllocationParams *pUserIRMAllocationParams = (UserIRMAllocationParams*) me->GetRefCon();
-	
+
 	for (UInt32 i=0;i<kOSAsyncRef64Count;i++)
 		pUserIRMAllocationParams->asyncRef[i] = asyncRef[i];
+    
 	pUserIRMAllocationParams->asyncRef[ kIOAsyncCalloutFuncIndex ] = (mach_vm_address_t)inCallback ;
 	pUserIRMAllocationParams->asyncRef[ kIOAsyncCalloutRefconIndex ] = inUserRefCon ;
 	if (inCallback)

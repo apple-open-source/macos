@@ -153,8 +153,10 @@ IOFWUserObjectExporter::free ()
 
 	removeAllObjects () ;
 
-	if ( fLock )
+	if ( fLock ) {
 		IOLockFree( fLock ) ;
+		fLock = NULL;
+	}
 	
 	fOwner = NULL ;
 	
@@ -334,6 +336,7 @@ IOFWUserObjectExporter::removeObject ( IOFireWireLib::UserObjectHandle handle )
 		}
 		
 		object->release() ;
+        object= NULL;
 	}
 	
 }
@@ -477,7 +480,10 @@ IOFWUserObjectExporter::removeAllObjects ()
 					(*cleanupFunctions[ index ])( objects[ index ], this ) ;
 				}
 				
-				objects[index]->release() ;
+                if(objects[index]) {//24465629
+                    objects[index]->release() ;
+                    objects[index]=NULL;
+                }
 			}
 		}
 
@@ -503,7 +509,9 @@ IOFWUserObjectExporter::getOwner() const
 void 
 IOFWUserObjectExporter::lock( void ) const
 { 
-	IOLockLock ( fLock ); 
+	if ( fLock ) {
+		IOLockLock ( fLock ); 
+	}
 }
 
 // unlock
@@ -513,6 +521,8 @@ IOFWUserObjectExporter::lock( void ) const
 void 
 IOFWUserObjectExporter::unlock( void ) const
 { 
-	IOLockUnlock ( fLock ); 
+	if ( fLock ) {
+		IOLockUnlock ( fLock ); 
+	}
 }
 
