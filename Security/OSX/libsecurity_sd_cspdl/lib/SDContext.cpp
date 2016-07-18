@@ -169,6 +169,22 @@ void SDSignatureContext::init(const Context &context, bool signing)
 			mDigestAlg = CSSM_ALGID_MD2;
 			mSigAlg = CSSM_ALGID_RSA;
 			break;
+		case CSSM_ALGID_SHA224WithRSA:
+			mDigestAlg = CSSM_ALGID_SHA224;
+			mSigAlg = CSSM_ALGID_RSA;
+			break;
+		case CSSM_ALGID_SHA256WithRSA:
+			mDigestAlg = CSSM_ALGID_SHA256;
+			mSigAlg = CSSM_ALGID_RSA;
+			break;
+		case CSSM_ALGID_SHA384WithRSA:
+			mDigestAlg = CSSM_ALGID_SHA384;
+			mSigAlg = CSSM_ALGID_RSA;
+			break;
+		case CSSM_ALGID_SHA512WithRSA:
+			mDigestAlg = CSSM_ALGID_SHA512;
+			mSigAlg = CSSM_ALGID_RSA;
+			break;
 		case CSSM_ALGID_RSA:				// Raw
 			mDigestAlg = CSSM_ALGID_NONE;
 			mSigAlg = CSSM_ALGID_RSA;

@@ -1,0 +1,56 @@
+SAX.setDocumentLocator()
+SAX.startDocument()
+SAX.error: htmlParseStartTag: invalid element name
+SAX.startElement(html)
+SAX.startElement(body)
+SAX.startElement(p)
+SAX.characters(?, 1)
+SAX.startElement(canvas)
+SAX.error: Tag canvas invalid
+SAX.characters(ion="1.0" encoding="utf-4"?, 29)
+SAX.error: Misplaced DOCTYPE declaration
+SAX.error: DOCTYPE improperly terminated
+SAX.internalSubset(a, , )
+SAX.error: htmlParseStartTag: invalid element name
+SAX.error: Invalid char in CDATA 0x1
+SAX.characters(]&gt;, 2)
+SAX.error: Misplaced DOCTYPE declaration
+SAX.error: switching encoding: encoder error
+SAX.error: Input is not proper UTF-8, indicate encoding !
+Bytes: 0xA0 0x68 0x3C 0x3B
+SAX.error: htmlParseDocTypeDecl : no DOCTYPE name !
+SAX.error: DOCTYPE improperly terminated
+SAX.error: htmlParseStartTag: invalid element name
+SAX.error: Input is not proper UTF-8, indicate encoding !
+Bytes: 0xC5 0x2F 0x43 0x2F
+SAX.startElement(em)
+SAX.startElement(bas)
+SAX.error: Tag bas invalid
+SAX.error: Invalid char in CDATA 0xF
+SAX.error: Input is not proper UTF-8, indicate encoding !
+Bytes: 0xC2 0x31 0x2D 0x73
+SAX.error: htmlParseStartTag: misplaced <html> tag
+SAX.error: Tag bas invalid
+SAX.error: Input is not proper UTF-8, indicate encoding !
+SAX.startElement(title)
+SAX.error: Invalid char in CDATA 0x11
+SAX.endElement(title)
+SAX.error: Invalid char in CDATA 0xE
+SAX.error: error parsing attribute name
+SAX.error: error parsing attribute name
+SAX.error: Input is not proper UTF-8, indicate encoding !
+Bytes: 0x84 0x3C 0x21 0x44
+SAX.error: error parsing attribute name
+SAX.startElement(met, http-equiv='content-type', tml)
+SAX.error: Tag met invalid
+SAX.error: htmlParseStartTag: misplaced <html> tag
+SAX.error: AttValue: " expected
+SAX.error: Tag met invalid
+SAX.error: Couldn't find end of Start Tag met
+SAX.endElement(bas)
+SAX.endElement(em)
+SAX.endElement(canvas)
+SAX.endElement(p)
+SAX.endElement(body)
+SAX.endElement(html)
+SAX.endDocument()

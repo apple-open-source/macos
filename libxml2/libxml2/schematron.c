@@ -245,7 +245,7 @@ xmlSchematronPErrMemory(xmlSchematronParserCtxtPtr ctxt,
  *
  * Handle a parser error
  */
-static void
+static void LIBXML_ATTR_FORMAT(4,0)
 xmlSchematronPErr(xmlSchematronParserCtxtPtr ctxt, xmlNodePtr node, int error,
               const char *msg, const xmlChar * str1, const xmlChar * str2)
 {
@@ -259,10 +259,13 @@ xmlSchematronPErr(xmlSchematronParserCtxtPtr ctxt, xmlNodePtr node, int error,
         data = ctxt->userData;
 	schannel = ctxt->serror;
     }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(schannel, channel, data, ctxt, node, XML_FROM_SCHEMASP,
                     error, XML_ERR_ERROR, NULL, 0,
                     (const char *) str1, (const char *) str2, NULL, 0, 0,
                     msg, str1, str2);
+#pragma clang diagnostic pop
 }
 
 /**

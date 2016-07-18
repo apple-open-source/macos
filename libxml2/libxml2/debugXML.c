@@ -164,25 +164,31 @@ xmlDebugErr(xmlDebugCtxtPtr ctxt, int error, const char *msg)
 		    NULL, NULL, NULL, 0, 0,
 		    "%s", msg);
 }
-static void
+static void LIBXML_ATTR_FORMAT(3,0)
 xmlDebugErr2(xmlDebugCtxtPtr ctxt, int error, const char *msg, int extra)
 {
     ctxt->errors++;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(NULL, NULL, NULL,
 		    NULL, ctxt->node, XML_FROM_CHECK,
 		    error, XML_ERR_ERROR, NULL, 0,
 		    NULL, NULL, NULL, 0, 0,
 		    msg, extra);
+#pragma clang diagnostic pop
 }
-static void
+static void LIBXML_ATTR_FORMAT(3,0)
 xmlDebugErr3(xmlDebugCtxtPtr ctxt, int error, const char *msg, const char *extra)
 {
     ctxt->errors++;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(NULL, NULL, NULL,
 		    NULL, ctxt->node, XML_FROM_CHECK,
 		    error, XML_ERR_ERROR, NULL, 0,
 		    NULL, NULL, NULL, 0, 0,
 		    msg, extra);
+#pragma clang diagnostic pop
 }
 
 /**

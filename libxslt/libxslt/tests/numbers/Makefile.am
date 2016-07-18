@@ -3,7 +3,8 @@
 $(top_builddir)/xsltproc/xsltproc:
 	@(cd ../../xsltproc ; $(MAKE) xsltproc)
 
-EXTRA_DIST = format-number.xsl format-number.xml format-number.out
+EXTRA_DIST = format-number.xsl format-number.xml format-number.out \
+             format-number-leak-poc.xsl format-number-leak-poc.xml format-number-leak-poc.out
 
 CLEANFILES = .memdump
 
@@ -14,8 +15,35 @@ valgrind:
 test tests: $(top_builddir)/xsltproc/xsltproc
 	@echo '## Running numbers tests'
 	@(echo > .memdump)
-	@($(CHECKER) $(top_builddir)/xsltproc/xsltproc $(srcdir)/format-number.xsl $(srcdir)/format-number.xml > format-number.res ; \
-	diff $(srcdir)/format-number.out format-number.res ; \
-	grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true;\
-	rm -f format-number.res)
+	-@(for i in $(srcdir)/*.xml ; do \
+	  if [ -d $$i ] ; then continue ; fi ; \
+	  doc=`basename $$i .xml` ; \
+	  j=$(srcdir)/$$doc.xsl ; \
+	  if [ ! -f $$j ] ; then continue ; fi ; \
+	  if [ -d $$j ] ; then continue ; fi ; \
+	  name=`basename $$j .xsl`; \
+	  out=$(srcdir)/"$$name".out; \
+	  err=$(srcdir)/"$$name".err; \
+	  log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc $$j $$i \
+	  	> result.$$name 2>err.$$name; \
+	  if [ ! -f $$out ] ; then \
+	  	cp result.$$name $$out ; \
+		if [ -s err.$$name ] ; then \
+			cp err.$$name $$err ; \
+		fi ; \
+	  else \
+	  	diff $$out result.$$name; \
+		if [ -s $$err ] ; then \
+	  		diff $$err err.$$name; \
+		else \
+			diff /dev/null err.$$name; \
+		fi ; \
+	  fi ; \
+	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`;\
+	  if [ -n "$$log" ] ; then \
+	  	echo $$name result ; \
+		echo "$$log" ; \
+	  fi ; \
+	  rm -f result.$$name err.$$name; \
+	  done)
 

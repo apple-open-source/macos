@@ -1,0 +1,67 @@
+Entity: line 1: parser error : Space required after '<!ENTITY'
+ %zz; 
+     ^
+Entity: line 1: 
+<!ENTITY<?xDOCTYPEm~?>
+        ^
+Entity: line 1: parser error : xmlParseEntityDecl: no name
+ %zz; 
+     ^
+Entity: line 1: 
+<!ENTITY<?xDOCTYPEm~?>
+        ^
+Entity: line 1: parser error : ParsePI: PI xDOCTYPEm space expected
+ %zz; 
+     ^
+Entity: line 1: 
+<!ENTITY<?xDOCTYPEm~?>
+                   ^
+Entity: line 1: parser error : PEReference: expecting ';'
+ %xx; 
+     ^
+Entity: line 2: 
+<![INCLUDE[%MENT%MENTDŹMENTD%zNMT9KENSMYSYSTEM;MENT9%zz;
+                ^
+Entity: line 1: parser warning : PEReference: %zNMT9KENSMYSYSTEM; not found
+ %xx; 
+     ^
+Entity: line 2: 
+<![INCLUDE[%MENT%MENTDŹMENTD%zNMT9KENSMYSYSTEM;MENT9%zz;
+                                                ^
+Entity: line 1: parser error : xmlParsePEReference: no name
+ %xx; 
+     ^
+Entity: line 1: 
+<!ENTITY<?xDOCTYPEm~?>
+^
+Entity: line 1: parser error : Space required after '<!ENTITY'
+ %xx; 
+     ^
+Entity: line 1: 
+<!ENTITY<?xDOCTYPEm~?>
+        ^
+Entity: line 1: parser error : xmlParseEntityDecl: no name
+ %xx; 
+     ^
+Entity: line 1: 
+<!ENTITY<?xDOCTYPEm~?>
+        ^
+Entity: line 1: parser error : ParsePI: PI xDOCTYPEm space expected
+ %xx; 
+     ^
+Entity: line 1: 
+<!ENTITY<?xDOCTYPEm~?>
+                   ^
+./test/errors/766956-2.xml:6: parser error : Content error in the external subset
+%xx;ENSMYNT&#35;MENTD&#372zz;'>
+    ^
+./test/errors/766956-2.xml:6: parser error : internal error: xmlParseInternalSubset: error detected in Markup declaration
+
+
+^
+./test/errors/766956-2.xml:6: parser error : DOCTYPE improperly terminated
+
+^
+./test/errors/766956-2.xml:6: parser error : Start tag expected, '<' not found
+
+^

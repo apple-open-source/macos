@@ -125,16 +125,19 @@ xmlXIncludeErrMemory(xmlXIncludeCtxtPtr ctxt, xmlNodePtr node,
  *
  * Handle an XInclude error
  */
-static void
+static void LIBXML_ATTR_FORMAT(4,0)
 xmlXIncludeErr(xmlXIncludeCtxtPtr ctxt, xmlNodePtr node, int error,
                const char *msg, const xmlChar *extra)
 {
     if (ctxt != NULL)
 	ctxt->nbErrors++;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(NULL, NULL, NULL, ctxt, node, XML_FROM_XINCLUDE,
                     error, XML_ERR_ERROR, NULL, 0,
 		    (const char *) extra, NULL, NULL, 0, 0,
 		    msg, (const char *) extra);
+#pragma clang diagnostic pop
 }
 
 #if 0
@@ -147,7 +150,7 @@ xmlXIncludeErr(xmlXIncludeCtxtPtr ctxt, xmlNodePtr node, int error,
  *
  * Emit an XInclude warning.
  */
-static void
+static void LIBXML_ATTR_FORMAT(4,0)
 xmlXIncludeWarn(xmlXIncludeCtxtPtr ctxt, xmlNodePtr node, int error,
                const char *msg, const xmlChar *extra)
 {

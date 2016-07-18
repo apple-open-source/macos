@@ -1,0 +1,31 @@
+./test/errors/766956-1.xml:1: parser error : Space required after '<!ENTITY'
+<?h?><!DOCTYPEt[<!ELEMENT t (A)><!ENTITY % xx '&#37;&#3000;000&#37;z;'><!ENTITYz
+                                                                               ^
+./test/errors/766956-1.xml:1: parser error : Space required after the entity name
+<?h?><!DOCTYPEt[<!ELEMENT t (A)><!ENTITY % xx '&#37;&#3000;000&#37;z;'><!ENTITYz
+                                                                               ^
+./test/errors/766956-1.xml:1: parser error : Entity value required
+<?h?><!DOCTYPEt[<!ELEMENT t (A)><!ENTITY % xx '&#37;&#3000;000&#37;z;'><!ENTITYz
+                                                                               ^
+./test/errors/766956-1.xml:1: parser warning : PEReference: %z; not found
+<!DOCTYPEt[<!ELEMENT t (A)><!ENTITY % xx '&#37;&#3000;000&#37;z;'><!ENTITYz>%xx;
+                                                                               ^
+Entity: line 1: 
+ %xx; 
+     ^
+./test/errors/766956-1.xml:1: parser error : PEReference: no name
+<!DOCTYPEt[<!ELEMENT t (A)><!ENTITY % xx '&#37;&#3000;000&#37;z;'><!ENTITYz>%xx;
+                                                                               ^
+Entity: line 1: 
+ %xx; 
+     ^
+./test/errors/766956-1.xml:1: parser error : internal error: xmlParseInternalSubset: error detected in Markup declaration
+
+<!DOCTYPEt[<!ELEMENT t (A)><!ENTITY % xx '&#37;&#3000;000&#37;z;'><!ENTITYz>%xx;
+                                                                               ^
+./test/errors/766956-1.xml:1: parser error : DOCTYPE improperly terminated
+<!DOCTYPEt[<!ELEMENT t (A)><!ENTITY % xx '&#37;&#3000;000&#37;z;'><!ENTITYz>%xx;
+                                                                               ^
+./test/errors/766956-1.xml:1: parser error : Start tag expected, '<' not found
+<!DOCTYPEt[<!ELEMENT t (A)><!ENTITY % xx '&#37;&#3000;000&#37;z;'><!ENTITYz>%xx;
+                                                                               ^

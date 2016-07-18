@@ -113,7 +113,7 @@ static int xmlTextWriterWriteDocCallback(void *context,
                                          const xmlChar * str, int len);
 static int xmlTextWriterCloseDocCallback(void *context);
 
-static xmlChar *xmlTextWriterVSprintf(const char *format, va_list argptr);
+static xmlChar *xmlTextWriterVSprintf(const char *format, va_list argptr) LIBXML_ATTR_FORMAT(1,0);
 static int xmlOutputBufferWriteBase64(xmlOutputBufferPtr out, int len,
                                       const unsigned char *data);
 static void xmlTextWriterStartDocumentCallback(void *ctx);
@@ -153,17 +153,23 @@ xmlWriterErrMsg(xmlTextWriterPtr ctxt, xmlParserErrors error,
  *
  * Handle a writer error
  */
-static void
+static void LIBXML_ATTR_FORMAT(3,0)
 xmlWriterErrMsgInt(xmlTextWriterPtr ctxt, xmlParserErrors error,
                const char *msg, int val)
 {
     if (ctxt != NULL) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 	__xmlRaiseError(NULL, NULL, NULL, ctxt->ctxt,
 	            NULL, XML_FROM_WRITER, error, XML_ERR_FATAL,
 		    NULL, 0, NULL, NULL, NULL, val, 0, msg, val);
+#pragma clang diagnostic pop
     } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 	__xmlRaiseError(NULL, NULL, NULL, NULL, NULL, XML_FROM_WRITER, error,
                     XML_ERR_FATAL, NULL, 0, NULL, NULL, NULL, val, 0, msg, val);
+#pragma clang diagnostic pop
     }
 }
 

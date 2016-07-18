@@ -1,3 +1,143 @@
+2016-05-13  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r196490. rdar://problem/26270811
+
+    2016-02-12  Filip Pizlo  <fpizlo@apple.com>
+
+            Fast path in JSObject::defineOwnIndexedProperty() forgets to check for the posibility of a descriptor that doesn't have a value
+            https://bugs.webkit.org/show_bug.cgi?id=154175
+            rdar://problem/24291497
+
+            Reviewed by Geoffrey Garen.
+
+            * runtime/JSObject.cpp:
+            (JSC::JSObject::defineOwnIndexedProperty): Fix the bug.
+            * runtime/SparseArrayValueMap.cpp:
+            (JSC::SparseArrayValueMap::putEntry): Catch the bug sooner in debug.
+            (JSC::SparseArrayValueMap::putDirect):
+            * tests/stress/sparse-define-empty-descriptor.js: Added. This used to crash in release.
+
+2016-05-13  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r196240. rdar://problem/26271108
+
+    2016-02-07  Filip Pizlo  <fpizlo@apple.com>
+
+            String.match should defend against matches that would crash the VM
+            https://bugs.webkit.org/show_bug.cgi?id=153964
+            rdar://problem/24301119
+
+            Reviewed by Saam Barati.
+
+            This fixes a crash in an internal test case.
+
+            * runtime/ArgList.cpp:
+            (JSC::MarkedArgumentBuffer::slowAppend): Use best practices to ensure that the size we
+                compute makes sense. Crash if it stops making sense, since most users of this API assume
+                that they are creating something small enough to fit on the stack.
+            * runtime/ArgList.h:
+            (JSC::MarkedArgumentBuffer::~MarkedArgumentBuffer):
+            (JSC::MarkedArgumentBuffer::size):
+            (JSC::MarkedArgumentBuffer::operator new): Deleted. These were ineffective. According to the
+                debugger, we were still calling system malloc. So, I changed the code to use fastMalloc()
+                directly.
+            (JSC::MarkedArgumentBuffer::operator delete): Deleted.
+            * runtime/StringPrototype.cpp:
+            (JSC::stringProtoFuncMatch): Explicitly defend against absurd sizes. Of course, it's still
+                possible to crash the VM on OOME. That's sort of always been the philosophy of JSC - we
+                don't guarantee that you'll get a nice-looking error whenever you run out of memory,
+                since in a GC'd environment you can't really guarantee those things. But, if you have a
+                match that obvious won't fit in memory, then reporting an error is useful in case this is
+                a developer experimenting with a buggy regexp.
+
+2016-05-12  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge patch for r200387.
+
+    2016-05-03  Michael Saboff  <msaboff@apple.com>
+
+            Crash: Array.prototype.slice() and .splice() can call fastSlice() after an array is truncated
+            https://bugs.webkit.org/show_bug.cgi?id=157322
+
+            Reviewed by Filip Pizlo.
+
+            Check to see if the source array has changed length before calling fastSlice().
+            If it has, take the slow path.
+
+            * runtime/ArrayPrototype.cpp:
+            (JSC::arrayProtoFuncSlice):
+            (JSC::arrayProtoFuncSplice):
+            * tests/stress/regress-157322.js: New test.
+
+2016-05-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r199277. rdar://problem/26228546
+
+    2016-04-09  Saam barati  <sbarati@apple.com>
+
+            Allocation sinking SSA Defs are allowed to have replacements
+            https://bugs.webkit.org/show_bug.cgi?id=156444
+
+            Reviewed by Filip Pizlo.
+
+            Consider the following program and the annotations that explain why
+            the SSA defs we create in allocation sinking can have replacements.
+
+            function foo(a1) {
+                let o1 = {x: 20, y: 50};
+                let o2 = {y: 40, o1: o1};
+                let o3 = {};
+
+                // We're Defing a new variable here, call it o3_field.
+                // o3_field is defing the value that is the result of
+                // a GetByOffset that gets eliminated through allocation sinking.
+                o3.field = o1.y;
+
+                dontCSE();
+
+                // This control flow is here to not allow the phase to consult
+                // its local SSA mapping (which properly handles replacements)
+                // for the value of o3_field.
+                if (a1) {
+                    a1 = true;
+                } else {
+                    a1 = false;
+                }
+
+                // Here, we ask for the reaching def of o3_field, and assert
+                // it doesn't have a replacement. It does have a replacement
+                // though. The original Def was the GetByOffset. We replaced
+                // that GetByOffset with the value of the o1_y variable.
+                let value = o3.field;
+                assert(value === 50);
+            }
+
+            * dfg/DFGObjectAllocationSinkingPhase.cpp:
+            * tests/stress/allocation-sinking-defs-may-have-replacements.js: Added.
+            (dontCSE):
+            (assert):
+            (foo):
+
+2016-05-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r196524. rdar://problem/26228552
+
+    2016-02-12  Filip Pizlo  <fpizlo@apple.com>
+
+            JSObject::putByIndexBeyondVectorLengthWithoutAttributes needs to go to the sparse map based on MAX_STORAGE_VECTOR_INDEX
+            https://bugs.webkit.org/show_bug.cgi?id=154201
+            rdar://problem/24291387
+
+            Reviewed by Saam Barati.
+
+            I decided against adding a test for this, because it runs for a very long time.
+
+            * runtime/JSObject.cpp:
+            (JSC::JSObject::putByIndexBeyondVectorLengthWithoutAttributes): Fix the bug.
+            * runtime/StringPrototype.cpp:
+            (JSC::stringProtoFuncSplit): Fix a related bug: if this code creates an array that would have
+                hit the above bug, then it would probably manifest as a spin or as swapping.
+
 2016-03-24  Matthew Hanson  <matthew_hanson@apple.com>
 
         Merge r198592. rdar://problem/25332806

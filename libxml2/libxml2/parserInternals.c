@@ -151,10 +151,13 @@ __xmlErrEncoding(xmlParserCtxtPtr ctxt, xmlParserErrors xmlerr,
 	return;
     if (ctxt != NULL)
         ctxt->errNo = xmlerr;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(NULL, NULL, NULL,
                     ctxt, NULL, XML_FROM_PARSER, xmlerr, XML_ERR_FATAL,
                     NULL, 0, (const char *) str1, (const char *) str2,
                     NULL, 0, 0, msg, str1, str2);
+#pragma clang diagnostic pop
     if (ctxt != NULL) {
         ctxt->wellFormed = 0;
         if (ctxt->recovery == 0)
@@ -170,7 +173,7 @@ __xmlErrEncoding(xmlParserCtxtPtr ctxt, xmlParserErrors xmlerr,
  *
  * Handle an internal error
  */
-static void
+static void LIBXML_ATTR_FORMAT(2,0)
 xmlErrInternal(xmlParserCtxtPtr ctxt, const char *msg, const xmlChar * str)
 {
     if ((ctxt != NULL) && (ctxt->disableSAX != 0) &&
@@ -178,10 +181,13 @@ xmlErrInternal(xmlParserCtxtPtr ctxt, const char *msg, const xmlChar * str)
 	return;
     if (ctxt != NULL)
         ctxt->errNo = XML_ERR_INTERNAL_ERROR;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(NULL, NULL, NULL,
                     ctxt, NULL, XML_FROM_PARSER, XML_ERR_INTERNAL_ERROR,
                     XML_ERR_FATAL, NULL, 0, (const char *) str, NULL, NULL,
                     0, 0, msg, str);
+#pragma clang diagnostic pop
     if (ctxt != NULL) {
         ctxt->wellFormed = 0;
         if (ctxt->recovery == 0)
@@ -198,7 +204,7 @@ xmlErrInternal(xmlParserCtxtPtr ctxt, const char *msg, const xmlChar * str)
  *
  * n encoding error
  */
-static void
+static void LIBXML_ATTR_FORMAT(3,0)
 xmlErrEncodingInt(xmlParserCtxtPtr ctxt, xmlParserErrors error,
                   const char *msg, int val)
 {
@@ -207,9 +213,12 @@ xmlErrEncodingInt(xmlParserCtxtPtr ctxt, xmlParserErrors error,
 	return;
     if (ctxt != NULL)
         ctxt->errNo = error;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(NULL, NULL, NULL,
                     ctxt, NULL, XML_FROM_PARSER, error, XML_ERR_FATAL,
                     NULL, 0, NULL, NULL, NULL, val, 0, msg, val);
+#pragma clang diagnostic pop
     if (ctxt != NULL) {
         ctxt->wellFormed = 0;
         if (ctxt->recovery == 0)
@@ -1223,13 +1232,20 @@ xmlSwitchInputEncodingInt(xmlParserCtxtPtr ctxt, xmlParserInputPtr input,
                 nbchars = xmlCharEncFirstLineInput(input->buf, len);
             }
             if (nbchars < 0) {
+                xmlBufFree(input->buf->buffer);
+                input->buf->buffer = input->buf->raw;
+                input->buf->raw = NULL;
+                input->buf->rawconsumed = 0;
+            } else {
+                input->buf->rawconsumed += use - xmlBufUse(input->buf->raw);
+            }
+            xmlBufResetInput(input->buf->buffer, input);
+            if (nbchars < 0) {
                 xmlErrInternal(ctxt,
                                "switching encoding: encoder error\n",
                                NULL);
                 return (-1);
             }
-	    input->buf->rawconsumed += use - xmlBufUse(input->buf->raw);
-            xmlBufResetInput(input->buf->buffer, input);
         }
         return (0);
     } else if (input->length == 0) {

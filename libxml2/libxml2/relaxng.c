@@ -507,7 +507,7 @@ xmlRngVErrMemory(xmlRelaxNGValidCtxtPtr ctxt, const char *extra)
  *
  * Handle a Relax NG Parsing error
  */
-static void
+static void LIBXML_ATTR_FORMAT(4,0)
 xmlRngPErr(xmlRelaxNGParserCtxtPtr ctxt, xmlNodePtr node, int error,
            const char *msg, const xmlChar * str1, const xmlChar * str2)
 {
@@ -523,11 +523,14 @@ xmlRngPErr(xmlRelaxNGParserCtxtPtr ctxt, xmlNodePtr node, int error,
         data = ctxt->userData;
         ctxt->nbErrors++;
     }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(schannel, channel, data,
                     NULL, node, XML_FROM_RELAXNGP,
                     error, XML_ERR_ERROR, NULL, 0,
                     (const char *) str1, (const char *) str2, NULL, 0, 0,
                     msg, str1, str2);
+#pragma clang diagnostic pop
 }
 
 /**
@@ -541,7 +544,7 @@ xmlRngPErr(xmlRelaxNGParserCtxtPtr ctxt, xmlNodePtr node, int error,
  *
  * Handle a Relax NG Validation error
  */
-static void
+static void LIBXML_ATTR_FORMAT(4,0)
 xmlRngVErr(xmlRelaxNGValidCtxtPtr ctxt, xmlNodePtr node, int error,
            const char *msg, const xmlChar * str1, const xmlChar * str2)
 {
@@ -557,11 +560,14 @@ xmlRngVErr(xmlRelaxNGValidCtxtPtr ctxt, xmlNodePtr node, int error,
         data = ctxt->userData;
         ctxt->nbErrors++;
     }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(schannel, channel, data,
                     NULL, node, XML_FROM_RELAXNGV,
                     error, XML_ERR_ERROR, NULL, 0,
                     (const char *) str1, (const char *) str2, NULL, 0, 0,
                     msg, str1, str2);
+#pragma clang diagnostic pop
 }
 
 /************************************************************************
@@ -2215,7 +2221,8 @@ xmlRelaxNGGetErrorString(xmlRelaxNGValidErr err, const xmlChar * arg1,
         snprintf(msg, 1000, "Unknown error code %d\n", err);
     }
     msg[1000 - 1] = 0;
-    return (xmlStrdup((xmlChar *) msg));
+    xmlChar *result = xmlCharStrdup(msg);
+    return (xmlEscapeFormatString(&result));
 }
 
 /**
@@ -2249,8 +2256,11 @@ xmlRelaxNGShowValidError(xmlRelaxNGValidCtxtPtr ctxt,
 
     if (ctxt->errNo == XML_RELAXNG_OK)
         ctxt->errNo = err;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     xmlRngVErr(ctxt, (child == NULL ? node : child), err,
                (const char *) msg, arg1, arg2);
+#pragma clang diagnostic pop
     xmlFree(msg);
 }
 

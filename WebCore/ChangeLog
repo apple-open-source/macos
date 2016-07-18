@@ -1,3 +1,453 @@
+2016-06-17  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r202174.
+
+    2016-06-17  John Wilander  <wilander@apple.com>
+
+            Ignore case in the check for security origin inheritance
+            https://bugs.webkit.org/show_bug.cgi?id=158878
+
+            Reviewed by Alex Christensen.
+
+            Darin Adler commented in https://bugs.webkit.org/show_bug.cgi?id=158855:
+            "Are these comparisons intentionally case sensitive? Shouldn’t they ignore ASCII 
+            case? We could use equalIgnoringASCIICase and equalLettersIgnoringASCIICase for 
+            those two lines instead of using ==. URL::parse normalizes letters in the scheme 
+            and host by using toASCIILower, but does not normalize letters elsewhere in the 
+            URL, such as in the "blank" or "srcdoc" in the above URLs."
+
+            Test: http/tests/dom/window-open-about-uppercase-blank-and-access-document.html
+
+            * platform/URL.cpp:
+            (WebCore::URL::shouldInheritSecurityOriginFromOwner):
+
+2016-06-17  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r202151.
+
+    2016-06-16  John Wilander  <wilander@apple.com>
+
+            Restrict security origin inheritance to empty, about:blank, and about:srcdoc URLs
+            https://bugs.webkit.org/show_bug.cgi?id=158855
+            <rdar://problem/26142632>
+
+            Reviewed by Alex Christensen.
+
+            Tests: http/tests/dom/window-open-about-blank-and-access-document.html
+                   http/tests/dom/window-open-about-webkit-org-and-access-document.html
+
+            Document.cpp previously checked whether a document should inherit its owner's 
+            security origin by checking if the URL is either empty or blank. URL.cpp in 
+            turn only checks if the protocol is "about:" in the isBlankURL() function. 
+            Thus all about:* URLs inherited security origin. This patch restricts 
+            security origin inheritance to empty, about:blank, and about:srcdoc URLs.
+
+            Quotes and links from the WHATWG spec regarding about:srcdoc:
+
+            7.1 Browsing contexts
+            A browsing context can have a creator browsing context, the browsing context 
+            that was responsible for its creation. If a browsing context has a parent 
+            browsing context, then that is its creator browsing context. Otherwise, if the 
+            browsing context has an opener browsing context, then that is its creator 
+            browsing context. Otherwise, the browsing context has no creator browsing 
+            context.
+            https://html.spec.whatwg.org/multipage/browsers.html#concept-document-bc
+
+            7.1.1 Nested browsing contexts
+            Certain elements (for example, iframe elements) can instantiate further 
+            browsing contexts. These are called nested browsing contexts. If a browsing 
+            context P has a Document D with an element E that nests another browsing 
+            context C inside it, then C is said to be nested through D, and E is said to 
+            be the browsing context container of C. If the browsing context container 
+            element E is in the Document D, then P is said to be the parent browsing 
+            context of C and C is said to be a child browsing context of P. Otherwise, 
+            the nested browsing context C has no parent browsing context.
+            https://html.spec.whatwg.org/multipage/browsers.html#nested-browsing-context
+
+            4.8.5 The iframe element
+            The iframe element represents a nested browsing context.
+            ...
+            If the srcdoc attribute is specified
+                Navigate the element's child browsing context to a new response whose 
+                url list consists of about:srcdoc ...
+            https://html.spec.whatwg.org/multipage/embedded-content.html#attr-iframe-srcdoc
+
+            * dom/Document.cpp:
+            (WebCore::Document::initSecurityContext):
+                Now uses the URL::shouldInheritSecurityOriginFromOwner() function instead.
+            (WebCore::Document::initContentSecurityPolicy):
+                Now uses the URL::shouldInheritSecurityOriginFromOwner() function instead.
+            (WebCore::shouldInheritSecurityOriginFromOwner): Deleted.
+                Moved to URL::shouldInheritSecurityOriginFromOwner() and restricted the check.
+            * platform/URL.cpp:
+            (WebCore::URL::shouldInheritSecurityOriginFromOwner):
+            * platform/URL.h:
+                Moved the function from Document and restricted the check to only allow
+                security origin inheritance for empty, about:blank, and about:srcdoc URLs.
+
+2016-05-16  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r200986.
+
+    2016-05-16  Brent Fulgham  <bfulgham@apple.com>
+
+            heap use-after-free at WebCore::TimerBase::heapPopMin()
+            https://bugs.webkit.org/show_bug.cgi?id=157742
+            <rdar://problem/26236778>
+
+            Reviewed by David Kilzer.
+
+            Tested by fast/frames/resources/crash-during-iframe-load-stop.html.
+
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::stopForUserCancel): Protect m_frame from destruction while it is still
+            being used by the current stack frame.
+            (WebCore::FrameLoader::frameDetached): Ditto.
+            (WebCore::FrameLoader::continueFragmentScrollAfterNavigationPolicy): Ditto.
+
+2016-05-12  Babak Shafiei  <bshafiei@apple.com>
+
+        Build fix after r195004/r200780.
+
+2016-05-12  Babak Shafiei  <bshafiei@apple.com>
+
+        Merge r195004.
+
+    2016-01-13  Brent Fulgham  <bfulgham@apple.com>
+
+            Cross-protocol, cross-site scripting (XPSS) using HTML forms
+            https://bugs.webkit.org/show_bug.cgi?id=153017
+            <rdar://problem/5873254>
+
+            Reviewed by David Kilzer.
+
+            * loader/DocumentLoader.cpp:
+            (WebCore::DocumentLoader::responseReceived): If response HTTP version is 0.9,
+            sandbox against script execution and plugins.
+            * loader/ResourceLoader.cpp:
+            (WebCore::ResourceLoader::didReceiveResponse): Ditto.
+            * loader/SubresourceLoader.cpp:
+            (WebCore::SubresourceLoader::didReceiveResponse): Ditto.
+            * platform/network/ResourceResponseBase.cpp:
+            (WebCore::ResourceResponseBase::adopt): Update for HTTP version.
+            (WebCore::ResourceResponseBase::copyData): Ditto.
+            (WebCore::ResourceResponseBase::httpVersion): Added.
+            (WebCore::ResourceResponseBase::setHTTPVersion): Ditto.
+            * platform/network/ResourceResponseBase.h:
+            (WebCore::ResourceResponseBase::encode): Update for HTTP version.
+            (WebCore::ResourceResponseBase::decode): Ditto.
+            * platform/network/cf/ResourceResponseCFNet.cpp:
+            (WebCore::ResourceResponse::platformLazyInit): Capture HTTP version.
+            * platform/network/cocoa/ResourceResponseCocoa.mm:
+            (WebCore::ResourceResponse::platformLazyInit): Ditto.
+
+2016-05-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r198701. rdar://problem/26228577
+
+    2016-03-25  Zalan Bujtas  <zalan@apple.com>
+
+            RenderImage::repaintOrMarkForLayout fails when the renderer is detached.
+            https://bugs.webkit.org/show_bug.cgi?id=155885
+            <rdar://problem/25359164>
+
+            Reviewed by Simon Fraser.
+
+            Making containingBlockFor* functions standalone ensures that we don't
+            call them on an invalid object.
+
+            Covered by existing tests.
+
+            * dom/Element.cpp:
+            (WebCore::layoutOverflowRectContainsAllDescendants):
+            * rendering/LogicalSelectionOffsetCaches.h:
+            (WebCore::LogicalSelectionOffsetCaches::LogicalSelectionOffsetCaches):
+            * rendering/RenderElement.cpp:
+            (WebCore::containingBlockForFixedPosition):
+            (WebCore::containingBlockForAbsolutePosition):
+            (WebCore::containingBlockForObjectInFlow):
+            (WebCore::RenderElement::containingBlockForFixedPosition): Deleted.
+            (WebCore::RenderElement::containingBlockForAbsolutePosition): Deleted.
+            (WebCore::isNonRenderBlockInline): Deleted.
+            (WebCore::RenderElement::containingBlockForObjectInFlow): Deleted.
+            * rendering/RenderElement.h:
+            * rendering/RenderInline.cpp:
+            (WebCore::RenderInline::styleWillChange):
+            * rendering/RenderObject.cpp:
+            (WebCore::RenderObject::containingBlock):
+
+2016-05-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r198143. rdar://problem/26228593
+
+    2016-03-14  Chris Vienneau  <chris.vno@outlook.com>
+
+            PingHandle delete's itself but pointer is still used by handleDataURL
+            https://bugs.webkit.org/show_bug.cgi?id=154752
+            <rdar://problem/24872347>
+
+            Reviewed by Alex Christensen.
+
+            When a PingHandle is destroyed, we should tell its client so that the client can clear the pointer it
+            holds to the element to avoid accidentally attempting to use deallocated memory.
+
+            The ResourceHandle's client member may be null after "didReceiveResponse" is called. We should confirm
+            the client is still valid after these calls.
+
+            * platform/network/DataURL.cpp:
+            (WebCore::handleDataURL): Check the client pointer before using it.
+            * platform/network/PingHandle.h:
+            (WebCore::PingHandle::~PingHandle): Notify the client we are being destroyed.
+            * platform/platform/network/ResourceHandle.h:
+
+2016-05-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r199243. rdar://problem/26228520
+
+    2016-04-08  Said Abou-Hallawa  <sabouhallawa@apple,com>
+
+            Timing attack on SVG feComposite filter circumvents same-origin policy
+            https://bugs.webkit.org/show_bug.cgi?id=154338
+
+            Reviewed by Oliver Hunt.
+
+            Ensure the FEComposite arithmetic filter is clamping the resulted color
+            components in a constant time.
+
+            * platform/graphics/filters/FEComposite.cpp:
+            (WebCore::clampByte):
+            (WebCore::computeArithmeticPixels):
+
+2016-05-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r199101. rdar://problem/26228570
+
+    2016-04-06  Zalan Bujtas  <zalan@apple.com>
+
+            ASSERTION FAILED: !floatingObject->originatingLine() in WebCore::RenderBlockFlow::linkToEndLineIfNeeded
+            https://bugs.webkit.org/show_bug.cgi?id=153001
+
+            Reviewed by Dan Bernstein.
+
+            1. Float boxes are always attached to the line where we see them first.
+            2. Float box can only be attached to one line.
+            3. RenderBlockFlow can perform partial layout on dirty lines only.
+
+            In certain cases, the last dirty line can "pull up" float boxes from the first clean line.
+            It simply means that due to some layout changes on previous lines now we see those floats on this last dirty line first.
+            If after placing the float we still find it on the same position, the line below is still considered clean.
+
+            Remove the float box from its original line if the line above already placed it.
+
+            Test: fast/block/float/float-moves-between-lines.html
+
+            * rendering/RenderBlockFlow.h:
+            * rendering/RenderBlockLineLayout.cpp:
+            (WebCore::RenderBlockFlow::reattachCleanLineFloats):
+            (WebCore::RenderBlockFlow::linkToEndLineIfNeeded):
+            (WebCore::RenderBlockFlow::layoutRunsAndFloatsInRange): Deleted.
+
+2016-05-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r198780. rdar://problem/26228583
+
+    2016-03-29  Eric Carlson  <eric.carlson@apple.com>
+
+            media/track/track-remove-track.html is flaky, crashing and failing
+            https://bugs.webkit.org/show_bug.cgi?id=130971
+
+            Reviewed by Alexey Proskuryakov.
+
+            Prevent HTMLMediaElement from being collected while it is creating media controls.
+            These changes prevent the test from crashing but they do not fix the flakiness,
+            which is caused by another bug. Fixing that is tracked by
+            https://bugs.webkit.org/show_bug.cgi?id=155956.
+
+            * html/HTMLMediaElement.cpp:
+            (WebCore::actionName): New, debugging-only helper function.
+            (WebCore::HTMLMediaElement::HTMLMediaElement): Initialize new variables.
+            (WebCore::HTMLMediaElement::scheduleDelayedAction): Log the flag names to make debugging easier.
+            (WebCore::HTMLMediaElement::scheduleNextSourceChild): Add logging.
+            (WebCore::HTMLMediaElement::updateActiveTextTrackCues): Update logging.
+            (WebCore::HTMLMediaElement::configureTextTrackGroup): Drive-by optimization: don't call
+              updateCaptionContainer here, call it before exiting configureTextTracks so we only call
+              it once instead of once per track group.
+            (WebCore::controllerJSValue):
+            (WebCore::HTMLMediaElement::ensureMediaControlsShadowRoot): New, wrapper around calling
+              ensureUserAgentShadowRoot so m_creatingControls can be set and cleared appropriately.
+            (WebCore::HTMLMediaElement::updateCaptionContainer): ensureUserAgentShadowRoot ->
+              ensureMediaControlsShadowRoot. Drive by optimization: set/test m_haveSetupCaptionContainer
+              so we only do this setup once.
+            (WebCore::HTMLMediaElement::configureTextTracks): Call updateCaptionContainer.
+            (WebCore::HTMLMediaElement::clearMediaPlayer): Log flag names.
+            (WebCore::HTMLMediaElement::hasPendingActivity): Return true when creating controls so GC
+              won't happen during controls setup.
+            (WebCore::HTMLMediaElement::updateTextTrackDisplay): ensureUserAgentShadowRoot ->
+              ensureMediaControlsShadowRoot.
+            (WebCore::HTMLMediaElement::createMediaControls): Ditto.
+            (WebCore::HTMLMediaElement::configureMediaControls): Ditto.
+            (WebCore::HTMLMediaElement::configureTextTrackDisplay): Ditto.
+            * html/HTMLMediaElement.h:
+
+2016-05-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r198050. rdar://problem/26228588
+
+    2016-03-11  Jiewen Tan  <jiewen_tan@apple.com>
+
+            WebKit should not be redirected to an invalid URL
+            https://bugs.webkit.org/show_bug.cgi?id=155263
+            <rdar://problem/22820172>
+
+            Reviewed by Brent Fulgham.
+
+            Test: http/tests/navigation/redirect-to-invalid-url.html
+
+            * loader/SubresourceLoader.cpp:
+            (WebCore::SubresourceLoader::willSendRequestInternal):
+
+2016-05-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r195724. rdar://problem/26228611
+
+    2016-01-27  Said Abou-Hallawa  <sabouhallawa@apple.com>
+
+            Garbage is displayed when root svg element has mix-blend-mode set
+            https://bugs.webkit.org/show_bug.cgi?id=150556
+
+            Reviewed by Darin Adler.
+
+            This bug happens when compositing on a CALayer and drawing on a transparent
+            layer, so it happens with WK2 with <svg style="mix-blend-mode...">. And it
+            can happen with WK1 also with <svg style="opacity=...;mix-blend-mode...">.
+            But in both cases, the SVG root renderer should be the root of the render
+            tree. So it happens only with the stand alone SVG documents.
+
+            SVGRenderContext::prepareToRenderSVGContent() ignores the opacity of
+            the SVG root but it creates a transparent layer for the blend-mode.
+
+            But RenderLayer::beginTransparencyLayers() creates a transparent layer
+            for opacity and it sets the blend-mode also.
+
+            The fix is to begin two transparent layers for the SVG root renderer: one
+            for the opacity and the second for the blend-mode. The opacity transparent
+            layer will be still managed by RenderLayer::beginTransparencyLayers(). While
+            the blend-mode transparent layer will be managed by SVGRenderContext
+            ::prepareToRenderSVGContent().
+
+            Tests: svg/css/mix-blend-mode-background-root.svg
+                   svg/css/mix-blend-mode-opacity-root.svg
+
+            * rendering/RenderLayer.cpp:
+            (WebCore::RenderLayer::beginTransparencyLayers):
+
+2016-05-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r194399. rdar://problem/26228601
+
+    2015-12-23  Pranjal Jumde  <pjumde@apple.com>
+
+            Avoids stack recursion when indexed propertyNames defined using Object.defineProperty are deleted.
+            https://bugs.webkit.org/show_bug.cgi?id=149179
+            <rdar://problem/22708019>.
+
+            Reviewed by Filip Pizlo.
+
+            * runtime/JSObject.cpp:
+            (JSStorage::deletePropertyByIndex was invoking Base::deleteProperty for indexed propertyNames instead of Base::deletePropertyByIndex leading to a stack recursion)
+
+2016-05-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r190820. rdar://problem/26228566
+
+    2015-10-09  Simon Fraser  <simon.fraser@apple.com>
+
+            Garbage texture data with composited table row
+            https://bugs.webkit.org/show_bug.cgi?id=148984
+
+            Reviewed by Zalan Bujtas.
+
+            Don't pretend to know if the layer for a table header, section or cell is
+            opaque, since table painting is special.
+
+            Test: compositing/contents-opaque/table-parts.html
+
+            * rendering/RenderLayer.cpp:
+            (WebCore::RenderLayer::backgroundIsKnownToBeOpaqueInRect):
+
+2016-05-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r200091. rdar://problem/26228555
+
+    2016-04-26  Brent Fulgham  <bfulgham@apple.com>
+
+            GuardMalloc crash in WebCore::HTMLFrameElementBase::marginHeight()
+            https://bugs.webkit.org/show_bug.cgi?id=157020
+            <rdar://problem/25148315>
+
+            Reviewed by Darin Adler.
+
+            Calls to setIntegralAttribute triggers event handling code, which can cause
+            the underlying m_frameOwnerElement member to be deleted. We could clone this
+            object, but since we only want the width and height we should just read them
+            while we know the object is in a good state, then execute the potentially
+            mutating methods.
+
+            Tested by imported/blink/fast/dom/HTMLBodyElement/body-inserting-iframe-crash.html.
+
+            * html/HTMLBodyElement.cpp:
+            (WebCore::HTMLBodyElement::insertedInto): Read margin width and height before
+            calling setIntegralAttribute.
+
+2016-05-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r194290. rdar://problem/26053735
+
+    2015-12-18  Brent Fulgham  <bfulgham@apple.com>
+
+            Place an upper bound on canvas pixel count
+            https://bugs.webkit.org/show_bug.cgi?id=151825
+            <rdar://problem/23324916>
+
+            Reviewed by Simon Fraser (Relanded by Brent Fulgham)
+
+            Malformed JavaScript can attempt to create lots of canvas contexts. Limit the amount of memory
+            we will use for this purpose to some percentage of system RAM.
+
+            * html/HTMLCanvasElement.cpp:
+            (WebCore::removeFromActivePixelMemory): Added helper function
+            (WebCore::HTMLCanvasElement::~HTMLCanvasElement): Call new 'releaseImageBufferAndContext' method
+            to ensure ImageBuffer and graphics context state are properly cleaned up.
+            (WebCore::maxActivePixels): Use one quarter of the system RAM, or 2 GB (whichever is more) as
+            an upper bound on active pixel memory.
+            (WebCore::HTMLCanvasElement::getContext): If we are attempting to create a context that will cause
+            us to exceed the allowed active pixel count, fail.
+            (WebCore::HTMLCanvasElement::releaseImageBufferAndContext): Added helper function
+            (WebCore::HTMLCanvasElement::setSurfaceSize): Use the new 'releaseImageBufferAndContext' method
+            to handle active pixel memory counts.
+            (WebCore::HTMLCanvasElement::createImageBuffer): Refuse to create a backing buffer if it will
+            exceed our available pixel memory.
+
+2016-05-11  Matthew Hanson  <matthew_hanson@apple.com>
+
+        Merge r200375. rdar://problem/26066673
+
+    2016-05-03  Pranjal Jumde  <pjumde@apple.com>
+
+            WorkerGlobalScope's self, location and navigator attributes should not be replaceable
+            https://bugs.webkit.org/show_bug.cgi?id=157296
+            <rdar://problem/25962738>
+
+            Reviewed by Chris Dumez.
+
+            Tests: http/tests/workers/location-readonly.html
+                   http/tests/workers/navigator-readonly.html
+                   http/tests/workers/self-readonly.html
+
+            * workers/WorkerGlobalScope.idl:
+            The 'self', 'location', and 'navigator' properties of the WorkerGlobalScope must be immutable.
+            See: https://html.spec.whatwg.org/multipage/workers.html#the-workerglobalscope-common-interface
+
 2016-04-22  Matthew Hanson  <matthew_hanson@apple.com>
 
         Merge r199881. rdar://problem/25879498

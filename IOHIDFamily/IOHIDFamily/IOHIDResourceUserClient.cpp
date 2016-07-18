@@ -221,6 +221,7 @@ IOReturn IOHIDResourceDeviceUserClient::registerNotificationPortGated(mach_port_
     IOReturn result;
     
     require_action(!isInactive(), exit, result=kIOReturnOffline);
+    require_action(_queue, exit, result=kIOReturnError);
 
     _port = port;
     _queue->setNotificationPort(port);

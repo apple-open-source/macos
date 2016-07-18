@@ -140,7 +140,10 @@ xmlSaveErr(int code, xmlNodePtr node, const char *extra)
 	default:
 	    msg = "unexpected error number\n";
     }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlSimpleError(XML_FROM_OUTPUT, code, node, msg, extra);
+#pragma clang diagnostic pop
 }
 
 /************************************************************************
@@ -2097,8 +2100,8 @@ xmlBufAttrSerializeTxtContent(xmlBufPtr buf, xmlDocPtr doc,
             xmlBufAdd(buf, BAD_CAST "&amp;", 5);
             cur++;
             base = cur;
-        } else if ((*cur >= 0x80) && ((doc == NULL) ||
-                                      (doc->encoding == NULL))) {
+        } else if ((*cur >= 0x80) && (cur[1] != 0) &&
+	           ((doc == NULL) || (doc->encoding == NULL))) {
             /*
              * We assume we have UTF-8 content.
              */
@@ -2121,14 +2124,14 @@ xmlBufAttrSerializeTxtContent(xmlBufPtr buf, xmlDocPtr doc,
                 val <<= 6;
                 val |= (cur[1]) & 0x3F;
                 l = 2;
-            } else if (*cur < 0xF0) {
+            } else if ((*cur < 0xF0) && (cur [2] != 0)) {
                 val = (cur[0]) & 0x0F;
                 val <<= 6;
                 val |= (cur[1]) & 0x3F;
                 val <<= 6;
                 val |= (cur[2]) & 0x3F;
                 l = 3;
-            } else if (*cur < 0xF8) {
+            } else if ((*cur < 0xF8) && (cur [2] != 0) && (cur[3] != 0)) {
                 val = (cur[0]) & 0x07;
                 val <<= 6;
                 val |= (cur[1]) & 0x3F;

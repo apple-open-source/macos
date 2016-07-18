@@ -1,4 +1,4 @@
-# OS X 10.11.5
+# OS X 10.11.6
 AppleFileSystemDriver	21
 AppleRAID	5.40.1
 AppleUSBIrDA	145.2.4
@@ -13,7 +13,7 @@ CrackLib	37765
 Csu	85
 DiskArbitration	277
 Heimdal	453.40.10
-ICU	551.51.3
+ICU	551.51.4
 IOATAFamily	253.0.1
 IOATAPIProtocolTransport	350.0.3
 IOAudioFamily	204.4
@@ -27,7 +27,7 @@ IOFireWireIP	226.2
 IOFireWireSBP2	427
 IOFireWireSerialBusProtocolTransport	251.0.2
 IOGraphics	497.1
-IOHIDFamily	701.50.12
+IOHIDFamily	701.60.2
 IOKitTools	97.40.1
 IOKitUser	1179.50.2
 IONetworkingFamily	108.40.1
@@ -36,9 +36,8 @@ IOSCSIParallelFamily	300.0.2
 IOSerialFamily	84.40.1
 IOStorageFamily	191
 IOUSBMassStorageClass	400.0.2
-JavaScriptCore	7601.6.13
+JavaScriptCore	7601.7.2
 KerberosHelper	152
-Libc	1082.50.1
 Libinfo	477.50.4
 Libnotify	150.40.1
 Librpcsvc	26
@@ -50,25 +49,25 @@ OpenAL	56.1
 OpenLDAP	510.30
 OpenPAM	20
 OpenSSH	195.40.1
-OpenSSL098	59.40.2
+OpenSSL098	59.60.1
 PostgreSQL	207.3
 PowerManagement	572.50.1
 RubyGems	28
-Security	57337.50.23
+Security	57337.60.2
 SecurityTokend	55108
 SmartCardServices	55111
 SmartcardCCID	55008.40.1
-TimeZoneData	74
+TimeZoneData	75
 UserNotification	29
-WTF	7601.6.11
-WebCore	7601.6.17
-WebInspectorUI	7601.6.11
-WebKit	7601.6.17
-WebKit2	7601.6.17
+WTF	7601.7.1
+WebCore	7601.7.5
+WebInspectorUI	7601.7.1
+WebKit	7601.7.7
+WebKit2	7601.7.7
 adv_cmds	163
 apache	805
 apache_mod_hfs_apple	15
-apache_mod_php	106
+apache_mod_php	108
 apr	36
 architecture	268
 autofs	250.10.1
@@ -78,7 +77,7 @@ basic_cmds	55
 bc	21
 bind9	45.101
 bless	105
-bmalloc	7601.6.11
+bmalloc	7601.7.1
 bootp	314.50.1
 bzip2	38
 cddafs	253.20.1
@@ -99,7 +98,7 @@ dyld	360.22
 eap8021x	222.40.1
 efax	42
 emacs	94
-expat	12.40.1
+expat	12.60.1
 file	47
 file_cmds	251
 files	686.50.2
@@ -114,7 +113,7 @@ hfs	305.10.1
 hunspell	10
 iodbc	42.5
 ipsec	292.40.4
-kext_tools	426.50.1
+kext_tools	426.60.1
 keymgr	28
 ksh	23
 less	29
@@ -137,8 +136,8 @@ libstdcxx	104.1
 libtelnet	13
 libunwind	35.3
 libutil	43
-libxml2	29.7
-libxslt	14.2
+libxml2	29.10
+libxslt	14.4
 llvmCore	3425.0.36
 lsof	53
 lukemftp	15
@@ -198,7 +197,7 @@ uucp	11
 vim	55
 webdavfs	368
 xar	302
-xnu	3248.50.21
+xnu	3248.60.10
 zip	15
 zlib	61.20.1
 zsh	65

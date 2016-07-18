@@ -55,7 +55,7 @@
  * @ctxt:  an XML validation parser context
  * @msg:   a string to accompany the error message
  */
-static void
+static void LIBXML_ATTR_FORMAT(2,0)
 xmlSAX2ErrMemory(xmlParserCtxtPtr ctxt, const char *msg) {
     xmlStructuredErrorFunc schannel = NULL;
     const char *str1 = "out of memory\n";
@@ -64,22 +64,28 @@ xmlSAX2ErrMemory(xmlParserCtxtPtr ctxt, const char *msg) {
 	ctxt->errNo = XML_ERR_NO_MEMORY;
 	if ((ctxt->sax != NULL) && (ctxt->sax->initialized == XML_SAX2_MAGIC))
 	    schannel = ctxt->sax->serror;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 	__xmlRaiseError(schannel,
 			ctxt->vctxt.error, ctxt->vctxt.userData,
 			ctxt, NULL, XML_FROM_PARSER, XML_ERR_NO_MEMORY,
 			XML_ERR_ERROR, NULL, 0, (const char *) str1,
 			NULL, NULL, 0, 0,
 			msg, (const char *) str1, NULL);
+#pragma clang diagnostic pop
 	ctxt->errNo = XML_ERR_NO_MEMORY;
 	ctxt->instate = XML_PARSER_EOF;
 	ctxt->disableSAX = 1;
     } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 	__xmlRaiseError(schannel,
 			NULL, NULL,
 			ctxt, NULL, XML_FROM_PARSER, XML_ERR_NO_MEMORY,
 			XML_ERR_ERROR, NULL, 0, (const char *) str1,
 			NULL, NULL, 0, 0,
 			msg, (const char *) str1, NULL);
+#pragma clang diagnostic pop
     }
 }
 
@@ -93,7 +99,7 @@ xmlSAX2ErrMemory(xmlParserCtxtPtr ctxt, const char *msg) {
  *
  * Handle a validation error
  */
-static void
+static void LIBXML_ATTR_FORMAT(3,0)
 xmlErrValid(xmlParserCtxtPtr ctxt, xmlParserErrors error,
             const char *msg, const char *str1, const char *str2)
 {
@@ -106,20 +112,26 @@ xmlErrValid(xmlParserCtxtPtr ctxt, xmlParserErrors error,
 	ctxt->errNo = error;
 	if ((ctxt->sax != NULL) && (ctxt->sax->initialized == XML_SAX2_MAGIC))
 	    schannel = ctxt->sax->serror;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 	__xmlRaiseError(schannel,
 			ctxt->vctxt.error, ctxt->vctxt.userData,
 			ctxt, NULL, XML_FROM_DTD, error,
 			XML_ERR_ERROR, NULL, 0, (const char *) str1,
 			(const char *) str2, NULL, 0, 0,
 			msg, (const char *) str1, (const char *) str2);
+#pragma clang diagnostic pop
 	ctxt->valid = 0;
     } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 	__xmlRaiseError(schannel,
 			NULL, NULL,
 			ctxt, NULL, XML_FROM_DTD, error,
 			XML_ERR_ERROR, NULL, 0, (const char *) str1,
 			(const char *) str2, NULL, 0, 0,
 			msg, (const char *) str1, (const char *) str2);
+#pragma clang diagnostic pop
     }
 }
 
@@ -133,7 +145,7 @@ xmlErrValid(xmlParserCtxtPtr ctxt, xmlParserErrors error,
  *
  * Handle a fatal parser error, i.e. violating Well-Formedness constraints
  */
-static void
+static void LIBXML_ATTR_FORMAT(3,0)
 xmlFatalErrMsg(xmlParserCtxtPtr ctxt, xmlParserErrors error,
                const char *msg, const xmlChar *str1, const xmlChar *str2)
 {
@@ -142,10 +154,13 @@ xmlFatalErrMsg(xmlParserCtxtPtr ctxt, xmlParserErrors error,
 	return;
     if (ctxt != NULL)
 	ctxt->errNo = error;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(NULL, NULL, NULL, ctxt, NULL, XML_FROM_PARSER, error,
                     XML_ERR_FATAL, NULL, 0,
 		    (const char *) str1, (const char *) str2,
 		    NULL, 0, 0, msg, str1, str2);
+#pragma clang diagnostic pop
     if (ctxt != NULL) {
 	ctxt->wellFormed = 0;
 	ctxt->valid = 0;
@@ -164,7 +179,7 @@ xmlFatalErrMsg(xmlParserCtxtPtr ctxt, xmlParserErrors error,
  *
  * Handle a parser warning
  */
-static void
+static void LIBXML_ATTR_FORMAT(3,0)
 xmlWarnMsg(xmlParserCtxtPtr ctxt, xmlParserErrors error,
                const char *msg, const xmlChar *str1)
 {
@@ -173,10 +188,13 @@ xmlWarnMsg(xmlParserCtxtPtr ctxt, xmlParserErrors error,
 	return;
     if (ctxt != NULL)
 	ctxt->errNo = error;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(NULL, NULL, NULL, ctxt, NULL, XML_FROM_PARSER, error,
                     XML_ERR_WARNING, NULL, 0,
 		    (const char *) str1, NULL,
 		    NULL, 0, 0, msg, str1);
+#pragma clang diagnostic pop
 }
 
 /**
@@ -189,7 +207,7 @@ xmlWarnMsg(xmlParserCtxtPtr ctxt, xmlParserErrors error,
  *
  * Handle a namespace error
  */
-static void
+static void LIBXML_ATTR_FORMAT(3,0)
 xmlNsErrMsg(xmlParserCtxtPtr ctxt, xmlParserErrors error,
             const char *msg, const xmlChar *str1, const xmlChar *str2)
 {
@@ -198,10 +216,13 @@ xmlNsErrMsg(xmlParserCtxtPtr ctxt, xmlParserErrors error,
 	return;
     if (ctxt != NULL)
 	ctxt->errNo = error;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(NULL, NULL, NULL, ctxt, NULL, XML_FROM_NAMESPACE, error,
                     XML_ERR_ERROR, NULL, 0,
 		    (const char *) str1, (const char *) str2,
 		    NULL, 0, 0, msg, str1, str2);
+#pragma clang diagnostic pop
 }
 
 /**
@@ -213,7 +234,7 @@ xmlNsErrMsg(xmlParserCtxtPtr ctxt, xmlParserErrors error,
  *
  * Handle a namespace warning
  */
-static void
+static void LIBXML_ATTR_FORMAT(3,0)
 xmlNsWarnMsg(xmlParserCtxtPtr ctxt, xmlParserErrors error,
              const char *msg, const xmlChar *str1, const xmlChar *str2)
 {
@@ -222,10 +243,13 @@ xmlNsWarnMsg(xmlParserCtxtPtr ctxt, xmlParserErrors error,
 	return;
     if (ctxt != NULL)
 	ctxt->errNo = error;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(NULL, NULL, NULL, ctxt, NULL, XML_FROM_NAMESPACE, error,
                     XML_ERR_WARNING, NULL, 0,
 		    (const char *) str1, (const char *) str2,
 		    NULL, 0, 0, msg, str1, str2);
+#pragma clang diagnostic pop
 }
 
 /**

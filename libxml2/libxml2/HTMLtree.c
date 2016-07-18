@@ -384,7 +384,10 @@ htmlSaveErr(int code, xmlNodePtr node, const char *extra)
 	default:
 	    msg = "unexpected error number\n";
     }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlSimpleError(XML_FROM_OUTPUT, code, node, msg, extra);
+#pragma clang diagnostic pop
 }
 
 /************************************************************************

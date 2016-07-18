@@ -227,7 +227,7 @@ IOReturn IOHIDKeyboardDevice::setReport(IOMemoryDescriptor * report,
                                         IOHIDReportType      reportType __unused,
                                         IOOptionBits         options )
 {
-    UInt8 	ledState;
+    UInt8 	ledState = 0;
     UInt8	mask;    
 
     if ((options & 0xff) || (_inputReportOnly) || !_keyboard)

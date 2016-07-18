@@ -1,0 +1,95 @@
+./test/HTML/apple_765468.html:1: HTML parser error : htmlParseStartTag: invalid element name
+<<param>?<canvas>ion="1.0" encoding="utf-4"?>
+ ^
+./test/HTML/apple_765468.html:1: HTML parser error : Tag canvas invalid
+<<param>?<canvas>ion="1.0" encoding="utf-4"?>
+                ^
+./test/HTML/apple_765468.html:2: HTML parser error : Misplaced DOCTYPE declaration
+<!DOCTYPE a[<!ATTLIST  a N<!--n#(<Z<!nZ<?OTATION (`|b\x00) #	--RÌEQUIRED>]><!DO
+^
+./test/HTML/apple_765468.html:2: HTML parser error : DOCTYPE improperly terminated
+<!DOCTYPE a[<!ATTLIST  a N<!--n#(<Z<!nZ<?OTATION (`|b\x00) #	--RÌEQUIRED>]><!DO
+           ^
+./test/HTML/apple_765468.html:2: HTML parser error : htmlParseStartTag: invalid element name
+<!DOCTYPE a[<!ATTLIST  a N<!--n#(<Z<!nZ<?OTATION (`|b\x00) #	--RÌEQUIRED>]><!DO
+             ^
+./test/HTML/apple_765468.html:2: HTML parser error : Invalid char in CDATA 0x1
+<!DOCTYPE a[<!ATTLIST  a N<!--n#(<Z<!nZ<?OTATION (`|b\x00) #	--RÌEQUIRED>]><!DO
+                                                            	              ^
+./test/HTML/apple_765468.html:2: HTML parser error : Misplaced DOCTYPE declaration
+<!DOCTYPE a[<!ATTLIST  a N<!--n#(<Z<!nZ<?OTATION (`|b\x00) #	--RÌEQUIRED>]><!DO
+                                                            	               ^
+error : input conversion failed due to input error, bytes 0xA0 0x68 0x3C 0x3B
+./test/HTML/apple_765468.html:2: parser error : switching encoding: encoder error
+ h<;h2>PUBLIC "-'/W3Å/C/DTDcXHTML 0.0 Strict/)EN"
+^
+./test/HTML/apple_765468.html:2: parser error : Input is not proper UTF-8, indicate encoding !
+Bytes: 0xA0 0x68 0x3C 0x3B
+ h<;h2>PUBLIC "-'/W3Å/C/DTDcXHTML 0.0 Strict/)EN"
+^
+./test/HTML/apple_765468.html:2: HTML parser error : htmlParseDocTypeDecl : no DOCTYPE name !
+ h<;h2>PUBLIC "-'/W3Å/C/DTDcXHTML 0.0 Strict/)EN"
+^
+./test/HTML/apple_765468.html:2: HTML parser error : DOCTYPE improperly terminated
+ h<;h2>PUBLIC "-'/W3Å/C/DTDcXHTML 0.0 Strict/)EN"
+^
+./test/HTML/apple_765468.html:2: HTML parser error : htmlParseStartTag: invalid element name
+ h<;h2>PUBLIC "-'/W3Å/C/DTDcXHTML 0.0 Strict/)EN"
+   ^
+./test/HTML/apple_765468.html:2: parser error : Input is not proper UTF-8, indicate encoding !
+Bytes: 0xC5 0x2F 0x43 0x2F
+ h<;h2>PUBLIC "-'/W3Å/C/DTDcXHTML 0.0 Strict/)EN"
+                    ^
+./test/HTML/apple_765468.html:4: HTML parser error : Tag bas invalid
+3.<bas>efont>ml1/DTD/xhtmlÂ1-strict.dtd>
+      ^
+./test/HTML/apple_765468.html:4: HTML parser error : Invalid char in CDATA 0xF
+3.<bas>efont>ml1/DTD/xhtmlÂ1-strict.dtd>
+                     ^
+./test/HTML/apple_765468.html:4: parser error : Input is not proper UTF-8, indicate encoding !
+Bytes: 0xC2 0x31 0x2D 0x73
+3.<bas>efont>ml1/DTD/xhtmlÂ1-strict.dtd>
+                           ^
+./test/HTML/apple_765468.html:5: HTML parser error : htmlParseStartTag: misplaced <html> tag
+<html xmlns="http://www.w6.orgßŠ1999/mtxlh" xml:lang="en" lang="en">
+     ^
+./test/HTML/apple_765468.html:5: HTML parser error : Tag bas invalid
+<html xmlns="http://www.w6.orgßŠ1999/mtxlh" xml:lang="en" lang="en">
+                                                                   ^
+./test/HTML/apple_765468.html:7: HTML parser error : Input is not proper UTF-8, indicate encoding !
+ÿÕ¼head>
+^
+./test/HTML/apple_765468.html:8: HTML parser error : Invalid char in CDATA 0x11
+	<title>An XHTMxL 1.0Strict stadard tlepmate</title>	<met) http-equiv="content
+	                              ^
+./test/HTML/apple_765468.html:8: HTML parser error : Invalid char in CDATA 0xE
+	<title>An XHTMxL 1.0Strict stadard tlepmate</title>	<met) http-equiv="content
+	                                                    ^
+./test/HTML/apple_765468.html:8: HTML parser error : error parsing attribute name
+	<title>An XHTMxL 1.0Strict stadard tlepmate</title>	<met) http-equiv="content
+	                                                     	    ^
+./test/HTML/apple_765468.html:9: HTML parser error : error parsing attribute name
+		)ontex=tntet"/h„<!DOCTYPE tml;charset=html>
+		^
+./test/HTML/apple_765468.html:9: parser error : Input is not proper UTF-8, indicate encoding !
+Bytes: 0x84 0x3C 0x21 0x44
+		)ontex=tntet"/h„<!DOCTYPE tml;charset=html>
+		               ^
+./test/HTML/apple_765468.html:9: HTML parser error : error parsing attribute name
+		)ontex=tntet"/h„<!DOCTYPE tml;charset=html>
+		                             ^
+./test/HTML/apple_765468.html:9: HTML parser error : Tag met invalid
+		)ontex=tntet"/h„<!DOCTYPE tml;charset=html>
+		                                          ^
+./test/HTML/apple_765468.html:10: HTML parser error : htmlParseStartTag: misplaced <html> tag
+<html xumlns="http://
+     ^
+./test/HTML/apple_765468.html:10: HTML parser error : AttValue: " expected
+<html xumlns="http://
+                     ^
+./test/HTML/apple_765468.html:10: HTML parser error : Tag met invalid
+<html xumlns="http://
+                     ^
+./test/HTML/apple_765468.html:10: HTML parser error : Couldn't find end of Start Tag met
+<html xumlns="http://
+                     ^

@@ -140,7 +140,7 @@ xmlBufCreate(void) {
 	xmlFree(ret);
         return(NULL);
     }
-    ret->content[0] = 0;
+    memset(ret->content, 0, (ret->size * sizeof(xmlChar)));
     ret->contentIO = NULL;
     return(ret);
 }
@@ -175,7 +175,7 @@ xmlBufCreateSize(size_t size) {
             xmlFree(ret);
             return(NULL);
         }
-        ret->content[0] = 0;
+        memset(ret->content, 0, (ret->size * sizeof(xmlChar)));
     } else
 	ret->content = NULL;
     ret->contentIO = NULL;
@@ -417,6 +417,7 @@ xmlBufShrink(xmlBufPtr buf, size_t len) {
     } else {
 	memmove(buf->content, &buf->content[len], buf->use);
 	buf->content[buf->use] = 0;
+	buf->size -= len;
     }
     UPDATE_COMPAT(buf)
     return(len);

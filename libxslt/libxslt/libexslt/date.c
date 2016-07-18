@@ -1278,7 +1278,7 @@ exsltDateFormat (const exsltDateValPtr dt)
     }
 
     if (dt->type & XS_GYEAR) {
-        xmlChar buf[20], *cur = buf;
+        xmlChar buf[100], *cur = buf;
 
         FORMAT_GYEAR(dt->value.date.year, cur);
         if (dt->type == XS_GYEARMONTH) {

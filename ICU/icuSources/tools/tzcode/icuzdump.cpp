@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2007-2014, International Business Machines
+*   Copyright (C) 2007-2016, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -384,7 +384,7 @@ main(int argc, char *argv[]) {
 
             ofstream* fout = new ofstream(path.str().c_str(), mode);
             if (fout->fail()) {
-                cerr << "Cannot open file " << path << endl;
+                cerr << "Cannot open file " << path.str() << endl;
                 delete fout;
                 delete tz;
                 break;

@@ -21,6 +21,7 @@
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Added availability attribute to XML_SetHashSalt.</string>
+		<string>Added patch for CVE-2016-0718</string>
 	</array>
 </dict>
 </plist>

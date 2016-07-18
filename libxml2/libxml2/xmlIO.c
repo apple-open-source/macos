@@ -432,7 +432,10 @@ __xmlIOErr(int domain, int code, const char *extra)
     if (code >= XML_IO_UNKNOWN) idx = code - XML_IO_UNKNOWN;
     if (idx >= (sizeof(IOerr) / sizeof(IOerr[0]))) idx = 0;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlSimpleError(domain, code, NULL, IOerr[idx], extra);
+#pragma clang diagnostic pop
 }
 
 /**
@@ -479,11 +482,13 @@ __xmlLoaderErr(void *ctx, const char *msg, const char *filename)
 	    schannel = ctxt->sax->serror;
 	data = ctxt->userData;
     }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(schannel, channel, data, ctxt, NULL, XML_FROM_IO,
                     XML_IO_LOAD_ERROR, level, NULL, 0,
 		    filename, NULL, NULL, 0, 0,
 		    msg, filename);
-
+#pragma clang diagnostic pop
 }
 
 /************************************************************************

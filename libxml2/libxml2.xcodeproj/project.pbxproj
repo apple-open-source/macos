@@ -23,6 +23,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		4491DFC71CE67BD500002B02 /* libxml.h in Headers */ = {isa = PBXBuildFile; fileRef = 4491DFC61CE67BB100002B02 /* libxml.h */; };
 		5D0359B91677F7FC00B6692E /* buf.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D0359B81677F7FC00B6692E /* buf.c */; };
 		5D58B01614F81A8D00BE69D8 /* c14n.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFCE14F81A8D00BE69D8 /* c14n.c */; };
 		5D58B01714F81A8D00BE69D8 /* catalog.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFCF14F81A8D00BE69D8 /* catalog.c */; };
@@ -235,6 +236,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4491DFC61CE67BB100002B02 /* libxml.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = libxml.h; path = libxml2/libxml.h; sourceTree = SOURCE_ROOT; };
 		5D0359B81677F7FC00B6692E /* buf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = buf.c; sourceTree = "<group>"; };
 		5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libxml2.2.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		5D58AF6A14F816DF00BE69D8 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
@@ -521,6 +523,7 @@
 				5D58B07314F8261200BE69D8 /* hash.h */,
 				5D58B07414F8261200BE69D8 /* HTMLparser.h */,
 				5D58B07514F8261200BE69D8 /* HTMLtree.h */,
+				4491DFC61CE67BB100002B02 /* libxml.h */,
 				5D58B07614F8261200BE69D8 /* list.h */,
 				5D58B07814F8261200BE69D8 /* nanoftp.h */,
 				5D58B07914F8261200BE69D8 /* nanohttp.h */,
@@ -591,6 +594,7 @@
 				5D58B0A314F8261200BE69D8 /* hash.h in Headers */,
 				5D58B0A414F8261200BE69D8 /* HTMLparser.h in Headers */,
 				5D58B0A514F8261200BE69D8 /* HTMLtree.h in Headers */,
+				4491DFC71CE67BD500002B02 /* libxml.h in Headers */,
 				5D58B0A614F8261200BE69D8 /* list.h in Headers */,
 				5D58B0A714F8261200BE69D8 /* nanoftp.h in Headers */,
 				5D58B0A814F8261200BE69D8 /* nanohttp.h in Headers */,

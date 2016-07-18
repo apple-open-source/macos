@@ -97,12 +97,15 @@ xmlEncodingErrMemory(const char *extra)
  *
  * n encoding error
  */
-static void
+static void LIBXML_ATTR_FORMAT(2,0)
 xmlEncodingErr(xmlParserErrors error, const char *msg, const char *val)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(NULL, NULL, NULL, NULL, NULL,
                     XML_FROM_I18N, error, XML_ERR_FATAL,
                     NULL, 0, val, NULL, NULL, 0, 0, msg, val);
+#pragma clang diagnostic pop
 }
 
 #ifdef LIBXML_ICU_ENABLED
@@ -2278,7 +2281,7 @@ xmlCharEncInput(xmlParserInputBufferPtr input, int flush)
      */
     if (ret == -3)
         ret = 0;
-    return (c_out? c_out : ret);
+    return ((ret < 0) ? ret : c_out);
 }
 
 /**

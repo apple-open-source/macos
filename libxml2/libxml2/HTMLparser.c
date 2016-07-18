@@ -105,7 +105,7 @@ htmlErrMemory(xmlParserCtxtPtr ctxt, const char *extra)
  *
  * Handle a fatal parser error, i.e. violating Well-Formedness constraints
  */
-static void
+static void LIBXML_ATTR_FORMAT(3,0)
 htmlParseErr(xmlParserCtxtPtr ctxt, xmlParserErrors error,
              const char *msg, const xmlChar *str1, const xmlChar *str2)
 {
@@ -114,11 +114,14 @@ htmlParseErr(xmlParserCtxtPtr ctxt, xmlParserErrors error,
 	return;
     if (ctxt != NULL)
 	ctxt->errNo = error;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(NULL, NULL, NULL, ctxt, NULL, XML_FROM_HTML, error,
                     XML_ERR_ERROR, NULL, 0,
 		    (const char *) str1, (const char *) str2,
 		    NULL, 0, 0,
 		    msg, str1, str2);
+#pragma clang diagnostic pop
     if (ctxt != NULL)
 	ctxt->wellFormed = 0;
 }
@@ -132,7 +135,7 @@ htmlParseErr(xmlParserCtxtPtr ctxt, xmlParserErrors error,
  *
  * Handle a fatal parser error, i.e. violating Well-Formedness constraints
  */
-static void
+static void LIBXML_ATTR_FORMAT(3,0)
 htmlParseErrInt(xmlParserCtxtPtr ctxt, xmlParserErrors error,
              const char *msg, int val)
 {
@@ -141,9 +144,12 @@ htmlParseErrInt(xmlParserCtxtPtr ctxt, xmlParserErrors error,
 	return;
     if (ctxt != NULL)
 	ctxt->errNo = error;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(NULL, NULL, NULL, ctxt, NULL, XML_FROM_HTML, error,
                     XML_ERR_ERROR, NULL, 0, NULL, NULL,
 		    NULL, val, 0, msg, val);
+#pragma clang diagnostic pop
     if (ctxt != NULL)
 	ctxt->wellFormed = 0;
 }
@@ -2520,7 +2526,7 @@ htmlParseNameComplex(xmlParserCtxtPtr ctxt) {
 	c = CUR_CHAR(l);
     }
 
-    if (ctxt->input->base > ctxt->input->cur - len)
+    if (BASE_PTR > CUR_PTR - len)
 	return(NULL);
 
     return(xmlDictLookup(ctxt->dict, ctxt->input->cur - len, len));

@@ -1799,14 +1799,15 @@ void RenderLayer::beginTransparencyLayers(GraphicsContext* context, const LayerP
         context->clip(pixelSnappedClipRect);
 
 #if ENABLE(CSS_COMPOSITING)
-        if (hasBlendMode())
+        // RenderSVGRoot takes care of its blend mode.
+        if (!renderer().isSVGRoot() && hasBlendMode())
             context->setCompositeOperation(context->compositeOperation(), blendMode());
 #endif
 
         context->beginTransparencyLayer(renderer().opacity());
 
 #if ENABLE(CSS_COMPOSITING)
-        if (hasBlendMode())
+        if (!renderer().isSVGRoot() && hasBlendMode())
             context->setCompositeOperation(context->compositeOperation(), BlendModeNormal);
 #endif
 
@@ -6146,6 +6147,10 @@ bool RenderLayer::backgroundIsKnownToBeOpaqueInRect(const LayoutRect& localRect)
     // This function should not be called when layer-lists are dirty.
     // It is somehow getting triggered during style update.
     if (m_zOrderListsDirty || m_normalFlowListDirty)
+        return false;
+
+    // Table painting is special; a table paints its sections.
+    if (renderer().isTablePart())
         return false;
 
     // FIXME: We currently only check the immediate renderer,

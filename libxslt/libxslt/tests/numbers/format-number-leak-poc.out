@@ -1,0 +1,38 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>POC</title>
+<style type="text/css">table { border-collapse: collapse; } td, th { border: 1px solid black; }</style>
+<script type="text/javascript">
+
+function convertToHex() {
+    var byteToHex = function(v) {
+        var hex = v.toString(16);
+        if (hex.length < 2) { hex = '0' + hex; }
+        return hex;
+    }
+
+    var rows = document.querySelectorAll('tr');
+
+    for (var i = 1; i < rows.length; i++) {
+        var cells = rows[i].querySelectorAll('td');
+
+        var bytes = unescape(cells[2].querySelector('a').name);
+        var hex = '';
+        for (var j = 1; j < bytes.length - 1; j++) {
+            hex += byteToHex(bytes.charCodeAt(j)) + ' ';
+        }
+        cells[2].textContent = hex;
+
+        cells[1].textContent = byteToHex(parseInt(cells[1].textContent));
+    }
+}
+
+            </script>
+</head>
+<body onload="convertToHex();"><table><tr>
+<th>Pattern size</th>
+<th>Guessed first byte</th>
+<th>Other bytes</th>
+</tr></table></body>
+</html>

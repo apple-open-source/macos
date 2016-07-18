@@ -2056,9 +2056,10 @@ IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 coo
                 != kIOHIDTransactionStatePending )
             continue;
 
-        if ( !cookieElement->getReportType(&reportType) )
+        if ( !cookieElement->getReportType(&reportType) || (reportType != kIOHIDReportTypeOutput && reportType != kIOHIDReportTypeFeature) )
             continue;
-
+      
+      
         reportID = cookieElement->getReportID();
 
         // Start at the head element and iterate through

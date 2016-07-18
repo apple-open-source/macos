@@ -38,4 +38,7 @@
     <exsl:string xmlns:exsl="http://exslt.org/common">without-child</exsl:string>
     <exsl:string xmlns:exsl="http://exslt.org/common">with-child</exsl:string>
   </string>
+  <namespace>
+    <exsl:string xmlns:exsl="http://exslt.org/common">dynmap</exsl:string>
+  </namespace>
 </result>

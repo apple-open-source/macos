@@ -18,7 +18,7 @@
 
 void XMLCDECL xmlGenericErrorDefaultFunc	(void *ctx ATTRIBUTE_UNUSED,
 				 const char *msg,
-				 ...);
+				 ...) LIBXML_ATTR_FORMAT(2,3);
 
 #define XML_GET_VAR_STR(msg, str) {				\
     int       size, prev_size = -1;				\
@@ -663,9 +663,12 @@ __xmlSimpleError(int domain, int code, xmlNodePtr node,
 			    XML_ERR_NO_MEMORY, XML_ERR_FATAL, NULL, 0, NULL,
 			    NULL, NULL, 0, 0, "Memory allocation failed\n");
     } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 	__xmlRaiseError(NULL, NULL, NULL, NULL, node, domain,
 			code, XML_ERR_ERROR, NULL, 0, extra,
 			NULL, NULL, 0, 0, msg, extra);
+#pragma clang diagnostic pop
     }
 }
 /**

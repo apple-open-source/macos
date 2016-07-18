@@ -93,7 +93,7 @@ xmlVErrMemory(xmlValidCtxtPtr ctxt, const char *extra)
  *
  * Handle a validation error
  */
-static void
+static void LIBXML_ATTR_FORMAT(3,0)
 xmlErrValid(xmlValidCtxtPtr ctxt, xmlParserErrors error,
             const char *msg, const char *extra)
 {
@@ -114,10 +114,13 @@ xmlErrValid(xmlValidCtxtPtr ctxt, xmlParserErrors error,
 	}
     }
     if (extra)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
         __xmlRaiseError(NULL, channel, data,
                         pctxt, NULL, XML_FROM_VALID, error,
                         XML_ERR_ERROR, NULL, 0, extra, NULL, NULL, 0, 0,
                         msg, extra);
+#pragma clang diagnostic pop
     else
         __xmlRaiseError(NULL, channel, data,
                         pctxt, NULL, XML_FROM_VALID, error,
@@ -137,7 +140,7 @@ xmlErrValid(xmlValidCtxtPtr ctxt, xmlParserErrors error,
  *
  * Handle a validation error, provide contextual informations
  */
-static void
+static void LIBXML_ATTR_FORMAT(4,0)
 xmlErrValidNode(xmlValidCtxtPtr ctxt,
                 xmlNodePtr node, xmlParserErrors error,
                 const char *msg, const xmlChar * str1,
@@ -160,11 +163,14 @@ xmlErrValidNode(xmlValidCtxtPtr ctxt,
 		pctxt = ctxt->userData;
 	}
     }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(schannel, channel, data, pctxt, node, XML_FROM_VALID, error,
                     XML_ERR_ERROR, NULL, 0,
                     (const char *) str1,
                     (const char *) str1,
                     (const char *) str3, 0, 0, msg, str1, str2, str3);
+#pragma clang diagnostic pop
 }
 #endif /* LIBXML_VALID_ENABLED or LIBXML_SCHEMAS_ENABLED */
 
@@ -180,7 +186,7 @@ xmlErrValidNode(xmlValidCtxtPtr ctxt,
  *
  * Handle a validation error, provide contextual informations
  */
-static void
+static void LIBXML_ATTR_FORMAT(4,0)
 xmlErrValidNodeNr(xmlValidCtxtPtr ctxt,
                 xmlNodePtr node, xmlParserErrors error,
                 const char *msg, const xmlChar * str1,
@@ -203,11 +209,14 @@ xmlErrValidNodeNr(xmlValidCtxtPtr ctxt,
 		pctxt = ctxt->userData;
 	}
     }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(schannel, channel, data, pctxt, node, XML_FROM_VALID, error,
                     XML_ERR_ERROR, NULL, 0,
                     (const char *) str1,
                     (const char *) str3,
                     NULL, int2, 0, msg, str1, int2, str3);
+#pragma clang diagnostic pop
 }
 
 /**
@@ -221,7 +230,7 @@ xmlErrValidNodeNr(xmlValidCtxtPtr ctxt,
  *
  * Handle a validation error, provide contextual information
  */
-static void
+static void LIBXML_ATTR_FORMAT(4,0)
 xmlErrValidWarning(xmlValidCtxtPtr ctxt,
                 xmlNodePtr node, xmlParserErrors error,
                 const char *msg, const xmlChar * str1,
@@ -244,11 +253,14 @@ xmlErrValidWarning(xmlValidCtxtPtr ctxt,
 		pctxt = ctxt->userData;
 	}
     }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(schannel, channel, data, pctxt, node, XML_FROM_VALID, error,
                     XML_ERR_WARNING, NULL, 0,
                     (const char *) str1,
                     (const char *) str1,
                     (const char *) str3, 0, 0, msg, str1, str2, str3);
+#pragma clang diagnostic pop
 }
 
 

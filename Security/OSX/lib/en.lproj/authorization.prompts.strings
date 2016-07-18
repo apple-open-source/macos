@@ -58,6 +58,8 @@
 
 "com.apple.Safari.parental-controls" = "__APPNAME__ is trying to modify the Parental Controls settings for Safari.";
 
+"com.apple.Safari.allow-unsigned-app-extensions" = "__APPNAME__ is trying to allow unsigned extensions.";
+
 "com.apple.ServiceManagement.blesshelper" = "__APPNAME__ is trying to install a new helper tool.";
 
 "system.device.dvd.setregion.initial" = "__APPNAME__ is trying to set the DVD region code for the first time.";

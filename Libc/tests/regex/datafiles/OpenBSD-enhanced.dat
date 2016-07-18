@@ -1,3 +1,0 @@
-BEH	a\bc		abc		NOMATCH
-BEH	\bab		abc		(0,2)
-EH	a{1}?		abc		(0,1)

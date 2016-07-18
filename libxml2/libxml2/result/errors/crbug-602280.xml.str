@@ -1,0 +1,4 @@
+./test/errors/crbug-602280.xml:1: parser error : xmlParsePI : no target name
+<?<:>&#19<&#<?<:&#>	;:<&#	&#>	;<g xml:id='<v xml:<v xmlns='//-NMTOKEd='&#05*&#0;
+  ^
+./test/errors/crbug-602280.xml : failed to parse

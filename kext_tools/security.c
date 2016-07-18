@@ -1375,11 +1375,12 @@ OSStatus checkKextSignature(OSKextRef aKext,
         goto finish;
     }
     
-#if 1 // workaround for 24079932, don't care if this fails
-    SecStaticCodeCreateWithPath(kextURL,
-                                kSecCSDefaultFlags,
-                                &strict_staticCodeRef);
-#endif
+    // 25558862 - back this out due to NetBoot regression in pre Fuji systems
+//#if 1 // workaround for 24079932, don't care if this fails
+//    SecStaticCodeCreateWithPath(kextURL,
+//                                kSecCSDefaultFlags,
+//                                &strict_staticCodeRef);
+//#endif
     
     /* set up correct requirement string.  Apple kexts are signed by B&I while
      * 3rd party kexts are signed through a special developer kext devid

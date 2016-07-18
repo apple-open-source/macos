@@ -1,3 +1,0 @@
-E	.[.]*\.net$	x.net		(0,5)
-E	.+\.net$	x.net		(0,5)
-E	xnet		x.net		NOMATCH

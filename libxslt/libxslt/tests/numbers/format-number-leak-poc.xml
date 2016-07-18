@@ -1,0 +1,87 @@
+<?xml-stylesheet type="text/xsl" href="format-number-leak-poc.xsl"?>
+<doc>
+    <!-- 12 "f" nodes for formats. -->
+    <f/>
+    <f/>
+    <f/>
+    <f/>
+    <f/>
+    <f/>
+    <f/>
+    <f/>
+    <f/>
+    <f/>
+    <f/>
+    <f/>
+    <!-- 10 "i" nodes. -->
+    <i/>
+    <i/>
+    <i/>
+    <i/>
+    <i/>
+    <i/>
+    <i/>
+    <i/>
+    <i/>
+    <i/>
+    <!-- 20 "j" nodes. -->
+    <j/>
+    <j/>
+    <j/>
+    <j/>
+    <j/>
+    <j/>
+    <j/>
+    <j/>
+    <j/>
+    <j/>
+    <j/>
+    <j/>
+    <j/>
+    <j/>
+    <j/>
+    <j/>
+    <j/>
+    <j/>
+    <j/>
+    <j/>
+    <!-- 40 "k" nodes for pattern sizes ranging from 4 to 160 bytes. -->
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+    <k/>
+</doc>

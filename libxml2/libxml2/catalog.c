@@ -238,16 +238,19 @@ xmlCatalogErrMemory(const char *extra)
  *
  * Handle a catalog error
  */
-static void
+static void LIBXML_ATTR_FORMAT(4,0)
 xmlCatalogErr(xmlCatalogEntryPtr catal, xmlNodePtr node, int error,
                const char *msg, const xmlChar *str1, const xmlChar *str2,
 	       const xmlChar *str3)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     __xmlRaiseError(NULL, NULL, NULL, catal, node, XML_FROM_CATALOG,
                     error, XML_ERR_ERROR, NULL, 0,
 		    (const char *) str1, (const char *) str2,
 		    (const char *) str3, 0, 0,
 		    msg, str1, str2, str3);
+#pragma clang diagnostic pop
 }
 
 

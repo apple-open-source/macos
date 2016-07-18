@@ -37290,11 +37290,112 @@ test_xmlUTF8Strsub(void) {
     return(test_ret);
 }
 
+
+static int
+test_xmlEscapeFormatString(void) {
+    int test_ret = 0;
+
+#if defined(LIBXML_SCHEMAS_ENABLED)
+    xmlChar *actual = NULL;
+    xmlChar *expected = NULL;
+    xmlChar *input = NULL;
+
+    call_tests++;
+    if (xmlEscapeFormatString(NULL) != NULL)
+        test_ret++;
+
+    call_tests++;
+    input = xmlCharStrdup("");
+    expected = xmlStrdup(input);
+    actual = xmlEscapeFormatString(&input);
+    if ((xmlStrcmp(actual, expected) != 0) || (input != actual))
+        test_ret++;
+    xmlFree(expected);
+    xmlFree(actual);
+
+    call_tests++;
+    input = xmlCharStrdup("str");
+    expected = xmlStrdup(input);
+    actual = xmlEscapeFormatString(&input);
+    if ((xmlStrcmp(actual, expected) != 0) || (input != actual))
+        test_ret++;
+    xmlFree(expected);
+    xmlFree(actual);
+
+    call_tests++;
+    input = xmlCharStrdup("%");
+    expected = xmlCharStrdup("%%");
+    actual = xmlEscapeFormatString(&input);
+    if ((xmlStrcmp(actual, expected) != 0) || (input != actual))
+        test_ret++;
+    xmlFree(expected);
+    xmlFree(actual);
+
+    call_tests++;
+    input = xmlCharStrdup("%%");
+    expected = xmlCharStrdup("%%%%");
+    actual = xmlEscapeFormatString(&input);
+    if ((xmlStrcmp(actual, expected) != 0) || (input != actual))
+        test_ret++;
+    xmlFree(expected);
+    xmlFree(actual);
+
+    call_tests++;
+    input = xmlCharStrdup("%%%");
+    expected = xmlCharStrdup("%%%%%%");
+    actual = xmlEscapeFormatString(&input);
+    if ((xmlStrcmp(actual, expected) != 0) || (input != actual))
+        test_ret++;
+    xmlFree(expected);
+    xmlFree(actual);
+
+    call_tests++;
+    input = xmlCharStrdup("%str");
+    expected = xmlCharStrdup("%%str");
+    actual = xmlEscapeFormatString(&input);
+    if ((xmlStrcmp(actual, expected) != 0) || (input != actual))
+        test_ret++;
+    xmlFree(expected);
+    xmlFree(actual);
+
+    call_tests++;
+    input = xmlCharStrdup("str%str");
+    expected = xmlCharStrdup("str%%str");
+    actual = xmlEscapeFormatString(&input);
+    if ((xmlStrcmp(actual, expected) != 0) || (input != actual))
+        test_ret++;
+    xmlFree(expected);
+    xmlFree(actual);
+
+    call_tests++;
+    input = xmlCharStrdup("str%");
+    expected = xmlCharStrdup("str%%");
+    actual = xmlEscapeFormatString(&input);
+    if ((xmlStrcmp(actual, expected) != 0) || (input != actual))
+        test_ret++;
+    xmlFree(expected);
+    xmlFree(actual);
+
+    call_tests++;
+    input = xmlCharStrdup("%s%t%r%i%n%g%");
+    expected = xmlCharStrdup("%%s%%t%%r%%i%%n%%g%%");
+    actual = xmlEscapeFormatString(&input);
+    if ((xmlStrcmp(actual, expected) != 0) || (input != actual))
+        test_ret++;
+    xmlFree(expected);
+    xmlFree(actual);
+
+    function_tests++;
+#endif
+
+    return(test_ret);
+}
+
 static int
 test_xmlstring(void) {
     int test_ret = 0;
 
-    if (quiet == 0) printf("Testing xmlstring : 26 of 30 functions ...\n");
+    if (quiet == 0) printf("Testing xmlstring : 27 of 31 functions ...\n");
     test_ret += test_xmlCharStrdup();
     test_ret += test_xmlCharStrndup();
     test_ret += test_xmlCheckUTF8();
@@ -37323,6 +37424,7 @@ test_xmlstring(void) {
     test_ret += test_xmlUTF8Strpos();
     test_ret += test_xmlUTF8Strsize();
     test_ret += test_xmlUTF8Strsub();
+    test_ret += test_xmlEscapeFormatString();
 
     if (test_ret != 0)
 	printf("Module xmlstring: %d errors\n", test_ret);
